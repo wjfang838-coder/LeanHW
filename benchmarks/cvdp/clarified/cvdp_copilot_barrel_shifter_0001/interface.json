@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_barrel_shifter_0001",
+  "toplevel": "barrel_shifter_8bit",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

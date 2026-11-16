@@ -1,0 +1,81 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- A: input [7:0].
+- B: output [15:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+There is no reset input and no reset behavior. The circuit has no state elements. At power-up, before any observation or hypothetical reset edge, B is already the combinational result for the current A; it is not an uninitialised or retained value. The first step and every later step leave the stateless machine unchanged, while B continues to follow the current A.
+
+4. Timing
+
+B is a continuously driven combinational output of the current input A, with zero clock-cycle latency. There is no clock, capture edge, pulse, periodic output, transaction, completion event, or restart interval.
+
+The evaluated full-cycle rows are an observation convention, not a circuit clock or delay law. Each row observes B for that row's current, settled A before the model's vacuous transition. The interface specifies no `step_ns` or `sample_offset_ns`, so the rows establish neither an implicit 10 ns tick nor any other physical period or propagation delay.
+
+5. Behaviour
+
+For every 8-bit unsigned value A from 0 through 255, with no inactive level or mode, B is continuously determined as the 16-bit unsigned value `251 * A`; every change of A, including a change coincident with an observation or a repeated value, determines B by that same relation, with no transaction, interruption, or retained state.
+
+The multiplication is unsigned. It is evaluated as the product of unsigned A and the unsigned constant 251 (`8'hFB`), and the value presented at B is the low 16 bits of that product: `B = (251 * unsigned(A)) mod 2^16`. Because the largest possible product is 64,005, no significant product bit is discarded for any legal input. The sole documented truncation boundary is the 16-bit output B.
+
+B is a continuously driven 16-bit combinational result equal to 251 times the current 8-bit unsigned A, so it has no reset assertion or release behavior, capture edge, observation-edge latency, hold or clear interval, completion, or restart; a row sampled before a hypothetical active edge therefore reports the result for the A present before that edge, and any A change at that edge affects B only through ordinary combinational propagation afterward.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance of this specification.
+
+### stimulus 0
+| cycle | A | B |
+|---|---|---|
+| 0 | 8'b00000000 | 16'h0 |
+
+### stimulus 1
+| cycle | A | B |
+|---|---|---|
+| 0 | 8'b00000001 | 16'hfb |
+
+### stimulus 2
+| cycle | A | B |
+|---|---|---|
+| 0 | 8'b11111111 | 16'hfa05 |
+
+### stimulus 3
+| cycle | A | B |
+|---|---|---|
+| 0 | 8'b10000000 | 16'h7d80 |
+
+### stimulus 4
+| cycle | A | B |
+|---|---|---|
+| 0 | 8'b01011010 | 16'h583e |
+
+### stimulus 5
+| cycle | A | B |
+|---|---|---|
+| 0 | 8'b00000010 | 16'h1f6 |
+| 1 | 8'b00000011 | 16'h2f1 |
+
+### stimulus 6
+| cycle | A | B |
+|---|---|---|
+| 0 | 8'b00000101 | 16'h4e7 |
+| 1 | 8'b11111011 | 16'hf619 |
+
+### stimulus 7
+| cycle | A | B |
+|---|---|---|
+| 0 | 8'b01111111 | 16'h7c85 |
+| 1 | 8'b10000001 | 16'h7e7b |
+| 2 | 8'b11111110 | 16'hf90a |

@@ -1,0 +1,108 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- a: input 1 bit.
+- b: input 1 bit.
+- q: output 1 bit.
+- state: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+The module has no reset input and no reset behavior. Consequently, reset polarity, reset synchrony, a reset state, and a first step after reset release do not apply. At power-up, before any rising clock edge has been observed, both state and q are unknown. The state storage must remain uninitialized: it has no initial value, declaration initializer, or other initialization mechanism. A rising edge can resolve state when a and b are equal; until state is resolved, q remains unknown.
+
+Timing
+
+The state output is registered. It holds between rising edges of clk and changes immediately after a rising edge according to the Behaviour law below; this is a one-edge state transition from the values sampled immediately before that edge. The q output is combinational: a change of a or b immediately recomputes q, and a state change after a rising edge immediately recomputes q. There are no pulses or autonomous periodic outputs.
+
+The circuit has no autonomous period or delay law: clk is supplied externally, and only its rising edges advance state. The original waveform uses a 10 ns clock period, with rising edges 10 ns apart. Separately, the evaluated full-cycle trace uses the interface sampling convention: row k is the settled pre-transition observation at k times the interface step, not an implicit 10 ns clock tick; the interface's sampling offset applies independently of the circuit's clock period.
+
+Behaviour
+
+All ports are one-bit values. Continuously, q = a XOR b XOR state. If state is unknown, q is unknown for every known combination of a and b.
+
+On every rising edge of clk, state becomes the majority of the values of a, b, and state sampled immediately before that edge. Equivalently: when a and b are both 0, the next state is 0; when a and b are both 1, the next state is 1; and when a and b differ, state retains its prior value. Thus an unequal input pair does not resolve an unknown power-up state. Low clk level, steady high clk level, and falling edges do not change state.
+
+Any change of a or b immediately recomputes q but persists in state only if that value is present at a rising edge. Simultaneous input changes obey the same equations. Every rising edge independently resamples the current a, b, and state values. There is no reset, enable, disabled mode, transaction, capture, cancellation, interruption, completion, clear, restart, or result-retention phase beyond the state-hold law itself.
+
+For the evaluated object, each row observes q and state before that row's transition. Therefore row k shows the state produced by the preceding transition, and the state produced by transition k first appears in the next row. This observation convention does not add a pipeline stage to the circuit.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | q | state |
+|---|---|---|---|---|
+| 0 | 0 | 0 | x | x |
+| 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | a | b | q | state |
+|---|---|---|---|---|
+| 0 | 0 | 1 | x | x |
+| 1 | 0 | 1 | x | x |
+| 2 | 0 | 0 | x | x |
+
+### stimulus 2
+| cycle | a | b | q | state |
+|---|---|---|---|---|
+| 0 | 1 | 0 | x | x |
+| 1 | 1 | 0 | x | x |
+| 2 | 0 | 0 | x | x |
+
+### stimulus 3
+| cycle | a | b | q | state |
+|---|---|---|---|---|
+| 0 | 1 | 1 | x | x |
+| 1 | 1 | 1 | 1 | 1 |
+| 2 | 0 | 0 | 1 | 1 |
+
+### stimulus 4
+| cycle | a | b | q | state |
+|---|---|---|---|---|
+| 0 | 0 | 0 | x | x |
+| 1 | 0 | 1 | 1 | 0 |
+| 2 | 1 | 0 | 1 | 0 |
+| 3 | 1 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 1 | 1 |
+
+### stimulus 5
+| cycle | a | b | q | state |
+|---|---|---|---|---|
+| 0 | 1 | 1 | x | x |
+| 1 | 0 | 0 | 1 | 1 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 1 | 1 |
+| 4 | 1 | 1 | 0 | 0 |
+
+### stimulus 6
+| cycle | a | b | q | state |
+|---|---|---|---|---|
+| 0 | 0 | 1 | x | x |
+| 1 | 1 | 0 | x | x |
+| 2 | 0 | 1 | x | x |
+| 3 | 1 | 0 | x | x |
+| 4 | 0 | 0 | x | x |
+
+### stimulus 7
+| cycle | a | b | q | state |
+|---|---|---|---|---|
+| 0 | 1 | 1 | x | x |
+| 1 | 1 | 1 | 1 | 1 |
+| 2 | 1 | 1 | 1 | 1 |
+| 3 | 1 | 0 | 0 | 1 |
+| 4 | 0 | 1 | 0 | 1 |
+| 5 | 0 | 0 | 1 | 1 |
+| 6 | 0 | 0 | 0 | 0 |

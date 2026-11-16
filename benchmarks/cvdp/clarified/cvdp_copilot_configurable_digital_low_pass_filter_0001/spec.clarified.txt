@@ -1,0 +1,125 @@
+Original implementation instruction (verbatim):
+
+Implement a complete SystemVerilog module for a low-pass filter, referred to as the `low_pass_filter` module. The module should process incoming data streams using configurable coefficients and output the filtered result. The filter performs convolution on input data using a finite impulse response (FIR) structure, with the following specifications:
+
+Named module interface binding
+
+Module: low_pass_filter.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- reset: input; 1 bits in the concrete formal instance.
+- data_in: input; 128 bits in the concrete formal instance.
+- valid_in: input; 1 bits in the concrete formal instance.
+- coeffs: input; 128 bits in the concrete formal instance.
+- data_out: output; 35 bits in the concrete formal instance.
+- valid_out: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly low_pass_filter.
+
+The public parameters are DATA_WIDTH, default 16 and minimum 2; COEFF_WIDTH, default 16 and minimum 2; and NUM_TAPS, default 8 and minimum 2. NBW_MULT is derived internally as DATA_WIDTH + COEFF_WIDTH, is 32 at the public-parameter defaults, and must not be externally configurable.
+
+The exact port spellings, directions, and symbolic widths are: clk, 1-bit input; reset, 1-bit input; data_in, input of width DATA_WIDTH * NUM_TAPS; valid_in, 1-bit input; coeffs, input of width COEFF_WIDTH * NUM_TAPS; data_out, output of width NBW_MULT + $clog2(NUM_TAPS); and valid_out, 1-bit output. This enumeration follows the interface tables but is not a normative positional declaration order. The original source and certain integration answer Q11 establish named connections but do not establish positional order, so low_pass_filter must be instantiated by name.
+
+The concrete Lean instance uses DATA_WIDTH = 16, COEFF_WIDTH = 16, NUM_TAPS = 8, data_in and coeffs widths of 128 bits, and data_out width of 35 bits. Those concrete widths do not replace the parameterized contract.
+
+3. Reset.
+
+reset is active high and synchronous to the rising edge of clk. At every rising edge with reset high, the registered packed data, registered packed coefficients, and valid_out are cleared to zero. Reset has priority over valid_in, data_in, and coeffs at that edge. Assertion or release of reset without a rising edge changes no registered state.
+
+After a rising edge with reset high, data_out is zero because both registered operands are zero, and valid_out is zero. On the first rising edge after reset is released, ordinary operation applies: if valid_in is high, both operands are captured and valid_out is high during the following cycle; if valid_in is low, the reset-zero operands are retained and valid_out remains low during the following cycle.
+
+Before the first state-establishing rising edge, including hardware power-up before any reset edge, the source specifies no value for the registered operands, data_out, or valid_out. This absence of a power-up guarantee neither requires X nor prevents a rising edge with reset low from establishing valid_out and, when valid_in is high, the operands and result.
+
+Implementation choice C1: each independent finite Lean trace starts in exactly the state reached after a rising edge with reset asserted: both registered packed operands and valid_out are zero. Its scope is model initialization only. It is a compatible implementation choice, not a source-established hardware power-up guarantee, and it adds no reset-before-use requirement.
+
+4. Timing.
+
+Only rising edges of clk update the registered operands and valid_out. Falling edges and static clock levels cause no registered update. The module has no terminal state; every rising edge continues to obey the same reset-priority and ordinary-operation laws.
+
+data_in and coeffs are captured together on a rising edge when reset is low and valid_in is high. data_out is combinational from the captured operands. The result of operands captured at a rising edge is observable throughout the immediately following cycle, giving data_out exactly one clock cycle of effective input-to-output latency.
+
+With reset low, each rising edge registers valid_in into valid_out for the following cycle, so valid_out has exactly one clock cycle of latency from valid_in. A one-cycle valid_in assertion produces a one-cycle valid_out assertion one cycle later. Consecutive valid captures produce consecutive high valid_out cycles. A rising edge with valid_in low makes valid_out low for the following cycle while data_out retains the last captured convolution result.
+
+For the evaluated full-cycle trace, row k samples outputs before active edge k and denotes k * timing.step_ns after settling, with timing.sample_offset_ns applied. This table observation convention is separate from the circuit laws and does not imply a 10 ns clock period. The interface supplies no numeric value for timing.step_ns or timing.sample_offset_ns, so none is invented here.
+
+5. Behaviour.
+
+With reset low, a rising edge captures the complete data_in and coeffs packed vectors together exactly when valid_in is high. When valid_in is low, neither operand register changes; changes on data_in or coeffs then have no effect on data_out. Each rising edge with reset low independently registers valid_in into valid_out. Back-to-back valid inputs are captured independently on successive rising edges. There is no cancellation, warm-up suppression, completion state, or terminal state.
+
+After registration, the packed data and coefficient streams shall be converted by combinational logic into multidimensional (2D) arrays of NUM_TAPS lanes for parallel element-wise processing. Packed data_in consists of NUM_TAPS signed two's-complement lanes of DATA_WIDTH bits each. Packed coeffs consists of NUM_TAPS signed two's-complement lanes of COEFF_WIDTH bits each.
+
+Scoped clarification Q2 resolves the pre-existing ambiguity in which packed end is lane 0; it is not an amendment to a source clause. Its certain answer law is exactly: “For a checked valid transaction, interpret data_in as NUM_TAPS signed DATA_WIDTH-bit lanes ordered from most-significant to least-significant and coeffs as NUM_TAPS signed COEFF_WIDTH-bit lanes in the same order, then data_out is the signed sum of data lane i multiplied by coefficient lane NUM_TAPS-1-i.” Thus lane 0 is the most-significant lane and lane NUM_TAPS-1 is the least-significant lane. This clarification changes no capture, reset, validity, latency, width, signedness, or retention law.
+
+For every captured pair, data_out is the combinational signed reverse-lane convolution of the captured operands. Specifically, data_out is the signed sum, for i from 0 through NUM_TAPS-1, of signed data lane i multiplied by signed coefficient lane NUM_TAPS-1-i. The most-significant data lane is paired with the least-significant coefficient lane, continuing through the least-significant data lane paired with the most-significant coefficient lane. data_out retains the convolution of the last captured pair until reset or another valid capture.
+
+Each multiplication has a signed DATA_WIDTH-bit data operand and a signed COEFF_WIDTH-bit coefficient operand. Each signed product has NBW_MULT bits, where NBW_MULT = DATA_WIDTH + COEFF_WIDTH. The products shall be accumulated using a combinational adder tree. Every intermediate expression shall have sufficient signed context width to prevent overflow for every supported input, and the final signed sum width is exactly NBW_MULT + $clog2(NUM_TAPS). That data_out-width boundary is the documented truncation boundary. Operand signedness and expression context widths shall be preserved; a shift or other operation evaluated in a wider expression context is not automatically truncated to the left operand width. When both captured packed operands are all zero, data_out is zero.
+
+The supplied usage example uses NUM_TAPS = 8 and DATA_WIDTH = 6 and spells its coefficient-width setting COEF_WIDTH = 4, although the public parameter is otherwise spelled COEFF_WIDTH. Its data vector is exactly {6'b001100, 6'b110011, 6'b101010, 6'b010101, 6'b111000, 6'b000111, 6'b100100, 6'b011011}. Its coefficient vector is exactly {4'b1100, 4'b1010, 4'b0110, 4'b1111, 4'b0001, 4'b0011, 4'b1001, 4'b0100}.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete sampled instance DATA_WIDTH = 16, COEFF_WIDTH = 16, and NUM_TAPS = 8, under Implementation choice C1 and the observation convention in section 4.
+
+### stimulus 0
+| cycle | reset | data_in | valid_in | coeffs | data_out | valid_out |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 128'h0 | 0 | 128'h0 | 35'h0 | 0 |
+| 1 | 0 | 128'h1 | 1 | 128'h1 | 35'h0 | 0 |
+| 2 | 0 | 128'h2 | 0 | 128'h3 | 35'h0 | 1 |
+| 3 | 0 | 128'h4 | 1 | 128'h5 | 35'h0 | 0 |
+| 4 | 0 | 128'h4 | 0 | 128'h5 | 35'h0 | 1 |
+
+### stimulus 1
+| cycle | reset | data_in | valid_in | coeffs | data_out | valid_out |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 128'h0 | 1 | 128'h0 | 35'h0 | 0 |
+| 1 | 0 | 128'h0 | 0 | 128'h0 | 35'h0 | 1 |
+| 2 | 0 | 128'h1 | 1 | 128'h1 | 35'h0 | 0 |
+
+### stimulus 2
+| cycle | reset | data_in | valid_in | coeffs | data_out | valid_out |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 128'h1 | 1 | 128'h1 | 35'h0 | 0 |
+| 1 | 0 | 128'h1 | 1 | 128'h1 | 35'h0 | 1 |
+| 2 | 0 | 128'h0 | 0 | 128'h0 | 35'h0 | 1 |
+| 3 | 0 | 128'h1 | 1 | 128'h1 | 35'h0 | 0 |
+
+### stimulus 3
+| cycle | reset | data_in | valid_in | coeffs | data_out | valid_out |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 128'hffffffffffffffffffffffffffffffff | 1 | 128'hffffffffffffffffffffffffffffffff | 35'h0 | 0 |
+| 1 | 0 | 128'hffffffffffffffffffffffffffffffff | 1 | 128'hffffffffffffffffffffffffffffffff | 35'h0 | 0 |
+| 2 | 0 | 128'h0 | 0 | 128'h0 | 35'h8 | 1 |
+
+### stimulus 4
+| cycle | reset | data_in | valid_in | coeffs | data_out | valid_out |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 128'h80000000000000000000000000000000 | 0 | 128'h80000000000000000000000000000000 | 35'h0 | 0 |
+| 1 | 0 | 128'h80000000000000000000000000000000 | 1 | 128'h80000000000000000000000000000000 | 35'h0 | 0 |
+| 2 | 0 | 128'h0 | 0 | 128'h0 | 35'h0 | 1 |
+
+### stimulus 5
+| cycle | reset | data_in | valid_in | coeffs | data_out | valid_out |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 128'h123456789abcdef0 | 1 | 128'hfedcba987654321 | 35'h0 | 0 |
+| 1 | 0 | 128'h63 | 0 | 128'h4d | 35'h0 | 1 |
+| 2 | 0 | 128'h123456789abcdef0 | 1 | 128'hfedcba987654321 | 35'h0 | 0 |
+
+### stimulus 6
+| cycle | reset | data_in | valid_in | coeffs | data_out | valid_out |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 128'h1 | 1 | 128'hffffffffffffffffffffffffffffffff | 35'h0 | 0 |
+| 1 | 1 | 128'h80000000000000000000000000000000 | 1 | 128'h1 | 35'h7ffffffff | 1 |
+| 2 | 0 | 128'h1 | 1 | 128'h1 | 35'h0 | 0 |
+| 3 | 0 | 128'h0 | 0 | 128'h0 | 35'h0 | 1 |
+
+### stimulus 7
+| cycle | reset | data_in | valid_in | coeffs | data_out | valid_out |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 128'hffffffffffffffffffffffffffffffff | 0 | 128'h1 | 35'h0 | 0 |
+| 1 | 0 | 128'h1 | 1 | 128'h80000000000000000000000000000000 | 35'h0 | 0 |
+| 2 | 0 | 128'h0 | 0 | 128'h0 | 35'h7ffff8000 | 1 |

@@ -1,0 +1,118 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- j: input 1 bit.
+- k: input 1 bit.
+- reset: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is active high and synchronous to the rising edge of clk. Before the first rising clk edge that samples reset high, out is unknown, including across any earlier rising edges for which reset is low. The implementation must leave this power-up state uninitialised: no initial value or declaration initialiser may force out to a known value.
+
+On every rising clk edge that samples reset high, reset has priority over j and k and the state becomes OFF, making out 1'b0 immediately after that edge. Repeated rising edges with reset high keep the state OFF and out at 1'b0. Asserting or releasing reset between rising edges has no immediate effect. On the first rising edge after reset is released, the ordinary transition law applies to the sampled j and k values and the pre-edge OFF state.
+
+4. Timing
+
+out is the registered Moore output of the current state. It can change only immediately after a rising edge of clk and remains unchanged at steady clk levels and on falling edges. A transition caused by j or k sampled on a rising edge is visible at out immediately after that edge, a latency of one sampled full-cycle trace step from the pre-edge row. There is no completion pulse, restart interval, or disabled interval; every rising edge independently accepts another update.
+
+The evaluated trace uses full-cycle sampling: row k observes the settled output before transition k, and transition k represents the next rising clk edge. Thus a row shows the result of the preceding rising edge. Row numbers are cycle indices, not implicit 10 ns timestamps. The interface supplies no numerical step or sample-offset duration, and this observation convention does not impose a physical clock period or propagation delay.
+
+5. Behaviour
+
+The state set is OFF and ON. out is 1'b0 in OFF and 1'b1 in ON.
+
+Only a rising edge of clk can advance the state; steady clk levels and falling edges have no effect, and the transition law is applied independently on every repeated rising edge.
+
+At a rising clk edge with reset low and pre-edge state OFF, asserted j changes the state to ON and deasserted j retains OFF. In this state k has no effect.
+
+At a rising clk edge with reset low and pre-edge state ON, asserted k changes the state to OFF and deasserted k retains ON. In this state j has no effect.
+
+reset overrides j and k whenever it is sampled high on a rising clk edge, while changes to reset, j, or k between rising edges have no effect.
+
+Consequently, after the state has first been determined by reset, out becomes 1'b0 after every reset edge; with reset low it changes from 1'b0 to 1'b1 exactly when j is high, changes from 1'b1 to 1'b0 exactly when k is high, and otherwise retains its value. Before a determining reset edge, out remains unknown and non-reset edges do not determine it.
+
+6. Worked trace
+
+The following evaluated trace is normative. Each row uses the pre-transition observation convention stated above.
+
+### stimulus 0
+| cycle | j | k | reset | out |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | x |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 1 |
+| 3 | 0 | 1 | 0 | 1 |
+| 4 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | j | k | reset | out |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | x |
+| 1 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 1 |
+
+### stimulus 2
+| cycle | j | k | reset | out |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | x |
+| 1 | 0 | 1 | 0 | x |
+| 2 | 1 | 1 | 1 | x |
+| 3 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 1 |
+
+### stimulus 3
+| cycle | j | k | reset | out |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | x |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 1 |
+| 3 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 1 |
+
+### stimulus 4
+| cycle | j | k | reset | out |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | x |
+| 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | j | k | reset | out |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | x |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 | 1 |
+| 3 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 1 | 0 | 1 |
+
+### stimulus 6
+| cycle | j | k | reset | out |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | x |
+| 1 | 0 | 1 | 1 | 0 |
+| 2 | 0 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | j | k | reset | out |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | x |
+| 1 | 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 1 |
+| 3 | 1 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 1 |

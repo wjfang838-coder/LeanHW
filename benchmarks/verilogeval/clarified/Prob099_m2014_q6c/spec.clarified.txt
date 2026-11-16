@@ -1,0 +1,293 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+
+I would like you to implement a module named TopModule with the following
+interface. All input and output ports are one bit unless otherwise
+specified.
+
+ - input  y (6 bits)
+ - input  w
+ - output Y1
+ - output Y3
+
+Consider the state machine shown below:
+
+  A (0) --0--> B
+  A (0) --1--> A
+  B (0) --0--> C
+  B (0) --1--> D
+  C (0) --0--> E
+  C (0) --1--> D
+  D (0) --0--> F
+  D (0) --1--> A
+  E (1) --0--> E
+  E (1) --1--> D
+  F (1) --0--> C
+  F (1) --1--> D
+
+Resets into state A. For this part, assume that a one-hot code is used
+with the state assignment y[5:0] = 000001, 000010, 000100, 001000,
+010000, 100000 for states A, B,..., F, respectively.
+
+The module shou module ment the next-state signals Y2 and Y4
+corresponding to signal y[1] and y[3]. Derive the logic equations by
+inspection assuming the one-hot encoding.
+ implement the next-state signals  and corresponding to
+signal y[1] and y[3]Derive the logic equations byinspection assuming the one-hot encoding.
+
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- y: input [5:0].
+- w: input 1 bit.
+- Y1: output 1 bit.
+- Y3: output 1 bit.
+
+Public parameters:
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+3. Reset
+TopModule has no reset or clock port and no stored state. The source statement that the pictured FSM resets into A describes the externally represented state machine, whose A encoding is y=000001; it does not require TopModule to change its input y. Reset polarity, assertion sampling and release edges therefore do not apply to this combinational module. Before any external reset, including the initial observation, both outputs follow the current inputs after settling, by the same laws as every later observation. For y=000001, Y1 is NOT w and Y3 is zero. No hardware power-up state or input value is guaranteed by the model's Unit initialization.
+
+4. Timing
+Y1 continuously follows y[0] AND NOT w after combinational settling, with zero registered clock-cycle latency.
+Y3 continuously follows w AND (y[1] OR y[2] OR y[4] OR y[5]) after combinational settling, with zero registered clock-cycle latency.
+There is no transaction acceptance edge E0, capture, state advancement, completion pulse, periodic signal or retained result. Numerical propagation delay is unspecified. Holding inputs holds outputs; changing either input recomputes outputs after settling without waiting for an edge. Simultaneous changes use the resulting pair of current input values.
+
+The finite model is stateless and observes settled combinational outputs for each supplied input pair. Its fullCycle rows sample outputs before the inert model transition; they do not denote physical clock cycles or impose an active edge. The interface supplies no step_ns or sample_offset_ns, so the row index has no specified nanosecond conversion and does not imply a 10 ns tick. The scenario requires no reset setup and models no autonomous period.
+
+5. Behaviour
+For every six-bit y, w=0 gives Y1=y[0] and Y3=0; w=1 gives Y1=0 and Y3=y[1] OR y[2] OR y[4] OR y[5].
+Zero and multi-hot inputs obey these equations without validity qualification or priority among asserted bits.
+Changes in y take effect combinationally using the current w, and simultaneous input changes use the resulting pair of values; repetition and interruption introduce no transaction progression or retained history.
+Changes in w take effect combinationally using the current y; w has no effect on Y1 when y[0]=0 and no effect on Y3 when y[1], y[2], y[4] and y[5] are all zero.
+Bit y[3] has no effect on either output; y[5:1] have no effect on Y1, and y[0] has no effect on Y3.
+
+The source state assignments remain A=000001, B=000010, C=000100, D=001000, E=010000 and F=100000. For these one-hot inputs, Y1 denotes the next-state bit y[1] and Y3 denotes the next-state bit y[3]. With w=0, Y1 is one only in A and Y3 is zero in every state. With w=1, Y1 is zero in every state and Y3 is one precisely in B, C, E and F. All transitions and the parenthesized state-output annotations of the retained source graph remain unchanged; those annotations are not extra public outputs or the values of these next-state outputs.
+
+Scoped naming clarification Q11 (module@header): the source's semantic labels Y2 and Y4 correspond respectively to declared ports Y1 and Y3, rather than additional ports. This resolves the frozen naming ambiguity and preserves the stated next-state bit assignments; it is not an amendment to the transition graph.
+The semantic label Y2 denotes public output Y1 and has the same continuously settled, current-input law and zero registered latency, without an acceptance, reset, capture or completion edge.
+The semantic label Y4 denotes public output Y3 and has the same continuously settled, current-input law and zero registered latency, without an acceptance, reset, capture or completion edge.
+Q2 and Q4 extend these same equations to non-one-hot inputs. Q1 and Q3 establish the equations over all six-bit inputs. No answer authorizes hardware X, a don't-care, a clocked stage or a reset restriction; the rule answers' scalar x fields do not replace their certain combinational laws.
+
+6. Worked trace
+The following trace is normative for the concrete interface instance and its settled observation scenario. Each row's outputs depend solely on that row's inputs, including the first row of each block.
+### stimulus 0
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b000000 | 0 | 0 | 0 |
+| 1 | 6'b000000 | 1 | 0 | 0 |
+| 2 | 6'b000001 | 0 | 1 | 0 |
+| 3 | 6'b000001 | 1 | 0 | 0 |
+| 4 | 6'b000010 | 0 | 0 | 0 |
+| 5 | 6'b000010 | 1 | 0 | 1 |
+| 6 | 6'b000011 | 0 | 1 | 0 |
+| 7 | 6'b000011 | 1 | 0 | 1 |
+| 8 | 6'b000100 | 0 | 0 | 0 |
+| 9 | 6'b000100 | 1 | 0 | 1 |
+| 10 | 6'b000101 | 0 | 1 | 0 |
+| 11 | 6'b000101 | 1 | 0 | 1 |
+| 12 | 6'b000110 | 0 | 0 | 0 |
+| 13 | 6'b000110 | 1 | 0 | 1 |
+| 14 | 6'b000111 | 0 | 1 | 0 |
+| 15 | 6'b000111 | 1 | 0 | 1 |
+
+### stimulus 1
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b001000 | 0 | 0 | 0 |
+| 1 | 6'b001000 | 1 | 0 | 0 |
+| 2 | 6'b001001 | 0 | 1 | 0 |
+| 3 | 6'b001001 | 1 | 0 | 0 |
+| 4 | 6'b001010 | 0 | 0 | 0 |
+| 5 | 6'b001010 | 1 | 0 | 1 |
+| 6 | 6'b001011 | 0 | 1 | 0 |
+| 7 | 6'b001011 | 1 | 0 | 1 |
+| 8 | 6'b001100 | 0 | 0 | 0 |
+| 9 | 6'b001100 | 1 | 0 | 1 |
+| 10 | 6'b001101 | 0 | 1 | 0 |
+| 11 | 6'b001101 | 1 | 0 | 1 |
+| 12 | 6'b001110 | 0 | 0 | 0 |
+| 13 | 6'b001110 | 1 | 0 | 1 |
+| 14 | 6'b001111 | 0 | 1 | 0 |
+| 15 | 6'b001111 | 1 | 0 | 1 |
+
+### stimulus 2
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b010000 | 0 | 0 | 0 |
+| 1 | 6'b010000 | 1 | 0 | 1 |
+| 2 | 6'b010001 | 0 | 1 | 0 |
+| 3 | 6'b010001 | 1 | 0 | 1 |
+| 4 | 6'b010010 | 0 | 0 | 0 |
+| 5 | 6'b010010 | 1 | 0 | 1 |
+| 6 | 6'b010011 | 0 | 1 | 0 |
+| 7 | 6'b010011 | 1 | 0 | 1 |
+| 8 | 6'b010100 | 0 | 0 | 0 |
+| 9 | 6'b010100 | 1 | 0 | 1 |
+| 10 | 6'b010101 | 0 | 1 | 0 |
+| 11 | 6'b010101 | 1 | 0 | 1 |
+| 12 | 6'b010110 | 0 | 0 | 0 |
+| 13 | 6'b010110 | 1 | 0 | 1 |
+| 14 | 6'b010111 | 0 | 1 | 0 |
+| 15 | 6'b010111 | 1 | 0 | 1 |
+
+### stimulus 3
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b011000 | 0 | 0 | 0 |
+| 1 | 6'b011000 | 1 | 0 | 1 |
+| 2 | 6'b011001 | 0 | 1 | 0 |
+| 3 | 6'b011001 | 1 | 0 | 1 |
+| 4 | 6'b011010 | 0 | 0 | 0 |
+| 5 | 6'b011010 | 1 | 0 | 1 |
+| 6 | 6'b011011 | 0 | 1 | 0 |
+| 7 | 6'b011011 | 1 | 0 | 1 |
+| 8 | 6'b011100 | 0 | 0 | 0 |
+| 9 | 6'b011100 | 1 | 0 | 1 |
+| 10 | 6'b011101 | 0 | 1 | 0 |
+| 11 | 6'b011101 | 1 | 0 | 1 |
+| 12 | 6'b011110 | 0 | 0 | 0 |
+| 13 | 6'b011110 | 1 | 0 | 1 |
+| 14 | 6'b011111 | 0 | 1 | 0 |
+| 15 | 6'b011111 | 1 | 0 | 1 |
+
+### stimulus 4
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b100000 | 0 | 0 | 0 |
+| 1 | 6'b100000 | 1 | 0 | 1 |
+| 2 | 6'b100001 | 0 | 1 | 0 |
+| 3 | 6'b100001 | 1 | 0 | 1 |
+| 4 | 6'b100010 | 0 | 0 | 0 |
+| 5 | 6'b100010 | 1 | 0 | 1 |
+| 6 | 6'b100011 | 0 | 1 | 0 |
+| 7 | 6'b100011 | 1 | 0 | 1 |
+| 8 | 6'b100100 | 0 | 0 | 0 |
+| 9 | 6'b100100 | 1 | 0 | 1 |
+| 10 | 6'b100101 | 0 | 1 | 0 |
+| 11 | 6'b100101 | 1 | 0 | 1 |
+| 12 | 6'b100110 | 0 | 0 | 0 |
+| 13 | 6'b100110 | 1 | 0 | 1 |
+| 14 | 6'b100111 | 0 | 1 | 0 |
+| 15 | 6'b100111 | 1 | 0 | 1 |
+
+### stimulus 5
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b101000 | 0 | 0 | 0 |
+| 1 | 6'b101000 | 1 | 0 | 1 |
+| 2 | 6'b101001 | 0 | 1 | 0 |
+| 3 | 6'b101001 | 1 | 0 | 1 |
+| 4 | 6'b101010 | 0 | 0 | 0 |
+| 5 | 6'b101010 | 1 | 0 | 1 |
+| 6 | 6'b101011 | 0 | 1 | 0 |
+| 7 | 6'b101011 | 1 | 0 | 1 |
+| 8 | 6'b101100 | 0 | 0 | 0 |
+| 9 | 6'b101100 | 1 | 0 | 1 |
+| 10 | 6'b101101 | 0 | 1 | 0 |
+| 11 | 6'b101101 | 1 | 0 | 1 |
+| 12 | 6'b101110 | 0 | 0 | 0 |
+| 13 | 6'b101110 | 1 | 0 | 1 |
+| 14 | 6'b101111 | 0 | 1 | 0 |
+| 15 | 6'b101111 | 1 | 0 | 1 |
+
+### stimulus 6
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b110000 | 0 | 0 | 0 |
+| 1 | 6'b110000 | 1 | 0 | 1 |
+| 2 | 6'b110001 | 0 | 1 | 0 |
+| 3 | 6'b110001 | 1 | 0 | 1 |
+| 4 | 6'b110010 | 0 | 0 | 0 |
+| 5 | 6'b110010 | 1 | 0 | 1 |
+| 6 | 6'b110011 | 0 | 1 | 0 |
+| 7 | 6'b110011 | 1 | 0 | 1 |
+| 8 | 6'b110100 | 0 | 0 | 0 |
+| 9 | 6'b110100 | 1 | 0 | 1 |
+| 10 | 6'b110101 | 0 | 1 | 0 |
+| 11 | 6'b110101 | 1 | 0 | 1 |
+| 12 | 6'b110110 | 0 | 0 | 0 |
+| 13 | 6'b110110 | 1 | 0 | 1 |
+| 14 | 6'b110111 | 0 | 1 | 0 |
+| 15 | 6'b110111 | 1 | 0 | 1 |
+
+### stimulus 7
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b111000 | 0 | 0 | 0 |
+| 1 | 6'b111000 | 1 | 0 | 1 |
+| 2 | 6'b111001 | 0 | 1 | 0 |
+| 3 | 6'b111001 | 1 | 0 | 1 |
+| 4 | 6'b111010 | 0 | 0 | 0 |
+| 5 | 6'b111010 | 1 | 0 | 1 |
+| 6 | 6'b111011 | 0 | 1 | 0 |
+| 7 | 6'b111011 | 1 | 0 | 1 |
+| 8 | 6'b111100 | 0 | 0 | 0 |
+| 9 | 6'b111100 | 1 | 0 | 1 |
+| 10 | 6'b111101 | 0 | 1 | 0 |
+| 11 | 6'b111101 | 1 | 0 | 1 |
+| 12 | 6'b111110 | 0 | 0 | 0 |
+| 13 | 6'b111110 | 1 | 0 | 1 |
+| 14 | 6'b111111 | 0 | 1 | 0 |
+| 15 | 6'b111111 | 1 | 0 | 1 |
+
+### stimulus 8
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b000001 | 0 | 1 | 0 |
+| 1 | 6'b000010 | 0 | 0 | 0 |
+| 2 | 6'b000100 | 0 | 0 | 0 |
+| 3 | 6'b010000 | 0 | 0 | 0 |
+| 4 | 6'b010000 | 1 | 0 | 1 |
+| 5 | 6'b001000 | 1 | 0 | 0 |
+| 6 | 6'b000001 | 0 | 1 | 0 |
+| 7 | 6'b000010 | 0 | 0 | 0 |
+| 8 | 6'b000100 | 0 | 0 | 0 |
+| 9 | 6'b010000 | 1 | 0 | 1 |
+| 10 | 6'b001000 | 1 | 0 | 0 |
+| 11 | 6'b000001 | 1 | 0 | 0 |
+
+### stimulus 9
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b000001 | 0 | 1 | 0 |
+| 1 | 6'b000010 | 1 | 0 | 1 |
+| 2 | 6'b001000 | 0 | 0 | 0 |
+| 3 | 6'b100000 | 0 | 0 | 0 |
+| 4 | 6'b000100 | 1 | 0 | 1 |
+| 5 | 6'b001000 | 0 | 0 | 0 |
+| 6 | 6'b100000 | 1 | 0 | 1 |
+| 7 | 6'b001000 | 1 | 0 | 0 |
+
+### stimulus 10
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b000001 | 0 | 1 | 0 |
+| 1 | 6'b000010 | 0 | 0 | 0 |
+| 2 | 6'b010101 | 1 | 0 | 1 |
+| 3 | 6'b000001 | 0 | 1 | 0 |
+| 4 | 6'b000010 | 1 | 0 | 1 |
+| 5 | 6'b001000 | 1 | 0 | 0 |
+
+### stimulus 11
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b010000 | 0 | 0 | 0 |
+| 1 | 6'b010000 | 0 | 0 | 0 |
+| 2 | 6'b010000 | 1 | 0 | 1 |
+| 3 | 6'b001000 | 1 | 0 | 0 |
+| 4 | 6'b000001 | 1 | 0 | 0 |
+| 5 | 6'b000001 | 1 | 0 | 0 |

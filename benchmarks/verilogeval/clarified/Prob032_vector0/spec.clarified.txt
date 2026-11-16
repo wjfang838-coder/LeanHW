@@ -1,0 +1,84 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- vec: input [2:0].
+- outv: output [2:0].
+- o2: output 1 bit.
+- o1: output 1 bit.
+- o0: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input, reset mode, stored state, or reset edge. From power-up onward, including before any notional first edge, every output is determined combinationally by the current vec input: outv equals vec, o2 equals vec[2], o1 equals vec[1], and o0 equals vec[0]. No output has an uninitialised or retained value.
+
+4. Timing.
+
+Every output is combinational with zero clock-cycle latency from vec. No output is a pulse or periodic signal, and the circuit has no clock, physical period, or delay law.
+
+For the evaluated trace, each row is an observation after the row's input has settled. The full-cycle row index is an observation cadence supplied by the interface, not an implicit 10 ns clock and not a circuit period or propagation-delay specification.
+
+5. Behaviour.
+
+For every possible 3-bit value of vec, outv continuously equals vec.
+
+For every possible 3-bit value of vec, o2 continuously equals vec[2].
+
+For every possible 3-bit value of vec, o1 continuously equals vec[1].
+
+For every possible 3-bit value of vec, o0 continuously equals vec[0].
+
+There are no inactive modes or controls. Simultaneous input-bit changes, interruptions, and repeated changes take effect combinationally after settling, without capture, priority, retention, transaction state, completion, clearing, holding, or restart behavior.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | vec | outv | o2 | o1 | o0 |
+|---|---|---|---|---|---|
+| 0 | 3'b000 | 3'b000 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | vec | outv | o2 | o1 | o0 |
+|---|---|---|---|---|---|
+| 0 | 3'b001 | 3'b001 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | vec | outv | o2 | o1 | o0 |
+|---|---|---|---|---|---|
+| 0 | 3'b010 | 3'b010 | 0 | 1 | 0 |
+
+### stimulus 3
+| cycle | vec | outv | o2 | o1 | o0 |
+|---|---|---|---|---|---|
+| 0 | 3'b011 | 3'b011 | 0 | 1 | 1 |
+
+### stimulus 4
+| cycle | vec | outv | o2 | o1 | o0 |
+|---|---|---|---|---|---|
+| 0 | 3'b100 | 3'b100 | 1 | 0 | 0 |
+
+### stimulus 5
+| cycle | vec | outv | o2 | o1 | o0 |
+|---|---|---|---|---|---|
+| 0 | 3'b101 | 3'b101 | 1 | 0 | 1 |
+
+### stimulus 6
+| cycle | vec | outv | o2 | o1 | o0 |
+|---|---|---|---|---|---|
+| 0 | 3'b110 | 3'b110 | 1 | 1 | 0 |
+
+### stimulus 7
+| cycle | vec | outv | o2 | o1 | o0 |
+|---|---|---|---|---|---|
+| 0 | 3'b111 | 3'b111 | 1 | 1 | 1 |

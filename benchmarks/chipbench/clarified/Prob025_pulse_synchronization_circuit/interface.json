@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob025_pulse_synchronization_circuit",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

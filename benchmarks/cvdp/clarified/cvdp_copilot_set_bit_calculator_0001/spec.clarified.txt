@@ -1,0 +1,175 @@
+Original implementation instruction (verbatim):
+
+Design a **Set Bit Calculator** module in verilog that counts the number of `1` bits (set bits) in a bitstream received at the positive edge of a clock signal (`i_clk`) when the `i_ready` signal is asserted. The output count (`o_set_bit_count`) will be updated until the `i_ready` signal deasserts, at which point the output reflects the total count of `1` bits received. The count resets to `0` when the `i_ready` signal asserts again or an asynchronous active-low `i_rst_n` signal is triggered.
+
+Named module interface binding
+
+Module: SetBitStreamCalculator.
+Connect ports by name. The enumeration below does not establish positional order.
+- i_bit_in: input; 1 bits in the concrete formal instance.
+- i_clk: input; 1 bits in the concrete formal instance.
+- i_ready: input; 1 bits in the concrete formal instance.
+- i_rst_n: input; 1 bits in the concrete formal instance.
+- o_set_bit_count: output; 8 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is SetBitStreamCalculator.
+
+The public parameter p_max_set_bit_count_width has default value 8. It determines the width of o_set_bit_count and the saturation maximum 2^p_max_set_bit_count_width - 1. The concrete Lean verification instance uses the default width of 8; that instance does not replace the parameterized module contract.
+
+Q10 is the certain integration answer. Its exact law is: “The harness confirms named connections to SetBitStreamCalculator with one-bit input ports i_bit_in, i_clk, i_ready, and i_rst_n and the eight-bit output port o_set_bit_count; connections are by name, positional declaration order is unverified, and no public parameters or symbolic ranges are established.” The original source independently establishes the public parameter and symbolic output width, so those source requirements remain normative. Connections shall be by name because positional declaration order is not fixed. The following is the source I/O-list order only and is not normative positional order:
+
+i_bit_in: input, 1 bit.
+i_clk: input, 1 bit.
+i_ready: input, 1 bit.
+i_rst_n: input, 1 bit.
+o_set_bit_count: output, p_max_set_bit_count_width bits; 8 bits at the default parameter value.
+
+There are no certain scoped answers amending a source behavior clause. Q1 through Q9 are unclear and authorize neither amendments nor hardware X behavior.
+
+3. Reset.
+
+i_rst_n is asynchronous and active low. Whenever i_rst_n is low, o_set_bit_count is immediately 0 and reset has priority over every simultaneous clocked input. The stored count is 0 throughout reset. Reset does not fabricate an i_ready transition: the ready level sampled while reset is active determines whether a later high level is a continuation or a new low-to-high assertion.
+
+On the first positive edge after reset release, if i_ready remained high across reset, i_bit_in is counted under the ordinary high-ready rule from the reset-established count of 0. If the sampled ready level was low during reset and is high on that first edge, the edge is a genuine low-to-high assertion; it establishes 0 and its i_bit_in value is ignored. If i_ready is low, 0 is retained. Repeated reset assertions have the same effect.
+
+Implementation choice C1: the source does not establish a hardware power-up value or prior ready history before any reset or ready assertion. For the concrete finite model only, the initial count is chosen as 0 and the remembered prior-ready level is chosen low. Therefore o_set_bit_count reads 0 at the initial observation, including when i_ready starts high. This is a compatible implementation decision, not a source-derived hardware power-up guarantee. It creates no reset-before-use restriction and does not change any behavior after reset, a sampled ready assertion, or another state-establishing event.
+
+4. Timing.
+
+i_ready is synchronous to i_clk. i_bit_in and i_ready are sampled on positive edges of i_clk. Except for asynchronous reset assertion, o_set_bit_count is registered: inputs are captured and state is updated on the positive edge of i_clk, and the updated value is observable immediately after that edge. A genuine sampled ready rise produces 0 immediately after its edge. Each later eligible sample produces its incremented, saturated, or retained value immediately after its edge. Deasserting i_ready causes no further update; the current value remains continuously available. There is no completion pulse and no periodic output port.
+
+The 50 MHz clock in the examples has a 20 ns period. The source gives no required duty cycle or required counts of high and low cycles.
+
+For the autonomous SpecIR trace, row k is a settled pre-transition observation at k * step_ns, with timing.sample_offset_ns applied when present in the interface. The supplied interface gives no numeric step_ns or sample_offset_ns. A row first observes out(s[k], i[k]) and then applies the modeled full-cycle positive-edge transition to obtain s[k+1]. This observation convention is separate from the circuit's actual positive-edge law, asynchronous delay law, and the example's 20 ns period; it does not imply a 10 ns clock tick.
+
+5. Behaviour.
+
+A sampled low-to-high assertion of i_ready starts a transaction, sets o_set_bit_count to 0, and ignores i_bit_in on that assertion edge. On every later positive edge in the same uninterrupted high-i_ready interval, i_bit_in equal to 1 increments the count by one unless it is already at the maximum, whereas i_bit_in equal to 0 leaves the count unchanged. The maximum is 2^p_max_set_bit_count_width - 1. Once at that maximum, the count remains there for every further accepted sample and never wraps.
+
+While i_ready is low, no bit is accepted and the established count is retained; a later sampled low-to-high assertion starts a new transaction at zero and ignores i_bit_in on that assertion edge. Deassertion during counting retains the partial result. Repeated transactions follow the same restart law. Reset overrides every simultaneous i_ready and i_bit_in case, but a ready-high interval spanning reset is not converted into a ready rise on release.
+
+The output is the retained saturated count, changes only for asynchronous reset or a positive-edge state update, and remains continuously available without a completion pulse. Both values of every one-bit input are covered by the laws above, including simultaneous reset, interrupted transactions, repeated starts, first results, disabled intervals, retention, and overflow attempts.
+
+The original default-width Scenario 1 is a specific source exception to the general first-bit exclusion: when the first four i_bit_in values sampled in a transaction are 1, 0, 1, 1, o_set_bit_count is 3 immediately after the fourth sample and that value is retained when i_ready subsequently goes low. This exact exception takes precedence only for that transaction and sequence. It is preservation, not an amendment. Q1 is unclear and does not supersede the exact original clause “o_set_bit_count = 3 after the last bit.”
+
+Scenario 2 requires i_rst_n going low while counting to set o_set_bit_count to 0 immediately. Scenario 3 requires p_max_set_bit_count_width equal to 4 and sixteen consecutive high samples under the applicable transaction law to produce the saturated value 15. More generally, saturation is parameterized and applies to every input sequence.
+
+The unclear rule@ answers report limited harness observations but do not narrow the source authority. The harness observations include two tested high-ready sequences with eight high samples producing 8, five later low-ready observations retaining 8, a later transaction, and at least 260 high samples producing 255. The source supplies the general positive-edge capture, reset, start, ignore-first-bit, counting, retention, repeated-transaction, and saturation laws stated above.
+
+The required implementation deliverable also includes a testbench validating asynchronous reset; i_ready assertion and deassertion, including deassertion during counting; positive-edge sampling and correct counting for both i_bit_in values; multiple reset transitions; repeated transactions; and saturation at parameterized widths.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete default-width SpecIR instance, including Implementation choice C1 and the pre-edge observation convention. It does not replace or narrow the parameterized contract.
+
+### stimulus 0
+| cycle | i_bit_in | i_ready | i_rst_n | o_set_bit_count |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 8'b00000000 |
+| 1 | 1 | 0 | 0 | 8'b00000000 |
+| 2 | 1 | 1 | 1 | 8'b00000000 |
+| 3 | 1 | 1 | 1 | 8'b00000000 |
+| 4 | 0 | 1 | 1 | 8'b00000001 |
+
+### stimulus 1
+| cycle | i_bit_in | i_ready | i_rst_n | o_set_bit_count |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 |
+| 1 | 1 | 0 | 1 | 8'b00000000 |
+| 2 | 1 | 1 | 1 | 8'b00000000 |
+| 3 | 0 | 1 | 1 | 8'b00000000 |
+| 4 | 1 | 1 | 1 | 8'b00000000 |
+| 5 | 1 | 1 | 1 | 8'b00000001 |
+| 6 | 0 | 0 | 1 | 8'b00000011 |
+
+### stimulus 2
+| cycle | i_bit_in | i_ready | i_rst_n | o_set_bit_count |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 1 | 1 | 8'b00000000 |
+| 2 | 1 | 1 | 1 | 8'b00000000 |
+| 3 | 1 | 0 | 1 | 8'b00000001 |
+| 4 | 1 | 0 | 1 | 8'b00000001 |
+| 5 | 1 | 1 | 1 | 8'b00000001 |
+| 6 | 1 | 1 | 1 | 8'b00000000 |
+
+### stimulus 3
+| cycle | i_bit_in | i_ready | i_rst_n | o_set_bit_count |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 |
+| 1 | 1 | 1 | 1 | 8'b00000000 |
+| 2 | 1 | 1 | 1 | 8'b00000000 |
+| 3 | 1 | 1 | 0 | 8'b00000000 |
+| 4 | 1 | 1 | 1 | 8'b00000000 |
+| 5 | 1 | 1 | 1 | 8'b00000001 |
+
+### stimulus 4
+| cycle | i_bit_in | i_ready | i_rst_n | o_set_bit_count |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 8'b00000000 |
+| 1 | 0 | 1 | 1 | 8'b00000000 |
+| 2 | 1 | 1 | 1 | 8'b00000000 |
+
+### stimulus 5
+| cycle | i_bit_in | i_ready | i_rst_n | o_set_bit_count |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 |
+| 1 | 1 | 1 | 1 | 8'b00000000 |
+| 2 | 0 | 1 | 1 | 8'b00000000 |
+| 3 | 1 | 1 | 1 | 8'b00000000 |
+| 4 | 1 | 1 | 1 | 8'b00000001 |
+| 5 | 0 | 0 | 1 | 8'b00000011 |
+
+### stimulus 6
+| cycle | i_bit_in | i_ready | i_rst_n | o_set_bit_count |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 1 | 8'b00000000 |
+| 2 | 0 | 1 | 1 | 8'b00000000 |
+| 3 | 0 | 1 | 1 | 8'b00000000 |
+| 4 | 0 | 0 | 1 | 8'b00000000 |
+
+### stimulus 7
+| cycle | i_bit_in | i_ready | i_rst_n | o_set_bit_count |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 1 | 8'b00000000 |
+| 2 | 1 | 1 | 1 | 8'b00000000 |
+| 3 | 0 | 1 | 1 | 8'b00000000 |
+| 4 | 1 | 1 | 1 | 8'b00000000 |
+| 5 | 0 | 1 | 1 | 8'b00000001 |
+| 6 | 1 | 1 | 1 | 8'b00000001 |
+| 7 | 0 | 0 | 1 | 8'b00000010 |
+| 8 | 1 | 1 | 1 | 8'b00000010 |
+| 9 | 0 | 1 | 1 | 8'b00000000 |
+| 10 | 1 | 1 | 1 | 8'b00000000 |
+| 11 | 0 | 1 | 1 | 8'b00000001 |
+| 12 | 1 | 1 | 1 | 8'b00000001 |
+| 13 | 0 | 0 | 1 | 8'b00000010 |
+| 14 | 1 | 1 | 1 | 8'b00000010 |
+| 15 | 0 | 1 | 1 | 8'b00000000 |
+| 16 | 1 | 1 | 1 | 8'b00000000 |
+| 17 | 0 | 1 | 1 | 8'b00000001 |
+| 18 | 1 | 1 | 1 | 8'b00000001 |
+| 19 | 0 | 0 | 1 | 8'b00000010 |
+| 20 | 1 | 1 | 1 | 8'b00000010 |
+| 21 | 0 | 1 | 1 | 8'b00000000 |
+| 22 | 1 | 1 | 1 | 8'b00000000 |
+| 23 | 0 | 1 | 1 | 8'b00000001 |
+| 24 | 1 | 1 | 1 | 8'b00000001 |
+| 25 | 0 | 0 | 1 | 8'b00000010 |
+| 26 | 1 | 1 | 1 | 8'b00000010 |
+| 27 | 0 | 1 | 1 | 8'b00000000 |
+| 28 | 1 | 1 | 1 | 8'b00000000 |
+| 29 | 0 | 1 | 1 | 8'b00000001 |
+| 30 | 1 | 1 | 1 | 8'b00000001 |
+| 31 | 0 | 0 | 1 | 8'b00000010 |
+| 32 | 1 | 1 | 1 | 8'b00000010 |
+| 33 | 0 | 1 | 1 | 8'b00000000 |
+| 34 | 1 | 1 | 1 | 8'b00000000 |
+| 35 | 0 | 1 | 1 | 8'b00000001 |
+| 36 | 1 | 1 | 1 | 8'b00000001 |

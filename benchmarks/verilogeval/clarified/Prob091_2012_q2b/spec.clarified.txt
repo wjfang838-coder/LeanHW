@@ -1,0 +1,101 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- y: input [5:0].
+- w: input 1 bit.
+- Y1: output 1 bit.
+- Y3: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset and no stored state. From power-up onward, including before any edge has occurred, both outputs are defined directly by the current inputs. There is no first reset edge or reset-release step. Y1 and Y3 have no uninitialised interval.
+
+Timing
+
+Y1 and Y3 are combinational outputs with zero clock-cycle latency from y and w. Every input change, including simultaneous, repeated, or interrupted changes, is reflected after combinational settling. There are no pulses, periodic outputs, capture edges, transaction states, retained results, or completion behavior.
+
+Trace row k denotes the settled observation at k times the interface step duration, sampled at the interface sample offset; it does not imply a 10 ns clock tick. The interface specifies no numeric step duration or sample offset. This observation convention is separate from circuit timing: the circuit has no clock period and specifies no propagation-delay law.
+
+Behaviour
+
+For every 6-bit encoding of y and either value of w, Y1 = y[0] AND w.
+
+For every 6-bit encoding of y and either value of w, Y3 = (y[1] OR y[2] OR y[4] OR y[5]) AND NOT w. Bit y[3] has no effect on either output.
+
+Equivalently, while w is 1, Y1 equals y[0] and Y3 is 0. While w is 0, Y1 is 0 and Y3 equals y[1] OR y[2] OR y[4] OR y[5]. These laws apply to valid one-hot states, the all-zero encoding, and every multi-hot or otherwise invalid encoding.
+
+The outputs continuously follow these laws without reset, initialization, capture, latency, hold, clear, cancellation, completion, or restart semantics. Public-output evaluation has no independent observer advancement or terminal mode.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b000001 | 0 | 0 | 0 |
+| 1 | 6'b000001 | 1 | 1 | 0 |
+
+### stimulus 1
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b000010 | 0 | 0 | 1 |
+| 1 | 6'b000010 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b000100 | 0 | 0 | 1 |
+| 1 | 6'b000100 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b001000 | 0 | 0 | 0 |
+| 1 | 6'b001000 | 1 | 0 | 0 |
+
+### stimulus 4
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b010000 | 0 | 0 | 1 |
+| 1 | 6'b010000 | 1 | 0 | 0 |
+
+### stimulus 5
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b100000 | 0 | 0 | 1 |
+| 1 | 6'b100000 | 1 | 0 | 0 |
+
+### stimulus 6
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b000000 | 0 | 0 | 0 |
+| 1 | 6'b000000 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b111111 | 0 | 0 | 1 |
+| 1 | 6'b111111 | 1 | 1 | 0 |
+
+### stimulus 8
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b000011 | 0 | 0 | 1 |
+| 1 | 6'b000011 | 1 | 1 | 0 |
+
+### stimulus 9
+| cycle | y | w | Y1 | Y3 |
+|---|---|---|---|---|
+| 0 | 6'b010101 | 0 | 0 | 1 |
+| 1 | 6'b010101 | 1 | 1 | 0 |

@@ -1,0 +1,125 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- SrcA: input [DATA_WIDTH-1:0].
+- SrcB: input [DATA_WIDTH-1:0].
+- Operation: input [OPCODE_LENGTH-1:0].
+- ALUResult: output [DATA_WIDTH-1:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  DATA_WIDTH: default = 32.
+-  OPCODE_LENGTH: default = 4.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+The module has no reset input and no state elements. ALUResult is defined solely by the current inputs at power-up, before any edge, and at all later times; there is no first reset edge and no reset-release step.
+
+4. Timing
+
+ALUResult is continuously combinational from SrcA, SrcB, and Operation. Its latency is zero clock cycles, and it has no capture edge, completion pulse, retention interval, or transaction state. Input changes affect it after combinational settling.
+
+For the evaluated trace, row k denotes k * step_ns after settling and is sampled using timing.sample_offset_ns from the interface. This observation convention is separate from circuit behavior: the circuit has no clock, actual period, or sequential delay law, and a row does not imply a 10 ns clock tick.
+
+5. Behaviour
+
+SrcA affects ALUResult combinationally as the left operand selected by Operation: bitwise AND for 4'b0000, OR for 4'b0001, 32-bit addition for 4'b0010, XOR for 4'b0011, logical left shift for 4'b0100, logical right shift for 4'b0101, 32-bit subtraction for 4'b0110, arithmetic right shift for 4'b0111, equality for 4'b1000, inequality for 4'b1001, signed less-than for 4'b1100, signed greater-than-or-equal for 4'b1101, unsigned less-than for 4'b1110, and unsigned greater-than-or-equal for 4'b1111; it has no effect for 4'b1010, 4'b1011, or any other unlisted value.
+
+SrcB affects ALUResult combinationally as the right operand selected by Operation: bitwise AND for 4'b0000, OR for 4'b0001, 32-bit addition for 4'b0010, XOR for 4'b0011, its low five bits as the shift amount for logical left, logical right, and arithmetic right shifts at 4'b0100, 4'b0101, and 4'b0111 respectively, the subtrahend for 32-bit subtraction at 4'b0110, and the comparison operand for equality, inequality, signed less-than, signed greater-than-or-equal, unsigned less-than, and unsigned greater-than-or-equal at 4'b1000, 4'b1001, 4'b1100, 4'b1101, 4'b1110, and 4'b1111 respectively; it has no effect for 4'b1010, 4'b1011, or any other unlisted value.
+
+Operation combinationally selects ALUResult according to the complete opcode law listed below.
+
+  4'b0000: SrcA & SrcB.
+  4'b0001: SrcA | SrcB.
+  4'b0010: the low DATA_WIDTH bits of SrcA + SrcB, with both operands interpreted at DATA_WIDTH.
+  4'b0011: SrcA ^ SrcB.
+  4'b0100: the low DATA_WIDTH bits of SrcA << SrcB[4:0]. The shift expression may be wider, and truncation occurs at assignment to ALUResult.
+  4'b0101: SrcA >> SrcB[4:0], with zero fill.
+  4'b0110: the low DATA_WIDTH bits of SrcA - SrcB, with both operands interpreted at DATA_WIDTH.
+  4'b0111: signed SrcA >>> SrcB[4:0], with SrcA interpreted as a DATA_WIDTH-bit two's-complement value.
+  4'b1000: DATA_WIDTH'd1 if SrcA equals SrcB, otherwise DATA_WIDTH'd0.
+  4'b1001: DATA_WIDTH'd1 if SrcA does not equal SrcB, otherwise DATA_WIDTH'd0.
+  4'b1010: DATA_WIDTH'd1 for all operand values.
+  4'b1011: DATA_WIDTH'd0 for all operand values.
+  4'b1100: DATA_WIDTH'd1 if signed SrcA is less than signed SrcB, otherwise DATA_WIDTH'd0.
+  4'b1101: DATA_WIDTH'd1 if signed SrcA is greater than or equal to signed SrcB, otherwise DATA_WIDTH'd0.
+  4'b1110: DATA_WIDTH'd1 if unsigned SrcA is less than unsigned SrcB, otherwise DATA_WIDTH'd0.
+  4'b1111: DATA_WIDTH'd1 if unsigned SrcA is greater than or equal to unsigned SrcB, otherwise DATA_WIDTH'd0.
+  Any Operation encoding not listed above selects DATA_WIDTH'd0.
+
+SrcA and SrcB are unsigned bit vectors except where an operation explicitly states signed interpretation. Every result is truncated or zero-extended to DATA_WIDTH at the ALUResult assignment boundary. Selection has no inactive, cancellation, interruption, first-result, repeated-start, or retained-data state: every input change is reflected without an edge or stored history.
+
+ALUResult is a continuously combinational function of the current SrcA, SrcB, and Operation, so there is no reset behavior, capture or completion edge, first-result latency, hold or clear interval, retention, or restart protocol.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance.
+
+### stimulus 0
+| cycle | SrcA | SrcB | Operation | ALUResult |
+|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 4'b0000 | 32'h0 |
+| 1 | 32'h1 | 32'h1 | 4'b0001 | 32'h1 |
+| 2 | 32'hffffffff | 32'h1 | 4'b0010 | 32'h0 |
+| 3 | 32'h80000000 | 32'haaaaaaaa | 4'b0011 | 32'h2aaaaaaa |
+
+### stimulus 1
+| cycle | SrcA | SrcB | Operation | ALUResult |
+|---|---|---|---|---|
+| 0 | 32'h1 | 32'h0 | 4'b0100 | 32'h1 |
+| 1 | 32'h1 | 32'h1f | 4'b0100 | 32'h80000000 |
+| 2 | 32'h80000000 | 32'h1f | 4'b0101 | 32'h1 |
+| 3 | 32'hffffffff | 32'h4 | 4'b0101 | 32'hfffffff |
+
+### stimulus 2
+| cycle | SrcA | SrcB | Operation | ALUResult |
+|---|---|---|---|---|
+| 0 | 32'h0 | 32'h1 | 4'b0110 | 32'hffffffff |
+| 1 | 32'h80000000 | 32'h1 | 4'b0110 | 32'h7fffffff |
+| 2 | 32'h80000000 | 32'h1 | 4'b0111 | 32'hc0000000 |
+| 3 | 32'h7fffffff | 32'h4 | 4'b0111 | 32'h7ffffff |
+
+### stimulus 3
+| cycle | SrcA | SrcB | Operation | ALUResult |
+|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 4'b1000 | 32'h1 |
+| 1 | 32'h12345678 | 32'h87654321 | 4'b1000 | 32'h0 |
+| 2 | 32'h1 | 32'h1 | 4'b1001 | 32'h0 |
+| 3 | 32'h0 | 32'h1 | 4'b1001 | 32'h1 |
+
+### stimulus 4
+| cycle | SrcA | SrcB | Operation | ALUResult |
+|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 4'b1010 | 32'h1 |
+| 1 | 32'hffffffff | 32'h80000000 | 4'b1010 | 32'h1 |
+| 2 | 32'h1 | 32'h2 | 4'b1011 | 32'h0 |
+
+### stimulus 5
+| cycle | SrcA | SrcB | Operation | ALUResult |
+|---|---|---|---|---|
+| 0 | 32'h80000000 | 32'h1 | 4'b1100 | 32'h1 |
+| 1 | 32'h80000000 | 32'h80000000 | 4'b1100 | 32'h0 |
+| 2 | 32'h7fffffff | 32'h80000000 | 4'b1101 | 32'h1 |
+| 3 | 32'hffffffff | 32'hffffffff | 4'b1101 | 32'h1 |
+
+### stimulus 6
+| cycle | SrcA | SrcB | Operation | ALUResult |
+|---|---|---|---|---|
+| 0 | 32'h0 | 32'h1 | 4'b1110 | 32'h1 |
+| 1 | 32'hffffffff | 32'h1 | 4'b1110 | 32'h0 |
+| 2 | 32'h1 | 32'h0 | 4'b1111 | 32'h1 |
+| 3 | 32'hffffffff | 32'hffffffff | 4'b1111 | 32'h1 |
+
+### stimulus 7
+| cycle | SrcA | SrcB | Operation | ALUResult |
+|---|---|---|---|---|
+| 0 | 32'h55555555 | 32'haaaaaaaa | 4'b0000 | 32'h0 |
+| 1 | 32'h55555555 | 32'haaaaaaaa | 4'b0001 | 32'hffffffff |
+| 2 | 32'h80000000 | 32'h80000000 | 4'b0010 | 32'h0 |
+| 3 | 32'h12345678 | 32'h87654321 | 4'b1011 | 32'h0 |

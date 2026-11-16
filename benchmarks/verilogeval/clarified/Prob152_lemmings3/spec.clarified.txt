@@ -1,0 +1,167 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- areset: input 1 bit.
+- bump_left: input 1 bit.
+- bump_right: input 1 bit.
+- ground: input 1 bit.
+- dig: input 1 bit.
+- walk_left: output 1 bit.
+- walk_right: output 1 bit.
+- aaah: output 1 bit.
+- digging: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  WL: default = 0.
+-  WR: default = 1.
+-  FALLL: default = 2.
+-  FALLR: default = 3.
+-  DIGL: default = 4.
+-  DIGR: default = 5.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+areset is active high and asynchronous. Its assertion immediately selects left-walking behavior, making walk_left 1 and walk_right, aaah, and digging 0 without waiting for clk; it dominates a coincident rising edge. While areset remains asserted, that behavior persists. Deassertion alone changes no state or output. On the first rising edge after release, the next mode is selected from the inputs present immediately before that edge according to the behavior rules below.
+
+Before areset has ever been asserted, walk_left, walk_right, aaah, and digging are all unknown, regardless of input activity while areset is low. The implementation must leave this power-up state uninitialized, with no initial block or declaration initializer that gives any of these outputs a defined value. Every later assertion of areset interrupts the current mode in the same way.
+
+4. Timing.
+
+All four outputs are Moore outputs determined by the retained mode. A transition selected on a rising edge of clk becomes observable immediately after that edge; a sample immediately before the edge still has the preceding value. There is no busy interval, transaction restriction, completion pulse, or restart interval.
+
+walk_left is 1 exactly in left-walking mode and otherwise 0. walk_right is 1 exactly in right-walking mode and otherwise 0. aaah is 1 throughout either falling mode and otherwise 0. digging is 1 throughout either digging mode and otherwise 0.
+
+The concrete trace uses one full-cycle step per row: row k is the settled observation immediately before the kth modeled rising-edge transition, followed by that transition. The interface specifies no numeric step_ns or sample_offset_ns, so these rows do not imply a 10 ns clock. This observation convention is separate from the circuit law that only rising edges advance the mode and that asynchronous reset assertion affects behavior immediately.
+
+5. Behaviour.
+
+While areset is low, each rising edge of clk applies one transition selected from the inputs and mode present immediately before that edge, while a steady clock level and falling edges have no effect; if reset assertion coincides with a rising edge, reset takes priority, and successive rising edges apply successive transitions without any busy interval or transaction restriction.
+
+Asserting areset high immediately selects left-walking behavior without waiting for clk and dominates a coincident clk rising edge; while held high that behavior persists, deassertion alone causes no transition, and after release the first transition occurs on the next clk rising edge from inputs sampled immediately before it, with every later assertion interrupting any mode identically.
+
+In left-walking mode, ground low starts falling while retaining the left direction. Otherwise, with ground high, dig high starts digging left; if dig is low, bump_left high changes to right-walking mode; otherwise left walking continues. bump_right has no effect in this mode.
+
+In right-walking mode, ground low starts falling while retaining the right direction. Otherwise, with ground high, dig high starts digging right; if dig is low, bump_right high changes to left-walking mode; otherwise right walking continues. bump_left has no effect in this mode.
+
+With areset low, bump_left sampled high on a clk rising edge reverses left walking to right walking only when ground is high and dig is low; loss of ground has priority, dig has next priority, and bump_left has no effect in right-walking, falling, or digging modes, while a low level leaves this reversal inactive and repeated highs are re-evaluated independently on successive edges.
+
+With areset low, bump_right sampled high on a clk rising edge reverses right walking to left walking only when ground is high and dig is low; loss of ground has priority, dig has next priority, and bump_right has no effect in left-walking, falling, or digging modes, while a low level leaves this reversal inactive and repeated highs are re-evaluated independently on successive edges.
+
+With areset low, ground sampled low on a clk rising edge makes either walking direction begin falling in that direction, keeps either falling direction falling, and changes either digging direction to falling in that direction; ground sampled high allows walking to consider dig then its applicable bump, makes falling resume walking in its retained direction, and keeps digging, with each edge re-evaluated and reset overriding all cases.
+
+With areset low, dig sampled high on a clk rising edge starts digging in the current walking direction only when ground is high, taking priority over the applicable bump but not over ground loss; dig has no effect while falling or already digging, a low level does not start digging, continued digging lasts while ground remains high regardless of later dig values, and reset overrides it.
+
+While falling left or falling right, ground low retains the same falling direction, and ground high resumes walking in the retained direction. bump_left, bump_right, and dig have no effect while falling, including on the landing edge.
+
+While digging left or digging right, ground high retains the same digging direction regardless of bump_left, bump_right, or dig. ground low starts falling in the retained direction. Bumps have no effect on the edge that ends digging.
+
+If both bump inputs are high during grounded left walking with dig low, bump_left changes the direction to right. If both are high during grounded right walking with dig low, bump_right changes the direction to left. Thus simultaneous bumps switch the current walking direction. For all inputs, ground loss has highest priority, dig has next priority in a walking mode, and only then does the bump applicable to the current walking direction take effect.
+
+walk_left becomes 1 immediately upon asynchronous reset assertion and remains 1 through reset release until a later clk rising edge selects another mode; otherwise it is 1 exactly during left-walking behavior and 0 during right-walking, falling, or digging behavior, with an input-selected transition becoming observable just after its capture edge, so a row sampled before that edge still shows the preceding value, and there is no completion pulse or restart interval.
+
+walk_right becomes 0 immediately upon asynchronous reset assertion and remains 0 through reset release until a later clk rising edge selects right walking; otherwise it is 1 exactly during right-walking behavior and 0 during left-walking, falling, or digging behavior, with an input-selected transition becoming observable just after its capture edge, so a row sampled before that edge still shows the preceding value, and it holds by mode without a completion pulse or restart interval.
+
+aaah becomes 0 immediately upon asynchronous reset assertion and remains 0 through reset release until a later clk rising edge selects falling; otherwise it is 1 exactly during either falling direction and 0 during walking or digging, with an input-selected transition becoming observable just after its capture edge, so a row sampled before that edge still shows the preceding value, and it stays asserted across repeated falling edges until landing or reset.
+
+digging becomes 0 immediately upon asynchronous reset assertion and remains 0 through reset release until a later clk rising edge starts digging; otherwise it is 1 exactly during either digging direction and 0 during walking or falling, with an input-selected transition becoming observable just after its capture edge, so a row sampled before that edge still shows the preceding value, and it stays asserted while grounded despite repeated dig values until ground loss or reset.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 1 | 1 | 0 | 0 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 1 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 1 | 1 | 1 | 0 | 0 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 3
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 |
+| 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 7 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 4
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 1 | 1 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 1 | 1 | 1 | 1 | 0 | 0 | 0 | 1 |
+| 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| 6 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 7 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 8 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 5
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 6
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 8 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | x | x | x | x |
+| 1 | 0 | 0 | 0 | 0 | 0 | x | x | x | x |
+| 2 | 0 | 0 | 0 | 1 | 1 | x | x | x | x |
+| 3 | 0 | 1 | 0 | 1 | 0 | x | x | x | x |
+| 4 | 1 | 0 | 1 | 0 | 1 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |

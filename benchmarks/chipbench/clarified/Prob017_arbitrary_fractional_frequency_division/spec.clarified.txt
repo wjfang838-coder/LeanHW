@@ -1,0 +1,255 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk_in: input 1 bit.
+- rst: input 1 bit.
+- clk_out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  M_N: default = 8'd87.
+-  c89: default = 8'd24.
+-  div_e: default = 5'd8.
+-  div_o: default = 5'd9.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+rst is active low and asynchronous. Whenever rst is low, clk_out is 0 immediately and remains 0 for the entire asserted interval regardless of clk_in. The divider's period position, schedule position, and running status are reset to the beginning of the schedule. Continued assertion keeps clk_out at 0 and reestablishes that beginning state on every rising edge.
+
+Releasing rst does not by itself change clk_out: it remains 0 until the first subsequent rising edge of clk_in. That first rising edge starts a fresh waveform and makes clk_out 1 for the ensuing interval, regardless of any activity interrupted by reset.
+
+Before rst has ever been asserted low, clk_out is unknown at power-up and remains unknown across rising edges of clk_in. The implementation must therefore leave clk_out's pre-reset state uninitialised, with no initial block or declaration initialiser that gives it a definite value.
+
+4. Timing
+
+clk_out is a registered periodic output except that assertion of rst clears it asynchronously. While rst is high, only a rising edge of clk_in advances the divider by one input-clock cycle and updates clk_out for the ensuing interval. Falling edges and steady clock levels have no effect. Reset release has no output effect until the next rising edge; that edge produces the first high cycle.
+
+Each 8-cycle divided period consists of 4 consecutive high input-clock cycles followed by 4 consecutive low input-clock cycles. Each 9-cycle divided period consists of 4 consecutive high input-clock cycles followed by 5 consecutive low input-clock cycles. The schedule contains 24 8-cycle divided periods followed by 63 9-cycle divided periods, for 87 divided periods in total, and then repeats. Thus the complete schedule lasts 759 rising-edge intervals of clk_in. The high counts and low counts above are the normative duty-cycle definition.
+
+The evaluated trace uses the interface's full-cycle observation convention. Row k denotes k times timing.step_ns after settling, with the interface's timing.sample_offset_ns applied; it does not imply a 10 ns clock. Each row samples the current output before that row's rising-edge transition, so a value computed by a rising edge is first visible in the following row. This observation convention is separate from the circuit law above, whose periods and delays are stated in rising-edge intervals of clk_in.
+
+5. Behaviour
+
+While rst is high, only a rising edge of clk_in advances the divider by one step and updates clk_out for the ensuing interval; falling edges and steady levels have no effect, repeated rising edges continue the cadence, and a simultaneous falling assertion of rst takes priority and clears clk_out immediately.
+
+rst is active low and asynchronous: any falling assertion immediately forces clk_out to 0, continued assertion keeps it 0 and repeatedly reestablishes the initial phase on rising clk_in edges, release alone does not change clk_out, and the first rising clk_in edge after release starts a fresh waveform with clk_out equal to 1 regardless of any interrupted prior activity.
+
+clk_out clears immediately when rst falls, remains 0 through assertion and release until the next rising clk_in edge, then follows an eight-edge high-for-four/low-for-four phase through divided period 24 and a nine-edge high-for-four/low-for-five phase through divided period 87 before repeating that 87-period schedule; it changes only after rising edges and is retained otherwise, reset interrupts and restarts the schedule, and because row k is sampled before its active edge, the value computed at edge k is first observed in row k+1.
+
+Equivalently, count divided periods from 1 after the most recent asserted-low reset. Periods 1 through 24 each have length 8; periods 25 through 87 each have length 9; the next period is again period 1. Within every period, clk_out is 1 for positions 1 through 4 and 0 for every remaining position. Every possible one-bit rst encoding is covered: 0 asserts reset and 1 permits rising-edge advancement.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst | clk_out |
+|---|---|---|
+| 0 | 1 | x |
+
+### stimulus 1
+| cycle | rst | clk_out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 1 |
+| 3 | 1 | 1 |
+
+### stimulus 2
+| cycle | rst | clk_out |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 0 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 1 |
+
+### stimulus 3
+| cycle | rst | clk_out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 0 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 1 |
+| 4 | 1 | 1 |
+| 5 | 1 | 1 |
+| 6 | 1 | 1 |
+| 7 | 1 | 0 |
+| 8 | 1 | 0 |
+| 9 | 1 | 0 |
+| 10 | 1 | 0 |
+| 11 | 1 | 1 |
+
+### stimulus 4
+| cycle | rst | clk_out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 1 |
+| 3 | 1 | 1 |
+| 4 | 0 | 0 |
+| 5 | 1 | 0 |
+| 6 | 1 | 1 |
+| 7 | 1 | 1 |
+
+### stimulus 5
+| cycle | rst | clk_out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 0 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 1 |
+
+### stimulus 6
+| cycle | rst | clk_out |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 1 | x |
+| 2 | 1 | x |
+| 3 | 1 | x |
+| 4 | 1 | x |
+| 5 | 1 | x |
+| 6 | 1 | x |
+| 7 | 1 | x |
+| 8 | 1 | x |
+| 9 | 1 | x |
+| 10 | 1 | x |
+| 11 | 1 | x |
+| 12 | 1 | x |
+| 13 | 1 | x |
+| 14 | 1 | x |
+| 15 | 1 | x |
+| 16 | 1 | x |
+| 17 | 1 | x |
+| 18 | 1 | x |
+| 19 | 1 | x |
+| 20 | 1 | x |
+| 21 | 1 | x |
+| 22 | 1 | x |
+| 23 | 1 | x |
+| 24 | 1 | x |
+| 25 | 1 | x |
+| 26 | 1 | x |
+| 27 | 1 | x |
+| 28 | 1 | x |
+| 29 | 0 | 0 |
+| 30 | 1 | 0 |
+| 31 | 1 | 1 |
+| 32 | 1 | 1 |
+| 33 | 1 | 1 |
+| 34 | 1 | 1 |
+| 35 | 1 | 0 |
+| 36 | 1 | 0 |
+| 37 | 1 | 0 |
+| 38 | 1 | 0 |
+| 39 | 1 | 1 |
+| 40 | 1 | 1 |
+| 41 | 1 | 1 |
+| 42 | 1 | 1 |
+| 43 | 1 | 0 |
+| 44 | 1 | 0 |
+| 45 | 1 | 0 |
+| 46 | 1 | 0 |
+| 47 | 1 | 1 |
+| 48 | 1 | 1 |
+| 49 | 1 | 1 |
+| 50 | 1 | 1 |
+| 51 | 1 | 0 |
+| 52 | 1 | 0 |
+| 53 | 1 | 0 |
+| 54 | 1 | 0 |
+| 55 | 1 | 1 |
+| 56 | 1 | 1 |
+| 57 | 1 | 1 |
+| 58 | 1 | 1 |
+| 59 | 1 | 0 |
+
+### stimulus 7
+| cycle | rst | clk_out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 0 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 1 |
+| 4 | 1 | 1 |
+| 5 | 1 | 1 |
+| 6 | 1 | 1 |
+| 7 | 1 | 0 |
+| 8 | 1 | 0 |
+| 9 | 1 | 0 |
+| 10 | 1 | 0 |
+| 11 | 1 | 1 |
+| 12 | 1 | 1 |
+| 13 | 1 | 1 |
+| 14 | 1 | 1 |
+| 15 | 1 | 0 |
+| 16 | 1 | 0 |
+| 17 | 1 | 0 |
+| 18 | 1 | 0 |
+| 19 | 1 | 1 |
+| 20 | 1 | 1 |
+| 21 | 1 | 1 |
+| 22 | 1 | 1 |
+| 23 | 1 | 0 |
+| 24 | 1 | 0 |
+| 25 | 1 | 0 |
+| 26 | 1 | 0 |
+| 27 | 1 | 1 |
+| 28 | 1 | 1 |
+| 29 | 1 | 1 |
+| 30 | 1 | 1 |
+| 31 | 1 | 0 |
+| 32 | 1 | 0 |
+| 33 | 1 | 0 |
+| 34 | 1 | 0 |
+| 35 | 1 | 1 |
+| 36 | 1 | 1 |
+| 37 | 1 | 1 |
+| 38 | 1 | 1 |
+| 39 | 1 | 0 |
+| 40 | 1 | 0 |
+| 41 | 1 | 0 |
+| 42 | 1 | 0 |
+| 43 | 1 | 1 |
+| 44 | 1 | 1 |
+| 45 | 1 | 1 |
+| 46 | 1 | 1 |
+| 47 | 1 | 0 |
+| 48 | 1 | 0 |
+| 49 | 1 | 0 |
+| 50 | 1 | 0 |
+| 51 | 1 | 1 |
+| 52 | 1 | 1 |
+| 53 | 1 | 1 |
+| 54 | 1 | 1 |
+| 55 | 1 | 0 |
+| 56 | 1 | 0 |
+| 57 | 1 | 0 |
+| 58 | 1 | 0 |
+| 59 | 1 | 1 |
+| 60 | 1 | 1 |
+| 61 | 1 | 1 |
+| 62 | 1 | 1 |
+| 63 | 1 | 0 |
+| 64 | 1 | 0 |
+| 65 | 1 | 0 |
+| 66 | 1 | 0 |
+| 67 | 1 | 1 |
+| 68 | 1 | 1 |
+| 69 | 1 | 1 |
+| 70 | 1 | 1 |
+| 71 | 1 | 0 |
+| 72 | 1 | 0 |
+| 73 | 1 | 0 |
+| 74 | 1 | 0 |
+| 75 | 1 | 1 |
+| 76 | 1 | 1 |
+| 77 | 1 | 1 |
+| 78 | 1 | 1 |
+| 79 | 1 | 0 |

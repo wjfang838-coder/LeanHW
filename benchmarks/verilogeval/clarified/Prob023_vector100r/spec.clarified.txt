@@ -1,0 +1,75 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input [99:0].
+- out: output [99:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input, reset event, state element, or reset behavior. At power-up, before any event has occurred, out is already the bit-reversal of the current in value; it is not unknown and has no initialization interval. Because the design has no state, there is no distinct first step after release and no output or state value to clear, initialize, retain, or restore.
+
+Timing
+
+out is combinational from in with zero clock-cycle latency. There is no physical clock, active edge, pulse, periodic signal, circuit period, or delay law. Evaluated full-cycle trace row k is an observation sample of that row's current input and output before the framework's inert state transition; row spacing does not imply a 10 ns clock tick or any physical elapsed time.
+
+Behaviour
+
+At all times, each input bit in[j] for j from 0 through 99 determines out[99-j] combinationally; there are no modes, inactive levels, controls, transactions, interruptions, or event priorities, so simultaneous or repeated input changes simply make the output reflect the current complete input with no retained effect from earlier values.
+
+The output is continuously the bit-reversal of the current 100-bit input, out[i] = in[99-i] for i from 0 through 99; there is no reset or active edge, so under pre-edge row semantics every row observes the value implied by that row's current input without capture-to-observation latency, initialization, holding, clearing, completion, or restart behavior.
+
+This law covers every possible 100-bit value of in; there are no skipped encodings or exceptional cases.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | out |
+|---|---|---|
+| 0 | 100'h0 | 100'h0 |
+
+### stimulus 1
+| cycle | in | out |
+|---|---|---|
+| 0 | 100'h1 | 100'h8000000000000000000000000 |
+
+### stimulus 2
+| cycle | in | out |
+|---|---|---|
+| 0 | 100'hfffffffffffffffffffffffff | 100'hfffffffffffffffffffffffff |
+
+### stimulus 3
+| cycle | in | out |
+|---|---|---|
+| 0 | 100'h8000000000000000000000000 | 100'h1 |
+
+### stimulus 4
+| cycle | in | out |
+|---|---|---|
+| 0 | 100'h123456789abcdef0123456789 | 100'h91e6a2c480f7b3d591e6a2c48 |
+
+### stimulus 5
+| cycle | in | out |
+|---|---|---|
+| 0 | 100'h2 | 100'h4000000000000000000000000 |
+
+### stimulus 6
+| cycle | in | out |
+|---|---|---|
+| 0 | 100'h4000000000001 | 100'h8000000000002000000000000 |
+
+### stimulus 7
+| cycle | in | out |
+|---|---|---|
+| 0 | 100'hffffffffffffffffffffffffe | 100'h7ffffffffffffffffffffffff |

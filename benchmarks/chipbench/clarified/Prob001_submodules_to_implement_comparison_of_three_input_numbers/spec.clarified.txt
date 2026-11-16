@@ -1,0 +1,94 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- a: input [7:0].
+- b: input [7:0].
+- c: input [7:0].
+- d: output [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+rst_n is an active-low asynchronous reset. Asserting rst_n low asynchronously forces d to zero, cancels any pending transaction, and takes priority over a coincident rising edge. While rst_n remains low, d is 8'b00000000 and clock activity has no observable effect. The stored output value is zero in reset, and the state representing a captured transaction is invalid.
+
+Before reset has ever been asserted, d is unknown while rst_n is high. The implementation must leave that power-up output state uninitialised: it must not use an initial block or declaration initialiser to give it a definite value.
+
+After reset is released, d remains 8'b00000000 until a result is due. The first rising edge after release captures one transaction but does not publish its result. On the next rising edge, d becomes the minimum for that first transaction. Reasserting reset repeats the same cancellation and restart behavior.
+
+4. Timing.
+
+d is registered. With reset deasserted, every rising edge accepts the current values of a, b, and c; falling edges and steady clock levels have no effect. The accepted transaction changes d on the following rising edge, giving a latency of one clock cycle from capture to publication. Changes to a, b, or c between rising edges have no effect. d retains its last published value between rising edges. Consecutive rising edges accept consecutive transactions and, once the pipeline is primed, publish consecutive results.
+
+The evaluated trace uses full-cycle observations: row k samples the settled output immediately before the kth modeled rising-edge transition, and the transition then produces the state observed by the next row. The interface supplies no numeric step_ns or sample_offset_ns, so no 10 ns or other physical clock period is implied. This observation convention is separate from the circuit law that capture and publication occur on rising clock edges one cycle apart.
+
+5. Behaviour.
+
+Each accepted a, b, and c value is treated as an unsigned 8-bit operand, and its transaction result is d = min(a, b, c). This law covers every possible combination of the three 8-bit inputs, including equal operands. If two or all three operands are equal and minimal, d is that shared value.
+
+The first post-reset capture has no immediately visible result. On each rising edge after that first edge, d becomes the unsigned minimum belonging to the transaction captured on the preceding rising edge and retains that value until another result or reset changes it. Reset discards every transaction awaiting publication; a transaction captured before reset is never published after reset release.
+
+6. Worked trace.
+
+The evaluated trace below is normative.
+
+### stimulus 0
+| cycle | rst_n | a | b | c | d |
+|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 8'b11111111 | 8'b10000000 | 8'b00000000 |
+| 1 | 1 | 8'b00000001 | 8'b10000000 | 8'b11111111 | 8'b00000000 |
+| 2 | 1 | 8'b01011010 | 8'b00000001 | 8'b10000000 | 8'b00000000 |
+| 3 | 1 | 8'b11111111 | 8'b01011010 | 8'b00000001 | 8'b00000001 |
+
+### stimulus 1
+| cycle | rst_n | a | b | c | d |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000000 | 8'b00000001 | 8'b11111111 | 8'x |
+
+### stimulus 2
+| cycle | rst_n | a | b | c | d |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000001 | 8'b11111111 | 8'b00000000 | 8'x |
+
+### stimulus 3
+| cycle | rst_n | a | b | c | d |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b11111111 | 8'b10000000 | 8'b01011010 | 8'x |
+
+### stimulus 4
+| cycle | rst_n | a | b | c | d |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b10000000 | 8'b01011010 | 8'b11111111 | 8'x |
+
+### stimulus 5
+| cycle | rst_n | a | b | c | d |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b01011010 | 8'b00000000 | 8'b00000001 | 8'x |
+
+### stimulus 6
+| cycle | rst_n | a | b | c | d |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b01001001 | 8'b01001001 | 8'b11001000 | 8'x |
+
+### stimulus 7
+| cycle | rst_n | a | b | c | d |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b11001000 | 8'b01001001 | 8'b01001001 | 8'x |
+
+### stimulus 8
+| cycle | rst_n | a | b | c | d |
+|---|---|---|---|---|---|
+| 0 | 0 | 8'b11111111 | 8'b00000000 | 8'b10000000 | 8'b00000000 |
+| 1 | 0 | 8'b00000001 | 8'b01011010 | 8'b11111111 | 8'b00000000 |
+| 2 | 1 | 8'b10000000 | 8'b00000001 | 8'b01011010 | 8'b00000000 |
+| 3 | 1 | 8'b00000000 | 8'b11111111 | 8'b10000000 | 8'b00000000 |

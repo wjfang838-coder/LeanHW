@@ -1,0 +1,51 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "name": "native CPU RAM preserved",
+      "status": "accepted",
+      "word_nodes": 730,
+      "state_groups": 27
+    },
+    {
+      "name": "clocked read",
+      "status": "rejected",
+      "reason": "native profile requires asynchronous reads"
+    },
+    {
+      "name": "two writes",
+      "status": "rejected",
+      "reason": "native memory needs positive widths and at most one write port"
+    },
+    {
+      "name": "initialized image",
+      "status": "rejected",
+      "reason": "native initial image needs a separate initialization proof"
+    },
+    {
+      "name": "partial depth",
+      "status": "rejected",
+      "reason": "partial-depth native memory is not supported"
+    },
+    {
+      "name": "negative edge write",
+      "status": "rejected",
+      "reason": "RAM write clock must be positive edge"
+    },
+    {
+      "name": "read-enable gating",
+      "status": "rejected",
+      "reason": "read-enable gating is not supported"
+    },
+    {
+      "name": "read reset",
+      "status": "rejected",
+      "reason": "read-reset gating is not supported"
+    },
+    {
+      "name": "read through RAM data",
+      "status": "rejected",
+      "reason": "RAM read address must depend only on old registers/inputs: {'__native_read_0_0'}"
+    }
+  ]
+}

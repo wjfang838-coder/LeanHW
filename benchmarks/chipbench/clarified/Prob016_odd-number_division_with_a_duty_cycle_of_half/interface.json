@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob016_odd-number_division_with_a_duty_cycle_of_half",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

@@ -1,0 +1,117 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- d: input [7:0].
+- reset: input 1 bit.
+- q: output [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+Reset is active high and synchronous to the rising edge of clk. Before the first rising edge of clk has occurred, q is unknown regardless of reset and d; the implementation must leave q uninitialised, with no initial block or declaration initialiser assigning it a value.
+
+While reset is asserted but before a rising edge, q retains its preceding value, or remains unknown if no rising edge has yet occurred. At every rising edge for which reset is high, q becomes 8'b00000000 regardless of d. It retains zero until a later rising edge updates it. Repeated rising edges while reset remains high keep q at zero.
+
+Deasserting reset does not itself change q. At the first rising edge after reset is released, q captures the eight-bit value of d at that edge; the captured value is visible after that edge and in the next pre-edge sampled row.
+
+Timing
+
+q is a registered output. It changes only as a consequence of a rising edge of clk and otherwise retains its value. On an eligible rising edge, the latency from the d value sampled at that edge to the updated q value is one edge transition: under the normative pre-edge row convention, inputs in row k determine q in row k+1. Reset clearing has the same one-row observation latency.
+
+The circuit law is edge-based: every rising edge independently updates q, while a steady low or high clk level and every falling edge have no effect. No autonomous periodic output or pulse is present.
+
+The trace observation convention is separate from the circuit's clock law. Row k is sampled before its modeled rising-edge transition and denotes time k * step_ns after settling, using the interface timing step_ns and sample_offset_ns; it is not an implicit 10 ns clock tick. One full-cycle row represents one complete clk period, and its modeled active transition is one rising edge.
+
+Behaviour
+
+At each rising edge of clk, reset has priority. If reset is high, q becomes 8'b00000000 regardless of d. If reset is low, q becomes exactly the eight-bit value of d sampled at that edge. These two cases cover every input combination because reset is one bit and d is eight bits.
+
+Only a rising edge of clk changes q: at each such edge reset high makes q zero and otherwise q takes d, while a steady clk, its low or high level, and falling edges have no effect, and every repeated rising edge independently applies the same reset-priority rule using the inputs at that edge.
+
+Reset is synchronous and active high: asserting or releasing it between rising edges does not change q, a rising edge while it is high clears q to zero with priority over d, a rising edge while it is low captures d, repeated high-reset edges keep q zero, and release permits capture at the first subsequent rising edge.
+
+The eight-bit d value is sampled on each rising edge of clk only when reset is low, causing q to take that sampled value; changes to d between rising edges or while reset is high have no effect, and successive eligible rising edges capture successive d values independently.
+
+With rows sampled before the active edge, row k shows q from the preceding rising edge (or unknown before the first one), then that row's rising edge makes q zero if reset is high or equal to d if reset is low, so the result first appears at row k+1 and is held through all intervening non-rising times until the next rising edge repeats the rule.
+
+Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance of this specification.
+
+### stimulus 0
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b00000000 | 1 | 8'x |
+| 1 | 8'b11111111 | 1 | 8'b00000000 |
+| 2 | 8'b00000001 | 0 | 8'b00000000 |
+| 3 | 8'b10000000 | 0 | 8'b00000001 |
+| 4 | 8'b01011010 | 0 | 8'b10000000 |
+
+### stimulus 1
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b00000000 | 0 | 8'x |
+| 1 | 8'b00000001 | 0 | 8'b00000000 |
+| 2 | 8'b11111111 | 0 | 8'b00000001 |
+| 3 | 8'b10000000 | 0 | 8'b11111111 |
+| 4 | 8'b01011010 | 0 | 8'b10000000 |
+
+### stimulus 2
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b10100101 | 1 | 8'x |
+| 1 | 8'b00111100 | 0 | 8'b00000000 |
+| 2 | 8'b11000011 | 0 | 8'b00111100 |
+| 3 | 8'b01011010 | 1 | 8'b11000011 |
+| 4 | 8'b00001111 | 0 | 8'b00000000 |
+
+### stimulus 3
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b11111111 | 0 | 8'x |
+| 1 | 8'b10000000 | 1 | 8'b11111111 |
+| 2 | 8'b00000001 | 0 | 8'b00000000 |
+| 3 | 8'b00000000 | 0 | 8'b00000001 |
+
+### stimulus 4
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b00000001 | 1 | 8'x |
+| 1 | 8'b11111111 | 0 | 8'b00000000 |
+| 2 | 8'b00000000 | 0 | 8'b11111111 |
+| 3 | 8'b11111111 | 0 | 8'b00000000 |
+
+### stimulus 5
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b10000000 | 0 | 8'x |
+| 1 | 8'b01111111 | 0 | 8'b10000000 |
+| 2 | 8'b11111111 | 1 | 8'b01111111 |
+| 3 | 8'b01011010 | 0 | 8'b00000000 |
+
+### stimulus 6
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b00000000 | 1 | 8'x |
+| 1 | 8'b01010101 | 0 | 8'b00000000 |
+| 2 | 8'b10101010 | 1 | 8'b01010101 |
+| 3 | 8'b01010101 | 0 | 8'b00000000 |
+| 4 | 8'b10101010 | 0 | 8'b01010101 |
+
+### stimulus 7
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b01011010 | 0 | 8'x |
+| 1 | 8'b01011010 | 0 | 8'b01011010 |
+| 2 | 8'b10100101 | 0 | 8'b01011010 |
+| 3 | 8'b10100101 | 0 | 8'b10100101 |

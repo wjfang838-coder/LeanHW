@@ -1,0 +1,125 @@
+Module and integration contract
+
+Module: instr_reg.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- fetch: input [1:0].
+- data: input [7:0].
+- ins: output [2:0].
+- ad1: output [4:0].
+- ad2: output [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+rst is active low and asynchronous. Whenever rst is low, ins is 3'b000, ad1 is 5'b00000, and ad2 is 8'b00000000 immediately, independent of clk, fetch, and data. Reset overrides a simultaneous rising-edge capture and keeps all stored instruction values cleared through every rising edge while asserted.
+
+Releasing rst does not itself alter an output. On the first step after release, the cleared values remain unless that step is a rising clk edge with a qualifying fetch; fetch=2'b01 may then replace ins and ad1, fetch=2'b10 may replace ad2, and the other output or outputs remain zero.
+
+At power-up before rst has ever been asserted or a relevant capture has occurred, ins and ad1 are unknown until either rst is asserted or the first rising clk edge with rst high and fetch=2'b01; ad2 is independently unknown until either rst is asserted or the first rising clk edge with rst high and fetch=2'b10. The implementation must leave these power-up values uninitialised, with no initial block or declaration initialiser.
+
+4. Timing
+
+ins, ad1, and ad2 are registered outputs with asynchronous reset. On a qualifying rising clk edge, the pre-edge values remain observable until the edge and the newly captured values are observable after that edge: ins and ad1 have one edge-to-observation update from data under fetch=2'b01, and ad2 has one edge-to-observation update from data under fetch=2'b10. A steady clk level and a falling edge have no effect. Each rising edge applies the transaction rule independently; there are no pulse or periodic data outputs.
+
+The worked trace uses the interface's full-cycle sampling convention. Row k is the settled pre-transition observation for full-cycle step k, and the transition following that row represents the next rising edge. No implicit 10 ns clock tick is implied. This observation convention is separate from the circuit law that state changes only on rising clk edges, except for immediate asynchronous reset assertion.
+
+5. Behaviour
+
+While rst is high, each rising edge of clk performs one transaction—fetch=2'b01 captures data for ins and ad1, fetch=2'b10 captures data for ad2, and fetch=2'b00 or 2'b11 retains every output—whereas a steady clk level and falling edges have no effect; repeated rising edges repeat this rule independently, and simultaneous low rst overrides the transaction.
+
+rst is active low and asynchronous: its assertion immediately clears ins, ad1, and ad2 to zero, keeps them zero through any rising clk edges and any fetch or data values while low, and overrides a simultaneous capture; releasing rst does not itself change an output, and normal capture or retention resumes at subsequent rising edges, with every later assertion interrupting and clearing again.
+
+At each rising clk edge with rst high, fetch=2'b01 makes data determine the next ins and ad1 while ad2 retains its value, fetch=2'b10 makes data determine the next ad2 while ins and ad1 retain their values, and fetch=2'b00 or 2'b11 retains all outputs; fetch changes between edges have no effect, repeated transactions apply independently, and low rst overrides every fetch value.
+
+data is sampled only on a rising clk edge with rst high and fetch=2'b01 or 2'b10: under 2'b01 its bits [7:5] and [4:0] become ins and ad1 respectively, under 2'b10 all eight bits become ad2, and under 2'b00 or 2'b11, between edges, or while rst is low it has no effect; repeated qualifying edges sample the then-current data and reset interruption discards capture in favor of zeros.
+
+ins is asynchronously cleared to 3'b000 when rst goes low and stays zero while rst is low; after release it retains its value until a rising clk edge with fetch=2'b01 captures data[7:5], with a pre-edge row still showing the old value and the captured value observable only after that edge, while all other fetch values hold it, later qualifying edges replace it, and any reset interruption clears it immediately before capture can restart after release.
+
+ad1 is asynchronously cleared to 5'b00000 when rst goes low and stays zero while rst is low; after release it retains its value until a rising clk edge with fetch=2'b01 captures data[4:0], with a pre-edge row still showing the old value and the captured value observable only after that edge, while all other fetch values hold it, later qualifying edges replace it, and any reset interruption clears it immediately before capture can restart after release.
+
+ad2 is asynchronously cleared to 8'b00000000 when rst goes low and stays zero while rst is low; after release it retains its value until a rising clk edge with fetch=2'b10 captures all eight data bits, with a pre-edge row still showing the old value and the captured value observable only after that edge, while all other fetch values hold it, later qualifying edges replace it, and any reset interruption clears it immediately before capture can restart after release.
+
+6. Worked trace
+
+The following evaluated trace is normative. Each row samples outputs before its associated full-cycle transition.
+
+### stimulus 0
+| cycle | rst | fetch | data | ins | ad1 | ad2 |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 2'b00 | 8'b00000000 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 1 | 1 | 2'b01 | 8'b00000001 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 2 | 1 | 2'b00 | 8'b11111111 | 3'b000 | 5'b00001 | 8'b00000000 |
+| 3 | 1 | 2'b10 | 8'b10000000 | 3'b000 | 5'b00001 | 8'b00000000 |
+| 4 | 1 | 2'b00 | 8'b01010101 | 3'b000 | 5'b00001 | 8'b10000000 |
+
+### stimulus 1
+| cycle | rst | fetch | data | ins | ad1 | ad2 |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 2'b00 | 8'b00000000 | 3'x | 5'x | 8'x |
+| 1 | 1 | 2'b01 | 8'b11111111 | 3'x | 5'x | 8'x |
+| 2 | 1 | 2'b00 | 8'b00000001 | 3'b111 | 5'b11111 | 8'x |
+
+### stimulus 2
+| cycle | rst | fetch | data | ins | ad1 | ad2 |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 2'b00 | 8'b00000000 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 1 | 1 | 2'b10 | 8'b01011010 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 2 | 0 | 2'b01 | 8'b10100101 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 3 | 1 | 2'b00 | 8'b00000000 | 3'b000 | 5'b00000 | 8'b00000000 |
+
+### stimulus 3
+| cycle | rst | fetch | data | ins | ad1 | ad2 |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 2'b00 | 8'b00000000 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 1 | 1 | 2'b01 | 8'b11100001 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 2 | 0 | 2'b10 | 8'b00111100 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 3 | 1 | 2'b00 | 8'b00000000 | 3'b000 | 5'b00000 | 8'b00000000 |
+
+### stimulus 4
+| cycle | rst | fetch | data | ins | ad1 | ad2 |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 2'b00 | 8'b00000001 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 1 | 1 | 2'b11 | 8'b10000000 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 2 | 1 | 2'b00 | 8'b11111111 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 3 | 1 | 2'b01 | 8'b00100100 | 3'b000 | 5'b00000 | 8'b00000000 |
+
+### stimulus 5
+| cycle | rst | fetch | data | ins | ad1 | ad2 |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 2'b00 | 8'b11111111 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 1 | 1 | 2'b01 | 8'b00000001 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 2 | 1 | 2'b10 | 8'b00000010 | 3'b000 | 5'b00001 | 8'b00000000 |
+| 3 | 1 | 2'b01 | 8'b01111111 | 3'b000 | 5'b00001 | 8'b00000010 |
+| 4 | 1 | 2'b10 | 8'b10000000 | 3'b011 | 5'b11111 | 8'b00000010 |
+| 5 | 1 | 2'b00 | 8'b01010101 | 3'b011 | 5'b11111 | 8'b10000000 |
+
+### stimulus 6
+| cycle | rst | fetch | data | ins | ad1 | ad2 |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 2'b00 | 8'b00000000 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 1 | 1 | 2'b01 | 8'b00010010 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 2 | 1 | 2'b00 | 8'b00110100 | 3'b000 | 5'b10010 | 8'b00000000 |
+| 3 | 1 | 2'b10 | 8'b01010110 | 3'b000 | 5'b10010 | 8'b00000000 |
+| 4 | 1 | 2'b00 | 8'b01111000 | 3'b000 | 5'b10010 | 8'b01010110 |
+| 5 | 1 | 2'b01 | 8'b10011010 | 3'b000 | 5'b10010 | 8'b01010110 |
+| 6 | 1 | 2'b10 | 8'b10111100 | 3'b100 | 5'b11010 | 8'b01010110 |
+| 7 | 1 | 2'b00 | 8'b11011110 | 3'b100 | 5'b11010 | 8'b10111100 |
+
+### stimulus 7
+| cycle | rst | fetch | data | ins | ad1 | ad2 |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 2'b00 | 8'b00000000 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 1 | 1 | 2'b01 | 8'b11100000 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 2 | 0 | 2'b00 | 8'b00010001 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 3 | 1 | 2'b10 | 8'b01011010 | 3'b000 | 5'b00000 | 8'b00000000 |
+| 4 | 1 | 2'b00 | 8'b00000000 | 3'b000 | 5'b00000 | 8'b01011010 |

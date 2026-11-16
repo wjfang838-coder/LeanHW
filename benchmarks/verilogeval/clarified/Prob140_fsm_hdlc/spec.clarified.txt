@@ -1,0 +1,193 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- in: input 1 bit.
+- disc: output 1 bit.
+- flag: output 1 bit.
+- err: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- [3:0] S0: default = 0.
+- [3:0] S1: default = 1.
+- [3:0] S2: default = 2.
+- [3:0] S3: default = 3.
+- [3:0] S4: default = 4.
+- [3:0] S5: default = 5.
+- [3:0] S6: default = 6.
+- [3:0] SERR: default = 7.
+- [3:0] SDISC: default = 8.
+- [3:0] SFLAG: default = 9.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Reset is active high and synchronous to the rising edge of clk. Before the first rising clock edge that samples reset asserted, disc, flag, and err are unknown; the implementation must leave all three uninitialised, with no initial block or declaration initialiser that gives them a defined value. The recognition history is likewise not usable before that reset edge.
+
+At every rising edge that samples reset=1, recognition history is cleared to the empty-run condition and disc, flag, and err all become 0 immediately after the edge, regardless of in. They remain 0 after repeated reset edges. Merely asserting reset between rising edges does not immediately alter any output. On the first rising edge after reset is released, the sampled in bit starts recognition: a high establishes a run of one high and a low leaves an empty run; all outputs remain 0 on that first step.
+
+Reset is active high and synchronous: a rising clk edge with reset=1 aborts any partial or completed recognition and establishes the idle outputs immediately after that edge regardless of in, continued assertion repeats that effect, assertion between rising edges has no immediate effect, and after release recognition restarts from the in value captured on the first rising edge with reset=0.
+
+4. Timing.
+
+Only a rising edge of clk captures reset and in and advances the observable sequence behavior; clk remaining low or high and falling edges have no effect, each rising edge performs one capture even in repeated transactions, and if reset and in are both asserted at that edge reset takes priority.
+
+disc, flag, and err are registered Moore outputs. Each changes immediately after the decisive rising edge and is therefore visible for the following clock cycle. disc and flag assertions are each exactly one complete clock cycle wide. err has no fixed pulse width: it stays asserted for one cycle per captured high from the seventh consecutive high onward, and clears after the rising edge that captures a low or asserted reset.
+
+The evaluated trace uses the full-cycle observation convention: row k is sampled before transition k, at the kth full-cycle step after settling, and then that row's rising edge advances the state. This indexing convention does not specify a physical clock period or propagation delay; the interface provides no numeric step or sample-offset duration.
+
+5. Behaviour.
+
+All input and output values are one bit. With reset=0, recognition is based on the number of consecutive highs captured at rising edges since reset or the most recently captured low. Counts beyond seven are behaviorally equivalent to seven for output purposes.
+
+On each rising clk edge with reset=0, in extends the current run when high and a low restarts it, except that five consecutive captured highs followed by a captured low selects the one-cycle disconnect result, six consecutive captured highs followed by a captured low selects the one-cycle flag result, and a seventh consecutive high selects the error result which persists on further highs until a low; after either one-cycle result, a high is retained as the first high of a new run while a low returns to an empty run, and reset overrides in.
+
+disc is unknown until a rising edge samples reset=1, is 0 immediately after every such edge, and with reset=0 becomes 1 immediately after the rising edge that captures a low preceded since reset or restart by exactly five consecutive captured highs; it remains 1 until the next rising edge, then clears regardless of in, with a high on that clearing edge beginning the next candidate run and a low leaving no partial run, while a newly asserted reset clears it only after the next rising edge; because each table row is sampled before its active edge, the asserted value is observed in the row following the decisive low capture.
+
+flag is unknown until a rising edge samples reset=1, is 0 immediately after every such edge, and with reset=0 becomes 1 immediately after the rising edge that captures a low preceded since reset or restart by exactly six consecutive captured highs; it remains 1 until the next rising edge, then clears regardless of in, with a high on that clearing edge beginning the next candidate run and a low leaving no partial run, while a newly asserted reset clears it only after the next rising edge; because each table row is sampled before its active edge, the asserted value is observed in the row following the decisive low capture.
+
+err is unknown until a rising edge samples reset=1, is 0 immediately after every such edge, and with reset=0 becomes 1 immediately after the rising edge that captures a seventh consecutive high since reset or restart; it remains 1 across every subsequent rising edge capturing high and clears on the first rising edge capturing low, after which recognition restarts, while asserted reset has priority and clears it at the sampling rising edge; because each table row is sampled before its active edge, assertion is observed in the row after the seventh-high capture and clearing in the row after the terminating-low capture.
+
+For all other captured-low cases—zero through four preceding consecutive highs, or seven or more preceding consecutive highs—disc and flag are both 0 after the edge. Such a low also clears err and establishes an empty run. Thus every possible input history is covered, including repeated resets, interrupted partial patterns, repeated recognition transactions, and arbitrarily long runs of highs.
+
+6. Worked trace.
+
+The evaluated trace below is normative for the concrete sampled instance and its stated observation convention.
+
+### stimulus 0
+| cycle | reset | in | disc | flag | err |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | x | x | x |
+| 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | reset | in | disc | flag | err |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | x | x | x |
+| 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | reset | in | disc | flag | err |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | x | x | x |
+| 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | reset | in | disc | flag | err |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | x | x | x |
+| 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 0 | 0 | 0 |
+| 8 | 0 | 0 | 0 | 0 | 0 |
+| 9 | 0 | 1 | 0 | 1 | 0 |
+
+### stimulus 4
+| cycle | reset | in | disc | flag | err |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | x | x | x |
+| 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 0 | 0 | 0 |
+| 9 | 0 | 1 | 0 | 0 | 1 |
+| 10 | 0 | 0 | 0 | 0 | 1 |
+| 11 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | reset | in | disc | flag | err |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | x | x | x |
+| 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 0 | 0 | 0 |
+| 9 | 0 | 1 | 0 | 0 | 0 |
+| 10 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 6
+| cycle | reset | in | disc | flag | err |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | x | x | x |
+| 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 | 0 | 0 |
+| 8 | 0 | 0 | 1 | 0 | 0 |
+| 9 | 0 | 1 | 0 | 0 | 0 |
+| 10 | 0 | 1 | 0 | 0 | 0 |
+| 11 | 0 | 1 | 0 | 0 | 0 |
+| 12 | 0 | 1 | 0 | 0 | 0 |
+| 13 | 0 | 1 | 0 | 0 | 0 |
+| 14 | 0 | 0 | 0 | 0 | 0 |
+| 15 | 0 | 0 | 1 | 0 | 0 |
+| 16 | 0 | 1 | 0 | 0 | 0 |
+| 17 | 0 | 1 | 0 | 0 | 0 |
+| 18 | 0 | 1 | 0 | 0 | 0 |
+| 19 | 0 | 1 | 0 | 0 | 0 |
+| 20 | 0 | 1 | 0 | 0 | 0 |
+| 21 | 0 | 0 | 0 | 0 | 0 |
+| 22 | 0 | 1 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | reset | in | disc | flag | err |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | x | x | x |
+| 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 0 | 0 | 0 |
+| 8 | 0 | 0 | 0 | 0 | 0 |
+| 9 | 0 | 0 | 0 | 1 | 0 |
+| 10 | 0 | 1 | 0 | 0 | 0 |
+| 11 | 0 | 1 | 0 | 0 | 0 |
+| 12 | 0 | 1 | 0 | 0 | 0 |
+| 13 | 0 | 1 | 0 | 0 | 0 |
+| 14 | 0 | 1 | 0 | 0 | 0 |
+| 15 | 0 | 1 | 0 | 0 | 0 |
+| 16 | 0 | 0 | 0 | 0 | 0 |
+| 17 | 0 | 0 | 0 | 1 | 0 |
+| 18 | 0 | 1 | 0 | 0 | 0 |
+| 19 | 0 | 1 | 0 | 0 | 0 |
+| 20 | 0 | 1 | 0 | 0 | 0 |
+| 21 | 0 | 1 | 0 | 0 | 0 |
+| 22 | 0 | 1 | 0 | 0 | 0 |
+| 23 | 0 | 1 | 0 | 0 | 0 |
+| 24 | 0 | 0 | 0 | 0 | 0 |
+| 25 | 0 | 1 | 0 | 1 | 0 |

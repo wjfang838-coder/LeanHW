@@ -1,0 +1,177 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- areset: input 1 bit.
+- predict_valid: input 1 bit.
+- predict_pc: input [6:0].
+- predict_taken: output 1 bit.
+- predict_history: output [6:0].
+- train_valid: input 1 bit.
+- train_taken: input 1 bit.
+- train_mispredicted: input 1 bit.
+- train_history: input [6:0].
+- train_pc: input [6:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  n: default = 7.
+- [1:0] SNT: default = 0.
+- [1:0] LNT: default = 1.
+- [1:0] LT: default = 2.
+- [1:0] ST: default = 3.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+areset is active high and asynchronous. While areset is asserted, the seven-bit global branch history register is 7'b0000000 and all 2**n two-bit PHT states are LNT (2'b01); reset overrides simultaneous prediction and training activity. With predict_valid asserted during reset, predict_taken is 1'b0 and predict_history is 7'b0000000. With predict_valid deasserted, both outputs are unknown even while reset is asserted.
+
+At power-up, before areset has ever been asserted, the global branch history and every PHT state are uninitialized. Therefore predict_history is unknown, and predict_taken is unknown because either the current history or the selected PHT state is unknown. The implementation must leave this state uninitialized, with no initial block or declaration initializer. When predict_valid is low, both outputs are unknown independently of this power-up state.
+
+After areset is released, the reset values remain until a qualifying rising edge changes them. Outputs respond immediately to the released reset level: a valid prediction uses the retained reset state with no extra latency. At the first rising edge after release, training and prediction perform exactly the updates stated below; if neither qualifying update applies, every state element retains its reset value.
+
+4. Timing
+
+All sequential changes occur only on a rising edge of clk, except that assertion of areset takes effect asynchronously. Low clk levels and falling edges cause no state change. Repeated rising edges repeat all input-qualified updates, and areset takes precedence over clk.
+
+predict_taken is combinational when predict_valid is high: it responds immediately to predict_pc, the current global history, and the currently selected PHT state. A PHT update accepted at a rising edge is observable immediately after that edge, with zero additional clock-cycle latency. predict_taken is not a pulse and has no completion or hold/clear interval.
+
+predict_history is combinational when predict_valid is high and exposes the current global history. A qualifying history update accepted at a rising edge is observable immediately after that edge, with zero additional clock-cycle latency. It is not a pulse; its defined value persists between history updates whenever predict_valid is high.
+
+The circuit specification imposes no numeric clock period and no propagation-delay law. For the evaluated trace only, the timebase is one full cycle per row: row k is sampled after settling and before its active edge, and that edge computes the state used by row k+1. Thus row k denotes k times the interface step interval after settling; it does not imply a 10 ns clock tick. The interface provides no numeric step_ns or sample_offset_ns value.
+
+5. Behaviour
+
+Only the low n bits of each PC and history operand participate in the parameterized design. The prediction address is the unsigned n-bit XOR of predict_pc and the current n-bit global branch history. The training address is the unsigned n-bit XOR of train_pc and train_history. Each address selects one of the 2**n PHT states.
+
+When predict_valid is high, predict_taken is the most-significant bit of the selected two-bit PHT state: SNT and LNT predict 1'b0, while LT and ST predict 1'b1. predict_history simultaneously equals the current global branch history. A change of predict_pc can change predict_taken combinationally but cannot change predict_history, select training state, or itself cause an edge update. When predict_valid is low, predict_taken is 1'bx and predict_history is n unknown bits; predict_pc then has no observable effect and ordinary prediction-history advancement is disabled, while qualifying training remains active.
+
+On every rising edge with predict_valid high, the ordinary next global history is the previous history shifted toward the most-significant end with the pre-edge predict_taken appended as bit 0. For the concrete n = 7 instance, this law is `{previous_history[5:0], pre-edge predict_taken}`; the result is truncated at the documented n-bit history boundary. This update requires the prior history and selected prediction to be known; otherwise the resulting history remains unknown.
+
+On every rising edge with train_valid high, the PHT state at `train_pc XOR train_history` increments by one for train_taken equal to 1, saturating at ST (2'b11), or decrements by one for train_taken equal to 0, saturating at SNT (2'b00). The arithmetic is unsigned and its stored result is exactly two bits at the PHT-state write boundary. An uninitialized selected state remains unknown under training until reset has established a state. Repeated asserted edges perform repeated saturating updates. A simultaneous prediction of that address sees the pre-edge PHT state; the updated state becomes visible immediately after the edge.
+
+On a rising edge with both train_valid and train_mispredicted high, the next global history is `{train_history[n-2:0], train_taken}`. For n = 7 this is `{train_history[5:0], train_taken}`. This correction overrides simultaneous ordinary prediction-history advancement. It fully defines the corrected history from the supplied training inputs even if the prior history was unknown. When train_mispredicted is low, training still updates the selected PHT state but does not itself correct history. When train_valid is low, train_taken, train_mispredicted, train_history, and train_pc have no effect.
+
+Prediction-history advancement and PHT training are independent effects of the same rising edge. A valid misprediction changes both the selected PHT state and the global history. A simultaneous non-mispredicted training request and valid prediction trains the selected PHT state and performs the ordinary prediction-history advancement. A simultaneous valid misprediction and prediction trains the selected PHT state but uses the correction, discarding the ordinary history update. There is no transaction completion pulse, cancellation state, or implicit clear: state is retained whenever no applicable update replaces it.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete n = 7 sampled instance. Each row follows the pre-edge observation convention stated above.
+
+### stimulus 0
+| cycle | areset | predict_valid | predict_pc | train_valid | train_taken | train_mispredicted | train_history | train_pc | predict_taken | predict_history |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 7'b0000000 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | 0 | 7'b0000000 |
+| 1 | 0 | 1 | 7'b0000001 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | 0 | 7'b0000000 |
+| 2 | 0 | 1 | 7'b1111111 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | 0 | 7'b0000000 |
+| 3 | 0 | 1 | 7'b1000000 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | 0 | 7'b0000000 |
+| 4 | 0 | 1 | 7'b0101101 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | 0 | 7'b0000000 |
+
+### stimulus 1
+| cycle | areset | predict_valid | predict_pc | train_valid | train_taken | train_mispredicted | train_history | train_pc | predict_taken | predict_history |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 7'b0000000 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+| 1 | 0 | 1 | 7'b0000000 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+| 2 | 0 | 0 | 7'b0000000 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+
+### stimulus 2
+| cycle | areset | predict_valid | predict_pc | train_valid | train_taken | train_mispredicted | train_history | train_pc | predict_taken | predict_history |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 7'b0000000 | 1 | 1 | 0 | 7'b0000001 | 7'b0000001 | x | 7'x |
+| 1 | 0 | 0 | 7'b0000000 | 1 | 0 | 0 | 7'b1111111 | 7'b1111111 | x | 7'x |
+| 2 | 0 | 0 | 7'b0000000 | 1 | 1 | 0 | 7'b1000000 | 7'b1000000 | x | 7'x |
+| 3 | 0 | 0 | 7'b0000000 | 1 | 0 | 0 | 7'b0101101 | 7'b0101101 | x | 7'x |
+
+### stimulus 3
+| cycle | areset | predict_valid | predict_pc | train_valid | train_taken | train_mispredicted | train_history | train_pc | predict_taken | predict_history |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 7'b0000000 | 1 | 1 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+| 1 | 0 | 1 | 7'b0000000 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+| 2 | 0 | 0 | 7'b0000000 | 1 | 1 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+| 3 | 0 | 1 | 7'b0000000 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+| 4 | 0 | 0 | 7'b0000000 | 1 | 1 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+| 5 | 0 | 1 | 7'b0000000 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+
+### stimulus 4
+| cycle | areset | predict_valid | predict_pc | train_valid | train_taken | train_mispredicted | train_history | train_pc | predict_taken | predict_history |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 7'b0101010 | 1 | 0 | 1 | 7'b1010101 | 7'b0101011 | x | 7'x |
+| 1 | 0 | 1 | 7'b0101010 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'b0101010 |
+| 2 | 0 | 1 | 7'b0101011 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'b0101010 |
+
+### stimulus 5
+| cycle | areset | predict_valid | predict_pc | train_valid | train_taken | train_mispredicted | train_history | train_pc | predict_taken | predict_history |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 7'b0000111 | 1 | 1 | 0 | 7'b0000000 | 7'b0000111 | x | 7'x |
+| 1 | 0 | 1 | 7'b0000111 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+| 2 | 0 | 0 | 7'b0000000 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+| 3 | 0 | 1 | 7'b0000111 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+
+### stimulus 6
+| cycle | areset | predict_valid | predict_pc | train_valid | train_taken | train_mispredicted | train_history | train_pc | predict_taken | predict_history |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 7'b0000000 | 1 | 0 | 1 | 7'b0000000 | 7'b0000000 | x | 7'x |
+| 1 | 0 | 0 | 7'b0000000 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+| 2 | 0 | 0 | 7'b0000000 | 1 | 1 | 1 | 7'b1000000 | 7'b0000001 | x | 7'x |
+| 3 | 0 | 1 | 7'b1000001 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'b0000001 |
+
+### stimulus 7
+| cycle | areset | predict_valid | predict_pc | train_valid | train_taken | train_mispredicted | train_history | train_pc | predict_taken | predict_history |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 7'b1111111 | 0 | 1 | 1 | 7'b1111111 | 7'b1111111 | x | 7'x |
+| 1 | 0 | 1 | 7'b1111111 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+
+### stimulus 8
+| cycle | areset | predict_valid | predict_pc | train_valid | train_taken | train_mispredicted | train_history | train_pc | predict_taken | predict_history |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 7'b0000000 | 0 | 0 | 0 | 7'b0000000 | 7'b0000000 | x | 7'x |
+| 1 | 0 | 1 | 7'b0100101 | 0 | 0 | 0 | 7'b0010011 | 7'b0110101 | x | 7'x |
+| 2 | 0 | 0 | 7'b1001010 | 1 | 0 | 0 | 7'b0100110 | 7'b1101010 | x | 7'x |
+| 3 | 0 | 1 | 7'b1101111 | 1 | 1 | 0 | 7'b0111001 | 7'b0011111 | x | 7'x |
+| 4 | 0 | 0 | 7'b0010100 | 0 | 1 | 0 | 7'b1001100 | 7'b1010100 | x | 7'x |
+| 5 | 0 | 1 | 7'b0111001 | 0 | 1 | 1 | 7'b1011111 | 7'b0001001 | x | 7'x |
+| 6 | 0 | 0 | 7'b1011110 | 1 | 0 | 1 | 7'b1110010 | 7'b0111110 | x | 7'x |
+| 7 | 0 | 1 | 7'b0000011 | 1 | 0 | 1 | 7'b0000101 | 7'b1110011 | x | 7'b1100100 |
+| 8 | 0 | 0 | 7'b0101000 | 0 | 0 | 1 | 7'b0011000 | 7'b0101000 | x | 7'x |
+| 9 | 0 | 1 | 7'b1001101 | 0 | 1 | 1 | 7'b0101011 | 7'b1011101 | x | 7'b0001010 |
+| 10 | 0 | 0 | 7'b1110010 | 1 | 1 | 0 | 7'b0111110 | 7'b0010010 | x | 7'x |
+| 11 | 0 | 1 | 7'b0010111 | 1 | 1 | 0 | 7'b1010001 | 7'b1000111 | x | 7'b0001010 |
+| 12 | 0 | 0 | 7'b0111100 | 0 | 0 | 0 | 7'b1100100 | 7'b1111100 | x | 7'x |
+| 13 | 0 | 1 | 7'b1100001 | 0 | 0 | 0 | 7'b1110111 | 7'b0110001 | x | 7'b0001010 |
+| 14 | 0 | 0 | 7'b0000110 | 1 | 0 | 0 | 7'b0001010 | 7'b1100110 | x | 7'x |
+| 15 | 0 | 1 | 7'b0101011 | 1 | 1 | 1 | 7'b0011101 | 7'b0011011 | x | 7'b0001010 |
+| 16 | 0 | 0 | 7'b1010000 | 0 | 1 | 1 | 7'b0110000 | 7'b1010000 | x | 7'x |
+| 17 | 0 | 1 | 7'b1110101 | 0 | 1 | 1 | 7'b1000011 | 7'b0000101 | x | 7'b0111011 |
+| 18 | 0 | 0 | 7'b0011010 | 1 | 0 | 1 | 7'b1010110 | 7'b0111010 | x | 7'x |
+| 19 | 0 | 1 | 7'b0111111 | 1 | 0 | 1 | 7'b1101001 | 7'b1101111 | x | 7'b0101100 |
+| 20 | 0 | 0 | 7'b1100100 | 0 | 0 | 0 | 7'b1111100 | 7'b0100100 | x | 7'x |
+| 21 | 0 | 1 | 7'b0001001 | 0 | 1 | 0 | 7'b0001111 | 7'b1011001 | x | 7'b1010010 |
+| 22 | 0 | 0 | 7'b0101110 | 1 | 1 | 0 | 7'b0100010 | 7'b0001110 | x | 7'x |
+| 23 | 0 | 1 | 7'b1010011 | 1 | 1 | 0 | 7'b0110101 | 7'b1000011 | x | 7'b1010010 |
+| 24 | 0 | 0 | 7'b1111000 | 0 | 0 | 0 | 7'b1001000 | 7'b1111000 | x | 7'x |
+| 25 | 0 | 1 | 7'b0011101 | 0 | 0 | 1 | 7'b1011011 | 7'b0101101 | x | 7'b1010010 |
+| 26 | 0 | 0 | 7'b1000010 | 1 | 0 | 1 | 7'b1101110 | 7'b1100010 | x | 7'x |
+| 27 | 0 | 1 | 7'b1100111 | 1 | 1 | 1 | 7'b0000001 | 7'b0010111 | x | 7'b1011100 |
+| 28 | 0 | 0 | 7'b0001100 | 0 | 1 | 1 | 7'b0010100 | 7'b1001100 | x | 7'x |
+| 29 | 0 | 1 | 7'b0110001 | 0 | 1 | 1 | 7'b0100111 | 7'b0000001 | x | 7'b0000011 |
+| 30 | 0 | 0 | 7'b1010110 | 1 | 0 | 0 | 7'b0111010 | 7'b0110110 | x | 7'x |
+| 31 | 0 | 1 | 7'b1111011 | 1 | 0 | 0 | 7'b1001101 | 7'b1101011 | x | 7'b0000011 |
+| 32 | 0 | 0 | 7'b0100000 | 0 | 0 | 0 | 7'b1100000 | 7'b0100000 | x | 7'x |
+| 33 | 0 | 1 | 7'b1000101 | 0 | 1 | 0 | 7'b1110011 | 7'b1010101 | x | 7'b0000011 |
+| 34 | 0 | 0 | 7'b1101010 | 1 | 1 | 0 | 7'b0000110 | 7'b0001010 | x | 7'x |
+| 35 | 0 | 1 | 7'b0001111 | 1 | 1 | 1 | 7'b0011001 | 7'b0111111 | x | 7'b0000011 |
+| 36 | 0 | 0 | 7'b0110100 | 0 | 0 | 1 | 7'b0101100 | 7'b1110100 | x | 7'x |
+| 37 | 0 | 1 | 7'b1011001 | 0 | 0 | 1 | 7'b0111111 | 7'b0101001 | x | 7'b0110011 |
+| 38 | 0 | 0 | 7'b1111110 | 1 | 0 | 1 | 7'b1010010 | 7'b1011110 | x | 7'x |
+| 39 | 0 | 1 | 7'b0100011 | 1 | 1 | 1 | 7'b1100101 | 7'b0010011 | x | 7'b0100100 |
+
+## Normative clarification after closure validation
+
+All non-reset state updates are determined from values sampled immediately before a rising edge of clk and become externally observable immediately after that edge. Falling edges do not update state. Assertion of areset is asynchronous and has priority over every edge-qualified operation; after deassertion, the established reset state is retained until a later rising edge performs a qualifying update. Before areset has ever been asserted, the power-up state and any prediction derived from it remain unknown as already specified.
+
+For ordinary prediction-history advancement, predict_valid alone is not sufficient to overwrite the current history. At a rising edge with predict_valid high, the history is shifted and the pre-edge predict_taken value is appended only when both the pre-edge history and that selected prediction are known. If either is unknown, no ordinary history write occurs: the history retains its complete pre-edge value and its pre-edge known or unknown status. In particular, a history made known by reset or by a valid misprediction correction remains known and unchanged when a later ordinary prediction selects an uninitialized PHT entry. This hold rule does not affect PHT training at the same edge and is superseded by a simultaneous train_valid and train_mispredicted correction, which sets history from train_history and train_taken as specified. Outputs in a row observe the pre-edge state; accepted updates have one-edge latency to the next such row and no additional output register or completion pulse.

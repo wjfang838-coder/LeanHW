@@ -1,0 +1,6 @@
+'CaseCPU.Bridge.imported_checks' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ imported_checks._native.native_decide.ax_1_1]
+'CaseCPU.Bridge.imported_widths' depends on axioms: [imported_widths._native.native_decide.ax_1_1]
+'CaseCPU.Bridge.imported_state_shape' does not depend on any axioms

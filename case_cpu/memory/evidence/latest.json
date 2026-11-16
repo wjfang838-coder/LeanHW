@@ -1,0 +1,291 @@
+{
+  "proof_replay": {
+    "status": "full_refinement_proved",
+    "shallow_cache_reused": true,
+    "record": "evidence/replay-latest.json"
+  },
+  "status": "full_refinement_proved",
+  "generated_utc": "2026-10-21T03:12:11.955851+00:00",
+  "closed_rtl_to_isa": true,
+  "rtl": {
+    "path": "rtl/cpu.sv",
+    "sha256": "f5d0c13323902abe8d4077f214249e7fb6ef8f5753e7f7657959ab52a3fbe0c0",
+    "lines": 999,
+    "instructions": 38,
+    "pipeline_stages": 5
+  },
+  "native_import": {
+    "word_nodes": 730,
+    "register_groups": 27,
+    "scalar_state_bits": 2044,
+    "ram_bits": 8192,
+    "memories": [
+      {
+        "name": "ram",
+        "addr_width": 8,
+        "data_width": 32,
+        "size": 256,
+        "read_ports": 3,
+        "write_ports": 1,
+        "initial_contents": "arbitrary"
+      }
+    ],
+    "flattened_ram": false
+  },
+  "proved": [
+    "actual imported RTL/native RAM -> register-shaped pipeline -> cycle LeanSpec -> transaction ISA",
+    "whole-cycle refinement and reachable relation for arbitrary stalls, delay, undefined choices and repeated resets",
+    "architectural register file, PC, all RAM words and precise fault state",
+    "physical input acceptance and retirement ports -> abstract event stream",
+    "physical drain -> ISA execution of the actual accepted instruction program",
+    "retirement PC, destination/result and store byte-lane observations",
+    "all actual imported AST node equations and native RAM read/write/frame/reset semantics",
+    "cycle FIFO conservation with explicit reset/trap abort accounting"
+  ],
+  "open": [],
+  "scope": {
+    "reset": "one initial reset; arbitrary later resets in the trace theorem",
+    "memory": "arbitrary initial 256x32 native RAM, retained on reset",
+    "instructions": 38,
+    "control": "stream input, in-order backend; no branch/jump/CSR/cache/instruction RAM",
+    "progress": "safety for arbitrary stalls; accepted-program theorem conditional on physical drain",
+    "projected_out": "12 diagnostic performance counters and their read mux; not architectural ISA state"
+  },
+  "theorems": [
+    "CaseCPUMem.Source.circuit_cycle_refinement",
+    "CaseCPUMem.Source.rtl_to_transaction_isa",
+    "CaseCPUMem.Source.rtl_accepted_program_refinement",
+    "CaseCPUMem.Source.reachable_retirement_payload"
+  ],
+  "simulation": {
+    "status": "passed",
+    "source_sha256": {
+      "case_cpu/memory/rtl/cpu.sv": "f5d0c13323902abe8d4077f214249e7fb6ef8f5753e7f7657959ab52a3fbe0c0",
+      "case_cpu/memory/rtl/tb.sv": "87a36bd95903b3ea1164ed15dbe83633667deac2ff6efc6b7b8a87984f809d63",
+      "case_cpu/memory/scripts/model.py": "0f1e675ad09f7bca29df34900958bbf08afeb3f3c2b9bd70673c99cfa6e96213",
+      "case_cpu/scripts/model.py": "743dca06d1a0aa664c7b60916a73aa54729d4efac5ada6d42c5616fdf90f139c",
+      "case_cpu/memory/scripts/simulate.py": "0dc2975050e8a875b136503f91cf47dd0005a95351c9446d363947cdafcefa56"
+    },
+    "cycles": 14381,
+    "retired": 583,
+    "instructions": {
+      "add": 12,
+      "sub": 19,
+      "sll": 12,
+      "slt": 19,
+      "sltu": 22,
+      "xor": 18,
+      "srl": 15,
+      "sra": 14,
+      "or": 8,
+      "and": 15,
+      "mul": 22,
+      "mulh": 16,
+      "mulhsu": 10,
+      "mulhu": 11,
+      "div": 15,
+      "divu": 9,
+      "rem": 15,
+      "remu": 24,
+      "addi": 9,
+      "slti": 15,
+      "sltiu": 11,
+      "xori": 20,
+      "ori": 12,
+      "andi": 15,
+      "slli": 14,
+      "srli": 19,
+      "srai": 18,
+      "lui": 16,
+      "auipc": 17,
+      "sw": 11,
+      "sb": 15,
+      "sh": 12,
+      "lb": 18,
+      "lbu": 17,
+      "lh": 20,
+      "lhu": 17,
+      "lw": 10,
+      "fence": 21
+    },
+    "stall_masks": 32,
+    "faults": {
+      "1": 1,
+      "2": 1,
+      "3": 1,
+      "4": 1
+    },
+    "ram_bytes": 1024
+  },
+  "mutations": {
+    "method": "frozen-vector differential RTL simulation",
+    "mutations": [
+      {
+        "name": "trap_rd_leak",
+        "status": "detected",
+        "cycle": 12972,
+        "mutant_sha256": "958a2aff40a023fe87568edafe1e10b1768160ca5b65df6d2eb45f50d8bc2d08",
+        "witness": "evidence/mutations/trap_rd_leak/witness.json"
+      },
+      {
+        "name": "lb_zero_ext",
+        "status": "detected",
+        "cycle": 689,
+        "mutant_sha256": "052f7cd6b5a926e249a0e933961296f9f85be5c773ab2a1a97a5c4cabc9744aa",
+        "witness": "evidence/mutations/lb_zero_ext/witness.json"
+      },
+      {
+        "name": "sb_clobbers_word",
+        "status": "detected",
+        "cycle": 664,
+        "mutant_sha256": "99607b403fb5725f2a1dd21d343d4df5de27d9d49db04e4551b402955b132917",
+        "witness": "evidence/mutations/sb_clobbers_word/witness.json"
+      },
+      {
+        "name": "store_during_wb_stall",
+        "status": "detected",
+        "cycle": 1681,
+        "mutant_sha256": "27b39fd4c13c36fcf6b816ba74c4834dc585e7998ec9f5994e2b99d6a5853c64",
+        "witness": "evidence/mutations/store_during_wb_stall/witness.json"
+      },
+      {
+        "name": "delay_not_sampled",
+        "status": "detected",
+        "cycle": 650,
+        "mutant_sha256": "2c59080443378e5521a660062a8432f428279aad1488f5db1fa8178f591282fa",
+        "witness": "evidence/mutations/delay_not_sampled/witness.json"
+      }
+    ],
+    "correction": "revert each single mutation to frozen rtl/cpu.sv; replay via simulate.py",
+    "corrected_rtl_sha256": "f5d0c13323902abe8d4077f214249e7fb6ef8f5753e7f7657959ab52a3fbe0c0"
+  },
+  "pdr": {
+    "sanity": {
+      "status": "pdr_timeout",
+      "seconds": 30,
+      "aiger": {
+        "max_variable": 248886,
+        "inputs": 14570,
+        "latches": 12550,
+        "outputs": 0,
+        "ands": 221766,
+        "bad": 58,
+        "constraints": 1
+      },
+      "result": "evidence/pdr-sanity/result.json"
+    },
+    "full": {
+      "status": "pdr_timeout",
+      "seconds": 60,
+      "aiger": {
+        "max_variable": 512190,
+        "inputs": 25494,
+        "latches": 21984,
+        "outputs": 0,
+        "ands": 464712,
+        "bad": 74,
+        "constraints": 1
+      },
+      "result": "evidence/pdr-full/result.json"
+    }
+  },
+  "trust": [
+    "SystemVerilog/Yosys lowering and importer",
+    "Lean kernel and standard propext/Classical.choice/Quot.sound",
+    "native LRAT checking for bv_decide and native evaluation for checker/topology"
+  ],
+  "audit": {
+    "path": "evidence/Audit.log",
+    "sha256": "3aeb0c50c310409d2ddf9b2f5e492f1e6788d121c8ad33e92e3a08fb5acb2cfe",
+    "sorryAx": false
+  },
+  "sources": {
+    "case_cpu/memory/lean/MemALUCircuit.lean": "8f2db64409254c0cec777c3c1d2d201a459a24b64b73c65d3a1c6496832559de",
+    "case_cpu/memory/lean/MemAcceptRefinement.lean": "0da3cc97555fdc1d789ce5d85800c59c9e00c89791598724340c97a4a4a05bab",
+    "case_cpu/memory/lean/MemAudit.lean": "ec998ab8ba15f6030bdc6f09f31005ab3ab4ea389efe77bfbc587d7f5f198be6",
+    "case_cpu/memory/lean/MemCircuitRefinement.lean": "8b649c6da6567062c31b53c62e432eb0c5ea1c4164b6a1ceb803d99f09a3d384",
+    "case_cpu/memory/lean/MemControlCircuit.lean": "b4a3aab75d5c3a82d9114f98901af5def4428d43bd85df0a2ad03fb98a546ecf",
+    "case_cpu/memory/lean/MemDecode.lean": "686c2a7a6c27120597ae31fa7b0c0f7306b7556023d958a8287908fc1f8023c6",
+    "case_cpu/memory/lean/MemDecodeFields.lean": "369c7b3e98351d6b74654838a69547f4412e852582311dcd96f9535f9ca50d5e",
+    "case_cpu/memory/lean/MemDecoderCircuit.lean": "ea999ebe833dbe7f59f3fd8017c88bba3d8e9e3f7fd1ee8302982de4e2eef030",
+    "case_cpu/memory/lean/MemDispatchRelation.lean": "af38e1005f9c785524fb0ab72015f947e7960209142c87ce252aa292f85f59f2",
+    "case_cpu/memory/lean/MemEvents.lean": "25809af81de9a85956d37629e1cffd1f623968784c4c12c2d4a2cb81351f64eb",
+    "case_cpu/memory/lean/MemExecuteCircuit.lean": "a2047c4e2c0d65365ba9b35a4f69f05ae383727001066ea01128b1e081458bac",
+    "case_cpu/memory/lean/MemFrontCircuit.lean": "9a631ccb390233e9fd9a73c0bcd275b55b6e21942064e38a1b5e1af19e4cfda5",
+    "case_cpu/memory/lean/MemISA.lean": "a7f25204243b51a903c9cbacbc8ec42b80abae6cb63773c0bfe2a90c6dfc4d66",
+    "case_cpu/memory/lean/MemIssueCircuit.lean": "7268c22c32bfc6b6bede5480b8933b6e84771cdaa9ff09d76f9f1d30422c8ba4",
+    "case_cpu/memory/lean/MemMemoryCircuit.lean": "36f5fa98b07ab54a217b8f545f19170a77c4c5bba87d06b5c490cb1f0719bed0",
+    "case_cpu/memory/lean/MemMemoryCommit.lean": "5b59aed20f2fb1dccebcb3807b3c0867b91c2b1755ad293abdfc1ba39b7dba40",
+    "case_cpu/memory/lean/MemMetadata.lean": "af9b2152f3c969c1f644c9c7401229115bfa8120df6fa4386e054d5a090a66ff",
+    "case_cpu/memory/lean/MemNativeLanes.lean": "ca6ef4986c17ce65e35e6a88ac34324f2ebab7fc446fd5a9a29b16d1105fc8a1",
+    "case_cpu/memory/lean/MemNativeMemory.lean": "cac06cd174c17f8aa855c9d632a4e50ae6d25412cc7e75b250631e164da8a83d",
+    "case_cpu/memory/lean/MemNativeStore.lean": "667c37b4f424cd85fe15e492494be304117751191aa92e1bc0260a5ea2b77da7",
+    "case_cpu/memory/lean/MemNetlistStep.lean": "46243f65ef058f13be072e3c2535170b53331811b896150bcbb6adfbc5486e3e",
+    "case_cpu/memory/lean/MemOutputRefinement.lean": "f0883bb9732056f1c13e5707a7299158de4a2f6ee48bb2dbfa73279f4887a4bb",
+    "case_cpu/memory/lean/MemPhysical.lean": "6c0622d5dc7a463d5f4879defdfcddf0409b689059e051f94f181a15d9398224",
+    "case_cpu/memory/lean/MemPipeline.lean": "88dfd80bfbc886d9e2f29cc5dfc959661e9e573bab6ad4ca19cd8b2452e036bd",
+    "case_cpu/memory/lean/MemPortRefinement.lean": "9cab19fcfb0a30d564d226662a1579dc5a86ed21960b166389eeb9b65468b7be",
+    "case_cpu/memory/lean/MemRaw.lean": "0cca28ff9a81de4a71cd68dbc8895c85e9165b458b680b11d06c40673f7ae0b5",
+    "case_cpu/memory/lean/MemRawBridge.lean": "443078512fc55c8082e13347ea827291d247921f74c9df8808d51bb9fec43eb4",
+    "case_cpu/memory/lean/MemRawProof.lean": "419789c7dbe544cade8afd041d9cfcc3c25d1e6396d24d756e9b873f7fb0eae9",
+    "case_cpu/memory/lean/MemRefinement.lean": "5ab1449ee777b5bdf094a45adee2dcc5d779f15dab96624cacb82f125b5fdb3d",
+    "case_cpu/memory/lean/MemRelation.lean": "76faf727e83ba2e22b7af8fcd8818254668006b4ba3ffdf1b56dae42d6d2b166",
+    "case_cpu/memory/lean/MemStageRefinement.lean": "121e2ec477df4279df45b124d638bb4efe4e0700b2bf2fe558f0ccfdbcf44fd3",
+    "case_cpu/memory/lean/MemStorageCircuit.lean": "3bf14da7556c24e94b72d9d4c7a0765fe97481e30c1022d43421418a41c8087d",
+    "case_cpu/memory/lean/MemTraceRefinement.lean": "b811908e6cf55966d08a9542f0d0778ee00cf55468efebd2a6808897372655ad",
+    "case_cpu/memory/lean/MemWordRefinement.lean": "be61f7d64ba97d6cbec5670d6f6a785fc49847347d9d1ab62524d990b5b58fa7",
+    "case_cpu/memory/lean/MemoryCircuit.lean": "2149de503ac146a03597bdc75e66972df2c7a65c7463745ade4e48f48a150c29",
+    "case_cpu/memory/lean/MemoryDiagnosis.lean": "5ecf80df5c5e94a726c16c3abc45ad072096c411ec3fdfcedeabab9c60402e90",
+    "case_cpu/memory/lean/MemoryShallow.lean": "7def024f702d9aa9539fe7c5198f90a1192dd4337124cfd175dd4c588da408c6",
+    "case_cpu/memory/lean/NativeCertificate.lean": "93647909e80de72ee8b5a642da594510257f78f3221796cad8b8e7c61eb2ef5c",
+    "case_cpu/memory/lean/NativeImported.lean": "353b36899efe88779798e1b5838b20906bed8a6464b12e6dfcdf00ce5d2aeb74",
+    "case_cpu/memory/rtl/cpu.sv": "f5d0c13323902abe8d4077f214249e7fb6ef8f5753e7f7657959ab52a3fbe0c0",
+    "case_cpu/memory/rtl/isa_reference.svh": "4a6d1aad4ac203dcf1edc9d3794ee6699137538e449ed42ba4a96804a1bccc8e",
+    "case_cpu/memory/rtl/memory_reference.svh": "468bf7008f938c6376cffea55b16b1985f5f9fc01952889f76bb042bc1c04b48",
+    "case_cpu/memory/rtl/tb.sv": "87a36bd95903b3ea1164ed15dbe83633667deac2ff6efc6b7b8a87984f809d63",
+    "case_cpu/memory/spec/decisions.json": "8d36d367f3042d6933cd31bc5a0cf4cf5ac90ceeda009a9a2f0c3de81882bfa0",
+    "case_cpu/memory/spec/original.txt": "bd236b027e5df21b7b66be1a60ad3055f530154d9e3d8aa6a39b0a86a0e44b69",
+    "case_cpu/memory/spec/revised.txt": "81fddf27edb86c037e44eac71bed8d2ea0bb634ab807cc492cbd800c8f6f5518",
+    "case_cpu/memory/scripts/build_rtl.py": "83605761dd0a89beb6b69fd271d490961807ec279791dd7944ac31c9a1fb8337",
+    "case_cpu/memory/scripts/check_import.py": "722a03095341067f21a8dbd1510cd7d96ba2260d5f21673708c05f86750dabb0",
+    "case_cpu/memory/scripts/gen_shallow.py": "8c3d530bee04ab245dddeb4599738e61dbedba855c0359b14d8f409e100e850e",
+    "case_cpu/memory/scripts/import_native.py": "174836f5acdd0e5cc54f506d5d4063f1ee0c54baf381ab6189302e978477105b",
+    "case_cpu/memory/scripts/model.py": "0f1e675ad09f7bca29df34900958bbf08afeb3f3c2b9bd70673c99cfa6e96213",
+    "case_cpu/memory/scripts/mutants.py": "e3d4d9b202a5791511c03fd8f95ffb7d9370c1c629305aa4129fb4ed6a894c64",
+    "case_cpu/memory/scripts/pdr.py": "b292439f0d3edfe351baf4e2b03da53b037c5679f77370e23aa18ec3d79adc53",
+    "case_cpu/memory/scripts/replay.py": "6b0efe3ed450f9efba06c66c299f909f14002e2cc5739b9ec07bfb805de47246",
+    "case_cpu/memory/scripts/report.py": "877ecd9cece0d47adbf72c571278e11f2b4c3a4eff13a16fbfea5e5cdaf21a28",
+    "case_cpu/memory/scripts/simulate.py": "0dc2975050e8a875b136503f91cf47dd0005a95351c9446d363947cdafcefa56",
+    "method/framework/LeanRTL/Core/NativeMemory.lean": "8d230a8f523ece367e0537d618bdb207a3607df26e2c92ba3918c25f05e45403",
+    "v2lean/native_memory.py": "38ad98f68a56b0b1f63e64fe8fde8c19fefb5b21a3997e5454bfc2f15d932a70",
+    "case_cpu/lean/ISA.lean": "f0e7f52fe068f3f07f2b2743982a3e497ca063dbb94ac83a291fc9d1ba410db6",
+    "case_cpu/lean/Pipeline.lean": "7133fea2926970be03dc5ec534faf8b208871aee51d70378a0f11a3ff5fc1da6",
+    "case_cpu/lean/Refinement.lean": "9ecefb68a89287f44090b9677d19c832c0ddc0b5c187716200088b362e70df66",
+    "case_cpu/lean/Diagnosis.lean": "3188a49511956f62bfef0f04cdb8d10a2c6c3df6b9c0a7c48b118d5e3569e205",
+    "case_cpu/lean/Trace.lean": "8149ed4ba715dbf2ccab57612b8bf3c74476e2b0ff76d0dde0acffde2c8edd3d",
+    "case_cpu/lean/Mutants.lean": "4a0c87d504f3f999a08cbc32829b56a5217cbbb4810d71d5a95da4f77216018a",
+    "case_cpu/bridge/ImportedData.lean": "e6caf00ee192c24143f0e8abec81c50ef06d18d776a77f61f2f9a08655cf8cca",
+    "case_cpu/bridge/WordMath.lean": "04ebe53920866bb5154a858df54f08c79ff7063fca9b37907ed36051324586b7",
+    "case_cpu/bridge/RawCPU.lean": "05604c256db4a5f0a8ff6da7fd0069b32a6169cf1eb7de626f9118496bfc8095",
+    "case_cpu/bridge/NetFacts.lean": "1537d2098ca19da4e8b04b128ef5eb8d9ecbf30e5f759b6bf65ac9f86211071d",
+    "case_cpu/bridge/Shallow.lean": "094d284d6686b8287490c1198c330b9845e86cf9ac6791c17c11b8294d8292e4",
+    "case_cpu/bridge/DecodeSpec.lean": "82ca2dbaea6190b4f667a9a20846014f7c6e6b2aab756afe5af29d32dc4cc6d1",
+    "case_cpu/bridge/Physical.lean": "ae4d9752350c67bc36760b378ee3eaf937a5e725540a7410cef8ecf678eedb06",
+    "case_cpu/bridge/DecoderTable.lean": "c5c7e8d6178572b4d8b2563766474fce208489942d1d2657d697debf399f36bb",
+    "case_cpu/bridge/Circuit.lean": "e655c2683e23437515823965f61805aa42827fe4e315d403e6167ae0ed8e9d20",
+    "case_cpu/bridge/DecoderCircuit.lean": "4566d11e7d0a2aa4baf8ddb6506dc10408d871c8ebf585699def5c5a2fb42445",
+    "case_cpu/bridge/ALUCircuit.lean": "ffeaafa84a21ad16315dcf288cf771b2e82ed3839b03190af4c1d0760552b67a",
+    "case_cpu/bridge/StorageCircuit.lean": "edad4e6c4084af076f64e35c9d7e0632f0bb2e860830392f27f52e2c0d720e68",
+    "case_cpu/bridge/ControlCircuit.lean": "509596d49d842827efc0a44e71fce5238fd79bd13483d8a3d65bde21a0e244f6",
+    "case_cpu/bridge/DecodeFields.lean": "cf79ec73141afdca8cb797c52439233bbcd90490bc080c9b77a03d52236bdc41",
+    "case_cpu/bridge/NetlistStep.lean": "1adc647928ec58e6dac3e0567d4498cf2271ed692d1feda447f5982264f65268",
+    "case_cpu/bridge/Forwarding.lean": "9c0f56ab18c243911a45e6e710b95778db53c354176961186b7e2ae022109db3",
+    "case_cpu/bridge/DispatchCircuit.lean": "16870f6e45791fff7bf151a4f69cdc64c732b03774629fc6c50237e06cfaff24",
+    "case_cpu/bridge/Events.lean": "48f98a9d2b6a08a925dfd5f8b446295481fccb1345a1b1565a2d3dc2fbf20b22",
+    "case_cpu/bridge/AcceptCircuit.lean": "f716320d31e5a17f913a92ae2180ce42f316265042c7fc9f2a7c3f68520731e5",
+    "case_cpu/bridge/SourceRefinement.lean": "d7d21fadaeb7d64c845991183615bb4f3e4cb57bd986d68639d32a087310fa10",
+    "case_cpu/bridge/PacketPC.lean": "e4442c31cc28e9578fee6e638103fc645a8ddaa58cfba1479774f2a9a2eef85a",
+    "case_cpu/bridge/ImportCertificate.lean": "6272dccb976c5d8b4e800dd24c1a9f298be56f7fa06aff4252d087bde96933d7",
+    "case_cpu/bridge/Audit.lean": "606e72bead1bdd12d98ef9b92a3433d547576a8528096b54ff5e25457e143bbf"
+  }
+}

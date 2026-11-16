@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "pulse_detect",
+  "toplevel": "pulse_detect",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

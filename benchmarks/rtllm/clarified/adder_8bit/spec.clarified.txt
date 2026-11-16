@@ -1,0 +1,88 @@
+Module and integration contract
+
+Module: adder_8bit.
+Ports below are in exact declaration order:
+- a: input [7:0].
+- b: input [7:0].
+- cin: input 1 bit.
+- sum: output [7:0].
+- cout: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+There is no reset and no stored state. From power-up onward, including before any edge has occurred, sum and cout are defined combinationally by the current inputs; neither output is unknown or dependent on initialization. There is no first step after reset release.
+
+4. Timing
+
+sum and cout are combinational outputs with zero clock-cycle latency from a, b, and cin. The module has no clock, active edge, pulse, periodic signal, or circuit period.
+
+The evaluated trace uses full-cycle observation rows only as stimulus steps. Each row observes the settled combinational outputs for that row's current inputs before the framework advances to the next row. Because the interface specifies neither timing.step_ns nor timing.sample_offset_ns, no physical nanosecond spacing or offset is assigned; in particular, a row does not imply a 10 ns clock tick. This observation convention is separate from circuit timing, for which this specification states only combinational propagation.
+
+5. Behaviour
+
+Treat a and b as unsigned 8-bit operands and cin as an unsigned 1-bit operand. Form the unsigned 9-bit arithmetic value a + b + cin. The expression context is nine bits so that its carry bit is preserved before either output boundary is applied.
+
+At all times, the current unsigned 8-bit value of a contributes immediately to a + b + cin.
+
+At all times, the current unsigned 8-bit value of b contributes immediately to a + b + cin.
+
+At all times, cin contributes zero when deasserted and one when asserted, acting immediately with the current a and b values.
+
+sum continuously equals the low eight bits of the current unsigned a + b + cin value. This is the documented truncation boundary: arithmetic is performed in the wider 9-bit context, then only sum is reduced modulo 256.
+
+cout continuously equals bit 8, the ninth bit, of the current unsigned a + b + cin value. Equivalently, cout is 1 exactly when the unsigned total is at least 256, and otherwise is 0.
+
+Every input combination follows these laws. There are no modes, disabled inputs, transactions, interruptions, cancellation, capture or observation edges, retained data, completion, restart, or state-dependent exceptions.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | cin | sum | cout |
+|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 0 | 8'b00000000 | 0 |
+
+### stimulus 1
+| cycle | a | b | cin | sum | cout |
+|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 1 | 8'b00000001 | 0 |
+
+### stimulus 2
+| cycle | a | b | cin | sum | cout |
+|---|---|---|---|---|---|
+| 0 | 8'b00000001 | 8'b00000001 | 0 | 8'b00000010 | 0 |
+
+### stimulus 3
+| cycle | a | b | cin | sum | cout |
+|---|---|---|---|---|---|
+| 0 | 8'b11111111 | 8'b00000000 | 1 | 8'b00000000 | 1 |
+
+### stimulus 4
+| cycle | a | b | cin | sum | cout |
+|---|---|---|---|---|---|
+| 0 | 8'b10000000 | 8'b10000000 | 0 | 8'b00000000 | 1 |
+
+### stimulus 5
+| cycle | a | b | cin | sum | cout |
+|---|---|---|---|---|---|
+| 0 | 8'b01011010 | 8'b00111100 | 1 | 8'b10010111 | 0 |
+
+### stimulus 6
+| cycle | a | b | cin | sum | cout |
+|---|---|---|---|---|---|
+| 0 | 8'b11111111 | 8'b11111111 | 0 | 8'b11111110 | 1 |
+
+### stimulus 7
+| cycle | a | b | cin | sum | cout |
+|---|---|---|---|---|---|
+| 0 | 8'b01111111 | 8'b00000001 | 1 | 8'b10000001 | 0 |

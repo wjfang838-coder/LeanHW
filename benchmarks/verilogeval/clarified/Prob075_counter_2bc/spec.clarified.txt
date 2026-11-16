@@ -1,0 +1,110 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- areset: input 1 bit.
+- train_valid: input 1 bit.
+- train_taken: input 1 bit.
+- state: output [1:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+`areset` is active high and asynchronous. Whenever it is asserted, `state` reads 2'b01 immediately, without waiting for a clock edge. A rising clock edge while `areset` is high stores the same reset value, regardless of `train_valid` and `train_taken`. Deasserting `areset` does not itself change the stored value: on the first subsequent rising clock edge, the normal training rule applies to the retained 2'b01 value.
+
+At power-up, before any reset assertion or clocked assignment has occurred, `state` is unknown. The implementation must leave that state uninitialised, with no initial block or declaration initialiser that supplies a definite value. If a rising clock edge occurs before reset, the state remains unknown because the bounded update has no defined starting value.
+
+Timing
+
+`state` is a two-bit registered output. While reset is low, it changes only just after a rising edge of `clk`; it retains its value through steady clock levels and falling edges. On each rising edge it samples `train_valid` and, when enabled, `train_taken`. Under the pre-edge row convention, the registered latency from those sampled inputs to the observable updated `state` is one clock cycle: the row at that edge shows the prior value and the following row shows the edge's result. There is no completion pulse, clear interval, or restart interval.
+
+The evaluated full-cycle trace uses the interface timing metadata: row k is observed at k * step_ns after settling, with the stated sample_offset_ns applied by the trace contract. This observation convention is distinct from the circuit law: the circuit responds to rising `clk` edges and asynchronous reset assertion; the row spacing does not impose an implicit 10 ns clock period or any additional circuit delay.
+
+Behaviour
+
+With `areset` low, every rising edge of `clk` independently applies this complete bounded transition law. If `train_valid` is 0, `state` holds. If `train_valid` is 1 and `train_taken` is 1, `state` increments by one unless it is already 2'b11, in which case it holds at 2'b11. If `train_valid` is 1 and `train_taken` is 0, `state` decrements by one unless it is already 2'b00, in which case it holds at 2'b00. Because all inputs are one bit, these cases cover every input encoding. Changes to `train_valid` or `train_taken` between rising edges have no effect. Assertion of `areset` overrides every training case and makes `state` 2'b01; repeated reset assertions have the same effect.
+
+The `train_valid` law is that a low value holds `state`, while a high value enables the bounded increment-or-decrement selected by `train_taken`, with `areset` taking priority. The `train_taken` law is that, only when `areset` is low and `train_valid` is high at a rising edge, one increments with upper saturation and zero decrements with lower saturation; otherwise it has no effect. The complete `state` law is that it is unknown before its first assignment, is 2'b01 whenever asynchronous reset is asserted, retains that value on reset release, and subsequently retains or performs the bounded registered update selected at each rising edge.
+
+Before its first assignment, `state` is unknown. After reset has assigned it, it retains the last assigned value between qualifying updates. Reset release preserves 2'b01 until a later rising edge applies the normal law. Repeated rising edges repeatedly apply the same bounded transition, including saturation at both boundaries.
+
+Worked trace
+
+The following evaluated trace is normative. Each row is a pre-transition sample under the observation convention stated above.
+
+### stimulus 0
+| cycle | areset | train_valid | train_taken | state |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 2'x |
+
+### stimulus 1
+| cycle | areset | train_valid | train_taken | state |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 2'b01 |
+| 1 | 0 | 1 | 1 | 2'b01 |
+| 2 | 0 | 1 | 0 | 2'b10 |
+| 3 | 0 | 0 | 1 | 2'b01 |
+
+### stimulus 2
+| cycle | areset | train_valid | train_taken | state |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 2'b01 |
+| 1 | 0 | 1 | 1 | 2'b01 |
+| 2 | 0 | 1 | 1 | 2'b10 |
+| 3 | 0 | 1 | 1 | 2'b11 |
+| 4 | 0 | 1 | 1 | 2'b11 |
+| 5 | 0 | 1 | 1 | 2'b11 |
+
+### stimulus 3
+| cycle | areset | train_valid | train_taken | state |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 2'b01 |
+| 1 | 0 | 1 | 0 | 2'b01 |
+| 2 | 0 | 1 | 0 | 2'b00 |
+| 3 | 0 | 1 | 0 | 2'b00 |
+
+### stimulus 4
+| cycle | areset | train_valid | train_taken | state |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 2'b01 |
+| 1 | 0 | 0 | 0 | 2'b01 |
+| 2 | 0 | 0 | 1 | 2'b01 |
+| 3 | 0 | 1 | 1 | 2'b01 |
+
+### stimulus 5
+| cycle | areset | train_valid | train_taken | state |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 2'b01 |
+| 1 | 0 | 1 | 1 | 2'b01 |
+| 2 | 0 | 1 | 0 | 2'b10 |
+| 3 | 0 | 1 | 1 | 2'b01 |
+| 4 | 0 | 1 | 0 | 2'b10 |
+
+### stimulus 6
+| cycle | areset | train_valid | train_taken | state |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 2'b01 |
+| 1 | 0 | 1 | 1 | 2'b01 |
+| 2 | 1 | 1 | 0 | 2'b01 |
+| 3 | 0 | 1 | 0 | 2'b01 |
+| 4 | 0 | 1 | 1 | 2'b00 |
+
+### stimulus 7
+| cycle | areset | train_valid | train_taken | state |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 2'b01 |
+| 1 | 0 | 1 | 1 | 2'b01 |
+| 2 | 0 | 1 | 1 | 2'b10 |
+| 3 | 0 | 0 | 0 | 2'b11 |
+| 4 | 0 | 1 | 0 | 2'b11 |
+| 5 | 0 | 1 | 0 | 2'b10 |
+| 6 | 0 | 0 | 1 | 2'b01 |

@@ -1,0 +1,209 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+I would like you to implement a module named TopModule with the following
+interface. All input and output ports are one bit unless otherwise
+specified.
+
+ - input  clk
+ - input  rst_n
+ - input  [3:0] mul_a
+ - input  [3:0] mul_b
+ - output reg [7:0] mul_out
+
+The module should implement a 4-bit unsigned pipelined multiplier. Assume all
+sequential logic is triggered on the positive edge of the clock. The reset
+input is active low asynchronous, and should reset the multiplier to 0.
+
+The pipelined multiplier should work as follows:
+- The multiplier performs unsigned multiplication of two 4-bit inputs (mul_a and mul_b)
+- The result is an 8-bit output (mul_out) representing the product
+- The multiplication is implemented using a pipelined architecture for improved
+  performance and throughput
+- The pipeline allows new inputs to be processed every clock cycle while
+  previous multiplications are still being completed
+- When rst_n is low, the multiplier should reset to 0
+
+Clarification: The pipeline has a fixed latency of exactly 2 clock cycles from input to mul_out: stage 1 registers the partial-product/partial-sum terms of the current inputs, and stage 2 registers their final sum into mul_out, so a result for inputs applied on a given cycle appears two cycles later.
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- mul_a: input [size-1:0].
+- mul_b: input [size-1:0].
+- mul_out: output [size*2-1:0].
+
+Public parameters:
+-  size: default = 4.
+-  N: default = size * 2.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+3. Reset
+rst_n is active low and asynchronous. Assertion immediately makes mul_out zero without requiring any clock edge, cancels every outstanding product, and takes priority over a simultaneous rising edge. While rst_n is low, mul_out remains zero and no operands are accepted. Raising rst_n alone leaves mul_out zero and does not restore cancelled products. Reset release is not an acceptance or publication event.
+
+Implementation choice C1: on reset assertion, all intermediate partial-product/partial-sum storage is cleared to zero and remains zero while reset is active. The source requires the multiplier to reset to zero; Q2, Q3 and Q5 require cancellation and a zero output through the first subsequent acceptance edge, but do not prescribe each intermediate term's reset encoding. Clearing these terms to zero is a compatible implementation decision confined to reset storage contents. It produces the required zero final sum at the first edge after release and does not alter normal arithmetic, throughput or latency. The output storage is reset to zero as required, not as an implementation choice. The finite model represents the combined pending partial-sum value as zero after reset.
+
+Before any reset and before any completed product, mul_out is hardware-unknown, not an arbitrary constant or a don't-care, as established by certain Q1 and Q8. In particular, it is unknown before and immediately after the first acceptance edge without reset. No reset-before-use restriction applies: the product accepted at that first edge becomes known immediately after the next rising edge. The finite model's initial invalid stored bit values represent this expressly authorized hardware unknown; their zero payloads are not initialized hardware data. No additional hardware power-up guarantee is inferred from machine.init.
+
+4. Timing
+All sequential operation occurs on the positive edge of clk. Each rising edge with rst_n high accepts a new operand pair, including while earlier products are pending. Falling edges and steady clock levels have no clock-driven effect. mul_out is registered and holds its published value between rising edges unless reset asserts. Operand changes between rising edges neither alter mul_out nor change an already accepted product.
+
+The source's fixed two-clock-cycle pipeline latency is counted using its two registered stages and the pre-edge observation convention. Let E0 be an edge accepting A0,B0, E1 the next uninterrupted rising edge, and E2 the next. Stage 1 registers the partial-product/partial-sum terms of A0,B0 at E0. Stage 2 registers their final sum at E1, after one completed subsequent clock interval; there is no additional action edge. Immediately after E0, mul_out is the preceding uninterrupted pair's product, zero if E0 is the first edge after reset, or hardware-unknown if neither reset nor an earlier acceptance occurred. Immediately after E1 it is A0*B0, and immediately after E2 it is A1*B1, where A1,B1 were accepted at E1. Immediately before E1 it still has its post-E0 value, and immediately before E2 it has A0*B0. Every edge accepts another pair without stalling, ignoring, postponing or restarting overlapping requests.
+
+After reset assertion and release, pre-E0 and post-E0 mul_out are zero; pre-E1 is zero and post-E1 is A0*B0; pre-E2 is A0*B0 and post-E2 is A1*B1. The third acceptance edge E2 accepts A2,B2, whose product is published at E3. Reassertion at any point cancels outstanding work and repeats this sequence. There is no completion pulse, periodic output, or idle clearing interval.
+
+The normative finite trace is a full-cycle active-edge scenario at size=4 and N=8. Row k observes out(s[k],i[k]) before its rising edge, and that edge computes s[k+1]. Thus an uninterrupted product accepted at row k first appears at row k+2. The implicit clock is absent from In; this projection is not a simulation of arbitrary between-edge reset events. A row with reset low includes asynchronous clearing before observation and reset held through its edge, which commits the cleared state. Between-edge reset pulses remain legal and must clear the actual circuit's state even if released before another edge; the finite table does not prove that unrepresented history. No physical clock period or numeric nanosecond sample offset is specified by the interface, and no implicit 10 ns timing is imposed. The row convention is separate from the circuit's two-stage latency law.
+
+5. Behaviour
+mul_a and mul_b are unsigned operands, sampled together on every rising edge with rst_n high; their full unsigned product is published immediately after the following uninterrupted rising edge. At the concrete size=4 instance, every pair in 0..15 is legal, including zero and repeated pairs, and mul_out represents the complete product in 8 bits, with maximum 225. There is no operand enable, special inactive operand, or skipped encoding. While reset is low, neither operand affects mul_out; reset before publication cancels the pending product. Acceptance resumes at the first rising edge after release.
+
+For the public parameter family supplied by Q9, size defaults to 4, N defaults to size*2, operands are size bits, and mul_out is size*2 bits, as rendered in the interface contract. Multiplication is unsigned with sufficient size*2-bit expression context to retain the complete product; publication truncates only to that declared output width and loses no product bits. N does not change the declared port ranges or the required multiplication and latency laws. These parameterized obligations are not limited to the finite size=4 model. No additional parameter restriction is introduced.
+
+The post-edge published value is the final sum of the pre-edge registered partial-product/partial-sum terms, while the same edge replaces those terms using the current sampled operands. Publication never uses the terms newly captured on that same edge. This preserves both the source's partial-term architecture and continuous throughput; the finite model stores their aggregate product as an equivalent functional representation rather than imposing a different RTL structure.
+
+mul_out holds its last published value between rising edges unless reset asserts; continued rising edges publish successive products with no completion-induced clearing, even for repeated operand pairs. Every output phase is determined by the preceding rules: before a first completed product without reset it is hardware-unknown, throughout reset it is zero, after release through the first acceptance edge it is zero, and thereafter it is the preceding uninterrupted acceptance's product. No result is suppressed because no initial reset occurred.
+
+The original source remains the requirements authority together with the certain scoped clarifications. Q9 establishes the declaration order and parameterized header for the reference while explicitly retaining TopModule as the public candidate name; RefModule is the private reference identifier, not a replacement public module name. No source clause is superseded by an amendment in this close. The original two-stage architecture and two-cycle pre-edge observation latency remain in force.
+
+6. Worked trace
+The following evaluated trace is normative for the finite instance and observation scope stated above, including its explicit hardware-unknown startup and reset-held-through-edge scenarios.
+### stimulus 0
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 1 | 4'b0011 | 4'b0101 | 8'x |
+| 1 | 1 | 4'b0111 | 4'b0010 | 8'x |
+| 2 | 1 | 4'b1001 | 4'b0100 | 8'b00001111 |
+| 3 | 1 | 4'b0001 | 4'b1111 | 8'b00001110 |
+| 4 | 1 | 4'b0000 | 4'b0111 | 8'b00100100 |
+
+### stimulus 1
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b1111 | 4'b1111 | 8'b00000000 |
+| 1 | 1 | 4'b0010 | 4'b0011 | 8'b00000000 |
+| 2 | 1 | 4'b0100 | 4'b0101 | 8'b00000000 |
+| 3 | 1 | 4'b0110 | 4'b0111 | 8'b00000110 |
+| 4 | 1 | 4'b1000 | 4'b1001 | 8'b00010100 |
+| 5 | 1 | 4'b1010 | 4'b1011 | 8'b00101010 |
+
+### stimulus 2
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0001 | 4'b0001 | 8'b00000000 |
+| 1 | 0 | 4'b1111 | 4'b1000 | 8'b00000000 |
+| 2 | 1 | 4'b0111 | 4'b1001 | 8'b00000000 |
+| 3 | 1 | 4'b0000 | 4'b1111 | 8'b00000000 |
+| 4 | 1 | 4'b0001 | 4'b1111 | 8'b00111111 |
+| 5 | 1 | 4'b1111 | 4'b1111 | 8'b00000000 |
+
+### stimulus 3
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 4'b0000 | 8'b00000000 |
+| 1 | 1 | 4'b0000 | 4'b0111 | 8'b00000000 |
+| 2 | 1 | 4'b0001 | 4'b0111 | 8'b00000000 |
+| 3 | 1 | 4'b1111 | 4'b0111 | 8'b00000000 |
+| 4 | 1 | 4'b1000 | 4'b0111 | 8'b00000111 |
+| 5 | 1 | 4'b0110 | 4'b0111 | 8'b01101001 |
+| 6 | 1 | 4'b0010 | 4'b0011 | 8'b00111000 |
+| 7 | 1 | 4'b0100 | 4'b0101 | 8'b00101010 |
+
+### stimulus 4
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 4'b0000 | 8'b00000000 |
+| 1 | 1 | 4'b0111 | 4'b0000 | 8'b00000000 |
+| 2 | 1 | 4'b0111 | 4'b0001 | 8'b00000000 |
+| 3 | 1 | 4'b0111 | 4'b1111 | 8'b00000000 |
+| 4 | 1 | 4'b0111 | 4'b1000 | 8'b00000111 |
+| 5 | 1 | 4'b0111 | 4'b0110 | 8'b01101001 |
+| 6 | 1 | 4'b0010 | 4'b0011 | 8'b00111000 |
+| 7 | 1 | 4'b0100 | 4'b0101 | 8'b00101010 |
+
+### stimulus 5
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 4'b0000 | 8'b00000000 |
+| 1 | 1 | 4'b1111 | 4'b1111 | 8'b00000000 |
+| 2 | 1 | 4'b1111 | 4'b1111 | 8'b00000000 |
+| 3 | 1 | 4'b1111 | 4'b1111 | 8'b11100001 |
+| 4 | 1 | 4'b1000 | 4'b1000 | 8'b11100001 |
+| 5 | 1 | 4'b1000 | 4'b1000 | 8'b11100001 |
+| 6 | 1 | 4'b0001 | 4'b0001 | 8'b01000000 |
+| 7 | 1 | 4'b0000 | 4'b0000 | 8'b01000000 |
+
+### stimulus 6
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 4'b0000 | 8'b00000000 |
+| 1 | 1 | 4'b0011 | 4'b0100 | 8'b00000000 |
+| 2 | 1 | 4'b0101 | 4'b0110 | 8'b00000000 |
+| 3 | 0 | 4'b1111 | 4'b1111 | 8'b00000000 |
+| 4 | 1 | 4'b0111 | 4'b1000 | 8'b00000000 |
+| 5 | 1 | 4'b1001 | 4'b1010 | 8'b00000000 |
+| 6 | 1 | 4'b1011 | 4'b1100 | 8'b00111000 |
+| 7 | 1 | 4'b1101 | 4'b1110 | 8'b01011010 |
+
+### stimulus 7
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 4'b0000 | 8'b00000000 |
+| 1 | 1 | 4'b0010 | 4'b0111 | 8'b00000000 |
+| 2 | 1 | 4'b0011 | 4'b1001 | 8'b00000000 |
+| 3 | 1 | 4'b0100 | 4'b1011 | 8'b00001110 |
+| 4 | 1 | 4'b0101 | 4'b1101 | 8'b00011011 |
+| 5 | 0 | 4'b1000 | 4'b1111 | 8'b00000000 |
+| 6 | 0 | 4'b0001 | 4'b0000 | 8'b00000000 |
+| 7 | 1 | 4'b0110 | 4'b0110 | 8'b00000000 |
+| 8 | 1 | 4'b0111 | 4'b0111 | 8'b00000000 |
+| 9 | 1 | 4'b1000 | 4'b1000 | 8'b00100100 |
+| 10 | 1 | 4'b1001 | 4'b1001 | 8'b00110001 |
+
+### stimulus 8
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 4'b1111 | 8'b00000000 |
+| 1 | 1 | 4'b0001 | 4'b1110 | 8'b00000000 |
+| 2 | 1 | 4'b0010 | 4'b1101 | 8'b00000000 |
+| 3 | 1 | 4'b0011 | 4'b1100 | 8'b00001110 |
+| 4 | 1 | 4'b0100 | 4'b1011 | 8'b00011010 |
+| 5 | 1 | 4'b0101 | 4'b1010 | 8'b00100100 |
+| 6 | 1 | 4'b0110 | 4'b1001 | 8'b00101100 |
+| 7 | 1 | 4'b0111 | 4'b1000 | 8'b00110010 |
+| 8 | 1 | 4'b1000 | 4'b0111 | 8'b00110110 |
+| 9 | 1 | 4'b1001 | 4'b0110 | 8'b00111000 |
+| 10 | 1 | 4'b1010 | 4'b0101 | 8'b00111000 |
+| 11 | 1 | 4'b1011 | 4'b0100 | 8'b00110110 |
+| 12 | 1 | 4'b1100 | 4'b0011 | 8'b00110010 |
+| 13 | 1 | 4'b1101 | 4'b0010 | 8'b00101100 |
+| 14 | 1 | 4'b1110 | 4'b0001 | 8'b00100100 |
+| 15 | 1 | 4'b1111 | 4'b0000 | 8'b00011010 |
+| 16 | 1 | 4'b0000 | 4'b1111 | 8'b00001110 |
+| 17 | 1 | 4'b0001 | 4'b1110 | 8'b00000000 |
+
+### stimulus 9
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b1111 | 4'b1000 | 8'b00000000 |
+| 1 | 1 | 4'b0000 | 4'b0001 | 8'b00000000 |
+| 2 | 1 | 4'b1111 | 4'b0001 | 8'b00000000 |
+| 3 | 1 | 4'b0000 | 4'b1000 | 8'b00000000 |
+| 4 | 1 | 4'b1111 | 4'b0001 | 8'b00001111 |
+| 5 | 1 | 4'b0000 | 4'b0001 | 8'b00000000 |
+| 6 | 1 | 4'b1111 | 4'b1000 | 8'b00001111 |
+| 7 | 1 | 4'b0000 | 4'b0001 | 8'b00000000 |
+| 8 | 1 | 4'b1111 | 4'b0001 | 8'b01111000 |
+| 9 | 1 | 4'b0000 | 4'b1000 | 8'b00000000 |
+| 10 | 1 | 4'b1111 | 4'b0001 | 8'b00001111 |
+| 11 | 1 | 4'b0000 | 4'b0001 | 8'b00000000 |

@@ -1,0 +1,109 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- sel: input [2:0].
+- data0: input [3:0].
+- data1: input [3:0].
+- data2: input [3:0].
+- data3: input [3:0].
+- data4: input [3:0].
+- data5: input [3:0].
+- out: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. The module has no state elements. From power-up onward, including before any edge has occurred, out is defined solely by the current inputs according to the behavior below; it is never an uninitialized or retained value.
+
+4. Timing.
+
+out is continuously combinational, with zero clock-cycle latency from sel and data0 through data5. There is no clock, capture edge, completion edge, pulse, periodic signal, hold interval, or clear interval.
+
+For the evaluated trace of this autonomous design, row k is the settled observation at sampling step k. It must not be interpreted as an implicit 10 ns clock tick. The observation convention does not introduce a circuit period or delay; the circuit itself is continuously combinational.
+
+5. Behaviour.
+
+At all times, sel combinationally selects out as data0, data1, data2, data3, data4, or data5 for sel values 3'h0 through 3'h5 respectively, while every other sel value selects 4'b0000; changes, interruptions, and repeated selections take effect without an edge, retained state, or transaction priority.
+
+data0 determines out combinationally exactly while sel is 3'h0, so any data0 change is reflected without an edge; at every other sel value data0 has no effect, including during simultaneous changes, interruptions, and repeated selections.
+
+data1 determines out combinationally exactly while sel is 3'h1, so any data1 change is reflected without an edge; at every other sel value data1 has no effect, including during simultaneous changes, interruptions, and repeated selections.
+
+data2 determines out combinationally exactly while sel is 3'h2, so any data2 change is reflected without an edge; at every other sel value data2 has no effect, including during simultaneous changes, interruptions, and repeated selections.
+
+data3 determines out combinationally exactly while sel is 3'h3, so any data3 change is reflected without an edge; at every other sel value data3 has no effect, including during simultaneous changes, interruptions, and repeated selections.
+
+data4 determines out combinationally exactly while sel is 3'h4, so any data4 change is reflected without an edge; at every other sel value data4 has no effect, including during simultaneous changes, interruptions, and repeated selections.
+
+data5 determines out combinationally exactly while sel is 3'h5, so any data5 change is reflected without an edge; at every other sel value data5 has no effect, including during simultaneous changes, interruptions, and repeated selections.
+
+out is continuously combinational: it equals data0 through data5 when sel is 3'h0 through 3'h5 respectively and equals 4'b0000 otherwise, with no reset behavior, capture or completion edge, latency, hold or clear interval, or restart state; consequently a pre-edge row observes the value for that row's current inputs before the edge and the edge itself causes no update.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | sel | data0 | data1 | data2 | data3 | data4 | data5 | out |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b0000 |
+| 1 | 3'b000 | 4'b0001 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b0000 | 4'b0001 |
+| 2 | 3'b000 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b0000 | 4'b0001 | 4'b1111 |
+
+### stimulus 1
+| cycle | sel | data0 | data1 | data2 | data3 | data4 | data5 | out |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 3'b001 | 4'b1000 | 4'b0000 | 4'b0001 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b0000 |
+| 1 | 3'b001 | 4'b0110 | 4'b0001 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b0001 |
+| 2 | 3'b001 | 4'b1001 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b0000 | 4'b1111 |
+
+### stimulus 2
+| cycle | sel | data0 | data1 | data2 | data3 | data4 | data5 | out |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 3'b010 | 4'b1111 | 4'b1000 | 4'b0000 | 4'b0001 | 4'b1111 | 4'b1000 | 4'b0000 |
+| 1 | 3'b010 | 4'b1000 | 4'b0110 | 4'b0001 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b0001 |
+| 2 | 3'b010 | 4'b0110 | 4'b1001 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b1111 |
+
+### stimulus 3
+| cycle | sel | data0 | data1 | data2 | data3 | data4 | data5 | out |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 3'b011 | 4'b0001 | 4'b1111 | 4'b1000 | 4'b0000 | 4'b0001 | 4'b1111 | 4'b0000 |
+| 1 | 3'b011 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b0001 | 4'b1111 | 4'b1000 | 4'b0001 |
+| 2 | 3'b011 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b1111 |
+
+### stimulus 4
+| cycle | sel | data0 | data1 | data2 | data3 | data4 | data5 | out |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 3'b100 | 4'b0110 | 4'b0001 | 4'b1111 | 4'b1000 | 4'b0000 | 4'b0001 | 4'b0000 |
+| 1 | 3'b100 | 4'b1001 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b0001 | 4'b1111 | 4'b0001 |
+| 2 | 3'b100 | 4'b0000 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b1111 | 4'b1000 | 4'b1111 |
+
+### stimulus 5
+| cycle | sel | data0 | data1 | data2 | data3 | data4 | data5 | out |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 3'b101 | 4'b1000 | 4'b0110 | 4'b0001 | 4'b1111 | 4'b1000 | 4'b0000 | 4'b0000 |
+| 1 | 3'b101 | 4'b0110 | 4'b1001 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b0001 | 4'b0001 |
+| 2 | 3'b101 | 4'b1001 | 4'b0000 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b1111 | 4'b1111 |
+
+### stimulus 6
+| cycle | sel | data0 | data1 | data2 | data3 | data4 | data5 | out |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 3'b110 | 4'b0000 | 4'b0001 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b0000 |
+| 1 | 3'b110 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b0000 | 4'b0001 | 4'b0000 |
+| 2 | 3'b110 | 4'b1000 | 4'b1111 | 4'b0000 | 4'b0001 | 4'b1001 | 4'b0110 | 4'b0000 |
+
+### stimulus 7
+| cycle | sel | data0 | data1 | data2 | data3 | data4 | data5 | out |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 3'b111 | 4'b0001 | 4'b1111 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b0000 | 4'b0000 |
+| 1 | 3'b111 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b0000 | 4'b0001 | 4'b1111 | 4'b0000 |
+| 2 | 3'b111 | 4'b1111 | 4'b0000 | 4'b0001 | 4'b1000 | 4'b0110 | 4'b1001 | 4'b0000 |

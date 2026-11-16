@@ -1,0 +1,162 @@
+Module and integration contract
+
+Module: parallel2serial.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- d: input [3:0].
+- valid_out: output 1 bit.
+- dout: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+`rst_n` is active low. Its assertion immediately makes `valid_out` and `dout` 0 and cancels any conversion in progress; assertion coincident with a rising edge has priority. Continued assertion retains the reset state: the captured-data storage is invalid and zero, the modulo-four cadence is at its initial position, the interval-valid state is false, and the edge-seen condition is false. Releasing reset alone changes no output or state. On the first rising edge after release, the storage remains invalid and zero, the cadence advances to one of four completed positions, the interval-valid state remains false, and the edge-seen condition becomes true; both outputs remain 0. The next two rising edges likewise leave both outputs low and advance the cadence; the fourth captures `d`, so the captured MSB and asserted `valid_out` are visible in the following observation interval.
+
+Before reset has ever been asserted and before any rising edge has occurred, `valid_out` is unknown and must be left uninitialised, with no initial block or declaration initialiser defining it. In that same power-up interval, `dout` is 0. If the first event is a rising edge while `rst_n` is high, it drives `valid_out` low and begins the same four-edge cadence. After a reset assertion and release, both outputs remain 0 until the fourth post-release edge captures data.
+
+Timing
+
+The active sampling edge is the rising edge of `clk`. Reset's output effect is asynchronous to that edge; all non-reset state transitions occur only on rising edges. `valid_out` is registered. It is asserted in the interval immediately after each fourth rising edge in an uninterrupted cadence and remains asserted for exactly one clock interval; it is low for the following three intervals. Thus its period is four clock cycles, consisting of one asserted cycle and three deasserted cycles.
+
+`dout` is the registered serial value. A word sampled from `d` on a capture edge has `d[3]` visible in the immediately following interval, a latency of one pre-edge trace row from the named capture-edge input sample. Each of the next three rising edges changes it to `d[2]`, `d[1]`, and `d[0]`, respectively. The next capture edge replaces it with the next word's `d[3]`.
+
+The evaluated trace uses the full-cycle observation convention: row k is the settled pre-edge observation for cycle k, and the transition caused by that row's modeled rising edge first appears in row k+1. The interface supplies no physical `step_ns`, `sample_offset_ns`, clock-period, or propagation-delay value, so this document imposes no nanosecond period or delay law; the four-cycle functional cadence is distinct from physical time.
+
+Behaviour
+
+Only a rising edge of `clk` advances operation while `rst_n` is high. A steady clock level or falling edge changes nothing. Successive rising edges advance a modulo-four cadence. On every fourth edge, the complete 4-bit value of `d` is captured, `valid_out` becomes 1 for the following interval, and `dout` presents that captured value's bit 3. On each of the other three edges, `valid_out` becomes 0 and `dout` advances to the next bit of the same captured word, in the order bit 2, bit 1, then bit 0. All sixteen encodings of `d` obey this bit-selection law without exception.
+
+`d` has no effect except for its value on a fourth, capture edge while reset is inactive. Changes on the other three edges, between edges, while reset is asserted, or during presentation of a previously captured word do not alter that word. A later capture replaces the prior word completely. Consecutive conversions require no gap: the edge following presentation of bit 0 captures the next word and begins its MSB interval.
+
+Asserting `rst_n` low at any time immediately forces both public outputs to 0, invalidates retained captured data, and cancels the current cadence. Keeping it low causes no advancement. Release alone retains the reset values. Rising edges after every release restart the count from the beginning, so the first new capture is the fourth rising edge after release. Reset therefore treats disabled input data as inactive and cannot resume a partially presented word.
+
+At power-up without an earlier reset or edge, `valid_out` is unknown while `dout` is 0. The first rising edge with reset inactive determines `valid_out` as 0 and counts as the first edge toward capture. Once any word is captured, its serial data remains the source of `dout` through all four bit intervals; completion is represented by the one-interval `valid_out` pulse at capture, not by a separate terminal state. Operation then repeats indefinitely until reset.
+
+Worked trace
+
+The following evaluated trace is normative. Each row observes outputs before that row's active-edge transition, in accordance with the convention stated above.
+
+### stimulus 0
+| cycle | rst_n | d | valid_out | dout |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 0 | 0 |
+| 1 | 1 | 4'b0001 | x | 0 |
+| 2 | 1 | 4'b1000 | 0 | 0 |
+| 3 | 1 | 4'b1111 | 0 | 0 |
+| 4 | 1 | 4'b0101 | 0 | 0 |
+| 5 | 1 | 4'b0101 | 1 | 0 |
+
+### stimulus 1
+| cycle | rst_n | d | valid_out | dout |
+|---|---|---|---|---|
+| 0 | 0 | 4'b1111 | 0 | 0 |
+| 1 | 0 | 4'b0001 | 0 | 0 |
+| 2 | 1 | 4'b1000 | x | 0 |
+| 3 | 1 | 4'b0100 | 0 | 0 |
+| 4 | 1 | 4'b0010 | 0 | 0 |
+| 5 | 1 | 4'b0001 | 0 | 0 |
+| 6 | 1 | 4'b0000 | 1 | 0 |
+
+### stimulus 2
+| cycle | rst_n | d | valid_out | dout |
+|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | x | 0 |
+| 1 | 1 | 4'b0001 | 0 | 0 |
+| 2 | 1 | 4'b0010 | 0 | 0 |
+| 3 | 1 | 4'b0011 | 0 | 0 |
+| 4 | 1 | 4'b0100 | 1 | 0 |
+| 5 | 1 | 4'b0101 | 0 | 0 |
+| 6 | 1 | 4'b0110 | 0 | 1 |
+| 7 | 1 | 4'b0111 | 0 | 1 |
+| 8 | 1 | 4'b1000 | 1 | 0 |
+| 9 | 1 | 4'b1001 | 0 | 1 |
+| 10 | 1 | 4'b1010 | 0 | 1 |
+| 11 | 1 | 4'b1011 | 0 | 1 |
+| 12 | 1 | 4'b1100 | 1 | 1 |
+| 13 | 1 | 4'b1101 | 0 | 0 |
+| 14 | 1 | 4'b1110 | 0 | 1 |
+| 15 | 1 | 4'b1111 | 0 | 1 |
+
+### stimulus 3
+| cycle | rst_n | d | valid_out | dout |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 0 | 0 |
+| 1 | 1 | 4'b1010 | x | 0 |
+| 2 | 1 | 4'b1010 | 0 | 0 |
+| 3 | 1 | 4'b1010 | 0 | 0 |
+| 4 | 1 | 4'b1010 | 0 | 0 |
+| 5 | 1 | 4'b0011 | 1 | 1 |
+| 6 | 1 | 4'b0011 | 0 | 0 |
+| 7 | 1 | 4'b0011 | 0 | 1 |
+| 8 | 1 | 4'b0011 | 0 | 0 |
+| 9 | 1 | 4'b0011 | 1 | 0 |
+
+### stimulus 4
+| cycle | rst_n | d | valid_out | dout |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0101 | 0 | 0 |
+| 1 | 1 | 4'b0101 | x | 0 |
+| 2 | 1 | 4'b0101 | 0 | 0 |
+| 3 | 0 | 4'b1100 | 0 | 0 |
+| 4 | 1 | 4'b1100 | x | 0 |
+| 5 | 1 | 4'b1100 | 0 | 0 |
+| 6 | 1 | 4'b1100 | 0 | 0 |
+| 7 | 1 | 4'b1100 | 0 | 0 |
+| 8 | 1 | 4'b1100 | 1 | 1 |
+
+### stimulus 5
+| cycle | rst_n | d | valid_out | dout |
+|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | x | 0 |
+| 1 | 1 | 4'b0000 | 0 | 0 |
+| 2 | 1 | 4'b0000 | 0 | 0 |
+| 3 | 1 | 4'b0000 | 0 | 0 |
+| 4 | 1 | 4'b1111 | 1 | 0 |
+| 5 | 1 | 4'b1111 | 0 | 0 |
+| 6 | 1 | 4'b1111 | 0 | 0 |
+| 7 | 1 | 4'b1111 | 0 | 0 |
+| 8 | 1 | 4'b0001 | 1 | 1 |
+
+### stimulus 6
+| cycle | rst_n | d | valid_out | dout |
+|---|---|---|---|---|
+| 0 | 0 | 4'b1000 | 0 | 0 |
+| 1 | 1 | 4'b1000 | x | 0 |
+| 2 | 1 | 4'b0000 | 0 | 0 |
+| 3 | 1 | 4'b1111 | 0 | 0 |
+| 4 | 1 | 4'b0001 | 0 | 0 |
+| 5 | 1 | 4'b0111 | 1 | 0 |
+| 6 | 1 | 4'b0111 | 0 | 0 |
+
+### stimulus 7
+| cycle | rst_n | d | valid_out | dout |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0011 | 0 | 0 |
+| 1 | 1 | 4'b0011 | x | 0 |
+| 2 | 1 | 4'b0011 | 0 | 0 |
+| 3 | 1 | 4'b0011 | 0 | 0 |
+| 4 | 1 | 4'b0011 | 0 | 0 |
+| 5 | 0 | 4'b1001 | 0 | 0 |
+| 6 | 1 | 4'b1001 | x | 0 |
+| 7 | 1 | 4'b1001 | 0 | 0 |
+| 8 | 1 | 4'b1001 | 0 | 0 |
+| 9 | 1 | 4'b1001 | 0 | 0 |
+
+## Normative clarification after closure validation
+
+The asynchronous reset value of valid_out applies only while rst_n is low. On every low-to-high transition of rst_n, valid_out shall become unknown immediately and shall remain unknown until the first subsequent rising edge of clk; this rule applies after every reset assertion, even if rising edges occurred before or during that assertion. In that same reset-release interval dout shall remain 0. Thus reset release is not itself a state-advancing event and must not preserve the externally forced 0 on valid_out.
+
+At the first rising edge of clk with rst_n high, valid_out shall become 0 and dout shall remain 0; that edge is the first of the restarted four-rising-edge cadence. The second and third rising edges likewise leave both outputs 0, and the fourth rising edge samples all four bits of d. After that fourth edge, valid_out is 1 for exactly the following clock interval and dout is the sampled d[3]. The next three rising edges make valid_out 0 and present the same sampled word's d[2], d[1], and d[0], in that order; the following rising edge samples the next word and again presents its d[3] with valid_out high. Input changes away from a sampling edge do not affect the word being presented.
+
+All observations associated with a cycle are pre-transition observations: inputs and outputs are observed before that cycle's rising edge, and effects of that edge first appear in the next observation interval. Falling edges and steady clock levels have no effect. If rst_n is low, its asynchronous forcing of valid_out and dout to 0 has priority over a coincident rising edge and no cadence progress occurs.
+
+Before any reset assertion and before any rising edge with rst_n high, valid_out is unknown and dout is 0. The first rising edge with rst_n high resolves valid_out to 0 and starts the same four-edge cadence. No other externally visible value specified as definite may be treated as unknown.

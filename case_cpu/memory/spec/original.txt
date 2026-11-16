@@ -1,0 +1,21 @@
+Memory CPU case: intentionally defective natural-language draft
+
+O01 Extend the arithmetic RV32 stream processor with a five-stage pipeline and
+1 KiB of byte-addressable RAM. Support LB/LH/LW/LBU/LHU/SB/SH/SW and FENCE.
+O02 Bytes in a word follow the usual order. A halfword load extends its value.
+O03 A byte store updates the addressed byte; other bytes are unspecified.
+O04 Reset empties the pipeline, reloads the register seed, and clears all RAM.
+O05 RAM is persistent across every reset, including a reset over a pending store.
+O06 A load reads the most recently written word. Same-edge read/write timing is
+not specified. Younger instructions may wait for a memory instruction.
+O07 Misaligned or out-of-range accesses produce a fault. The priority of these
+conditions, the fault codes, the faulting PC, and recovery behavior are omitted.
+O08 The MEM stage can be externally stalled. The memory delay is a four-bit input;
+it is not stated whether that input is sampled once or continuously.
+O09 A fault has no architectural effects. Every accepted younger instruction
+must nevertheless retire exactly once, even if the fault halts the machine.
+O10 All stalls may remain high forever. Every accepted instruction completes
+within forty cycles.
+
+This draft is a deliberately constructed diagnostic example. It is not the
+contract implemented by rtl/cpu.sv and not a quotation from the RISC-V manual.

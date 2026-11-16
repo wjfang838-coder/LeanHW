@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob005_signal_generator",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

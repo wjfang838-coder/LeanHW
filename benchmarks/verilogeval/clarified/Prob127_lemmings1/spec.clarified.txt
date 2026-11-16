@@ -1,0 +1,131 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- areset: input 1 bit.
+- bump_left: input 1 bit.
+- bump_right: input 1 bit.
+- walk_left: output 1 bit.
+- walk_right: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  WL: default = 0.
+-  WR: default = 1.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+areset is an active-high asynchronous reset. While areset is asserted, walk_left is 1 and walk_right is 0 immediately, independent of clk and both bump inputs, and the stored walking direction is left. Assertion has priority if it coincides with a rising edge of clk. Deasserting areset causes no immediate state change. On the first rising edge after release, the leftward reset state is updated according to the bump inputs sampled at that edge.
+
+Before reset has ever been asserted, the walking direction is uninitialised: walk_left and walk_right are both unknown. The implementation must leave that state uninitialised, with no initial block or declaration initialiser. Without a preceding reset, clock edges and either value of either bump input do not resolve the unknown direction.
+
+Timing
+
+walk_left and walk_right are Moore outputs derived from the stored direction. Changes caused by bump inputs occur only on rising edges of clk and appear one clock cycle after the pre-edge sample containing those inputs. areset affects both outputs asynchronously and without waiting for a clock edge. Neither output is a pulse and neither has a completion-clear interval.
+
+In the evaluated trace, row k is sampled after inputs settle and before the active edge for full cycle k; the transition at that edge first affects row k+1. Consecutive rows are separated by one full clock cycle. This observation convention does not specify a physical clock period or propagation delay.
+
+Behaviour
+
+While areset is low, each rising edge of clk updates the walking direction from the pre-edge direction and bump inputs, other clk activity has no effect, and if areset is asserted simultaneously its leftward reset effect has priority; repeated rising edges apply this rule independently without a transaction or interruption phase.
+
+Asserting areset immediately makes the direction left regardless of clk and both bump inputs, including when assertion coincides with a clk rising edge, while deasserting it causes no immediate change and leaves subsequent changes to rising clk edges; repeated assertions have the same priority and effect.
+
+With areset low, bump_left sampled high on a rising clk edge changes a leftward direction to rightward and sampled low retains leftward direction, but bump_left has no effect while walking right or between rising edges; areset overrides it, and a sustained or repeated assertion is reevaluated on every rising edge.
+
+With areset low, bump_right sampled high on a rising clk edge changes a rightward direction to leftward and sampled low retains rightward direction, but bump_right has no effect while walking left or between rising edges; areset overrides it, and a sustained or repeated assertion is reevaluated on every rising edge.
+
+When bump_left and bump_right are both high on a rising edge while areset is low and the direction is known, the direction switches: left becomes right and right becomes left. When both are low, the direction is retained. Before reset establishes a known direction, all four bump-input combinations retain the unknown direction.
+
+walk_left is asserted immediately throughout areset and after its release until a later rising clk edge samples bump_left high while walking left, is deasserted while walking right until a rising edge samples bump_right high, and has no completion clear interval; because row k is sampled before its active edge, a direction change captured at that edge first appears in row k+1, while an unreset power-up is unknown and every later edge can start the next update.
+
+walk_right is deasserted immediately throughout areset and after its release until a later rising clk edge samples bump_left high while walking left, is asserted while walking right until a rising edge samples bump_right high, and has no completion clear interval; because row k is sampled before its active edge, a direction change captured at that edge first appears in row k+1, while an unreset power-up is unknown and every later edge can start the next update.
+
+Whenever the current walking direction is right, walk_left is 0. Whenever the current walking direction is left, walk_right is 0. For every known direction exactly one of walk_left and walk_right is asserted.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | areset | bump_left | bump_right | walk_left | walk_right |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | x | x |
+| 1 | 1 | 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 1 | 1 | 0 |
+| 3 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 1
+| cycle | areset | bump_left | bump_right | walk_left | walk_right |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 |
+| 1 | 1 | 1 | 1 | 1 | 0 |
+| 2 | 0 | 1 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 1 | 0 | 1 |
+| 5 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | areset | bump_left | bump_right | walk_left | walk_right |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 1 | 0 | 1 |
+| 5 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 3
+| cycle | areset | bump_left | bump_right | walk_left | walk_right |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 1 | 1 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 1 | 1 | 0 | 1 |
+| 5 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 4
+| cycle | areset | bump_left | bump_right | walk_left | walk_right |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 0 | 0 | 1 |
+| 5 | 0 | 0 | 1 | 0 | 1 |
+| 6 | 0 | 0 | 1 | 1 | 0 |
+| 7 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | areset | bump_left | bump_right | walk_left | walk_right |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 | 1 | 0 |
+| 3 | 1 | 0 | 1 | 1 | 0 |
+| 4 | 0 | 0 | 0 | 1 | 0 |
+| 5 | 0 | 1 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 1 |
+
+### stimulus 6
+| cycle | areset | bump_left | bump_right | walk_left | walk_right |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | x | x |
+| 1 | 0 | 0 | 0 | x | x |
+| 2 | 0 | 0 | 1 | x | x |
+| 3 | 0 | 0 | 0 | x | x |
+
+### stimulus 7
+| cycle | areset | bump_left | bump_right | walk_left | walk_right |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | x | x |
+| 1 | 0 | 0 | 0 | x | x |
+| 2 | 0 | 1 | 0 | x | x |
+| 3 | 0 | 0 | 0 | x | x |

@@ -1,0 +1,222 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- in: input 1 bit.
+- reset: input 1 bit.
+- done: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  B0: default = 0.
+-  B1: default = 1.
+-  B2: default = 2.
+-  B3: default = 3.
+-  B4: default = 4.
+-  B5: default = 5.
+-  B6: default = 6.
+-  B7: default = 7.
+-  START: default = 8.
+-  STOP: default = 9.
+-  DONE: default = 10.
+-  ERR: default = 11.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+Reset is active high and synchronous to the rising edge of clk. Before any rising edge has sampled reset high, done is unknown and remains unknown regardless of the sampled input sequence. The implementation must leave this power-up value uninitialised, with no initial block or declaration initialiser.
+
+At every rising edge where reset is high, reset takes priority over in, cancels any partial or completed reception, establishes the state that waits for a low start bit, and makes done 0 immediately after the edge. Holding reset high repeats this action. Thus done is 0 throughout intervals following reset edges. Deasserting reset does not itself change any state or output: during the first interval after release, done retains the reset value 0, and reception changes only at a later rising edge.
+
+Timing
+
+Only rising edges of clk sample reset and in or advance reception. Clock low, clock high without an edge, and falling edges have no effect. done is a registered output. It becomes 1 immediately after the rising edge that accepts a valid high stop bit, remains 1 for exactly one full clock interval, and returns to 0 immediately after the next rising edge. Every valid frame, including consecutive frames, produces one such one-cycle pulse.
+
+The evaluated full-cycle trace uses pre-edge sampling: row k is observed after settling at k * step_ns, before that row's active edge, and the transition caused by that edge appears in row k+1. This observation cadence does not specify or imply a 10 ns circuit clock period. The interface supplies no numeric step_ns or sample_offset_ns; the circuit law itself is stated in rising clock edges and full clock intervals.
+
+Behaviour
+
+After reset, a sampled high in is ignored while the receiver waits for a start bit. A sampled low in is the start bit. The next eight rising-edge samples are accepted as data bits regardless of their values; they arrive least-significant bit first. Since the module does not output the received data, their values do not otherwise affect its behavior.
+
+The sample after the eighth data bit is the stop bit. If it is high, the frame is accepted and done is 1 throughout the immediately following clock interval. If it is low, the frame is rejected, done remains 0, and the receiver enters bad-stop recovery. During recovery, sampled low values are ignored and keep done at 0. The first subsequently sampled high value ends recovery and returns the receiver to waiting for a new low start bit; done remains 0 throughout the interval after that high sample.
+
+Outside the single interval immediately following acceptance of a valid high stop bit, done is 0 once reset has established a defined state. At the rising edge ending a done interval, a high in returns the receiver to waiting for a start bit, while a low in is immediately accepted as the start bit of the next frame. This permits repeated frames without an extra idle cycle. A rising edge with reset high overrides all of these input actions, including completion, recovery, or a simultaneous low start bit.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 0 | 0 | 0 |
+| 10 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 1 |
+
+### stimulus 2
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 0 | 0 | 0 |
+| 9 | 0 | 0 | 0 |
+| 10 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 1 |
+| 12 | 0 | 0 | 0 |
+| 13 | 1 | 0 | 0 |
+| 14 | 0 | 0 | 0 |
+| 15 | 1 | 0 | 0 |
+| 16 | 0 | 0 | 0 |
+| 17 | 1 | 0 | 0 |
+| 18 | 0 | 0 | 0 |
+| 19 | 1 | 0 | 0 |
+| 20 | 0 | 0 | 0 |
+| 21 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 1 | 0 | 0 |
+| 10 | 0 | 0 | 0 |
+| 11 | 0 | 0 | 0 |
+| 12 | 0 | 0 | 0 |
+| 13 | 1 | 0 | 0 |
+
+### stimulus 4
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 0 | 0 | 0 |
+| 10 | 0 | 0 | 0 |
+| 11 | 0 | 0 | 0 |
+| 12 | 1 | 0 | 0 |
+| 13 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 0 | 0 | 0 |
+| 7 | 1 | 0 | 0 |
+| 8 | 0 | 0 | 0 |
+| 9 | 1 | 0 | 0 |
+| 10 | 0 | 0 | 0 |
+| 11 | 1 | 0 | 0 |
+| 12 | 0 | 0 | 0 |
+| 13 | 1 | 0 | 0 |
+| 14 | 0 | 0 | 0 |
+| 15 | 1 | 0 | 0 |
+| 16 | 1 | 0 | 1 |
+
+### stimulus 6
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 0 | x |
+| 2 | 0 | 0 | x |
+| 3 | 1 | 0 | x |
+
+### stimulus 7
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+
+### stimulus 8
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+
+### stimulus 9
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 0 | 0 | 0 |
+| 10 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 1 |
+| 12 | 0 | 0 | 0 |
+| 13 | 0 | 0 | 0 |
+| 14 | 1 | 0 | 0 |
+| 15 | 0 | 0 | 0 |
+| 16 | 1 | 0 | 0 |
+| 17 | 0 | 0 | 0 |
+| 18 | 1 | 0 | 0 |
+| 19 | 0 | 0 | 0 |
+| 20 | 1 | 0 | 0 |
+| 21 | 1 | 0 | 0 |
+| 22 | 0 | 0 | 1 |
+| 23 | 1 | 0 | 0 |
+| 24 | 1 | 0 | 0 |
+| 25 | 0 | 0 | 0 |
+| 26 | 0 | 0 | 0 |
+| 27 | 1 | 0 | 0 |
+| 28 | 1 | 0 | 0 |
+| 29 | 0 | 0 | 0 |
+| 30 | 0 | 0 | 0 |
+| 31 | 1 | 0 | 0 |
+| 32 | 1 | 0 | 1 |
+| 33 | 1 | 0 | 0 |

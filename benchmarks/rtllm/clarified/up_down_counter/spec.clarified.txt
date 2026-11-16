@@ -1,0 +1,164 @@
+Module and integration contract
+
+Module: up_down_counter.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- up_down: input 1 bit.
+- count: output [15:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports.
+
+
+
+Reset.
+
+Reset is active high and synchronous to the rising edge of clk. At a rising edge where reset is high, count becomes 16'h0000 regardless of up_down; reset therefore has priority over counting. Merely asserting reset between rising edges does not change count. While reset remains high, every rising edge establishes or retains count at 16'h0000. Deasserting reset has no immediate effect. At the first rising edge after release, up_down selects the normal one-step modulo update from zero.
+
+Before the first rising edge at which reset is asserted, count is unknown. The implementation must leave count's stored value uninitialised: it must not use an initial block or declaration initialiser to give it a defined power-up value. If rising edges occur before any reset edge, count remains unknown.
+
+Timing.
+
+Count is a registered output. A rising edge of clk samples reset and up_down. When reset is low and count has previously been established by reset, the selected update is visible immediately after that edge and is retained until the next rising edge. Thus the latency from the sampled up_down value to the updated count is one edge, represented as one full clock cycle between pre-edge trace rows. Count has no completion pulse and accepts an update on every rising edge.
+
+The circuit's clock period and propagation delay are not specified. In the evaluated trace, row k is sampled before the active edge for modeled cycle k, after settling from earlier events; this observation convention does not assert a 10 ns clock or any other physical period.
+
+Behaviour.
+
+Each rising edge of clk is the only event that updates count; clk's low level and falling edges have no effect, and repeated rising edges repeatedly apply the selected operation.
+
+When reset is high at a rising edge, count becomes 16'h0000 regardless of up_down, and reset has priority over the simultaneous counting request.
+
+With reset low, up_down high at a rising edge increments count by one modulo 2^16, while up_down low decrements count by one modulo 2^16; changes to up_down between rising edges have no effect.
+
+Accordingly, incrementing 16'hffff produces 16'h0000, and decrementing 16'h0000 produces 16'hffff. All additions and subtractions are unsigned 16-bit operations whose result is truncated at the count storage boundary to the low 16 bits.
+
+Once count is established, it reflects each selected one-step modulo update after the rising edge and retains that value until a later rising edge updates or resets it; no separate completion interval prevents a following edge from updating it again.
+
+Worked trace.
+
+The following evaluated trace is normative. Each row reports the input for that modeled cycle and count before that cycle's rising-edge transition.
+
+### stimulus 0
+| cycle | reset | up_down | count |
+|---|---|---|---|
+| 0 | 0 | 0 | 16'x |
+
+### stimulus 1
+| cycle | reset | up_down | count |
+|---|---|---|---|
+| 0 | 1 | 0 | 16'x |
+| 1 | 0 | 1 | 16'h0 |
+| 2 | 0 | 1 | 16'h1 |
+
+### stimulus 2
+| cycle | reset | up_down | count |
+|---|---|---|---|
+| 0 | 1 | 1 | 16'x |
+| 1 | 0 | 0 | 16'h0 |
+| 2 | 0 | 0 | 16'hffff |
+| 3 | 0 | 1 | 16'hfffe |
+
+### stimulus 3
+| cycle | reset | up_down | count |
+|---|---|---|---|
+| 0 | 1 | 0 | 16'x |
+| 1 | 1 | 1 | 16'h0 |
+| 2 | 0 | 1 | 16'h0 |
+
+### stimulus 4
+| cycle | reset | up_down | count |
+|---|---|---|---|
+| 0 | 1 | 0 | 16'x |
+| 1 | 0 | 1 | 16'h0 |
+| 2 | 1 | 1 | 16'h1 |
+| 3 | 0 | 0 | 16'h0 |
+
+### stimulus 5
+| cycle | reset | up_down | count |
+|---|---|---|---|
+| 0 | 1 | 0 | 16'x |
+| 1 | 0 | 0 | 16'h0 |
+| 2 | 0 | 1 | 16'hffff |
+| 3 | 0 | 1 | 16'h0 |
+
+### stimulus 6
+| cycle | reset | up_down | count |
+|---|---|---|---|
+| 0 | 1 | 0 | 16'x |
+| 1 | 0 | 1 | 16'h0 |
+| 2 | 0 | 0 | 16'h1 |
+| 3 | 0 | 1 | 16'h0 |
+| 4 | 0 | 0 | 16'h1 |
+| 5 | 0 | 1 | 16'h0 |
+| 6 | 0 | 0 | 16'h1 |
+| 7 | 0 | 1 | 16'h0 |
+| 8 | 0 | 0 | 16'h1 |
+| 9 | 0 | 1 | 16'h0 |
+| 10 | 0 | 0 | 16'h1 |
+| 11 | 0 | 1 | 16'h0 |
+| 12 | 0 | 0 | 16'h1 |
+| 13 | 0 | 1 | 16'h0 |
+| 14 | 0 | 0 | 16'h1 |
+| 15 | 0 | 1 | 16'h0 |
+| 16 | 0 | 0 | 16'h1 |
+| 17 | 0 | 1 | 16'h0 |
+| 18 | 0 | 0 | 16'h1 |
+| 19 | 0 | 1 | 16'h0 |
+| 20 | 0 | 0 | 16'h1 |
+| 21 | 0 | 1 | 16'h0 |
+| 22 | 0 | 0 | 16'h1 |
+| 23 | 0 | 1 | 16'h0 |
+| 24 | 0 | 0 | 16'h1 |
+| 25 | 0 | 1 | 16'h0 |
+| 26 | 0 | 0 | 16'h1 |
+| 27 | 0 | 1 | 16'h0 |
+| 28 | 0 | 0 | 16'h1 |
+| 29 | 0 | 1 | 16'h0 |
+| 30 | 0 | 0 | 16'h1 |
+| 31 | 0 | 1 | 16'h0 |
+| 32 | 0 | 0 | 16'h1 |
+| 33 | 0 | 1 | 16'h0 |
+| 34 | 0 | 0 | 16'h1 |
+| 35 | 0 | 1 | 16'h0 |
+| 36 | 0 | 0 | 16'h1 |
+| 37 | 0 | 1 | 16'h0 |
+| 38 | 0 | 0 | 16'h1 |
+| 39 | 0 | 1 | 16'h0 |
+| 40 | 0 | 0 | 16'h1 |
+| 41 | 0 | 1 | 16'h0 |
+| 42 | 0 | 0 | 16'h1 |
+| 43 | 0 | 1 | 16'h0 |
+| 44 | 0 | 0 | 16'h1 |
+| 45 | 0 | 1 | 16'h0 |
+| 46 | 0 | 0 | 16'h1 |
+| 47 | 0 | 1 | 16'h0 |
+
+### stimulus 7
+| cycle | reset | up_down | count |
+|---|---|---|---|
+| 0 | 1 | 1 | 16'x |
+| 1 | 0 | 1 | 16'h0 |
+| 2 | 0 | 1 | 16'h1 |
+| 3 | 0 | 1 | 16'h2 |
+| 4 | 0 | 1 | 16'h3 |
+| 5 | 0 | 1 | 16'h4 |
+| 6 | 0 | 1 | 16'h5 |
+| 7 | 0 | 1 | 16'h6 |
+| 8 | 0 | 1 | 16'h7 |
+| 9 | 0 | 0 | 16'h8 |
+| 10 | 0 | 0 | 16'h7 |
+| 11 | 0 | 0 | 16'h6 |
+| 12 | 0 | 0 | 16'h5 |
+| 13 | 0 | 0 | 16'h4 |
+| 14 | 0 | 0 | 16'h3 |
+| 15 | 0 | 0 | 16'h2 |
+| 16 | 0 | 0 | 16'h1 |
+| 17 | 0 | 0 | 16'h0 |
+| 18 | 0 | 0 | 16'hffff |
+| 19 | 0 | 0 | 16'hfffe |

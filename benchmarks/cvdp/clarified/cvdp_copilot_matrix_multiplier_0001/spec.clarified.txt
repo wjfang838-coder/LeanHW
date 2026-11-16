@@ -1,0 +1,105 @@
+Original implementation instruction (verbatim):
+
+Design and implement a parameterized matrix multiplier using System Verilog. The matrix multiplier should take two input matrices with configurable dimensions and output the result of their multiplication. The design should support any matrix sizes as long as the dimensions are compatible for matrix multiplication (i.e., the number of columns in matrix A matches the number of rows in matrix B). The module should operate as a combinational logic block, updating the output immediately based on changes in the input.
+
+Named module interface binding
+
+Module: matrix_multiplier.
+Connect ports by name. The enumeration below does not establish positional order.
+- matrix_a: input; 128 bits in the concrete formal instance.
+- matrix_b: input; 128 bits in the concrete formal instance.
+- matrix_c: output; 288 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is matrix_multiplier. The exact public port names are matrix_a, matrix_b, and matrix_c. The integration answer does not verify declaration order; therefore positional instantiation is not permitted and the module must be connected by these exact names. The following enumeration is descriptive, not a normative declaration order:
+
+input matrix_a, width ROW_A*COL_A*INPUT_DATA_WIDTH bits.
+input matrix_b, width ROW_B*COL_B*INPUT_DATA_WIDTH bits.
+output matrix_c, width ROW_A*COL_B*OUTPUT_DATA_WIDTH bits.
+
+The public parameters are ROW_A (default 4), COL_A (default 4), ROW_B (default 4), COL_B (default 4), INPUT_DATA_WIDTH (default 8), and OUTPUT_DATA_WIDTH. ROW_A is the row count of matrix_a; COL_A is its column count; ROW_B is the row count of matrix_b and must equal COL_A; COL_B is its column count; INPUT_DATA_WIDTH is the width of every unsigned input element; OUTPUT_DATA_WIDTH is the width of every unsigned result element. The source requires OUTPUT_DATA_WIDTH to be calculated so that multiplication and accumulation cannot overflow, but gives neither an exact formula nor a default value. This remains an unresolved integration obligation: a conforming parameter declaration must provide an overflow-safe value without inventing a source-unsupported default.
+
+3. Reset.
+
+There is no reset port, reset event, clocked state, or stored output. Consequently reset polarity, reset synchronization, reset state, and a first step after reset release do not apply. From power-up, including before any hypothetical reset edge, matrix_c is the combinational product of the values currently on matrix_a and matrix_b after propagation delay; it does not begin as or remain an unknown or retained value.
+
+4. Timing.
+
+matrix_c is combinational. Any change to either matrix_a or matrix_b recomputes matrix_c immediately subject only to combinational propagation delay. It has zero clock-cycle latency, no completion pulse, no periodic signal, no transaction interval, and no edge-relative capture behavior.
+
+The worked-trace observation cadence is separate from circuit timing. For this autonomous combinational design, trace row k denotes the settled observation at k times the interface timing.step_ns, sampled using timing.sample_offset_ns; it does not imply a 10 ns circuit clock. The supplied interface contains no numeric timing.step_ns or timing.sample_offset_ns values, so this document does not invent them. The circuit itself has no period, clock, or cycle-based delay law.
+
+5. Behaviour.
+
+The design supports every parameterized matrix size compatible with multiplication, including non-square matrices. A has ROW_A rows and COL_A columns, B has ROW_B rows and COL_B columns, ROW_B must equal COL_A, and C has ROW_A rows and COL_B columns.
+
+matrix_a and matrix_b contain unsigned INPUT_DATA_WIDTH-bit elements. Each packed matrix uses row-major, least-significant-element-first order. Element [i,j] occupies the field beginning at bit (i*number_of_columns+j)*element_width. Thus the least-significant field is element [0,0], fields then advance across columns, and rows follow in increasing order. matrix_c uses the same convention with OUTPUT_DATA_WIDTH-bit fields.
+
+For every 0 <= i < ROW_A and 0 <= j < COL_B, C[i,j] = sum over k from 0 through COL_A-1 of A[i,k] * B[k,j]. All operands and results are unsigned. Products and the accumulating sum must be evaluated in a context wide enough to preserve the complete mathematical sum. Storage into the OUTPUT_DATA_WIDTH-bit C field is the only truncation boundary, and OUTPUT_DATA_WIDTH must be wide enough that this boundary discards no result bits for the supported parameters.
+
+matrix_a continuously supplies every A[i,k] operand from its row-major, least-significant-element-first INPUT_DATA_WIDTH-bit fields; any field change immediately recomputes every matrix_c element in the corresponding output row using the simultaneously present matrix_b, including zero-valued fields and repeated or uninterrupted changes, because there is no inactive level, mode, transaction control, clock, reset, capture, or interruption state.
+
+matrix_b continuously supplies every B[k,j] operand from its row-major, least-significant-element-first INPUT_DATA_WIDTH-bit fields; any field change immediately recomputes every matrix_c element in the corresponding output column using the simultaneously present matrix_a, including zero-valued fields and repeated or uninterrupted changes, because there is no inactive level, mode, transaction control, clock, reset, capture, or interruption state.
+
+matrix_c continuously presents the combinational packed matrix product of the current matrix_a and matrix_b after propagation delay and neither clears nor retains a prior result; there are no reset assertion or release events, active edges, capture or completion events, restart conditions, or transaction intervals.
+
+These laws cover every packed input bit pattern, including either matrix being all zero, both being all zero, or any subset of elements being zero. A zero operand contributes zero to its dot product. There are no disabled inputs, cancellation, starts, repeated starts, first-result special cases, retained data, completion states, skipped input encodings, or hardware don't-care cases.
+
+For the supplied 2-by-3 times 3-by-2 illustration, these rules give matrix_a = {a23, a22, a21, a13, a12, a11}, matrix_b = {b32, b31, b22, b21, b12, b11}, and matrix_c = {c22, c21, c12, c11}.
+
+6. Worked trace.
+
+The evaluated trace below is normative for the concrete sampled instance: ROW_A=4, COL_A=4, ROW_B=4, COL_B=4, INPUT_DATA_WIDTH=8, and an 18-bit field for each result. It illustrates the general laws above but does not replace the parameterized contract.
+
+### stimulus 0
+| cycle | matrix_a | matrix_b | matrix_c |
+|---|---|---|---|
+| 0 | 128'h0 | 128'h0 | 288'h0 |
+
+### stimulus 1
+| cycle | matrix_a | matrix_b | matrix_c |
+|---|---|---|---|
+| 0 | 128'h1 | 128'h1 | 288'h1 |
+
+### stimulus 2
+| cycle | matrix_a | matrix_b | matrix_c |
+|---|---|---|---|
+| 0 | 128'hffffffffffffffffffffffffffffffff | 128'hffffffffffffffffffffffffffffffff | 288'hfe013f804fe013f804fe013f804fe013f804fe013f804fe013f804fe013f804fe013f804 |
+
+### stimulus 3
+| cycle | matrix_a | matrix_b | matrix_c |
+|---|---|---|---|
+| 0 | 128'h80000000000000000000000000000000 | 128'h80000000000000000000000000000000 | 288'h100000000000000000000000000000000000000000000000000000000000000000000000 |
+
+### stimulus 4
+| cycle | matrix_a | matrix_b | matrix_c |
+|---|---|---|---|
+| 0 | 128'h123456789abcdef0123456789abcdef | 128'hfedcba9876543210fedcba9876543210 | 288'h21440697013740323084141ac7052240e4b021440697013740323084141ac7052240e4b0 |
+
+### stimulus 5
+| cycle | matrix_a | matrix_b | matrix_c |
+|---|---|---|---|
+| 0 | 128'h1 | 128'h0 | 288'h0 |
+
+### stimulus 6
+| cycle | matrix_a | matrix_b | matrix_c |
+|---|---|---|---|
+| 0 | 128'h0 | 128'h1 | 288'h0 |
+
+### stimulus 7
+| cycle | matrix_a | matrix_b | matrix_c |
+|---|---|---|---|
+| 0 | 128'hffff | 128'h1010101010101010101010101010101 | 288'h7f801fe007f801fe |
+
+### stimulus 8
+| cycle | matrix_a | matrix_b | matrix_c |
+|---|---|---|---|
+| 0 | 128'h1000000000000000000000000000000 | 128'h1 | 288'h0 |
+
+### stimulus 9
+| cycle | matrix_a | matrix_b | matrix_c |
+|---|---|---|---|
+| 0 | 128'hff00ff00 | 128'h1020304 | 288'h0 |

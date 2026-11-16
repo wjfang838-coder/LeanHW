@@ -1,0 +1,243 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a **Finite State Machine (FSM)** sequence detector in System Verilog that detects the specific 8-bit sequence **`10110001`** from a continuous serial input. When the sequence is detected, the FSM should output a high signal for one clock cycle.
+
+### Specification
+
+#### Inputs
+- `clk_in (1-bit)` - Input clock signal with 50% duty cycle to operate the design at the rising edge
+- `rst_in (1-bit)` - Asynchronous active-high reset signal. When asserted high, the FSM resets to the initial state `S0`.
+- `seq_in (1-bit)` - Serial input signal to provide a continuous stream of bits (`0` or `1`).
+
+#### Output
+- `seq_detected (1-bit)` - This signal is asserted HIGH for one clock cycle when the sequence `10110001` is detected otherwise remains at LOW
+
+#### FSM Design Requirements
+
+1. **State Definitions:**
+   - Implement **eight states** (`S0` to `S7`) to represent each step in detecting the sequence.
+   - **State Encoding**: Use a 3-bit state representation (`logic [2:0]`).
+
+2. **Output Behavior:**
+   - The output `seq_detected` should be **registered** and synchronized with `clk_in` to avoid glitches.
+   - It should be asserted **only once** per detected sequence, for **one clock cycle** immediately after the last bit is received.
+
+3. **Input Constraints:**
+   - **`seq_in`** is always a valid binary input (`0` or `1`).
+   - No special handling is required for invalid inputs.
+
+4. **Sequence Overlaps:**
+   - The FSM must handle overlapping sequences. For example, if `seq_in` contains `101100010110001`, the FSM should detect the sequence twice.
+
+5. **Boundary Conditions:**
+   - The FSM should correctly handle the sequence detection regardless of where it starts in the input stream.
+   - There are no underflow or overflow conditions to consider.
+
+6. **Timing Requirements:**
+   - **State Transitions:** Occur on the rising edge of `clk_in`.
+   - **Output Assertion:** `seq_detected` is asserted high on the rising edge of `clk_in` following the detection of the complete sequence.
+
+---
+
+**Implementation Details:**
+
+- **Data Types:**
+  - Use `bit` for the clock input `clk_in` for precise edge detection.
+  - Use `logic` for other inputs and outputs.
+
+- **State Representation:**
+  - Define an enumerated type `state_t` for states `S0` to `S7` using `logic [2:0]`.
+
+- **State Register:**
+  - Implement a sequential always block triggered on `posedge clk_in` or `posedge rst_in` for state transitions.
+
+- **Next State Logic:**
+  - Use a combinational always block (`always_comb`) to determine `next_state` based on `cur_state` and `seq_in`.
+
+- **Output Logic:**
+  - Compute `seq_detected_w` in the combinational block.
+  - Register `seq_detected` in a sequential always block to synchronize it with `clk_in`.
+
+- **Reset Behavior:**
+  - On assertion of `rst_in`, the FSM should immediately reset to `S0` and `seq_detected` should be cleared to `0`.
+
+---
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a **Finite State Machine (FSM)** sequence detector in System Verilog that detects the specific 8-bit sequence **`10110001`** from a continuous serial input. When the sequence is detected, the FSM should output a high signal for one clock cycle.
+
+Named module interface binding
+
+Module: fsm_seq_detector.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk_in: input; 1 bits in the concrete formal instance.
+- rst_in: input; 1 bits in the concrete formal instance.
+- seq_in: input; 1 bits in the concrete formal instance.
+- seq_detected: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly fsm_seq_detector. There are no public parameters. The public boundary consists of the one-bit inputs clk_in, rst_in, and seq_in, and the one-bit output seq_detected. These names, directions, and widths are normative. Q12 confirms named connections but does not verify positional declaration order. This document therefore guarantees the named wiring, not a positional order; a consumer that has the actual module declaration may instantiate it positionally in that declaration's order.
+
+3. Reset.
+
+rst_in is active high and asynchronous. Assertion immediately places the state in S0 and clears seq_detected to 0, independently of clk_in and regardless of partial-match progress. Reset has priority when its assertion coincides with a rising edge, so no seq_in bit is accepted at that edge. While reset remains asserted, the state remains S0 and seq_detected remains 0. Reset release alone accepts no bit and changes no registered value. At the first rising edge after release, the pre-edge seq_in value is accepted from S0; after that edge the state is S1 for an accepted 1 and S0 for an accepted 0, and seq_detected is 0.
+
+Implementation choice C1 — power-up scope only. Before any reset event, the implementation starts in S0 with seq_detected equal to 0. This is a compatible implementation decision, not a source-established hardware power-up guarantee. It adds no reset-before-use restriction: rising edges before reset obey the ordinary transition and output laws.
+
+4. Timing.
+
+clk_in has a 50-percent duty cycle. A rising edge accepts the pre-edge seq_in value and advances the state. A falling edge neither accepts a bit nor advances the state. seq_detected is registered and glitch-free.
+
+For every occurrence, let E0 be the rising edge that accepts the eighth ordered bit and thereby completes 10110001. The registered post-E0 value of seq_detected is computed from the pre-E0 state S7 and the pre-E0 seq_in value 1, so it is 1 throughout the completed interval E0-to-E1. At E1 the output returns to 0 unless the pre-E1 state and input complete another occurrence. Thus each detection produces a pulse exactly one rising-edge interval wide. State advancement at E0 is simultaneous but separate: the next state becomes S1 because the accepted final 1 is also a possible first bit of an overlapping occurrence.
+
+The Q1 through Q6 laws confirm this same event accounting at their frozen occurrences: the physical rising edge beginning the stated observation row captures the final 1, and the following falling-edge observation before E1 sees seq_detected=1. Those answers resolve the pre-existing reading ambiguity and do not create exceptions to the source law.
+
+The finite model has no physical clk_in field because one full-cycle step denotes one active rising edge. Row k is observed k full-cycle steps after the scenario starts, after settling and before that row's modeled edge; it is not an implicit 10 ns tick. A row with rst_in=1 models reset asserted and held through the observation and active edge. The finite projection does not represent every between-edge instant and does not narrow the asynchronous-reset RTL obligation. iface.json specifies no numeric step_ns or sample_offset_ns values.
+
+5. Behaviour.
+
+seq_in is binary. S0 through S7 represent that the longest suffix of the bits accepted so far which is also a prefix of 10110001 has length zero through seven, respectively. With rst_in low, every rising edge applies this complete transition law to the pre-edge state and pre-edge seq_in: S0 goes to S1 on 1 and S0 on 0; S1 goes to S1 on 1 and S2 on 0; S2 goes to S3 on 1 and S0 on 0; S3 goes to S4 on 1 and S2 on 0; S4 goes to S1 on 1 and S5 on 0; S5 goes to S3 on 1 and S6 on 0; S6 goes to S1 on 1 and S7 on 0; S7 goes to S1 on 1 and S0 on 0.
+
+Completion occurs exactly when the pre-edge state is S7 and the accepted bit is 1. On that edge seq_detected becomes 1; on every other non-reset rising edge it becomes 0. The simultaneous S7-to-S1 transition retains the final 1 as the prefix of a possible overlapping occurrence. Consequently detection works at every stream position, including two detections in 101100010110001. Reset cancels partial progress and clears any asserted pulse immediately.
+
+For the clock-input audit, a bit stable before a rising edge is accepted at that edge; a subsequent falling-edge observation sees the resulting registered value and is not another acceptance event. For the reset-input audit, asynchronous assertion immediately clears state and output, release alone does not advance them, and reset has priority over coincident capture. For the serial-input audit, every accepted binary value advances according to the complete S0-through-S7 law, including mismatch fallback and overlap. For the output audit, seq_detected is published from the pre-edge completion condition, is high for one rising-edge interval, and otherwise is low unless reset clears it sooner. Q8 through Q11 are unclear and authorize no additional amendment, unknown, or restriction.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete finite scenarios and observation convention above.
+
+### stimulus 0
+| cycle | rst_in | seq_in | seq_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 0 |
+| 9 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | rst_in | seq_in | seq_detected |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | rst_in | seq_in | seq_detected |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 0 |
+| 8 | 0 | 0 | 0 |
+
+### stimulus 3
+| cycle | rst_in | seq_in | seq_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 0 | 1 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 0 |
+| 9 | 0 | 1 | 0 |
+| 10 | 0 | 0 | 0 |
+| 11 | 0 | 0 | 0 |
+| 12 | 0 | 0 | 0 |
+| 13 | 0 | 1 | 0 |
+| 14 | 0 | 0 | 1 |
+
+### stimulus 4
+| cycle | rst_in | seq_in | seq_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 0 |
+| 9 | 0 | 1 | 0 |
+| 10 | 0 | 0 | 0 |
+| 11 | 0 | 0 | 0 |
+| 12 | 0 | 0 | 0 |
+| 13 | 0 | 1 | 0 |
+| 14 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | rst_in | seq_in | seq_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 0 | 0 | 0 |
+| 9 | 0 | 0 | 0 |
+
+### stimulus 6
+| cycle | rst_in | seq_in | seq_detected |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 1 | 0 |
+| 6 | 0 | 1 | 0 |
+| 7 | 0 | 1 | 0 |
+| 8 | 0 | 1 | 0 |
+| 9 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | rst_in | seq_in | seq_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 0 |
+| 9 | 0 | 0 | 1 |
+| 10 | 0 | 1 | 0 |
+| 11 | 0 | 1 | 0 |
+| 12 | 0 | 0 | 0 |
+| 13 | 0 | 0 | 0 |
+| 14 | 0 | 0 | 0 |
+| 15 | 0 | 1 | 0 |
+| 16 | 0 | 0 | 1 |
+| 17 | 0 | 1 | 0 |
+| 18 | 0 | 1 | 0 |
+| 19 | 0 | 0 | 0 |
+| 20 | 0 | 0 | 0 |
+| 21 | 0 | 0 | 0 |
+| 22 | 0 | 1 | 0 |
+| 23 | 0 | 0 | 1 |

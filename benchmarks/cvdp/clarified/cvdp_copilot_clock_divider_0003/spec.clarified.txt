@@ -1,0 +1,212 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Could you please implement a clock divider RTL module using SystemVerilog that divides an input clock by a factor of 2,4 or 8? The module `clock_divider` should take an input clock (`clk`) and generate an output clock (`clk_out`) with a reduced frequency based on a selection input (`sel`).
+
+### Requirements:
+
+**Inputs:**
+- `clk`: The primary clock input that needs to be divided.  The module operates on the rising edge of this clock .
+- `rst_n`: An active-low asynchronous reset signal. 
+- `[1:0] sel`: A 2-bit signal that determines the clock division factor, determining whether the input clock will be divided by 2, 4, or 8.
+
+**Output:**
+- `clk_out`: The divided clock signal output.
+
+### Functionality:
+1. **Clock Division:**
+- The output clock frequency should change based on the `sel` input:
+  - `sel = 2'b00`: Divide by 2.
+  - `sel = 2'b01`: Divide by 4.
+  - `sel = 2'b10`: Divide by 8.
+
+2. **Reset Behavior:**
+- When `rst_n` is asserted,`clk_out` should be zero.
+- After `rst_n` is de-asserted, the design will output the divided clock based on the `sel`.
+
+3. **Edge Cases**:
+- **Out-of-range `sel`**: If `sel` takes any value other than `2'b00`, `2'b01`, or `2'b10`, the output `clk_out` should be held at 0 until a valid `sel` is applied.
+
+4. **Assumptions on `sel`:**
+- The `sel` signal is expected to remain stable during normal operation. Assume that the `sel` value is always provided synchronized with reset (`rst_n`).
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Could you please implement a clock divider RTL module using SystemVerilog that divides an input clock by a factor of 2,4 or 8? The module `clock_divider` should take an input clock (`clk`) and generate an output clock (`clk_out`) with a reduced frequency based on a selection input (`sel`).
+
+Named module interface binding
+
+Module: clock_divider.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- rst_n: input; 1 bits in the concrete formal instance.
+- sel: input; 2 bits in the concrete formal instance.
+- clk_out: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly clock_divider. The implementation is synthesizable SystemVerilog RTL. The source defines no public parameters.
+
+The exact port names and widths are established for named connections. Positional declaration order is not verified, so the module must be instantiated by name; the following enumeration is not a normative positional order.
+
+clk — input, 1 bit.
+rst_n — input, 1 bit.
+sel — input, 2 bits, [1:0].
+clk_out — output, 1 bit.
+
+Integration clarification Q8 states exactly: “The harness confirms named connections to input ports clk and rst_n of width 1 and sel of width 2 and to output port clk_out of width 1, but it does not verify declaration order or any parameters, so connections are by exact name and positional instantiation order remains unverified.” This clarification does not amend an original clause.
+
+3. Reset.
+
+rst_n is an active-low asynchronous reset. Whenever rst_n is low, clk_out is 0 immediately, independently of clk and sel. Reset establishes the divider at the low start phase. Deasserting rst_n does not itself advance state. On the first rising edge of clk after release, the selected valid waveform advances according to the timing law below; sel = 2'b11 keeps clk_out at 0.
+
+Implementation choice C1: in the concrete finite verification instance, before reset has ever been asserted, the phase/count and remembered selection start at zero and 2'b00 respectively, so clk_out initially reads 0 and ordinary rising edges may establish subsequent values without reset. This is a compatible implementation decision, not a source-derived hardware power-up guarantee. It imposes no reset-before-use restriction and guarantees no value at uninitialized hardware power-up. Reset establishes exactly the same phase/count zero and records the selection present at the reset edge; the model has no other state.
+
+4. Timing.
+
+The module operates on each rising edge of clk. clk_out is a state-derived periodic output, except that asynchronous reset and invalid selection force it low immediately.
+
+For stable valid sel, successive rising edges of clk_out are separated by exactly 2 clk cycles for sel = 2'b00, 4 clk cycles for sel = 2'b01, and 8 clk cycles for sel = 2'b10. clk_out is not a completion pulse.
+
+Implementation choice C2: the concrete closed behavior uses a 50-percent duty cycle and a low restart phase. For a selected period N of 2, 4, or 8 clk cycles, clk_out is low for N/2 rising-edge intervals and high for N/2 rising-edge intervals. After a restart, the first low-to-high transition occurs on the N/2-th rising edge and the first high-to-low transition occurs on the N-th rising edge. This is a compatible implementation completion because the source fixes frequency but not duty cycle or phase; it preserves every required rising-edge period and does not amend the source.
+
+The worked table uses the interface full-cycle observation convention: row k samples clk_out before the kth active edge after settling, and that edge computes the state visible in row k+1. This table convention is separate from the circuit’s actual divide periods and asynchronous-reset law.
+
+5. Behaviour.
+
+sel is expected to remain stable during normal operation and is assumed to be provided synchronized with rst_n.
+
+With rst_n high and a valid sel held stable, rising edges of clk advance the waveform so successive rising edges of clk_out are separated by 2, 4, or 8 clk cycles for sel = 2'b00, 2'b01, or 2'b10 respectively.
+
+After reset and stabilization, stable sel values 2'b00, 2'b01, and 2'b10 select rising-edge periods of 2, 4, and 8 clk cycles respectively, while sel = 2'b11 requires clk_out to remain 0.
+
+sel = 2'b11 is the only invalid two-bit encoding. Whenever it is applied, clk_out is held at 0 until a valid selection is applied. The asynchronous reset law takes precedence over every selection case.
+
+Implementation choice C3: on a rising edge with rst_n high, a change from the selection recorded at the preceding rising edge restarts the newly selected waveform at its low phase, records the new selection, and does not also advance that waveform. A rising edge with sel = 2'b11 likewise resets the phase and records 2'b11. Immediately before a selection-change edge, clk_out is evaluated from the pre-edge phase using the currently applied sel, except that rst_n low or sel = 2'b11 forces 0. This is a compatible implementation completion only for selection-change behavior that the source leaves outside its stable-normal-operation assumption; it preserves the selected steady-state periods, invalid-selection zero, reset behavior, and full input domain, and does not amend the source.
+
+The harness drives rst_n low across two clk rising edges and then high before exercising each dividing selection, but it establishes no exact assertion, release, simultaneous-event, interrupted-reset, repeated-reset, or post-release-row behavior beyond the source requirements and the disclosed implementation choices.
+
+The harness establishes the selected steady-state rising-edge periods and the stabilized zero result for sel = 2'b11, but it establishes no exact first-result edge, intervening level, completion, retention, or restart timing.
+
+Q4 through Q7 are unclear answers. Their laws describe only limits of harness evidence; they authorize no source amendment, hardware X, don't-care, or weakening of the source requirements. Q1 through Q3 are likewise unclear and authorize none of those outcomes. There are no amendments to original clauses.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete sampled model, including implementation choices C1, C2, and C3 within their disclosed scopes.
+
+### stimulus 0
+| cycle | rst_n | sel | clk_out |
+|---|---|---|---|
+| 0 | 0 | 2'b00 | 0 |
+| 1 | 0 | 2'b00 | 0 |
+| 2 | 1 | 2'b00 | 0 |
+| 3 | 1 | 2'b00 | 1 |
+| 4 | 1 | 2'b00 | 0 |
+| 5 | 1 | 2'b00 | 1 |
+| 6 | 1 | 2'b00 | 0 |
+| 7 | 1 | 2'b00 | 1 |
+| 8 | 1 | 2'b00 | 0 |
+
+### stimulus 1
+| cycle | rst_n | sel | clk_out |
+|---|---|---|---|
+| 0 | 0 | 2'b01 | 0 |
+| 1 | 1 | 2'b01 | 0 |
+| 2 | 1 | 2'b01 | 0 |
+| 3 | 1 | 2'b01 | 1 |
+| 4 | 1 | 2'b01 | 1 |
+| 5 | 1 | 2'b01 | 0 |
+| 6 | 1 | 2'b01 | 0 |
+| 7 | 1 | 2'b01 | 1 |
+| 8 | 1 | 2'b01 | 1 |
+| 9 | 1 | 2'b01 | 0 |
+
+### stimulus 2
+| cycle | rst_n | sel | clk_out |
+|---|---|---|---|
+| 0 | 0 | 2'b10 | 0 |
+| 1 | 1 | 2'b10 | 0 |
+| 2 | 1 | 2'b10 | 0 |
+| 3 | 1 | 2'b10 | 0 |
+| 4 | 1 | 2'b10 | 0 |
+| 5 | 1 | 2'b10 | 1 |
+| 6 | 1 | 2'b10 | 1 |
+| 7 | 1 | 2'b10 | 1 |
+| 8 | 1 | 2'b10 | 1 |
+| 9 | 1 | 2'b10 | 0 |
+| 10 | 1 | 2'b10 | 0 |
+| 11 | 1 | 2'b10 | 0 |
+| 12 | 1 | 2'b10 | 0 |
+| 13 | 1 | 2'b10 | 1 |
+| 14 | 1 | 2'b10 | 1 |
+| 15 | 1 | 2'b10 | 1 |
+| 16 | 1 | 2'b10 | 1 |
+| 17 | 1 | 2'b10 | 0 |
+| 18 | 1 | 2'b10 | 0 |
+| 19 | 1 | 2'b10 | 0 |
+| 20 | 1 | 2'b10 | 0 |
+| 21 | 1 | 2'b10 | 1 |
+| 22 | 1 | 2'b10 | 1 |
+| 23 | 1 | 2'b10 | 1 |
+| 24 | 1 | 2'b10 | 1 |
+| 25 | 1 | 2'b10 | 0 |
+| 26 | 1 | 2'b10 | 0 |
+| 27 | 1 | 2'b10 | 0 |
+| 28 | 1 | 2'b10 | 0 |
+| 29 | 1 | 2'b10 | 1 |
+
+### stimulus 3
+| cycle | rst_n | sel | clk_out |
+|---|---|---|---|
+| 0 | 0 | 2'b11 | 0 |
+| 1 | 1 | 2'b11 | 0 |
+| 2 | 1 | 2'b11 | 0 |
+| 3 | 1 | 2'b11 | 0 |
+| 4 | 1 | 2'b11 | 0 |
+
+### stimulus 4
+| cycle | rst_n | sel | clk_out |
+|---|---|---|---|
+| 0 | 1 | 2'b00 | 0 |
+| 1 | 1 | 2'b00 | 1 |
+| 2 | 0 | 2'b10 | 0 |
+| 3 | 1 | 2'b10 | 0 |
+| 4 | 1 | 2'b10 | 0 |
+| 5 | 1 | 2'b10 | 0 |
+
+### stimulus 5
+| cycle | rst_n | sel | clk_out |
+|---|---|---|---|
+| 0 | 0 | 2'b00 | 0 |
+| 1 | 1 | 2'b00 | 0 |
+| 2 | 1 | 2'b01 | 0 |
+| 3 | 1 | 2'b01 | 0 |
+| 4 | 1 | 2'b00 | 1 |
+| 5 | 1 | 2'b00 | 0 |
+
+### stimulus 6
+| cycle | rst_n | sel | clk_out |
+|---|---|---|---|
+| 0 | 0 | 2'b00 | 0 |
+| 1 | 0 | 2'b10 | 0 |
+| 2 | 1 | 2'b10 | 0 |
+| 3 | 1 | 2'b10 | 0 |
+| 4 | 0 | 2'b01 | 0 |
+| 5 | 1 | 2'b01 | 0 |
+| 6 | 1 | 2'b01 | 0 |
+
+### stimulus 7
+| cycle | rst_n | sel | clk_out |
+|---|---|---|---|
+| 0 | 0 | 2'b01 | 0 |
+| 1 | 1 | 2'b01 | 0 |
+| 2 | 1 | 2'b01 | 0 |
+| 3 | 0 | 2'b01 | 0 |
+| 4 | 1 | 2'b01 | 0 |
+| 5 | 1 | 2'b01 | 0 |
+| 6 | 1 | 2'b01 | 1 |

@@ -1,0 +1,174 @@
+Module and integration contract
+
+Module: digital_dice_roller.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- button: input 1 bit.
+- dice_value: output [2:0].
+
+Public parameters:
+- integer DICE_MAX: default = 6.
+- Verification-visible parameter `DICE_MAX`: DICE_MAX is the public integer parameter with default value 6.
+- Verification-visible signal `button`: button is the one-bit input port named button.
+- Verification-visible signal `clk`: clk is the one-bit input port named clk.
+- Verification-visible signal `dice_value`: dice_value is the three-bit output port named dice_value with range [2:0].
+- Verification-visible signal `reset`: reset is the one-bit input port named reset and is the confirmed boundary spelling corresponding to the frozen reset_n stimulus.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+The reset port is asynchronous and active low. While reset is low, the FSM is IDLE, any roll is cancelled, the next roll is restored to start at 1, and dice_value is 3'b001. Reset dominates button and a coincident rising edge of clk. Releasing reset high causes no immediate state or output change. On the first later rising edge, button low leaves the reset state unchanged, while button high starts a roll at 1 without advancing beyond 1 or changing dice_value.
+
+Before reset has ever been asserted, the FSM is IDLE but dice_value has no established power-up value and is unknown. This is an express observable requirement from Q4, not a hardware guarantee inferred from Lean machine.init. A completed roll can establish dice_value without a preceding reset; there is no reset-before-use input restriction.
+
+Amendment — boundary reset spelling. The exact original clause is “- `reset_n`: Asynchronous active LOW reset. Keeps the `dice_value` at 000 when LOW.” Question ID Q9 has the certain answer law: “The header is module digital_dice_roller with parameter integer DICE_MAX = 6 and, in positional declaration order, input logic clk, input logic reset, input logic button, and output logic [2:0] dice_value; these spellings are exact and positional instantiation depends on this order, dice_value has the concrete range [2:0], and no port has a symbolic range.” Only the public module-header spelling of the active-low reset input is corrected; its polarity, asynchronous behavior, and all other functional requirements are outside this amendment and remain governed by their source clauses and other expressly scoped amendments.
+
+Amendment — reset value. The exact original clause is “- `reset_n`: Asynchronous active LOW reset. Keeps the `dice_value` at 000 when LOW.” Question ID Q6 has the certain answer law: “The reset_n stimulus binds to the top-level reset port: driving it low asynchronously forces dice_value to 3'b001 and cancels any roll, keeping those reset effects dominant at rising clock edges; releasing it high causes no immediate output change, and subsequent transactions start from the initial value sequence.” Only the reset-low output value, reset cancellation and dominance, and immediate release behavior are corrected by this law. Unrelated operation remains unchanged.
+
+Amendment — pre-reset range exception. The exact original clause is “The design should ensure that the output value always remains within the 1 to 6 range.” Question ID Q4 has the certain answer law: “Before active-low reset has ever been asserted, dice_value has no established power-up value and is unknown.” Only before reset has ever been asserted and before a completed roll has established dice_value does this corrected law supersede the original range clause. After either establishing event, the valid-result range applies for the default instance.
+
+Amendment — example reset cell. The exact original clause is “{ "name": "dice_value", "wave": "0........5..","data":[5] }”. Question ID Q8 has the certain answer law: “Asserting active-low reset makes dice_value 3'b001 asynchronously, releasing reset leaves it at 3'b001, and it remains unchanged throughout a roll until the rising edge that samples button low, after which it shows the current 1-through-DICE_MAX roll value and holds that result through idle and the next roll; because rows are pre-edge samples, the completion row shows the old value and the captured result first appears on the following row, with reset able to replace it immediately at any time.” Only the example's dice_value during reset assertion and immediately after reset release is corrected from 0 to 3'b001. Its clock waveform, reset interval, button interval, counter progression 1 through 6, stopped result 5, and all other example facts remain unchanged.
+
+4. Timing.
+
+With reset high, state-dependent effects occur only on rising edges of clk: an idle button assertion starts a roll, each later rising edge with button high advances its value sequence, and the first rising edge with button low completes it; falling edges and steady clock levels have no effect, repeated rolls follow the same rule, and reset low overrides a coincident rising edge.
+
+dice_value is registered retained state. A button assertion accepted in IDLE starts a roll at count 1 on that rising edge without changing dice_value. Each later rising edge with button high advances the count once. The first rising edge with button low completes the roll and captures the current count into dice_value. The result is visible after that edge and remains visible through IDLE and later rolling until another completion or reset. There is no completion pulse or handshake output.
+
+For the worked trace only, row k denotes k * step_ns after settling and samples out(s[k], i[k]) before the active edge represented by that row; the edge produces s[k+1]. Thus a completion row shows the previous result and the captured result first appears on the following row. The interface specifies no numeric timing.step_ns or timing.sample_offset_ns, so no implicit 10 ns tick is assigned. This observation convention is separate from the circuit's actual clock period and propagation delay, for which no numeric values are specified.
+
+5. Behaviour.
+
+At the default DICE_MAX value 6, digital_dice_roller controls a six-sided die. The FSM has exactly IDLE and ROLLING states. The rolling count is held in the specified internal 3-bit register `counter`; its normal sequence is 1, 2, 3, 4, 5, 6, 1, and no other normal result occurs.
+
+With reset high in IDLE, button low has no effect. Button high sampled on a rising edge enters ROLLING and establishes the current count as 1; this starting edge neither advances beyond 1 nor changes dice_value.
+
+With reset high in ROLLING, every later rising edge with button high advances exactly once through 1 to DICE_MAX and wraps from DICE_MAX to 1. Repeated high samples continue the same roll. While a roll is in progress, dice_value retains the value established by reset or the most recently completed roll; if neither reset nor a completed roll has yet established a value, dice_value remains unknown.
+
+With reset high in ROLLING, the first rising edge with button low completes the roll without advancing: dice_value takes the current count and the FSM returns to IDLE. Because each row is sampled before its active clock edge, on the first row with button low during a roll dice_value still equals the prior displayed value, and the roll result is not observable until after that edge.
+
+After the active edge that samples button low during a roll, dice_value becomes that roll's current count and retains it on subsequent idle rows, including the row after a new button assertion, until another roll completes or reset is asserted. Button low in IDLE has no effect. Reset interrupts and cancels a roll and overrides button.
+
+Both reset and button are one-bit inputs, so low and high exhaust their encodings. Once reset or a completed roll establishes dice_value, it is a result from 1 through DICE_MAX. For the default instance that is 1 through 6. The sole unknown interval is the expressly amended pre-establishment interval. There are no valid, ready, done, or cancellation ports.
+
+Derived parameter constraint P1. DICE_MAX must satisfy 1 <= DICE_MAX <= 7. The exact basis is the required sequence “values from 1 to 6 through an internal 3-bit register `counter`,” generalized by the certain Q7 and Q8 laws to 1 through DICE_MAX, together with the fixed three-bit dice_value range [2:0]. A sequence that starts at integer 1 requires DICE_MAX >= 1, and a fixed unsigned three-bit result required to represent every integer through DICE_MAX requires DICE_MAX <= 2^3 - 1 = 7. Values outside this domain cannot express the required nonempty 1-through-DICE_MAX sequence and result without violating the fixed representation. The supported default 6 remains included; no power-of-two restriction is imposed.
+
+The verification-visible binding button is enabled whenever reset is high. In IDLE, low retains state and high starts a roll; in ROLLING, high advances and low completes. Reset low disables its transaction effect and cancels the roll. After reset release the same laws resume, and a retained terminal result does not disable future transactions.
+
+The verification-visible binding clk advances transaction state only on rising edges while reset is high. Falling edges and steady levels do not advance state, and reset overrides a coincident rising edge. After a result reaches its retained terminal state, later rising edges still govern new transactions.
+
+The verification-visible binding dice_value is continuously observable. It is unknown only before reset has ever been asserted and before a roll has completed. Reset asynchronously establishes 3'b001. Otherwise it is retained through IDLE and ROLLING and changes only upon completion or reset. Its terminal value remains visible while a later roll count advances independently.
+
+The verification-visible binding reset is continuously enabled and active low. Low asynchronously establishes dice_value as 3'b001, restores IDLE and the next-roll starting sequence, cancels any roll, and prevents clk/button advancement. High permits rising-edge transaction behavior; release itself changes nothing. Reset can replace a retained terminal result immediately.
+
+The supplied example is normative: reset is initially asserted; after release, button high permits `counter` to progress through 1 through 6; button low stops the roll; and the completed dice_value is 5. Only its reset-low and immediate post-release output value is changed by the expressly labeled example amendment above.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete six-sided instance and uses the pre-edge full-cycle observation convention stated above.
+
+### stimulus 0
+| cycle | reset | button | dice_value |
+|---|---|---|---|
+| 0 | 0 | 0 | 3'b001 |
+| 1 | 0 | 1 | 3'b001 |
+| 2 | 1 | 0 | 3'b001 |
+| 3 | 1 | 1 | 3'b001 |
+| 4 | 1 | 1 | 3'b001 |
+| 5 | 1 | 0 | 3'b001 |
+| 6 | 1 | 0 | 3'b010 |
+
+### stimulus 1
+| cycle | reset | button | dice_value |
+|---|---|---|---|
+| 0 | 1 | 0 | 3'x |
+| 1 | 1 | 1 | 3'x |
+| 2 | 1 | 0 | 3'x |
+| 3 | 1 | 0 | 3'b001 |
+
+### stimulus 2
+| cycle | reset | button | dice_value |
+|---|---|---|---|
+| 0 | 0 | 0 | 3'b001 |
+| 1 | 1 | 0 | 3'b001 |
+| 2 | 1 | 1 | 3'b001 |
+| 3 | 1 | 1 | 3'b001 |
+| 4 | 1 | 1 | 3'b001 |
+| 5 | 1 | 0 | 3'b001 |
+
+### stimulus 3
+| cycle | reset | button | dice_value |
+|---|---|---|---|
+| 0 | 1 | 1 | 3'x |
+| 1 | 1 | 1 | 3'x |
+| 2 | 1 | 1 | 3'x |
+| 3 | 1 | 1 | 3'x |
+| 4 | 1 | 1 | 3'x |
+| 5 | 1 | 1 | 3'x |
+| 6 | 1 | 1 | 3'x |
+| 7 | 1 | 1 | 3'x |
+| 8 | 1 | 1 | 3'x |
+| 9 | 1 | 1 | 3'x |
+| 10 | 1 | 1 | 3'x |
+| 11 | 1 | 1 | 3'x |
+| 12 | 1 | 1 | 3'x |
+| 13 | 1 | 1 | 3'x |
+| 14 | 1 | 1 | 3'x |
+| 15 | 1 | 1 | 3'x |
+| 16 | 1 | 1 | 3'x |
+| 17 | 1 | 1 | 3'x |
+| 18 | 1 | 1 | 3'x |
+| 19 | 1 | 1 | 3'x |
+| 20 | 1 | 0 | 3'x |
+| 21 | 1 | 0 | 3'b010 |
+| 22 | 1 | 0 | 3'b010 |
+
+### stimulus 4
+| cycle | reset | button | dice_value |
+|---|---|---|---|
+| 0 | 0 | 0 | 3'b001 |
+| 1 | 1 | 1 | 3'b001 |
+| 2 | 1 | 1 | 3'b001 |
+| 3 | 1 | 0 | 3'b001 |
+| 4 | 1 | 1 | 3'b010 |
+| 5 | 1 | 1 | 3'b010 |
+| 6 | 1 | 0 | 3'b010 |
+| 7 | 1 | 0 | 3'b010 |
+
+### stimulus 5
+| cycle | reset | button | dice_value |
+|---|---|---|---|
+| 0 | 0 | 0 | 3'b001 |
+| 1 | 1 | 1 | 3'b001 |
+| 2 | 1 | 1 | 3'b001 |
+| 3 | 0 | 1 | 3'b001 |
+| 4 | 1 | 1 | 3'b001 |
+| 5 | 1 | 0 | 3'b001 |
+
+### stimulus 6
+| cycle | reset | button | dice_value |
+|---|---|---|---|
+| 0 | 0 | 1 | 3'b001 |
+| 1 | 1 | 1 | 3'b001 |
+| 2 | 0 | 0 | 3'b001 |
+| 3 | 1 | 0 | 3'b001 |
+
+### stimulus 7
+| cycle | reset | button | dice_value |
+|---|---|---|---|
+| 0 | 0 | 0 | 3'b001 |
+| 1 | 1 | 1 | 3'b001 |
+| 2 | 1 | 1 | 3'b001 |
+| 3 | 1 | 1 | 3'b001 |
+| 4 | 1 | 1 | 3'b001 |
+| 5 | 1 | 1 | 3'b001 |
+| 6 | 1 | 1 | 3'b001 |
+| 7 | 1 | 1 | 3'b001 |
+| 8 | 1 | 0 | 3'b001 |
+| 9 | 1 | 0 | 3'b001 |

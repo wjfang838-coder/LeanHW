@@ -1,0 +1,242 @@
+Named module interface binding
+
+Module: gcd_top.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- rst: input; 1 bits in the concrete formal instance.
+- A: input; 4 bits in the concrete formal instance.
+- B: input; 4 bits in the concrete formal instance.
+- go: input; 1 bits in the concrete formal instance.
+- OUT: output; 4 bits in the concrete formal instance.
+- done: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly gcd_top. It has the public parameter WIDTH, with default value 4 and the constraint WIDTH > 0. A, B, and OUT are each WIDTH bits wide; every other top-level port is one bit wide.
+
+The exact named bindings are: input clk; input rst; input A[WIDTH-1:0]; input B[WIDTH-1:0]; input go; output OUT[WIDTH-1:0]; output done. Q16 confirms connection by name but does not verify positional declaration order. Therefore no positional declaration order is normative, and gcd_top must be instantiated by name. These names are exact.
+
+3. Reset.
+
+rst is active high and synchronous to the positive edge of clk. At every positive edge for which rst is high, the FSM enters S0 (IDLE), the captured operands and OUT become 0, and done becomes 0. Reset has priority over launch and computation on that edge. Because reset is synchronous, changing rst without a positive edge has no effect.
+
+On the first positive edge after rst is released, if go is low, the module remains idle, OUT remains 0, and done remains 0. If go is high with supported operands, that edge launches the transaction; OUT retains 0 and done remains low until completion.
+
+Implementation choice C1: only for physical power-up before any reset edge, the implementation initializes the FSM state, A_ff, B_ff, OUT, and done to their reset values, so OUT reads 0 and done reads 0. This is a compatible implementation decision, not a fact established by the original source or an answer. It creates no reset-before-use restriction and does not change the synchronous-reset contract or any subsequent functional law.
+
+4. Timing.
+
+All FSM state changes, operand updates, OUT updates, and done updates occur on positive edges of clk. rst is sampled on those edges. The source specifies no physical clock period or propagation delay.
+
+OUT is registered. OUT is updated to the computed GCD on the positive edge that completes the calculation and otherwise retains the previously computed GCD, except that a reset edge sets it to 0. done is asserted together with the valid OUT result for exactly one clock cycle and is low in the following cycle as the FSM returns to S0.
+
+A and B are captured on the positive edge across which the one-cycle go pulse is high. The best-case latency, for A equal to B at launch, is 2 clock cycles. The worst-case latency, for A = 1 and B = 2^WIDTH-1, is 2^WIDTH+1 clock cycles. Other supported inputs have data-dependent latency from the required subtraction iterations. The result is output as soon as calculation completes.
+
+For the concrete full-cycle model, row k denotes the observation after k interface steps from settling and is sampled before that row's active edge; it is not an implicit 10 ns clock tick. This table observation convention is separate from the circuit's clock-cycle latency laws. The interface supplies no numeric step_ns or sample_offset_ns.
+
+5. Behaviour.
+
+The Greatest Common Divisor, also called the Greatest Common Factor or Highest Common Factor, is the largest positive integer that divides the operands without remainder. The complete design computes the GCD of unsigned A and B using the subtraction form of the Euclidean algorithm.
+
+The SystemVerilog design consists of gcd_top, gcd_controlpath, and gcd_datapath. gcd_top must instantiate and connect gcd_controlpath and gcd_datapath. OUT is supplied by gcd_datapath and done by gcd_controlpath.
+
+Each module has the public parameter WIDTH with default 4 and WIDTH > 0. gcd_controlpath inputs are one-bit clk, rst, go, equal, and greater_than; its outputs are controlpath_state[1:0] and one-bit done. gcd_datapath inputs are one-bit clk, one-bit rst, unsigned nonzero A[WIDTH-1:0], unsigned nonzero B[WIDTH-1:0], and controlpath_state[1:0]; its outputs are OUT[WIDTH-1:0], one-bit equal, and one-bit greater_than. gcd_top has the interface in section 1.
+
+gcd_controlpath is an FSM with these required states and actions. S0 (IDLE) waits for go and performs no operation until go is received. S1 (DONE) asserts done when equal is active and returns to S0 after the output is provided. S2 (A > B) commands subtraction of B from A. S3 (B > A) commands subtraction of A from B. An unsupported state encoding transitions to S0 without performing a computation. controlpath_state communicates the current registered state to gcd_datapath. Both controlpath_state and done are synchronized to the positive edge of clk.
+
+gcd_datapath stores accepted operands in A_ff and B_ff. In S0, equal and greater_than are combinational comparisons of input A and B. In every other state, they are combinational comparisons of A_ff and B_ff. equal is high exactly when the selected unsigned values are equal; greater_than is high exactly when the selected A value is greater than the selected B value. Both comparison outputs feed gcd_controlpath.
+
+A supported transaction starts when go is high across one positive edge while the FSM is in S0. A and B must be stable and valid before and across that accepting edge and are captured on it. A and B need only be stable and valid before and across the accepting edge; after capture, changes at the top-level A and B pins do not alter the active transaction. The supported operand domain is the unsigned range 1 through 2^WIDTH-1 inclusive. go is high for exactly one clock cycle and remains low until completion. A new transaction may be launched only from the cycle following assertion of done for the preceding transaction.
+
+For every supported transaction, repeated unsigned subtraction is the computation law. If A_ff equals B_ff, their common value is the GCD. If A_ff is greater than B_ff, the next A_ff is A_ff-B_ff and B_ff is unchanged. Otherwise, the next B_ff is B_ff-A_ff and A_ff is unchanged. One directed update occurs per positive edge under the corresponding controlpath_state, and repetition continues until equality. At completion, gcd_datapath assigns the common value to OUT on the positive edge and gcd_controlpath asserts done with that valid result.
+
+OUT is valid and newly updated only together with asserted done. In all other non-reset cycles it retains the previously computed GCD. done is low except for its one-cycle completion pulse.
+
+Zero operands are outside the supported domain. A go assertion during an unfinished transaction, a go pulse longer than one cycle, and launching before the cycle after done are outside the required protocol; their effects are not specified by the RTL contract. These exclusions do not authorize X on OUT or done during a conforming transaction and do not weaken reset behavior. Changes to A or B after their accepting edge are not protocol violations and do not affect the captured transaction.
+
+For WIDTH=16, launching A=4 and B=2 produces OUT=2 together with done=1 for one clock cycle.
+
+Q9 through Q15 are unclear and therefore make no amendments. Their harness observations do not supersede any source clause. There are no scoped amendments to disclose.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete WIDTH=4 SpecIR instance and uses the observation convention in section 4. Concrete behavior outside the supported RTL input protocol is an implementation decision of that sampled model and does not enlarge the RTL contract.
+
+### stimulus 0
+| cycle | rst | A | B | go | OUT | done |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0011 | 4'b0101 | 0 | 4'b0000 | 0 |
+| 1 | 0 | 4'b1001 | 4'b0110 | 0 | 4'b0000 | 0 |
+| 2 | 0 | 4'b1001 | 4'b0110 | 1 | 4'b0000 | 0 |
+| 3 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 4 | 0 | 4'b1000 | 4'b1000 | 0 | 4'b0000 | 0 |
+
+### stimulus 1
+| cycle | rst | A | B | go | OUT | done |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 2 | 0 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 0 |
+| 3 | 0 | 4'b0001 | 4'b0001 | 0 | 4'b0000 | 0 |
+| 4 | 0 | 4'b0001 | 4'b0001 | 0 | 4'b0001 | 1 |
+| 5 | 0 | 4'b0001 | 4'b0001 | 0 | 4'b0001 | 0 |
+
+### stimulus 2
+| cycle | rst | A | B | go | OUT | done |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 2 | 0 | 4'b0100 | 4'b0010 | 1 | 4'b0000 | 0 |
+| 3 | 0 | 4'b0100 | 4'b0010 | 0 | 4'b0000 | 0 |
+| 4 | 0 | 4'b0100 | 4'b0010 | 0 | 4'b0000 | 0 |
+| 5 | 0 | 4'b0100 | 4'b0010 | 0 | 4'b0000 | 0 |
+| 6 | 0 | 4'b0100 | 4'b0010 | 0 | 4'b0010 | 1 |
+
+### stimulus 3
+| cycle | rst | A | B | go | OUT | done |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 2 | 0 | 4'b1000 | 4'b1100 | 1 | 4'b0000 | 0 |
+| 3 | 0 | 4'b1111 | 4'b0001 | 0 | 4'b0000 | 0 |
+| 4 | 0 | 4'b0000 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 5 | 0 | 4'b1000 | 4'b1000 | 0 | 4'b0000 | 0 |
+| 6 | 0 | 4'b1000 | 4'b1000 | 0 | 4'b0000 | 0 |
+| 7 | 0 | 4'b1000 | 4'b1000 | 0 | 4'b0100 | 1 |
+
+### stimulus 4
+| cycle | rst | A | B | go | OUT | done |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 1 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 2 | 0 | 4'b0001 | 4'b1111 | 1 | 4'b0000 | 0 |
+| 3 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 4 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 5 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 6 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 7 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 8 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 9 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 10 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 11 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 12 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 13 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 14 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 15 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 16 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 17 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 18 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 0 |
+| 19 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 1 |
+| 20 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 21 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 22 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 23 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 24 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 25 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 26 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 27 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 28 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 29 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 30 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 31 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 32 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 33 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 34 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 35 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 36 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 37 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 38 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 39 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 40 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 41 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 42 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 43 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 44 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 45 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 46 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 47 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 48 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 49 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 50 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 51 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 52 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 53 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+| 54 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0001 | 0 |
+
+### stimulus 5
+| cycle | rst | A | B | go | OUT | done |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 2 | 0 | 4'b1111 | 4'b1010 | 1 | 4'b0000 | 0 |
+| 3 | 0 | 4'b1111 | 4'b1010 | 0 | 4'b0000 | 0 |
+| 4 | 0 | 4'b0111 | 4'b0011 | 1 | 4'b0000 | 0 |
+| 5 | 0 | 4'b1111 | 4'b1010 | 0 | 4'b0000 | 0 |
+| 6 | 0 | 4'b1111 | 4'b1010 | 0 | 4'b0000 | 0 |
+| 7 | 0 | 4'b1111 | 4'b1010 | 0 | 4'b0101 | 1 |
+| 8 | 0 | 4'b1111 | 4'b1010 | 0 | 4'b0101 | 0 |
+| 9 | 0 | 4'b1111 | 4'b1010 | 0 | 4'b0101 | 0 |
+
+### stimulus 6
+| cycle | rst | A | B | go | OUT | done |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 2 | 0 | 4'b1001 | 4'b0110 | 1 | 4'b0000 | 0 |
+| 3 | 0 | 4'b1001 | 4'b0110 | 0 | 4'b0000 | 0 |
+| 4 | 1 | 4'b0111 | 4'b0101 | 1 | 4'b0000 | 0 |
+| 5 | 0 | 4'b0111 | 4'b0101 | 0 | 4'b0000 | 0 |
+| 6 | 0 | 4'b0111 | 4'b0101 | 1 | 4'b0000 | 0 |
+| 7 | 0 | 4'b0111 | 4'b0101 | 0 | 4'b0000 | 0 |
+| 8 | 0 | 4'b0111 | 4'b0101 | 0 | 4'b0000 | 0 |
+| 9 | 0 | 4'b0111 | 4'b0101 | 0 | 4'b0000 | 0 |
+| 10 | 0 | 4'b0111 | 4'b0101 | 0 | 4'b0000 | 0 |
+| 11 | 0 | 4'b0111 | 4'b0101 | 0 | 4'b0000 | 0 |
+| 12 | 0 | 4'b0111 | 4'b0101 | 0 | 4'b0000 | 0 |
+| 13 | 0 | 4'b0111 | 4'b0101 | 0 | 4'b0001 | 1 |
+
+### stimulus 7
+| cycle | rst | A | B | go | OUT | done |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 2 | 0 | 4'b0000 | 4'b0101 | 1 | 4'b0000 | 0 |
+| 3 | 0 | 4'b0000 | 4'b0101 | 0 | 4'b0000 | 0 |
+| 4 | 0 | 4'b0000 | 4'b0101 | 0 | 4'b0000 | 0 |
+| 5 | 0 | 4'b0000 | 4'b0101 | 0 | 4'b0000 | 0 |
+
+### stimulus 8
+| cycle | rst | A | B | go | OUT | done |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 2 | 0 | 4'b0110 | 4'b0011 | 1 | 4'b0000 | 0 |
+| 3 | 0 | 4'b0110 | 4'b0011 | 0 | 4'b0000 | 0 |
+| 4 | 0 | 4'b0110 | 4'b0011 | 0 | 4'b0000 | 0 |
+| 5 | 0 | 4'b0110 | 4'b0011 | 0 | 4'b0000 | 0 |
+| 6 | 0 | 4'b0110 | 4'b0011 | 0 | 4'b0011 | 1 |
+| 7 | 0 | 4'b1010 | 4'b0101 | 1 | 4'b0011 | 0 |
+| 8 | 0 | 4'b1010 | 4'b0101 | 0 | 4'b0011 | 0 |
+| 9 | 0 | 4'b1010 | 4'b0101 | 0 | 4'b0011 | 0 |
+| 10 | 0 | 4'b1010 | 4'b0101 | 0 | 4'b0011 | 0 |
+| 11 | 0 | 4'b1010 | 4'b0101 | 0 | 4'b0101 | 1 |
+| 12 | 0 | 4'b1010 | 4'b0101 | 0 | 4'b0101 | 0 |
+
+### stimulus 9
+| cycle | rst | A | B | go | OUT | done |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 2 | 0 | 4'b1111 | 4'b1000 | 1 | 4'b0000 | 0 |
+| 3 | 0 | 4'b1111 | 4'b1000 | 0 | 4'b0000 | 0 |
+| 4 | 0 | 4'b1111 | 4'b1000 | 0 | 4'b0000 | 0 |
+| 5 | 0 | 4'b1111 | 4'b1000 | 0 | 4'b0000 | 0 |
+| 6 | 0 | 4'b1111 | 4'b1000 | 0 | 4'b0000 | 0 |
+| 7 | 0 | 4'b1111 | 4'b1000 | 0 | 4'b0000 | 0 |
+| 8 | 0 | 4'b1111 | 4'b1000 | 0 | 4'b0000 | 0 |
+| 9 | 0 | 4'b1111 | 4'b1000 | 0 | 4'b0000 | 0 |
+| 10 | 0 | 4'b1111 | 4'b1000 | 0 | 4'b0000 | 0 |
+| 11 | 0 | 4'b1111 | 4'b1000 | 0 | 4'b0000 | 0 |
+| 12 | 0 | 4'b1111 | 4'b1000 | 0 | 4'b0000 | 0 |

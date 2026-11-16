@@ -1,0 +1,4 @@
+'MemCPUShallow.all_values' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ topology._native.native_decide.ax_1_1]

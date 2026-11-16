@@ -1,0 +1,135 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- in: input 1 bit.
+- reset: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+-  C: default = 2.
+-  D: default = 3.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Reset is active high and synchronous to the rising edge of clk. Before the first rising edge that samples reset as 1, out is unknown; the implementation must leave it uninitialised, with no initial block or declaration initialiser establishing a value. Input changes and rising edges with reset 0 do not make out defined during this power-up interval.
+
+On every rising edge that samples reset as 1, reset takes priority over in, recognition state returns to its initial no-prefix condition, and out becomes 0 immediately after the edge. Repeated rising edges with reset asserted retain those values. Assertion or release between rising edges has no immediate effect. On the first rising edge after release, reset is sampled as 0, in is sampled normally, recognition begins from the no-prefix condition, and out remains 0 because one sampled bit cannot complete the sequence.
+
+4. Timing.
+
+out is a registered Moore output. It changes only as a result of a rising edge of clk and is observable immediately after that edge. It has zero additional clock-cycle latency after the edge that samples the final input bit of a recognized sequence. A high indication is exactly one clock cycle wide: the next rising edge clears out for either value of in while also processing that input for a possible overlapping sequence. A steady clk and falling edges have no effect.
+
+The circuit's behavior is defined by rising edges, not by an absolute clock period. In the evaluated trace, row k denotes k * step_ns after settling, and each row is sampled sample_offset_ns after its observation time. Each row displays the settled output before that row's active edge; the edge's result therefore first appears in the following row. This observation convention does not impose a 10 ns clock or alter the circuit's edge-based delay and period laws.
+
+5. Behaviour.
+
+On each rising edge with reset 0, in is sampled and out becomes 1 exactly when the sampled input history since the most recent effective reset ends in 101; every other defined history makes out 0. Overlapping and repeated occurrences are recognized, including both completions in 10101. Interrupted sequences and back-to-back candidate sequences are processed one sample per rising edge, and changes to in between rising edges have no effect.
+
+The complete recognition progression is as follows. With no retained prefix, a sampled 0 retains no prefix and a sampled 1 retains prefix 1. With retained prefix 1, a sampled 0 retains prefix 10 and a sampled 1 retains prefix 1. With retained prefix 10, a sampled 0 returns to no retained prefix and a sampled 1 completes 101, making out 1. On the rising edge after a completion, sampled 0 retains prefix 10 and sampled 1 retains prefix 1, and either value makes out 0. Thus all one-bit input values are covered and recognition may assert again on a later completion.
+
+Only a rising edge of clk can make newly sampled reset or in affect out: reset sampled as 1 has priority, otherwise in advances the ongoing 101 recognition on every rising edge, while a steady clock and falling edges have no effect.
+
+6. Worked trace.
+
+The following evaluated trace is normative. Its rows use the observation convention stated above.
+
+### stimulus 0
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 0 | x |
+| 2 | 0 | 1 | x |
+| 3 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 1 |
+| 7 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 1 |
+
+### stimulus 4
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 1 |
+| 5 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 1 |
+| 7 | 1 | 0 | 0 |
+| 8 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+
+### stimulus 6
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 0 | 0 | 1 |
+
+### stimulus 7
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 0 | x |
+| 2 | 1 | 0 | x |
+| 3 | 1 | 1 | x |
+| 4 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 0 | 0 | 0 |

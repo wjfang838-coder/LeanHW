@@ -1,0 +1,17 @@
+'CaseCPU.Bridge.ready_condition' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ circuit_w140._native.bv_decide.ax_1_58,
+ code_table._native.native_decide.ax_1_1,
+ ready_condition._native.bv_decide.ax_1_13]
+'CaseCPU.Bridge.accept_state' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ accept_condition._native.bv_decide.ax_1_6,
+ circuit_w140._native.bv_decide.ax_1_58,
+ code_table._native.native_decide.ax_1_1,
+ ready_condition._native.bv_decide.ax_1_13]
+'CaseCPU.Bridge.reset_state' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ circuit_reset._native.bv_decide.ax_1_6]

@@ -1,0 +1,97 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input [7:0].
+- pos: output [2:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+TopModule has no reset input and no state. At power-up, including before any edge or initialization event, pos is already the combinational result for the current in value. There is no first reset edge and no first step after reset release. No output or state element has an initialization value because the circuit has no stored state.
+
+4. Timing.
+
+pos is combinationally and continuously determined by the current in value with zero clock-cycle latency. The module has no clock, no actual circuit period, no delay law, no pulse, and no periodic output.
+
+For the evaluated trace only, row k is observed after settling at k times timing.step_ns, using timing.sample_offset_ns from the interface. This observation convention is separate from circuit behavior and does not imply a 10 ns clock tick, a circuit period, or an edge-triggered transition.
+
+5. Behaviour.
+
+At all times, in immediately determines pos as the index of the lowest-numbered bit, scanning in[0] through in[7], whose four-state value is 1 or z; x does not qualify, and if no bit qualifies pos is 3'h0, so simultaneous qualifying bits select the lowest index, any change immediately replaces the prior result without interruption state, and repeated identical values have no additional effect or inactive phase.
+
+pos is continuously determined from the current in with no reset, capture, completion, clearing, holding, or restart interval: it is 3'h0 when no bit of in is 1 or z, otherwise it is the index of the lowest-numbered such bit, and a pre-edge row observes that current combinational result with no edge-based latency or initialization event.
+
+Thus the complete priority law is: if in[0] qualifies, pos is 0; otherwise, if in[1] qualifies, pos is 1; otherwise, if in[2] qualifies, pos is 2; otherwise, if in[3] qualifies, pos is 3; otherwise, if in[4] qualifies, pos is 4; otherwise, if in[5] qualifies, pos is 5; otherwise, if in[6] qualifies, pos is 6; otherwise, if in[7] qualifies, pos is 7; otherwise pos is 0. Here a bit qualifies exactly when its four-state value is 1 or z. An x bit does not qualify.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | pos |
+|---|---|---|
+| 0 | 8'b00000000 | 3'b000 |
+
+### stimulus 1
+| cycle | in | pos |
+|---|---|---|
+| 0 | 8'b00000001 | 3'b000 |
+
+### stimulus 2
+| cycle | in | pos |
+|---|---|---|
+| 0 | 8'b00000010 | 3'b001 |
+
+### stimulus 3
+| cycle | in | pos |
+|---|---|---|
+| 0 | 8'b00000100 | 3'b010 |
+
+### stimulus 4
+| cycle | in | pos |
+|---|---|---|
+| 0 | 8'b00001000 | 3'b011 |
+
+### stimulus 5
+| cycle | in | pos |
+|---|---|---|
+| 0 | 8'b00010000 | 3'b100 |
+
+### stimulus 6
+| cycle | in | pos |
+|---|---|---|
+| 0 | 8'b00100000 | 3'b101 |
+
+### stimulus 7
+| cycle | in | pos |
+|---|---|---|
+| 0 | 8'b01000000 | 3'b110 |
+
+### stimulus 8
+| cycle | in | pos |
+|---|---|---|
+| 0 | 8'b10000000 | 3'b111 |
+
+### stimulus 9
+| cycle | in | pos |
+|---|---|---|
+| 0 | 8'b11111111 | 3'b000 |
+
+### stimulus 10
+| cycle | in | pos |
+|---|---|---|
+| 0 | 8'b00100100 | 3'b010 |
+
+### stimulus 11
+| cycle | in | pos |
+|---|---|---|
+| 0 | 8'b10010000 | 3'b100 |

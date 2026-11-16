@@ -1,0 +1,6 @@
+{
+  "benchmark": "verilogeval",
+  "design": "Prob132_always_if2",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

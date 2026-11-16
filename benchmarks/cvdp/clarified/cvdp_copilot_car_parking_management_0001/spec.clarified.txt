@@ -1,0 +1,248 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+# Car Parking Management System
+
+Design a **Car Parking Management System** that efficiently manages vehicle entry and exit, tracks parking space availability, and displays the current status using LEDs and 7-segment displays. The system uses an FSM to handle state transitions for parking operations, ensuring robust and synchronized functionality.
+
+## Design Specification
+
+### **Module Name:**  
+`car_parking_system`
+
+## Key Considerations:
+- The system manages the entry and exit of vehicles in a controlled manner.
+- Dynamically tracks the number of available parking spaces.
+- Tracks the total number of cars present in the parking lot.
+- Displays parking availability using:
+  - **LED Indicators**: Indicate whether parking is full or available.
+  - **7-Segment Displays**: Show the number of remaining spaces and the number of cars currently parked in real time.
+  - **System is designed to support and display a 2-digit number** for total spaces (up to 99) on the 7-segment display.
+  - **Segment Mapping**: The 7-segment display uses a binary format where the most significant bit (MSB) represents segment A, and the least significant bit (LSB) represents segment G.
+
+## **Parameters**
+- `TOTAL_SPACES` *(Default = 12)*: Specifies the total number of parking spaces available.
+
+## **Inputs:**
+- `clk`: Clock signal driving the FSM transitions, operating at a 50:50 duty cycle. clk operating frequency is 100Mhz (10ns)
+- `reset`: Active-high asynchronous reset signal to initialize or reset the system.
+- `vehicle_entry_sensor`: Active-high input signal indicating a vehicle attempting to enter the parking lot.
+- `vehicle_exit_sensor`: Active-high input signal indicating a vehicle exiting the parking lot.
+
+## **Outputs:**
+- `available_spaces` *(log2(TOTAL_SPACES)-bits, [log2(TOTAL_SPACES)-1:0])*: Indicates the number of available parking spaces.
+- `count_car` *(log2(TOTAL_SPACES)-bits, [log2(TOTAL_SPACES)-1:0])*: Indicates the number of cars in the parking lot.
+- `led_status`: LED indicator where `1` indicates parking availability, and `0` indicates parking is full.
+- `seven_seg_display_available_tens`[6:0]: Encodes the number of available spaces for the tens digit of display on a 7-segment module.
+- `seven_seg_display_available_units`[6:0]: Encodes the number of available spaces for the units digit of display on a 7-segment module.
+- `seven_seg_display_count_tens`[6:0]: Encodes the number of cars present for the tens of display on a 7-segment module.
+- `seven_seg_display_count_units`[6:0]: Encodes the number of cars present for the units of display on a 7-segment module.
+
+## **FSM States:**
+1. **`Idle`**: No vehicles are detected; the system waits for a sensor trigger.
+2. **`Entry Processing`**: A vehicle is entering; decrement the available space count and increment the car count.
+3. **`Exit Processing`**: A vehicle is exiting; increment the available space count and decrement the car count.
+4. **`Full`**: Parking is full; entry is denied.
+
+## **Edge Cases:**
+1. **Reset Condition**: When `reset` is asserted, the system resets to its initial state where all spaces are available, and no cars are present.
+2. **Parking Full**: When all spaces are occupied, the system denies entry to vehicles and lights the "full" indicator.
+
+## Example Operation:
+
+
+| Clock Cycles | Reset | vehicle_entry_sensor | vehicle_exit_sensor | available_spaces | count_car | led_status | seven_seg_display_available_tens | seven_seg_display_available_units | seven_seg_display_count_tens | seven_seg_display_count_units |  
+|--------------|-------|----------------------|---------------------|------------------|-----------|------------|----------------------------------|-----------------------------------|-----------------------------|------------------------------|  
+| 1            | 1’b0  | 1'b0                | 1'b0               | 12               | 0         | 1          | `1`                              | `2`                              | `0`                         | `0`                          |  
+| 2            | 1’b0  | 1'b1                | 1'b0               | 11               | 1         | 1          | `1`                              | `1`                              | `0`                         | `1`                          |  
+| 3            | 1’b0  | 1'b0                | 1'b1               | 12               | 0         | 1          | `1`                              | `2`                              | `0`                         | `0`                          |  
+| 4            | 1’b0  | 1'b1                | 1'b0               | 0                | 12        | 0          | `0`                              | `0`                              | `1`                         | `2`                          |  
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Named module interface binding
+
+Module: car_parking_system.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- reset: input; 1 bits in the concrete formal instance.
+- vehicle_entry_sensor: input; 1 bits in the concrete formal instance.
+- vehicle_exit_sensor: input; 1 bits in the concrete formal instance.
+- available_spaces: output; 4 bits in the concrete formal instance.
+- count_car: output; 4 bits in the concrete formal instance.
+- led_status: output; 1 bits in the concrete formal instance.
+- seven_seg_display_available_tens: output; 7 bits in the concrete formal instance.
+- seven_seg_display_available_units: output; 7 bits in the concrete formal instance.
+- seven_seg_display_count_tens: output; 7 bits in the concrete formal instance.
+- seven_seg_display_count_units: output; 7 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is car_parking_system. The public integer parameter TOTAL_SPACES has default value 12 and specifies the total number of parking spaces.
+
+The exact port spellings and directions are: clk, input, 1 bit; reset, input, 1 bit; vehicle_entry_sensor, input, 1 bit; vehicle_exit_sensor, input, 1 bit; available_spaces, output, [log2(TOTAL_SPACES)-1:0]; count_car, output, [log2(TOTAL_SPACES)-1:0]; led_status, output, 1 bit; seven_seg_display_available_tens, output, [6:0]; seven_seg_display_available_units, output, [6:0]; seven_seg_display_count_tens, output, [6:0]; seven_seg_display_count_units, output, [6:0]. Q37 confirms these exact names through named harness connections and confirms 4-bit count outputs in the concrete instance. It does not verify positional declaration order or the parameter default. The source establishes the default. The document therefore guarantees named wiring as portable consumer guidance. A consumer possessing the actual declaration may use its declared positional order; this specification makes no positional-order guarantee.
+
+Derived parameter constraint P1. TOTAL_SPACES shall be an integer from 2 through 99 and shall not be a power of two. Source basis: the design supports a 2-digit total through 99; each count output has W=log2(TOTAL_SPACES) bits; reset requires available_spaces=TOTAL_SPACES; and a full lot requires count_car=TOTAL_SPACES. A W-bit unsigned output represents at most 2^W-1. Under the conventional integer ceiling-log2 width required by the concrete 12-space instance, every non-power-of-two value M satisfies M <= 2^ceil(log2(M))-1, while a power of two M gives M > 2^log2(M)-1 and cannot represent the required endpoint. Values below 2 do not yield the stated positive count-vector form. P1 excludes only values incapable of satisfying the source representation and endpoint laws; it preserves the default 12 and confirmed overrides 9, 12, and 14.
+
+3. Reset.
+
+reset is active high and asynchronous. Assertion immediately overrides both vehicle sensors and establishes Idle with available_spaces=TOTAL_SPACES and count_car=0. Consequently led_status=1, the available displays show the two decimal digits of TOTAL_SPACES, and the count displays show 00. These values persist throughout assertion. Reset release alone changes no state or output.
+
+Implementation choice C1 (initial-state completion). Before reset has ever been asserted, every state element and output has exactly the reset value just stated. The source does not establish a physical hardware power-up value; C1 is a compatible implementation decision and the finite Lean model initialization. It imposes no reset-before-use condition, suppresses no sensor transaction, and guarantees no additional reset behavior.
+
+At the first active edge after release, the pre-edge sensors and counts determine the post-edge state under section 5. If neither sensor is asserted, all state and outputs retain their reset values.
+
+4. Timing.
+
+clk is 100 MHz with a 10 ns period and a 50:50 waveform: five ns high and five ns low per period.
+
+Implementation choice C2 (unstated clock edge). The rising edge is the active data edge. The source fixes clock frequency and duty cycle but not the active edge. This choice leaves the asynchronous reset and transaction latency unchanged.
+
+For a transaction, E0 is the rising edge that samples the settled sensor levels. available_spaces and count_car become their registered post-E0 results immediately after E0 from pre-E0 counts and sensors. Zero subsequent complete clock intervals are required, and there is no source-stated later action edge. Same-edge advancement does not feed itself. led_status and all four seven-segment outputs are combinational functions of the current registered counts and settle after the count update with no additional cycle latency. There are no pulses, timeouts, or serialized outputs.
+
+For the evaluated full-cycle model, row k is the settled observation k * timing.step_ns after the start, sampled using timing.sample_offset_ns. A row observes outputs before that row's step; therefore an E0 state change appears in the next row. This table convention is separate from the circuit's actual 10 ns clock period, five ns phases, asynchronous-reset response, and rising-edge transaction law.
+
+Event audit from reset through three active edges: asynchronous assertion immediately establishes the reset state. Release changes nothing. At the first rising edge E0 after release, one single-sensor request may advance the counts; the combinational outputs then reflect that post-E0 state. At the next and third rising edges, the same rule is independently applied to the state immediately preceding each edge. Reset assertion at any point overrides sensor processing immediately; reset release is not itself a transaction or state-advance event.
+
+5. Behaviour.
+
+The FSM states are Idle, Entry Processing, Exit Processing, and Full. Idle waits while neither sensor is asserted. An accepted entry performs Entry Processing at E0. An accepted exit performs Exit Processing at E0. Full applies when no spaces remain and denies entry.
+
+Implementation choice C3 (simultaneous requests). If both vehicle_entry_sensor and vehicle_exit_sensor are high at E0, neither transaction is accepted and the complete state is retained. This closes an unspecified arbitration case without restricting the input domain or changing either single-sensor operation.
+
+Implementation choice C4 (empty-lot exit). If vehicle_exit_sensor alone is high at E0 while pre-E0 count_car is zero, the request is denied and the complete state is retained. This closes the unspecified underflow boundary without changing an exit when a car is present.
+
+Implementation choice C5 (sensor cadence and interruption). Every active edge independently evaluates the settled active-high sensors. A continuously asserted single sensor requests one transaction per active edge. Deassertion stops requests. If the asserted single sensor changes between edges, the sensor high at the next edge governs that edge. There is no warm-up, busy interval, cancellation residue, or completion pulse.
+
+If vehicle_entry_sensor alone is high at E0 and pre-E0 available_spaces is nonzero, post-E0 available_spaces equals pre-E0 available_spaces minus one and post-E0 count_car equals pre-E0 count_car plus one. If pre-E0 available_spaces is zero, both counts retain their values. Repeated accepted entries apply this law once per active edge until available_spaces=0 and count_car=TOTAL_SPACES; later entry attempts retain both endpoints.
+
+If vehicle_exit_sensor alone is high at E0 and pre-E0 count_car is nonzero, post-E0 available_spaces equals pre-E0 available_spaces plus one and post-E0 count_car equals pre-E0 count_car minus one. If pre-E0 count_car is zero, C4 retains both counts. Repeated exits cannot move either count outside 0 through TOTAL_SPACES.
+
+led_status is 1 exactly while available_spaces is nonzero and 0 exactly while available_spaces is zero. It remains 0 through denied full-lot entries and changes combinationally when the registered count changes.
+
+Implementation choice C6 (seven-segment completion). All displays use active-high A-through-G bits with A at bit 6 and G at bit 0. Codes are 0=7'b1111110, 1=7'b0110000, 2=7'b1101101, 3=7'b1111001, 4=7'b0110011, 5=7'b1011011, 6=7'b1011111, 7=7'b1110000, 8=7'b1111111, and 9=7'b1111011; a nondecimal digit maps to 7'b0000000. The source fixes decimal display purpose and bit order but not polarity or glyph codes, so C6 is a compatible completion.
+
+seven_seg_display_available_tens continuously encodes floor(available_spaces/10). seven_seg_display_available_units continuously encodes available_spaces modulo 10. seven_seg_display_count_tens continuously encodes floor(count_car/10). seven_seg_display_count_units continuously encodes count_car modulo 10.
+
+Amendment notice. The exact superseded source clause is: "| 4            | 1’b0  | 1'b1                | 1'b0               | 0                | 12        | 0          | `0`                              | `0`                              | `1`                         | `2`                          |". Q1's certain answer law states exactly: "After reset establishes twelve available spaces, an accepted entry reduces available_spaces by one, so the next confirmed result is eleven." Q2's certain answer law states exactly: "After reset establishes a zero car count, an accepted entry increases count_car by one, so the next confirmed result is one." Q19's certain answer law states exactly: "After one accepted entry into the reset-empty lot, led_status indicates that the lot is not full by remaining high." Only when that row denotes one accepted entry from the reset-established TOTAL_SPACES=12, count_car=0 state do these laws supersede its available_spaces=0, count_car=12, led_status=0, and consequent displayed 00/12. Under exactly those conditions, the corrected result is available_spaces=11, count_car=1, led_status=1, and displayed 11/01. No other source clause, example coordinate, or condition is amended.
+
+Q17's certain law is: "From the reset state of twelve available spaces, one accepted entry produces eleven available spaces." Q18's certain law is: "From the reset state of zero cars, one accepted entry produces a car count of one." Q21's certain law is: "Repeated accepted entries reduce available_spaces once per transaction until zero, after which further entries do not reduce it below zero." Q23's certain law is: "With twelve total spaces, repeated accepted entries increase count_car once per transaction until twelve, after which further entries do not increase it." Q25's certain law is: "When accepted entries fill all twelve spaces, led_status is low and remains low when another entry is attempted while full." These laws are implemented as general transition and output laws above, not stimulus-indexed values.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete TOTAL_SPACES=12 verification instance and implementation choices C1 through C6. The parameterized contract and P1 remain authoritative outside that instance.
+
+### stimulus 0
+| cycle | reset | vehicle_entry_sensor | vehicle_exit_sensor | available_spaces | count_car | led_status | seven_seg_display_available_tens | seven_seg_display_available_units | seven_seg_display_count_tens | seven_seg_display_count_units |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+
+### stimulus 1
+| cycle | reset | vehicle_entry_sensor | vehicle_exit_sensor | available_spaces | count_car | led_status | seven_seg_display_available_tens | seven_seg_display_available_units | seven_seg_display_count_tens | seven_seg_display_count_units |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 1 | 1 | 1 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 2 | 0 | 1 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 3 | 0 | 0 | 0 | 4'b1011 | 4'b0001 | 1 | 7'b0110000 | 7'b0110000 | 7'b1111110 | 7'b0110000 |
+| 4 | 0 | 0 | 0 | 4'b1011 | 4'b0001 | 1 | 7'b0110000 | 7'b0110000 | 7'b1111110 | 7'b0110000 |
+
+### stimulus 2
+| cycle | reset | vehicle_entry_sensor | vehicle_exit_sensor | available_spaces | count_car | led_status | seven_seg_display_available_tens | seven_seg_display_available_units | seven_seg_display_count_tens | seven_seg_display_count_units |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 1 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 2 | 0 | 1 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 3 | 0 | 0 | 0 | 4'b1011 | 4'b0001 | 1 | 7'b0110000 | 7'b0110000 | 7'b1111110 | 7'b0110000 |
+| 4 | 0 | 1 | 0 | 4'b1011 | 4'b0001 | 1 | 7'b0110000 | 7'b0110000 | 7'b1111110 | 7'b0110000 |
+| 5 | 0 | 0 | 0 | 4'b1010 | 4'b0010 | 1 | 7'b0110000 | 7'b1111110 | 7'b1111110 | 7'b1101101 |
+
+### stimulus 3
+| cycle | reset | vehicle_entry_sensor | vehicle_exit_sensor | available_spaces | count_car | led_status | seven_seg_display_available_tens | seven_seg_display_available_units | seven_seg_display_count_tens | seven_seg_display_count_units |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 1 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 2 | 0 | 0 | 1 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 3 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+
+### stimulus 4
+| cycle | reset | vehicle_entry_sensor | vehicle_exit_sensor | available_spaces | count_car | led_status | seven_seg_display_available_tens | seven_seg_display_available_units | seven_seg_display_count_tens | seven_seg_display_count_units |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 1 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 2 | 0 | 1 | 1 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 3 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+
+### stimulus 5
+| cycle | reset | vehicle_entry_sensor | vehicle_exit_sensor | available_spaces | count_car | led_status | seven_seg_display_available_tens | seven_seg_display_available_units | seven_seg_display_count_tens | seven_seg_display_count_units |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 1 | 0 | 1 | 1 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 2 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+
+### stimulus 6
+| cycle | reset | vehicle_entry_sensor | vehicle_exit_sensor | available_spaces | count_car | led_status | seven_seg_display_available_tens | seven_seg_display_available_units | seven_seg_display_count_tens | seven_seg_display_count_units |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 1 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 2 | 0 | 1 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 3 | 0 | 1 | 0 | 4'b1011 | 4'b0001 | 1 | 7'b0110000 | 7'b0110000 | 7'b1111110 | 7'b0110000 |
+| 4 | 0 | 1 | 0 | 4'b1010 | 4'b0010 | 1 | 7'b0110000 | 7'b1111110 | 7'b1111110 | 7'b1101101 |
+| 5 | 0 | 1 | 0 | 4'b1001 | 4'b0011 | 1 | 7'b1111110 | 7'b1111011 | 7'b1111110 | 7'b1111001 |
+| 6 | 0 | 1 | 0 | 4'b1000 | 4'b0100 | 1 | 7'b1111110 | 7'b1111111 | 7'b1111110 | 7'b0110011 |
+| 7 | 0 | 1 | 0 | 4'b0111 | 4'b0101 | 1 | 7'b1111110 | 7'b1110000 | 7'b1111110 | 7'b1011011 |
+| 8 | 0 | 1 | 0 | 4'b0110 | 4'b0110 | 1 | 7'b1111110 | 7'b1011111 | 7'b1111110 | 7'b1011111 |
+| 9 | 0 | 1 | 0 | 4'b0101 | 4'b0111 | 1 | 7'b1111110 | 7'b1011011 | 7'b1111110 | 7'b1110000 |
+| 10 | 0 | 1 | 0 | 4'b0100 | 4'b1000 | 1 | 7'b1111110 | 7'b0110011 | 7'b1111110 | 7'b1111111 |
+| 11 | 0 | 1 | 0 | 4'b0011 | 4'b1001 | 1 | 7'b1111110 | 7'b1111001 | 7'b1111110 | 7'b1111011 |
+| 12 | 0 | 1 | 0 | 4'b0010 | 4'b1010 | 1 | 7'b1111110 | 7'b1101101 | 7'b0110000 | 7'b1111110 |
+| 13 | 0 | 1 | 0 | 4'b0001 | 4'b1011 | 1 | 7'b1111110 | 7'b0110000 | 7'b0110000 | 7'b0110000 |
+| 14 | 0 | 1 | 0 | 4'b0000 | 4'b1100 | 0 | 7'b1111110 | 7'b1111110 | 7'b0110000 | 7'b1101101 |
+| 15 | 0 | 1 | 0 | 4'b0000 | 4'b1100 | 0 | 7'b1111110 | 7'b1111110 | 7'b0110000 | 7'b1101101 |
+
+### stimulus 7
+| cycle | reset | vehicle_entry_sensor | vehicle_exit_sensor | available_spaces | count_car | led_status | seven_seg_display_available_tens | seven_seg_display_available_units | seven_seg_display_count_tens | seven_seg_display_count_units |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 1 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 2 | 0 | 1 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 3 | 0 | 1 | 0 | 4'b1011 | 4'b0001 | 1 | 7'b0110000 | 7'b0110000 | 7'b1111110 | 7'b0110000 |
+| 4 | 0 | 1 | 0 | 4'b1010 | 4'b0010 | 1 | 7'b0110000 | 7'b1111110 | 7'b1111110 | 7'b1101101 |
+| 5 | 0 | 1 | 0 | 4'b1001 | 4'b0011 | 1 | 7'b1111110 | 7'b1111011 | 7'b1111110 | 7'b1111001 |
+| 6 | 0 | 1 | 0 | 4'b1000 | 4'b0100 | 1 | 7'b1111110 | 7'b1111111 | 7'b1111110 | 7'b0110011 |
+| 7 | 0 | 1 | 0 | 4'b0111 | 4'b0101 | 1 | 7'b1111110 | 7'b1110000 | 7'b1111110 | 7'b1011011 |
+| 8 | 0 | 1 | 0 | 4'b0110 | 4'b0110 | 1 | 7'b1111110 | 7'b1011111 | 7'b1111110 | 7'b1011111 |
+| 9 | 0 | 1 | 0 | 4'b0101 | 4'b0111 | 1 | 7'b1111110 | 7'b1011011 | 7'b1111110 | 7'b1110000 |
+| 10 | 0 | 1 | 0 | 4'b0100 | 4'b1000 | 1 | 7'b1111110 | 7'b0110011 | 7'b1111110 | 7'b1111111 |
+| 11 | 0 | 1 | 0 | 4'b0011 | 4'b1001 | 1 | 7'b1111110 | 7'b1111001 | 7'b1111110 | 7'b1111011 |
+| 12 | 0 | 1 | 0 | 4'b0010 | 4'b1010 | 1 | 7'b1111110 | 7'b1101101 | 7'b0110000 | 7'b1111110 |
+| 13 | 0 | 1 | 0 | 4'b0001 | 4'b1011 | 1 | 7'b1111110 | 7'b0110000 | 7'b0110000 | 7'b0110000 |
+| 14 | 0 | 1 | 0 | 4'b0000 | 4'b1100 | 0 | 7'b1111110 | 7'b1111110 | 7'b0110000 | 7'b1101101 |
+| 15 | 0 | 0 | 0 | 4'b0000 | 4'b1100 | 0 | 7'b1111110 | 7'b1111110 | 7'b0110000 | 7'b1101101 |
+| 16 | 0 | 0 | 1 | 4'b0000 | 4'b1100 | 0 | 7'b1111110 | 7'b1111110 | 7'b0110000 | 7'b1101101 |
+| 17 | 0 | 0 | 0 | 4'b0001 | 4'b1011 | 1 | 7'b1111110 | 7'b0110000 | 7'b0110000 | 7'b0110000 |
+
+### stimulus 8
+| cycle | reset | vehicle_entry_sensor | vehicle_exit_sensor | available_spaces | count_car | led_status | seven_seg_display_available_tens | seven_seg_display_available_units | seven_seg_display_count_tens | seven_seg_display_count_units |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 1 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 2 | 0 | 1 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 3 | 0 | 0 | 0 | 4'b1011 | 4'b0001 | 1 | 7'b0110000 | 7'b0110000 | 7'b1111110 | 7'b0110000 |
+| 4 | 0 | 0 | 1 | 4'b1011 | 4'b0001 | 1 | 7'b0110000 | 7'b0110000 | 7'b1111110 | 7'b0110000 |
+| 5 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 6 | 0 | 1 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 7 | 0 | 0 | 0 | 4'b1011 | 4'b0001 | 1 | 7'b0110000 | 7'b0110000 | 7'b1111110 | 7'b0110000 |
+
+### stimulus 9
+| cycle | reset | vehicle_entry_sensor | vehicle_exit_sensor | available_spaces | count_car | led_status | seven_seg_display_available_tens | seven_seg_display_available_units | seven_seg_display_count_tens | seven_seg_display_count_units |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 1 | 0 | 1 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 2 | 0 | 0 | 1 | 4'b1011 | 4'b0001 | 1 | 7'b0110000 | 7'b0110000 | 7'b1111110 | 7'b0110000 |
+| 3 | 1 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 4 | 0 | 0 | 1 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |
+| 5 | 0 | 0 | 0 | 4'b1100 | 4'b0000 | 1 | 7'b0110000 | 7'b1101101 | 7'b1111110 | 7'b1111110 |

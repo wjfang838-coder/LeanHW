@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob011_4-bit_carry_look-ahead_adder_circuit",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

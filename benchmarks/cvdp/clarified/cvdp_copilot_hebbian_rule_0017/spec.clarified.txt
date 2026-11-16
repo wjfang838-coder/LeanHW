@@ -1,0 +1,361 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a SystemVerilog RTL module `hebbian_rule` that implements a Moore Finite State Machine (FSM) to train a Hebbian learning model. The module takes signed 4-bit inputs (`a` and `b`), a 2-bit gate selector, and control signals for starting the FSM and resetting the system. It sequentially performs training steps such as weight initialization, target selection, weight/bias updates, and convergence checks using the Hebbian learning rule. The module outputs the updated weights (`w1` and `w2`), bias, and the FSM's current state and next state. The system uses a gate selection module to determine the target outputs based on logical gate operations for training.
+
+## Design Specifications:
+- Hebbian rule is a type of unsupervised neural network learning algorithm
+
+## Abstract Algorithm:
+- The hebbian or hebb rule works based on the following algorithm
+
+-  **Step 1**: Initialize all the weights and bias to zero.
+                                  w<sub>I</sub> = 0 for i = 1 to n , n is the number of input vectors
+
+- **Step 2**: For each input training vector and target output pair, do the following:
+
+    - **Step 2a**: Set activation for input units
+                         x<sub>i</sub>=s<sub>i</sub>, x is a register to store the input vector, where x is a register to store the input vector
+
+    -  **Step 2b**: Set activation for output unit
+                            y = t, where t is the target vector and y is the output vector
+
+    -  **Step 2c**: Adjust the weights and bias
+                         w<sub>i</sub>(new) = w<sub>i</sub>(old) + delta_w
+                         bias(new) = bias(old) + delta_b
+                          Where:
+                            delta_w = x<sub>I</sub> * t
+                            delta_b = t
+                   
+## Inputs and Outputs:
+## Inputs:
+- `clk` (1-bit): Posedge Clock signal.
+- `rst` (1-bit): Asynchronous Negedge Reset signal. When asserted LOW , the FSM is initialized to State_0 and iteration counter is initialized to 0.
+- `start `(1-bit): Active HIGH Signal to initiate the FSM.
+- `a`, `b` (4-bit each, [3:0],signed): Bipolar input signals [-1 ,1]. Only -1 and 1 have to be considered as valid inputs
+- `gate_select` (2-bit,[1:0]): Selector to specify the target for a given gate
+## Outputs:
+- `w1`, `w2` (4-bit each,[3:0], signed): Trained weights for the inputs.
+- `bias` (4-bit, signed,[3:0]): Trained bias value.
+- `present_state`, `next_state` (4-bit each,[3:0]): Current and next states of the Training FSM.
+
+## Learning Logic:
+- Weights (w1, w2) and bias are updated incrementally based on the input values and a computed error:
+    delta_w1 = x1 * target
+    delta_w2 = x2 * target
+    delta_b = target 
+    w1 = w1 + delta_w1
+    w2 = w2 + delta_w2
+    bias = bias + delta_b
+
+- Target values are determined using a `gate_target` submodule based on `gate_select`:
+  - gate_select = 2'b00: AND gate behavior.
+  - gate_select = 2'b01: OR gate behavior.
+  - gate_select = 2'b10: NAND gate behavior.
+  - gate_select = 2'b11: NOR gate behavior.
+
+## FSM Design:
+There are totally 11 states handled by Moore FSM.
+- State_0: Reset state.
+- State_1: Capture inputs.
+- State_2-State_6: Assign targets based on the selected gate.
+- State_7: Compute deltas for weights and bias.
+- State_8: Update weights and bias.
+- State_9: Loop through training iterations.
+- State_10: Return to the initial state.
+
+## Functional Requirements:
+- Weight adjustment must follow the Hebbian learning rule.
+- The FSM must support multiple training iterations for every possible input combination of a two-input logic gate.
+- Outputs (`w1`, `w2`, `bias`) should reflect trained values at the end of the process.
+
+## Testbench:
+- Validate learning for all gates (`gate_select` = 2'b00 to 2'b11).
+- Test with various input combinations (`a`, `b`) to observe weight and bias updates.
+- Ensure the FSM transitions and outputs align with the design.
+
+## Example Calculation:
+Let us take the AND gate for explaining the working of the module.
+Let the 4-bit inputs be : `a = 4'b0001` and `b = 4'b0001`.
+The target expected for this input combination is `4'b0001`.
+
+## Algorithmic Explanation :
+-  1. Initialize the weights and bias registers to 0
+            `w1 = 4'b0000` , `w2 = 4'b0000` , `bias = 4'b0000`;
+-  2. Capture the inputs `a` and `b` into two internal registers namely x1 and x2.
+            `x1 = 4'b0001` (Holds the contents of operand `a`)
+            `x2 = 4'b0001` (Holds the contents of operand `b`)
+-  3. Select the target required for the given input combination 
+          ` t1 = 4'b0001`
+-  4. Calculate the incremental values of w1(`delta_w1`), w2(`delta_w2`), b(`delta_b`)
+            `delta_w1 = x1 * t = 4'b0001 * 4'b0001 = 4'b0001`
+            `delta_w2 = x2 * t = 4'b0001 * 4'b0001 = 4'b0001`
+            `delta_b  = t = 4'b0001`
+-  5. Calculate the values of w1 , w2 , bias
+            `w1   = w1 + delta_w1  = 4'b0000 + 4'b0001 = 4'b0001`; (1 in decimal)
+            `w2   = w2 + delta_w2  = 4'b0000 + 4'b0001 = 4'b0001`; (1 in decimal)
+            `bias = bias + delta_b = 4'b0000 + 4'b1111 = 4'b0001`; (1 in decimal)
+
+Example Waveform:
+```wavedrom
+{
+  "signal": [
+    {"name": "clk", "wave": "p................"},
+    {"name": "rst", "wave": "0...1............", "data": []},
+    {"name": "a[3:0]", "wave": "0...3444.........", "data": ["4'd1","4'd1","-4'd1","-4'd1"]},
+    {"name": "b[3:0]", "wave": "0...3444.........", "data": ["4'd1","-4'd1","4'd1","-4'd1"]},
+    {"name": "gate_select[1:0]", "wave": "x...3............", "data": ["2'b00"]},
+    {"name": "w1[3:0]", "wave": "0...4444.........", "data": ["4'd1","4'd0","4'd1","4'd2"]},
+    {"name": "w2[3:0]", "wave": "0...4444.........", "data": ["4'd1","4'd2","4'd1","4'd2"]},
+    {"name": "bias[3:0]", "wave": "0...4444.........", "data": ["4'd1","4'd0","-4'd1","-4'd2"]},
+    {"name": "present_state[3:0]", "wave": "0...3333.........", "data": ["4'd0..49","4'd0..4'd9","4'd0..4'd9","4'd0..4'd10"]}
+    ],
+  "config": {"hscale": 3}
+}
+```
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a SystemVerilog RTL module `hebbian_rule` that implements a Moore Finite State Machine (FSM) to train a Hebbian learning model. The module takes signed 4-bit inputs (`a` and `b`), a 2-bit gate selector, and control signals for starting the FSM and resetting the system. It sequentially performs training steps such as weight initialization, target selection, weight/bias updates, and convergence checks using the Hebbian learning rule. The module outputs the updated weights (`w1` and `w2`), bias, and the FSM's current state and next state. The system uses a gate selection module to determine the target outputs based on logical gate operations for training.
+
+Module and integration contract
+
+Module: hebb_gates.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- start: input 1 bit.
+- a: input signed [3:0].
+- b: input signed [3:0].
+- gate_select: input [1:0].
+- w1: output signed [3:0].
+- w2: output signed [3:0].
+- bias: output signed [3:0].
+- present_state: output [3:0].
+- next_state: output [3:0].
+
+Public parameters:
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+rst is an asynchronous active-LOW reset with priority over coincident clock and control activity. Physical assertion E0 immediately makes each of w1, w2, bias, and present_state 4'b0000 without waiting for clk and clears the prior item-qualification history. These four outputs remain zero while rst is LOW. During reset, next_state remains combinational: it is 4'b0000 when start is LOW and 4'b0001 when start is HIGH.
+
+Reset release changes no registered output and accepts no item. At the first subsequent rising edge E1, normal state capture and input-item processing resume from State_0. Immediately before E1, the registered outputs still have their reset values.
+
+Before rst has ever been asserted and before their respective assignments, w1, w2, bias, and present_state have no initialized value and are unknown. A rising edge with start LOW establishes present_state as State_0. A qualifying rising edge establishes w1, w2, and bias. next_state is still known as 4'b0000 whenever start is LOW. This power-up statement is not a reset-before-use input restriction.
+
+4. Timing.
+
+Only a rising edge of clk advances registered state; falling edges have no effect. w1, w2, bias, and present_state are registered outputs. next_state is continuously combinational from start and present_state.
+
+For a qualifying tuple, E0 is its accepting rising edge. The pre-E0 values of a, b, gate_select, w1, w2, bias, and qualification history determine the registered post-E0 data outputs. The same edge separately advances present_state and qualification history. The pre-E0 observation contains the old registered values; immediately after E0 the updated registered values are visible, and the next pre-edge observation contains them. There is no separate completion pulse or later publication edge. A nonqualifying rising edge retains w1, w2, and bias.
+
+The finite Lean model has no physical clk input. Each full-cycle step denotes one rising edge. Row k drives its inputs, settles combinational logic, and samples outputs before that edge; the edge produces the state sampled in row k+1. Reset rows represent rst held LOW through the represented edge. The projection does not represent every between-edge instant and does not weaken the asynchronous-reset contract. iface.json supplies neither step_ns nor sample_offset_ns, so the rows do not imply a 10 ns tick.
+
+5. Behaviour.
+
+The natural four-bit state encodings are State_0=4'd0, State_1=4'd1, State_2=4'd2, State_3=4'd3, State_4=4'd4, State_5=4'd5, State_6=4'd6, State_7=4'd7, State_8=4'd8, State_9=4'd9, and State_10=4'd10.
+
+start LOW makes next_state 4'd0. start HIGH makes next_state 4'd1 when present_state is 4'd10 and otherwise makes next_state equal to present_state plus one modulo 16. At every rising edge with rst HIGH, present_state captures the next_state value from immediately before that edge. Consequently uninterrupted start HIGH progresses 0,1,...,10,1,...; start LOW returns present_state to 0 at that edge. Data-output qualification does not delay state progression.
+
+The environment supplies training tuples. A tuple (a,b,gate_select) qualifies at a rising edge exactly when rst is HIGH, start is HIGH, and it is the first such tuple after reset or after a start-LOW rising edge, or at least one tuple field differs from the most recently qualified tuple. Exact repeats with uninterrupted start HIGH do not qualify and retain w1, w2, and bias. A start-LOW edge retains these three outputs but ends continuity, so the next start-HIGH tuple qualifies even when identical. Qualified tuples need not be on consecutive edges.
+
+For a qualifying tuple, gate_select selects signed four-bit target t. For 2'b00 (AND), t is 4'b0001 only when a and b both equal 4'b0001, and otherwise is 4'b1111. For 2'b01 (OR), t is 4'b1111 only when neither operand equals 4'b0001, and otherwise is 4'b0001. For 2'b10 (NAND), t is 4'b1111 only when both operands equal 4'b0001, and otherwise is 4'b0001. For 2'b11 (NOR), t is 4'b0001 only when both operands equal 4'b1111, and otherwise is 4'b1111. The source requires target determination by gate_target but supplies no submodule definition to reproduce.
+
+All four-bit a and b encodings are accepted when the tuple otherwise qualifies. The truth tests above treat only 4'b0001 as true, and NOR's true case requires two exact 4'b1111 operands.
+
+a, b, and t are signed four-bit two's-complement operands. delta_w1 is the low four bits of the signed product a*t, delta_w2 is the low four bits of the signed product b*t, and delta_b is t. Normally, post-E0 w1 is pre-E0 w1 plus delta_w1 modulo 16, post-E0 w2 is pre-E0 w2 plus delta_w2 modulo 16, and post-E0 bias is pre-E0 bias plus t modulo 16. Each signed product is evaluated in its product expression context and explicitly truncated to its low four bits at the delta boundary; each addition is then explicitly truncated to four bits. Arithmetic wraps and does not saturate or clamp.
+
+If start has stayed HIGH since the preceding qualified tuple and gate_select changes, the accepting edge instead replaces the outputs: post-edge w1=delta_w1, post-edge w2=delta_w2, and post-edge bias=t. If reset or a start-LOW edge intervened, ordinary accumulation applies to the next tuple, starting from zero after reset or from the retained values after start LOW.
+
+When present_state is State_9, there is no iteration-count or convergence test. start HIGH makes next_state State_10; start LOW makes it State_0. The next rising edge captures that value. Reaching State_9 neither clears nor separately commits the data outputs, although a tuple independently qualifying on that edge performs its normal update.
+
+Amendment A1 (Q28). Exact original clause: `bias = bias + delta_b = 4'b0000 + 4'b1111 = 4'b0001`; (1 in decimal). Exact certain-answer law: "For the stated first AND update with a=4'b0001, b=4'b0001, initial bias=4'b0000, and target t=4'b0001, the exact delta_b operand is 4'b0001 and the resulting 4-bit bias is 4'b0001. The displayed 4'b1111 addition operand in the original example is inconsistent with both the stated target and result and does not govern this update." Only the displayed addition operand in that labeled first AND worked calculation is superseded: it is 4'b0001 and the result remains 4'b0001.
+
+Amendment A2 (Q27). Exact original clause: Design a SystemVerilog RTL module `hebbian_rule` that implements a Moore Finite State Machine (FSM) to train a Hebbian learning model. Exact certain-answer law: "The synthetic answer key metadata authoritatively identifies hebb_gates as the benchmark top-level, and its declaration fixes ports in exactly this order: input clk (1 bit), input rst (1 bit), input start (1 bit), input signed a[3:0], input signed b[3:0], input gate_select[1:0], output signed w1[3:0], output signed w2[3:0], output signed bias[3:0], output present_state[3:0], output next_state[3:0]. Positional instantiation of that private benchmark declaration depends on this exact order. The original document separately establishes hebbian_rule as the public candidate module name, with the same port names, directions, concrete widths, and signedness; hebbian_rule and hebb_gates are therefore the public and private sides of the benchmark namespace bridge, not two names for one declaration within this header answer. There are no public parameters or symbolic ranges." Only the benchmark top-level declaration denoted by this delivered specification is hebb_gates with that exact order. The original hebbian_rule name remains the public-side name described by the answer and does not rename any port or alter behavior.
+
+Amendment A3 (Q30). Exact original clause: The FSM must support multiple training iterations for every possible input combination of a two-input logic gate. Exact certain-answer law: "The environment supplies training items; one start assertion does not cause an autonomous traversal of all four pairs. A tuple (a,b,gate_select) is accepted on a rising edge with rst HIGH and start HIGH when it is the first such edge after reset or after a start-LOW rising edge, or when it differs from the most recently accepted tuple. Accepted items need not occupy consecutive edges. A start-LOW edge creates a gap that retains accumulated w1, w2, and bias but ends tuple continuity, so the next start-HIGH edge accepts even an identical tuple. Invalid a or b is not rejected by a validity rule: if the edge otherwise qualifies, the exact 4-bit values are accepted and used, with target truth tests treating only 4'b0001 as true and, for NOR's true case, requiring both inputs to equal 4'b1111. E0 is any acceptance edge: its pre-edge row sees old outputs and its update is visible immediately after E0; a nonaccepting gap edge retains them." Only autonomous traversal, tuple acceptance, gap behavior, and update visibility are superseded; support for every supplied legal combination remains required.
+
+Amendment A4 (Q30). Exact original clause: `a`, `b` (4-bit each, [3:0],signed): Bipolar input signals [-1 ,1]. Only -1 and 1 have to be considered as valid inputs. Exact certain-answer law: "Invalid a or b is not rejected by a validity rule: if the edge otherwise qualifies, the exact 4-bit values are accepted and used, with target truth tests treating only 4'b0001 as true and, for NOR's true case, requiring both inputs to equal 4'b1111." Only the validity-domain statement is superseded: every four-bit encoding is accepted under the qualification law and processed by the stated exact truth tests and signed arithmetic.
+
+Amendment A5 (Q31). Exact original clause: State_9: Loop through training iterations. Exact certain-answer law: "When present_state is State_9 (4'd9), there is no iteration-count or convergence test. If start is HIGH, next_state is State_10 (4'd10); if start is LOW, next_state is State_0 (4'd0), and that value is captured on the next rising edge when rst is HIGH. w1, w2, and bias are retained at that decision unless the same edge independently accepts a qualifying input tuple, in which case all three take that tuple's update. Reaching State_9 itself neither clears nor commits a separate copy of them." Only State_9 branching, convergence/iteration testing, and its data effects are superseded.
+
+Amendment A6 (Q31). Exact original clause: It sequentially performs training steps such as weight initialization, target selection, weight/bias updates, and convergence checks using the Hebbian learning rule. Exact certain-answer law: "When present_state is State_9 (4'd9), there is no iteration-count or convergence test." Only the asserted convergence check is superseded; the eleven-state Moore progression, target selection, and Hebbian updates remain required under the timing amendments below.
+
+Amendment A7 (Q5). Exact original clause: State_10: Return to the initial state. Exact certain-answer law: "next_state is a combinational function of start and present_state: if start is LOW it is 4'b0000; if start is HIGH and present_state is 4'd10 it is 4'd1; otherwise it is present_state plus 4'd1 modulo 16. The requested cycle has start HIGH and present_state 4'd0, hence 4'd1." Only State_10's destination when start is HIGH is superseded: it returns to State_1; when start is LOW it returns to State_0.
+
+Amendment A8 (Q10). Exact original clause: State_1: Capture inputs. Exact certain-answer law: "With rst HIGH, w1 changes only just after a rising edge of clk that qualifies an item. The first start-HIGH item after reset or after any start-LOW rising edge qualifies; thereafter an item qualifies exactly when start is HIGH and at least one of a, b, or gate_select differs from the most recently qualified item. For a qualified item let t be its signed 4-bit bipolar target. Normally the new w1 is the previous w1 plus the low four bits of signed a*t, modulo 16; however, if the preceding qualified item remains active and gate_select changes without an intervening start-LOW rising edge, the new w1 is the low four bits of signed a*t rather than an accumulation. An unqualified rising edge retains w1. E0 is a qualifying rising edge: the pre-E0 row observes the old value, immediately after E0 the new value is observable, and the next pre-edge row sees it. The requested cycle-1 pre-edge sample is therefore the reset value 4'b0000." For w1 timing only, the qualifying edge consumes pre-edge a and publishes its update immediately; State_1 remains named but adds no capture latency.
+
+Amendment A9 (Q13). Exact original clause: State_7: Compute deltas for weights and bias. Exact certain-answer law: "With rst HIGH, w2 changes only just after a rising edge of clk that qualifies an item. The first start-HIGH item after reset or after any start-LOW rising edge qualifies; thereafter an item qualifies exactly when start is HIGH and at least one of a, b, or gate_select differs from the most recently qualified item. For a qualified item let t be its signed 4-bit bipolar target. Normally the new w2 is the previous w2 plus the low four bits of signed b*t, modulo 16; however, if the preceding qualified item remains active and gate_select changes without an intervening start-LOW rising edge, the new w2 is the low four bits of signed b*t rather than an accumulation. An unqualified rising edge retains w2. E0 is a qualifying rising edge: the pre-E0 row observes the old value, immediately after E0 the new value is observable, and the next pre-edge row sees it. The requested cycle-1 pre-edge sample is therefore the reset value 4'b0000." For w2 timing only, delta computation and publication occur on the qualifying edge; State_7 remains named but adds no publication latency.
+
+Amendment A10 (Q24). Exact original clause: State_8: Update weights and bias. Exact certain-answer law: "E0 is assertion of rst LOW: immediately after E0 bias is 4'b0000. Reset release does not change it. E1 is a qualifying posedge clk with rst HIGH and start HIGH: immediately after E1, bias is updated by signed target t modulo 16, either accumulated onto its prior value or replacing it when gate_select changed from the uninterrupted preceding qualified item. The pre-E1 row sees the old bias; the pre-E2 row sees E1's result. Nonqualifying posedges, including exact repeated tuples and start LOW, retain bias. A start-LOW edge makes the next start-HIGH item qualify but does not clear bias. A later asynchronous reset clears it immediately. There is no separate completion publication: state progression and repeated/restarted item handling follow the same edge rule." For bias timing only, the qualifying edge is the update/publication edge; State_8 remains named but adds no later publication edge. Q22 and Q23 impose the same immediate publication rule on w1 and w2.
+
+Amendment A11 (Q22). Exact original clause: Outputs (`w1`, `w2`, `bias`) should reflect trained values at the end of the process. Exact certain-answer law: "There is no separate completion publication: state progression and repeated/restarted item handling follow the same edge rule." Only the publication-time implication is superseded: each accepted update is immediately reflected after its accepting edge and remains visible through the end of the process unless a later specified update or reset changes it; no additional end event republishes it.
+
+6. Worked trace.
+
+The evaluated trace is normative for its listed concrete stimuli and the pre-edge finite-model observation scope stated above. It does not replace the retained original waveform example.
+
+### stimulus 0
+| cycle | rst | start | a | b | gate_select | w1 | w2 | bias | present_state | next_state |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 2 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b00 | 4'b0001 | 4'b0001 | 4'b0001 | 4'b0001 | 4'b0010 |
+| 3 | 1 | 1 | 4'b0001 | 4'b1111 | 2'b00 | 4'b0010 | 4'b0000 | 4'b0000 | 4'b0010 | 4'b0011 |
+| 4 | 1 | 1 | 4'b1111 | 4'b1111 | 2'b00 | 4'b0001 | 4'b0001 | 4'b1111 | 4'b0011 | 4'b0100 |
+| 5 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0010 | 4'b0010 | 4'b1110 | 4'b0100 | 4'b0101 |
+| 6 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0011 | 4'b0011 | 4'b1111 | 4'b0101 | 4'b0110 |
+| 7 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0011 | 4'b0011 | 4'b1111 | 4'b0110 | 4'b0111 |
+| 8 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0011 | 4'b0011 | 4'b1111 | 4'b0111 | 4'b1000 |
+| 9 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0011 | 4'b0011 | 4'b1111 | 4'b1000 | 4'b1001 |
+| 10 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0011 | 4'b0011 | 4'b1111 | 4'b1001 | 4'b1010 |
+| 11 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0011 | 4'b0011 | 4'b1111 | 4'b1010 | 4'b0001 |
+| 12 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0011 | 4'b0011 | 4'b1111 | 4'b0001 | 4'b0010 |
+
+### stimulus 1
+| cycle | rst | start | a | b | gate_select | w1 | w2 | bias | present_state | next_state |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 1 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 2 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b1000 | 4'b1010 | 4'b1111 | 4'b0001 | 4'b0010 |
+| 3 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b1000 | 4'b1010 | 4'b1111 | 4'b0010 | 4'b0011 |
+| 4 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b1000 | 4'b1010 | 4'b1111 | 4'b0011 | 4'b0100 |
+| 5 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b1000 | 4'b1010 | 4'b1111 | 4'b0100 | 4'b0101 |
+| 6 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b1000 | 4'b1010 | 4'b1111 | 4'b0101 | 4'b0110 |
+| 7 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b1000 | 4'b1010 | 4'b1111 | 4'b0110 | 4'b0111 |
+| 8 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b1000 | 4'b1010 | 4'b1111 | 4'b0111 | 4'b1000 |
+| 9 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b1000 | 4'b1010 | 4'b1111 | 4'b1000 | 4'b1001 |
+| 10 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b1000 | 4'b1010 | 4'b1111 | 4'b1001 | 4'b1010 |
+| 11 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b1000 | 4'b1010 | 4'b1111 | 4'b1010 | 4'b0001 |
+| 12 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b01 | 4'b1000 | 4'b1010 | 4'b1111 | 4'b0001 | 4'b0010 |
+
+### stimulus 2
+| cycle | rst | start | a | b | gate_select | w1 | w2 | bias | present_state | next_state |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 1 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 2 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1111 | 4'b1000 | 4'b0001 | 4'b0001 | 4'b0010 |
+| 3 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1111 | 4'b1000 | 4'b0001 | 4'b0010 | 4'b0011 |
+| 4 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1111 | 4'b1000 | 4'b0001 | 4'b0011 | 4'b0100 |
+| 5 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1111 | 4'b1000 | 4'b0001 | 4'b0100 | 4'b0101 |
+| 6 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1111 | 4'b1000 | 4'b0001 | 4'b0101 | 4'b0110 |
+| 7 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1111 | 4'b1000 | 4'b0001 | 4'b0110 | 4'b0111 |
+| 8 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1111 | 4'b1000 | 4'b0001 | 4'b0111 | 4'b1000 |
+| 9 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1111 | 4'b1000 | 4'b0001 | 4'b1000 | 4'b1001 |
+| 10 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1111 | 4'b1000 | 4'b0001 | 4'b1001 | 4'b1010 |
+| 11 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1111 | 4'b1000 | 4'b0001 | 4'b1010 | 4'b0001 |
+| 12 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1111 | 4'b1000 | 4'b0001 | 4'b0001 | 4'b0010 |
+
+### stimulus 3
+| cycle | rst | start | a | b | gate_select | w1 | w2 | bias | present_state | next_state |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 1 | 1 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 2 | 1 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b1010 | 4'b0000 | 4'b1111 | 4'b0001 | 4'b0010 |
+| 3 | 1 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b1010 | 4'b0000 | 4'b1111 | 4'b0010 | 4'b0011 |
+| 4 | 1 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b1010 | 4'b0000 | 4'b1111 | 4'b0011 | 4'b0100 |
+| 5 | 1 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b1010 | 4'b0000 | 4'b1111 | 4'b0100 | 4'b0101 |
+| 6 | 1 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b1010 | 4'b0000 | 4'b1111 | 4'b0101 | 4'b0110 |
+| 7 | 1 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b1010 | 4'b0000 | 4'b1111 | 4'b0110 | 4'b0111 |
+| 8 | 1 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b1010 | 4'b0000 | 4'b1111 | 4'b0111 | 4'b1000 |
+| 9 | 1 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b1010 | 4'b0000 | 4'b1111 | 4'b1000 | 4'b1001 |
+| 10 | 1 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b1010 | 4'b0000 | 4'b1111 | 4'b1001 | 4'b1010 |
+| 11 | 1 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b1010 | 4'b0000 | 4'b1111 | 4'b1010 | 4'b0001 |
+| 12 | 1 | 1 | 4'b0110 | 4'b0000 | 2'b11 | 4'b1010 | 4'b0000 | 4'b1111 | 4'b0001 | 4'b0010 |
+
+### stimulus 4
+| cycle | rst | start | a | b | gate_select | w1 | w2 | bias | present_state | next_state |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 4'b0001 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 1 | 1 | 1 | 4'b0001 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 2 | 1 | 0 | 4'b1000 | 4'b0001 | 2'b01 | 4'b1111 | 4'b0001 | 4'b1111 | 4'b0001 | 4'b0000 |
+| 3 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b01 | 4'b1111 | 4'b0001 | 4'b1111 | 4'b0000 | 4'b0001 |
+| 4 | 0 | 1 | 4'b0110 | 4'b0110 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 5 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+
+### stimulus 5
+| cycle | rst | start | a | b | gate_select | w1 | w2 | bias | present_state | next_state |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 1 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 2 | 1 | 1 | 4'b0001 | 4'b1111 | 2'b00 | 4'b0001 | 4'b1111 | 4'b1111 | 4'b0001 | 4'b0010 |
+| 3 | 1 | 1 | 4'b1111 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b1110 | 4'b0010 | 4'b0011 |
+| 4 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0001 | 4'b0001 | 4'b1101 | 4'b0011 | 4'b0100 |
+| 5 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b00 | 4'b0010 | 4'b0010 | 4'b1110 | 4'b0100 | 4'b0101 |
+| 6 | 1 | 0 | 4'b0001 | 4'b1111 | 2'b00 | 4'b0011 | 4'b0001 | 4'b1101 | 4'b0101 | 4'b0000 |
+| 7 | 1 | 1 | 4'b1111 | 4'b1111 | 2'b00 | 4'b0011 | 4'b0001 | 4'b1101 | 4'b0000 | 4'b0001 |
+| 8 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0100 | 4'b0010 | 4'b1100 | 4'b0001 | 4'b0010 |
+| 9 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b00 | 4'b0101 | 4'b0011 | 4'b1101 | 4'b0010 | 4'b0011 |
+| 10 | 1 | 1 | 4'b0001 | 4'b1111 | 2'b00 | 4'b0110 | 4'b0010 | 4'b1100 | 4'b0011 | 4'b0100 |
+| 11 | 1 | 1 | 4'b1111 | 4'b1111 | 2'b00 | 4'b0101 | 4'b0011 | 4'b1011 | 4'b0100 | 4'b0101 |
+| 12 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0110 | 4'b0100 | 4'b1010 | 4'b0101 | 4'b0110 |
+| 13 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b00 | 4'b0111 | 4'b0101 | 4'b1011 | 4'b0110 | 4'b0111 |
+| 14 | 1 | 1 | 4'b0001 | 4'b1111 | 2'b00 | 4'b1000 | 4'b0100 | 4'b1010 | 4'b0111 | 4'b1000 |
+| 15 | 1 | 1 | 4'b1111 | 4'b1111 | 2'b00 | 4'b0111 | 4'b0101 | 4'b1001 | 4'b1000 | 4'b1001 |
+| 16 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b1000 | 4'b0110 | 4'b1000 | 4'b1001 | 4'b1010 |
+| 17 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b00 | 4'b1001 | 4'b0111 | 4'b1001 | 4'b1010 | 4'b0001 |
+| 18 | 1 | 1 | 4'b0001 | 4'b1111 | 2'b00 | 4'b1010 | 4'b0110 | 4'b1000 | 4'b0001 | 4'b0010 |
+| 19 | 1 | 1 | 4'b1111 | 4'b1111 | 2'b00 | 4'b1001 | 4'b0111 | 4'b0111 | 4'b0010 | 4'b0011 |
+| 20 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b1010 | 4'b1000 | 4'b0110 | 4'b0011 | 4'b0100 |
+| 21 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b00 | 4'b1011 | 4'b1001 | 4'b0111 | 4'b0100 | 4'b0101 |
+| 22 | 1 | 1 | 4'b0001 | 4'b1111 | 2'b00 | 4'b1100 | 4'b1000 | 4'b0110 | 4'b0101 | 4'b0110 |
+| 23 | 1 | 1 | 4'b1111 | 4'b1111 | 2'b00 | 4'b1011 | 4'b1001 | 4'b0101 | 4'b0110 | 4'b0111 |
+| 24 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b1100 | 4'b1010 | 4'b0100 | 4'b0111 | 4'b1000 |
+| 25 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b00 | 4'b1101 | 4'b1011 | 4'b0101 | 4'b1000 | 4'b1001 |
+| 26 | 1 | 1 | 4'b0001 | 4'b1111 | 2'b00 | 4'b1110 | 4'b1010 | 4'b0100 | 4'b1001 | 4'b1010 |
+| 27 | 1 | 1 | 4'b1111 | 4'b1111 | 2'b00 | 4'b1101 | 4'b1011 | 4'b0011 | 4'b1010 | 4'b0001 |
+| 28 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b1110 | 4'b1100 | 4'b0010 | 4'b0001 | 4'b0010 |
+| 29 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b00 | 4'b1111 | 4'b1101 | 4'b0011 | 4'b0010 | 4'b0011 |
+| 30 | 1 | 1 | 4'b0001 | 4'b1111 | 2'b00 | 4'b0000 | 4'b1100 | 4'b0010 | 4'b0011 | 4'b0100 |
+| 31 | 1 | 1 | 4'b1111 | 4'b1111 | 2'b00 | 4'b1111 | 4'b1101 | 4'b0001 | 4'b0100 | 4'b0101 |
+| 32 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b00 | 4'b0000 | 4'b1110 | 4'b0000 | 4'b0101 | 4'b0110 |
+| 33 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b00 | 4'b0001 | 4'b1111 | 4'b0001 | 4'b0110 | 4'b0111 |
+| 34 | 1 | 1 | 4'b0001 | 4'b1111 | 2'b00 | 4'b0010 | 4'b1110 | 4'b0000 | 4'b0111 | 4'b1000 |
+| 35 | 1 | 1 | 4'b1111 | 4'b1111 | 2'b00 | 4'b0001 | 4'b1111 | 4'b1111 | 4'b1000 | 4'b1001 |
+
+### stimulus 6
+| cycle | rst | start | a | b | gate_select | w1 | w2 | bias | present_state | next_state |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 4'b0001 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 1 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 2 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b10 | 4'b1111 | 4'b0001 | 4'b0001 | 4'b0001 | 4'b0010 |
+| 3 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1110 | 4'b0000 | 4'b0000 | 4'b0010 | 4'b0011 |
+| 4 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b10 | 4'b1101 | 4'b1000 | 4'b0001 | 4'b0011 | 4'b0100 |
+| 5 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b10 | 4'b1100 | 4'b0111 | 4'b0000 | 4'b0100 | 4'b0101 |
+| 6 | 1 | 1 | 4'b0001 | 4'b1000 | 2'b10 | 4'b1011 | 4'b1000 | 4'b0001 | 4'b0101 | 4'b0110 |
+| 7 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b10 | 4'b1100 | 4'b0000 | 4'b0010 | 4'b0110 | 4'b0111 |
+| 8 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b10 | 4'b1011 | 4'b0001 | 4'b0011 | 4'b0111 | 4'b1000 |
+| 9 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b1010 | 4'b0000 | 4'b0010 | 4'b1000 | 4'b1001 |
+| 10 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b10 | 4'b1001 | 4'b1000 | 4'b0011 | 4'b1001 | 4'b1010 |
+| 11 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b10 | 4'b1000 | 4'b0111 | 4'b0010 | 4'b1010 | 4'b0001 |
+| 12 | 1 | 1 | 4'b0001 | 4'b1000 | 2'b10 | 4'b0111 | 4'b1000 | 4'b0011 | 4'b0001 | 4'b0010 |
+| 13 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b10 | 4'b1000 | 4'b0000 | 4'b0100 | 4'b0010 | 4'b0011 |
+| 14 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b10 | 4'b0111 | 4'b0001 | 4'b0101 | 4'b0011 | 4'b0100 |
+| 15 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b0110 | 4'b0000 | 4'b0100 | 4'b0100 | 4'b0101 |
+| 16 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b10 | 4'b0101 | 4'b1000 | 4'b0101 | 4'b0101 | 4'b0110 |
+| 17 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b10 | 4'b0100 | 4'b0111 | 4'b0100 | 4'b0110 | 4'b0111 |
+| 18 | 1 | 1 | 4'b0001 | 4'b1000 | 2'b10 | 4'b0011 | 4'b1000 | 4'b0101 | 4'b0111 | 4'b1000 |
+| 19 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b10 | 4'b0100 | 4'b0000 | 4'b0110 | 4'b1000 | 4'b1001 |
+| 20 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b10 | 4'b0011 | 4'b0001 | 4'b0111 | 4'b1001 | 4'b1010 |
+| 21 | 1 | 1 | 4'b1111 | 4'b1000 | 2'b10 | 4'b0010 | 4'b0000 | 4'b0110 | 4'b1010 | 4'b0001 |
+| 22 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b10 | 4'b0001 | 4'b1000 | 4'b0111 | 4'b0001 | 4'b0010 |
+| 23 | 1 | 1 | 4'b1111 | 4'b0001 | 2'b10 | 4'b0000 | 4'b0111 | 4'b0110 | 4'b0010 | 4'b0011 |
+
+### stimulus 7
+| cycle | rst | start | a | b | gate_select | w1 | w2 | bias | present_state | next_state |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 4'b0000 | 4'b0000 | 2'b11 | 4'x | 4'x | 4'x | 4'x | 4'b0000 |
+| 1 | 1 | 1 | 4'b0001 | 4'b0001 | 2'b11 | 4'x | 4'x | 4'x | 4'b0000 | 4'b0001 |
+| 2 | 1 | 0 | 4'b1111 | 4'b1111 | 2'b11 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0001 | 4'b0000 |
+| 3 | 1 | 1 | 4'b1000 | 4'b0110 | 2'b11 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0000 | 4'b0001 |

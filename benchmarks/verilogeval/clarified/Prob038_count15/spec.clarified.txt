@@ -1,0 +1,190 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- q: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+reset is active high and synchronous. Its level has no effect between rising edges of clk. At every rising edge for which reset is asserted, reset has priority and q becomes 0; continued assertion makes q remain 0 on every such edge. After reset is released, the next rising edge increments from the retained value modulo 16.
+
+At power-up, before any rising edge with reset asserted has occurred, q is unknown. Rising edges with reset deasserted leave it unknown, because incrementing an unknown value remains unknown. The implementation must leave q's stored value uninitialized: it must not give that value an initial block or declaration initializer. The first rising edge with reset asserted establishes q as 0, visible in the following sampled row.
+
+Timing
+
+q is a registered output. Only a rising edge of clk can change it. A reset or count update caused by a rising edge is observed one clock cycle later under the pre-edge row-sampling convention. A steady clk level and falling edges have no effect.
+
+The counter period is exactly 16 rising-edge clock cycles. Over those 16 cycles q holds each value from 0 through 15 for one cycle, so each individual value has a one-cycle duration. There is no completion pulse.
+
+The worked trace uses the interface timebase: row k denotes k full-cycle steps after settling, with each row sampled before that step's active rising edge. This observation convention is separate from the circuit law above; it does not impose an implicit 10 ns clock period or alter the 16-cycle counter period.
+
+Behaviour
+
+At each rising edge of clk, if reset is 1, q becomes 0. Otherwise, if q has previously been established by a reset edge, q becomes its previous unsigned 4-bit value plus 1 modulo 16. Thus 15 is followed by 0, and counting then continues. Every rising edge applies this rule independently; there is no transaction, cancellation, interruption, completion, or hold state.
+
+If q has not yet been established by a rising edge at which reset is 1, a rising edge with reset 0 leaves q unknown. An asserted reset at any later rising edge restarts the same zero-then-count sequence. Continued reset assertion repeatedly keeps q at 0; after release, the next rising edge changes q from 0 to 1, which is observed in the following row.
+
+The one-bit inputs have only the values 0 and 1. reset = 1 selects the synchronous reset behavior and reset = 0 selects the counting behavior at a rising edge. q always denotes the unsigned 4-bit counter value once valid.
+
+Worked trace
+
+The following evaluated trace is normative. Its rows use the pre-edge sampling convention stated above.
+
+### stimulus 0
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 0 | 4'b0000 |
+| 2 | 0 | 4'b0001 |
+| 3 | 0 | 4'b0010 |
+
+### stimulus 1
+| cycle | reset | q |
+|---|---|---|
+| 0 | 0 | 4'x |
+| 1 | 0 | 4'x |
+| 2 | 1 | 4'x |
+| 3 | 0 | 4'b0000 |
+| 4 | 0 | 4'b0001 |
+
+### stimulus 2
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 1 | 4'b0000 |
+| 2 | 0 | 4'b0000 |
+| 3 | 0 | 4'b0001 |
+
+### stimulus 3
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 0 | 4'b0000 |
+| 2 | 1 | 4'b0001 |
+| 3 | 0 | 4'b0000 |
+| 4 | 0 | 4'b0001 |
+
+### stimulus 4
+| cycle | reset | q |
+|---|---|---|
+| 0 | 0 | 4'x |
+| 1 | 1 | 4'x |
+| 2 | 0 | 4'b0000 |
+| 3 | 1 | 4'b0001 |
+| 4 | 0 | 4'b0000 |
+
+### stimulus 5
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 0 | 4'b0000 |
+| 2 | 0 | 4'b0001 |
+| 3 | 0 | 4'b0010 |
+| 4 | 0 | 4'b0011 |
+| 5 | 0 | 4'b0100 |
+| 6 | 0 | 4'b0101 |
+| 7 | 0 | 4'b0110 |
+| 8 | 0 | 4'b0111 |
+| 9 | 0 | 4'b1000 |
+| 10 | 0 | 4'b1001 |
+| 11 | 0 | 4'b1010 |
+| 12 | 0 | 4'b1011 |
+| 13 | 0 | 4'b1100 |
+| 14 | 0 | 4'b1101 |
+| 15 | 0 | 4'b1110 |
+| 16 | 0 | 4'b1111 |
+| 17 | 0 | 4'b0000 |
+| 18 | 0 | 4'b0001 |
+| 19 | 0 | 4'b0010 |
+| 20 | 0 | 4'b0011 |
+| 21 | 0 | 4'b0100 |
+| 22 | 0 | 4'b0101 |
+| 23 | 0 | 4'b0110 |
+| 24 | 0 | 4'b0111 |
+| 25 | 0 | 4'b1000 |
+| 26 | 0 | 4'b1001 |
+| 27 | 0 | 4'b1010 |
+| 28 | 0 | 4'b1011 |
+| 29 | 0 | 4'b1100 |
+| 30 | 0 | 4'b1101 |
+| 31 | 0 | 4'b1110 |
+| 32 | 0 | 4'b1111 |
+| 33 | 0 | 4'b0000 |
+| 34 | 0 | 4'b0001 |
+| 35 | 0 | 4'b0010 |
+| 36 | 0 | 4'b0011 |
+| 37 | 0 | 4'b0100 |
+| 38 | 0 | 4'b0101 |
+| 39 | 0 | 4'b0110 |
+| 40 | 0 | 4'b0111 |
+| 41 | 0 | 4'b1000 |
+| 42 | 0 | 4'b1001 |
+| 43 | 0 | 4'b1010 |
+| 44 | 0 | 4'b1011 |
+| 45 | 0 | 4'b1100 |
+| 46 | 0 | 4'b1101 |
+| 47 | 0 | 4'b1110 |
+| 48 | 0 | 4'b1111 |
+| 49 | 0 | 4'b0000 |
+| 50 | 0 | 4'b0001 |
+
+### stimulus 6
+| cycle | reset | q |
+|---|---|---|
+| 0 | 0 | 4'x |
+| 1 | 0 | 4'x |
+| 2 | 0 | 4'x |
+| 3 | 0 | 4'x |
+| 4 | 0 | 4'x |
+| 5 | 0 | 4'x |
+| 6 | 0 | 4'x |
+| 7 | 0 | 4'x |
+| 8 | 0 | 4'x |
+| 9 | 0 | 4'x |
+| 10 | 0 | 4'x |
+| 11 | 0 | 4'x |
+| 12 | 0 | 4'x |
+| 13 | 0 | 4'x |
+| 14 | 0 | 4'x |
+| 15 | 0 | 4'x |
+| 16 | 0 | 4'x |
+| 17 | 1 | 4'x |
+| 18 | 0 | 4'b0000 |
+| 19 | 0 | 4'b0001 |
+| 20 | 0 | 4'b0010 |
+| 21 | 0 | 4'b0011 |
+
+### stimulus 7
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 0 | 4'b0000 |
+| 2 | 0 | 4'b0001 |
+| 3 | 0 | 4'b0010 |
+| 4 | 0 | 4'b0011 |
+| 5 | 0 | 4'b0100 |
+| 6 | 0 | 4'b0101 |
+| 7 | 0 | 4'b0110 |
+| 8 | 0 | 4'b0111 |
+| 9 | 0 | 4'b1000 |
+| 10 | 0 | 4'b1001 |
+| 11 | 0 | 4'b1010 |
+| 12 | 0 | 4'b1011 |
+| 13 | 0 | 4'b1100 |
+| 14 | 0 | 4'b1101 |
+| 15 | 0 | 4'b1110 |
+| 16 | 1 | 4'b1111 |
+| 17 | 0 | 4'b0000 |
+| 18 | 0 | 4'b0001 |
+| 19 | 0 | 4'b0010 |

@@ -1,0 +1,85 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- ring: input 1 bit.
+- vibrate_mode: input 1 bit.
+- ringer: output 1 bit.
+- motor: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+The module has no reset input and no reset behavior. It has no state elements. From power-up, including before any input transition or hypothetical reset edge, both outputs are fully determined by the current inputs: neither output is uninitialised or unknown.
+
+Timing
+
+Both ringer and motor are combinational outputs with zero clock-cycle latency from ring and vibrate_mode. Input changes, including simultaneous changes, interruptions, and repeated assertions, affect both outputs immediately. There are no pulses, periodic signals, capture edges, completion states, or retained results. The evaluated trace uses full-cycle observation rows: each row reports the settled combinational outputs for that row's inputs before the model's no-op transition. This observation convention does not impose a physical clock period or propagation delay; neither is specified.
+
+Behaviour
+
+Inputs and outputs are interpreted as one-bit values.
+
+At all times ring low makes both outputs low, while ring high makes ringer high and motor low when vibrate_mode is low and makes ringer low and motor high when vibrate_mode is high, with simultaneous changes, interruptions, and repeated assertions taking effect combinationally without retained transaction state.
+
+When ring is high, vibrate_mode low selects ringer high and motor low whereas vibrate_mode high selects ringer low and motor high; when ring is low vibrate_mode has no observable effect because both outputs remain low, and simultaneous changes, interruptions, and repeated changes take effect combinationally without retained transaction state.
+
+Ringer is continuously ring AND NOT vibrate_mode, has no reset behavior or capture/observation edge, is already determined by the inputs shown in each pre-edge row, stays high only while ring is high and vibrate_mode is low, and clears or restarts immediately as that condition becomes false or true without completion state or latency.
+
+Motor is continuously ring AND vibrate_mode, has no reset behavior or capture/observation edge, is already determined by the inputs shown in each pre-edge row, stays high only while both inputs are high, and clears or restarts immediately as that condition becomes false or true without completion state or latency.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | ring | vibrate_mode | ringer | motor |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | ring | vibrate_mode | ringer | motor |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | ring | vibrate_mode | ringer | motor |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 |
+
+### stimulus 3
+| cycle | ring | vibrate_mode | ringer | motor |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 1 |
+
+### stimulus 4
+| cycle | ring | vibrate_mode | ringer | motor |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | ring | vibrate_mode | ringer | motor |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 1 |
+
+### stimulus 6
+| cycle | ring | vibrate_mode | ringer | motor |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 |
+| 1 | 1 | 1 | 0 | 1 |
+
+### stimulus 7
+| cycle | ring | vibrate_mode | ringer | motor |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 1 |
+| 1 | 0 | 0 | 0 | 0 |

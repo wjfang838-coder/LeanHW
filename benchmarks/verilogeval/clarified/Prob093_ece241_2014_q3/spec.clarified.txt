@@ -1,0 +1,80 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- c: input 1 bit.
+- d: input 1 bit.
+- mux_in: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. The circuit has no state elements. At power-up, before any edge or other event, mux_in is already the combinational value determined by the current c and d inputs; it is neither retained nor uninitialized.
+
+4. Timing.
+
+mux_in is combinational and continuously reflects the current c and d inputs with zero clock-cycle latency. There is no clock, active edge, capture, pulse, periodic output, circuit period, or specified propagation-delay law.
+
+For the evaluated trace, row k is the observation made at k times the interface step interval after settling, at the interface sample offset. This observation convention does not create or imply a 10 ns clock, an actual circuit period, or a propagation delay.
+
+5. Behaviour.
+
+For every possible value of the one-bit inputs c and d, mux_in continuously equals {c & d, ~d, 1'b0, c | d}, with the concatenation ordered as bits 3 through 0.
+
+Equivalently, when c is 0, mux_in is {1'b0, ~d, 1'b0, d}; when c is 1, mux_in is {d, ~d, 1'b0, 1'b1}. Every change of c, including a change simultaneous with d, immediately recomputes this value without interruption, retention, or history dependence.
+
+Equivalently, when d is 0, mux_in is {1'b0, 1'b1, 1'b0, c}; when d is 1, mux_in is {c, 1'b0, 1'b0, 1'b1}. Every change of d, including a change simultaneous with c, immediately recomputes this value without interruption, retention, or history dependence.
+
+mux_in has no reset, active edge, capture, completion, hold or clear interval, or restart. A trace row observes the value computed from the inputs in that same row, with no edge-to-observation latency and no retained prior result.
+
+6. Worked trace.
+
+The evaluated trace below is normative.
+
+### stimulus 0
+| cycle | c | d | mux_in |
+|---|---|---|---|
+| 0 | 0 | 0 | 4'b0100 |
+
+### stimulus 1
+| cycle | c | d | mux_in |
+|---|---|---|---|
+| 0 | 0 | 1 | 4'b0001 |
+
+### stimulus 2
+| cycle | c | d | mux_in |
+|---|---|---|---|
+| 0 | 1 | 0 | 4'b0101 |
+
+### stimulus 3
+| cycle | c | d | mux_in |
+|---|---|---|---|
+| 0 | 1 | 1 | 4'b1101 |
+
+### stimulus 4
+| cycle | c | d | mux_in |
+|---|---|---|---|
+| 0 | 0 | 0 | 4'b0100 |
+
+### stimulus 5
+| cycle | c | d | mux_in |
+|---|---|---|---|
+| 0 | 1 | 1 | 4'b1101 |
+
+### stimulus 6
+| cycle | c | d | mux_in |
+|---|---|---|---|
+| 0 | 0 | 1 | 4'b0001 |
+
+### stimulus 7
+| cycle | c | d | mux_in |
+|---|---|---|---|
+| 0 | 1 | 0 | 4'b0101 |

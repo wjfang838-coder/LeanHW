@@ -1,0 +1,158 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- mode: input 1 bit.
+- number: output [3:0].
+- zero: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+rst_n is an active-low asynchronous reset. While rst_n is low, the stored number state and output number are 4'b0000, and the stored zero state and output zero are 1'b0, regardless of clk or mode. Reset has priority if assertion coincides with a rising clk edge. Releasing rst_n has no immediate effect: both outputs retain their reset values until the next rising edge. On that first rising edge after release, zero becomes 1'b1 because the pre-edge number is zero; number becomes 4'b0001 when mode is 1 or 4'b1001 when mode is 0.
+
+At power-up, before reset has ever been asserted or any rising edge has occurred, number and zero are unknown. The implementation must leave both state values uninitialised, with no initial block or declaration initialiser. Once reset is asserted, both become defined as stated above.
+
+Timing
+
+number and zero are registered outputs. With rst_n high, each is updated on every rising edge of clk and the updated value is visible immediately after that edge, a latency of one clock edge from the values sampled at that edge. Changes to mode between rising edges do not affect either output. A falling edge or a steady clk level causes no state update.
+
+zero is a registered indication lasting exactly one clock cycle for each rising edge whose pre-edge number is zero. Consecutive qualifying edges would produce consecutive asserted cycles; there is no separate completion or hold interval.
+
+The circuit's clock period and propagation delays are not specified. In the evaluated full-cycle trace, row k is the observation after settling at k times the interface step interval, sampled at the interface sample offset; it is not based on an implicit 10 ns clock. Each row observes outputs before that row's modeled rising-edge transition.
+
+Behaviour
+
+With rst_n high, every rising edge of clk updates number once according to mode and updates zero from the number present before that edge; steady clk levels and falling edges have no effect, while reset has priority, and successive rising edges repeat these updates without a transaction or hold interval.
+
+Asserting rst_n low asynchronously forces number to 4'b0000 and zero to 1'b0, including when assertion coincides with a rising clk edge; keeping rst_n low keeps those values, release has no immediate effect, the next rising edge resumes operation, and repeated assertions interrupt counting immediately.
+
+When rst_n is high, mode is sampled at every rising clk edge. A mode value of 1 increments number, wrapping 9 to 0. A mode value of 0 decrements number, wrapping 0 to 9. Changes between rising edges have no effect, reset overrides mode, and repeated rising edges repeatedly apply the selected operation. If mode is indeterminate, number remains unchanged.
+
+Assertion of rst_n low makes number 4'b0000 asynchronously, and release alone leaves it unchanged. With rst_n high, each rising clk edge produces the next number immediately after that edge: increment modulo 10 for mode 1 or decrement modulo 10 for mode 0. A pre-edge observation shows the prior value, and there is no completion or clear interval.
+
+Assertion of rst_n low makes zero 1'b0 asynchronously, and release alone leaves it unchanged. With rst_n high, each rising clk edge makes zero 1'b1 exactly when number was 4'b0000 before that edge, and 1'b0 otherwise. Thus zero describes the pre-edge number, independently of the new number produced by that same edge, and repeats this rule at every edge without a completion, hold, or restart interval.
+
+Only decimal states 0 through 9 are reached after reset under defined inputs. Before reset, the stored values and therefore both outputs are unknown.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst_n | mode | number | zero |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 4'x | x |
+| 1 | 1 | 1 | 4'x | x |
+
+### stimulus 1
+| cycle | rst_n | mode | number | zero |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 | 0 |
+| 1 | 1 | 1 | 4'b0000 | 0 |
+| 2 | 1 | 1 | 4'b0001 | 1 |
+| 3 | 1 | 1 | 4'b0010 | 0 |
+
+### stimulus 2
+| cycle | rst_n | mode | number | zero |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 4'b0000 | 0 |
+| 1 | 1 | 0 | 4'b0000 | 0 |
+| 2 | 1 | 0 | 4'b1001 | 1 |
+| 3 | 1 | 0 | 4'b1000 | 0 |
+
+### stimulus 3
+| cycle | rst_n | mode | number | zero |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 4'b0000 | 0 |
+| 1 | 1 | 1 | 4'b0000 | 0 |
+| 2 | 1 | 1 | 4'b0001 | 1 |
+| 3 | 1 | 1 | 4'b0010 | 0 |
+| 4 | 1 | 1 | 4'b0011 | 0 |
+| 5 | 1 | 1 | 4'b0100 | 0 |
+| 6 | 1 | 1 | 4'b0101 | 0 |
+| 7 | 1 | 1 | 4'b0110 | 0 |
+| 8 | 1 | 1 | 4'b0111 | 0 |
+| 9 | 1 | 1 | 4'b1000 | 0 |
+| 10 | 1 | 1 | 4'b1001 | 0 |
+| 11 | 1 | 1 | 4'b0000 | 0 |
+| 12 | 1 | 1 | 4'b0001 | 1 |
+| 13 | 1 | 1 | 4'b0010 | 0 |
+| 14 | 1 | 1 | 4'b0011 | 0 |
+| 15 | 1 | 1 | 4'b0100 | 0 |
+| 16 | 1 | 1 | 4'b0101 | 0 |
+| 17 | 1 | 1 | 4'b0110 | 0 |
+| 18 | 1 | 1 | 4'b0111 | 0 |
+| 19 | 1 | 1 | 4'b1000 | 0 |
+| 20 | 1 | 1 | 4'b1001 | 0 |
+| 21 | 1 | 1 | 4'b0000 | 0 |
+| 22 | 1 | 1 | 4'b0001 | 1 |
+| 23 | 1 | 1 | 4'b0010 | 0 |
+| 24 | 1 | 1 | 4'b0011 | 0 |
+| 25 | 1 | 1 | 4'b0100 | 0 |
+| 26 | 1 | 1 | 4'b0101 | 0 |
+| 27 | 1 | 1 | 4'b0110 | 0 |
+| 28 | 1 | 1 | 4'b0111 | 0 |
+| 29 | 1 | 1 | 4'b1000 | 0 |
+| 30 | 1 | 1 | 4'b1001 | 0 |
+| 31 | 1 | 1 | 4'b0000 | 0 |
+| 32 | 1 | 1 | 4'b0001 | 1 |
+| 33 | 1 | 1 | 4'b0010 | 0 |
+
+### stimulus 4
+| cycle | rst_n | mode | number | zero |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 | 0 |
+| 1 | 1 | 0 | 4'b0000 | 0 |
+| 2 | 1 | 0 | 4'b1001 | 1 |
+| 3 | 1 | 0 | 4'b1000 | 0 |
+| 4 | 1 | 0 | 4'b0111 | 0 |
+| 5 | 1 | 0 | 4'b0110 | 0 |
+| 6 | 1 | 0 | 4'b0101 | 0 |
+| 7 | 1 | 0 | 4'b0100 | 0 |
+| 8 | 1 | 0 | 4'b0011 | 0 |
+| 9 | 1 | 0 | 4'b0010 | 0 |
+| 10 | 1 | 0 | 4'b0001 | 0 |
+| 11 | 1 | 0 | 4'b0000 | 0 |
+| 12 | 1 | 0 | 4'b1001 | 1 |
+| 13 | 1 | 0 | 4'b1000 | 0 |
+
+### stimulus 5
+| cycle | rst_n | mode | number | zero |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 | 0 |
+| 1 | 1 | 1 | 4'b0000 | 0 |
+| 2 | 1 | 1 | 4'b0001 | 1 |
+| 3 | 1 | 0 | 4'b0010 | 0 |
+| 4 | 1 | 0 | 4'b0001 | 0 |
+| 5 | 1 | 1 | 4'b0000 | 0 |
+
+### stimulus 6
+| cycle | rst_n | mode | number | zero |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 4'b0000 | 0 |
+| 1 | 1 | 1 | 4'b0000 | 0 |
+| 2 | 1 | 1 | 4'b0001 | 1 |
+| 3 | 0 | 0 | 4'b0000 | 0 |
+| 4 | 1 | 0 | 4'b0000 | 0 |
+| 5 | 1 | 0 | 4'b1001 | 1 |
+
+### stimulus 7
+| cycle | rst_n | mode | number | zero |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 | 0 |
+| 1 | 1 | 0 | 4'b0000 | 0 |
+| 2 | 1 | 1 | 4'b1001 | 1 |
+| 3 | 1 | 0 | 4'b0000 | 0 |
+| 4 | 1 | 1 | 4'b1001 | 1 |
+| 5 | 1 | 0 | 4'b0000 | 0 |

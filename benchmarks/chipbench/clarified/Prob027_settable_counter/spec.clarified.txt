@@ -1,0 +1,179 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- set: input 1 bit.
+- set_num: input [3:0].
+- number: output [3:0].
+- zero: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+2. Reset.
+
+`rst_n` is an active-low asynchronous reset. Whenever `rst_n` is low, `number` is asynchronously forced to 4'b0000 and `zero` is asynchronously forced to 1'b0, regardless of `clk`, `set`, or `set_num`; reset has priority over a simultaneous rising edge. The stored count is also reset to 4'b0000. While reset remains asserted, all three values remain at those reset values.
+
+Releasing `rst_n` has no immediate effect: `number` remains 4'b0000 and `zero` remains 1'b0 until the first subsequent rising edge. At that first rising edge, `number` takes the reset count 4'b0000, `zero` becomes 1'b1 because that pre-edge count is zero, and the count captures `set_num` if `set` is high or advances to 4'b0001 if `set` is low. Because observations precede transitions, the newly registered output values are visible in the following observation row.
+
+At power-up before reset has ever been asserted and before a rising edge has produced each value, `number` and `zero` are unknown. They must remain uninitialised: no initial block or declaration initialiser may give them defined power-up values. The count is likewise unknown at power-up. A qualifying rising edge can capture `set_num` into the count even from this state, but the outputs remain unknown until a later rising edge transfers that valid count to them.
+
+3. Timing.
+
+All state updates occur on the rising edge of `clk`, except that assertion of `rst_n` affects reset values asynchronously. Changes to `set` and `set_num` between rising edges do not change the count or outputs. `number` and `zero` are registered and hold their values between reset events and rising edges.
+
+At every rising edge with `rst_n` high, `number` receives the count value from immediately before that edge and `zero` receives the zero test of that same pre-edge count. Therefore a value captured into the count by a set or increment appears at both outputs one clock cycle later. Neither output is a pulse or an independently periodic signal.
+
+The evaluated trace uses full-cycle, pre-transition observation: row k samples the settled outputs before transition k, and then transition k computes the state for the next row. Thus consecutive rows represent consecutive active clock cycles according to the interface time step; they do not imply an arbitrary 10 ns physical clock. No physical clock period or propagation delay is specified by this contract.
+
+4. Behaviour.
+
+The count is four bits. Arithmetic wraps modulo 16, so incrementing 4'b1111 produces 4'b0000.
+
+With `rst_n` high, each rising edge of `clk` updates `number` and `zero` from the pre-edge count and captures either `set_num` when `set` is high or the pre-edge count plus one modulo 16 when `set` is low; other `clk` transitions have no effect, repeated rising edges repeat this rule, and a simultaneous low reset takes priority.
+
+Asserting `rst_n` low asynchronously makes `number` 4'b0000 and `zero` 1'b0, keeps them there despite `clk`, `set`, and `set_num`, and takes priority over a simultaneous rising `clk` edge; releasing `rst_n` has no immediate effect, after which rising-edge operation restarts from zero and any later assertion interrupts it identically.
+
+At a rising `clk` edge with `rst_n` high, `set` high captures `set_num` as the next count and `set` low advances the count by one modulo 16; `set` has no effect between rising edges or while reset is low, consecutive asserted edges capture consecutive `set_num` values, and each capture affects `number` and `zero` at the next rising edge.
+
+`set_num` is sampled only on a rising `clk` edge for which `rst_n` and `set` are both high, when its four-bit value becomes the next count and affects `number` and `zero` at the following rising edge; it has no effect when `set` is low, between rising edges, or during reset, and repeated qualifying edges sample it anew.
+
+`zero` is asynchronously 1'b0 throughout reset and does not change on reset release; at every rising `clk` edge with `rst_n` high it becomes 1'b1 exactly if the pre-edge count is zero and otherwise 1'b0, holding between such events, so under pre-edge row sampling the result of an edge is first seen in the next row and set or increment affects `zero` one rising edge after capture, with modulo-16 operation continuing and reset immediately interrupting it.
+
+`number` is asynchronously 4'b0000 throughout reset and does not change on reset release; at every rising `clk` edge with `rst_n` high it takes the pre-edge count and holds between events, so under pre-edge row sampling that value first appears in the next row and a set or modulo-16 increment affects `number` one further rising edge after capture, with repeated operation continuing until reset immediately interrupts and clears it.
+
+All possible values of the one-bit control inputs are covered by the high and low cases above, and every four-bit `set_num` value is accepted without further encoding restrictions. When reset is asserted, an in-progress count or pending delayed output is cancelled by the reset values. Repeated sets are sampled independently. After reset release, the first output update is derived from the reset count, while the newly captured set or increment remains delayed until the following rising edge.
+
+5. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst_n | set | set_num | number | zero |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 | 4'b0000 | 0 |
+| 1 | 0 | 1 | 4'b1000 | 4'b0000 | 0 |
+| 2 | 1 | 0 | 4'b0001 | 4'b0000 | 0 |
+| 3 | 1 | 0 | 4'b1111 | 4'b0000 | 1 |
+| 4 | 1 | 0 | 4'b0101 | 4'b0001 | 0 |
+
+### stimulus 1
+| cycle | rst_n | set | set_num | number | zero |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 4'b0000 | 4'x | x |
+| 1 | 1 | 0 | 4'b0000 | 4'x | x |
+| 2 | 1 | 1 | 4'b0001 | 4'b0000 | 1 |
+| 3 | 1 | 0 | 4'b0000 | 4'b0001 | 0 |
+| 4 | 1 | 1 | 4'b1111 | 4'b0001 | 0 |
+| 5 | 1 | 0 | 4'b0000 | 4'b0010 | 0 |
+
+### stimulus 2
+| cycle | rst_n | set | set_num | number | zero |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 | 4'b0000 | 0 |
+| 1 | 1 | 1 | 4'b1000 | 4'b0000 | 0 |
+| 2 | 1 | 1 | 4'b0101 | 4'b0000 | 1 |
+| 3 | 1 | 0 | 4'b0000 | 4'b1000 | 0 |
+| 4 | 1 | 0 | 4'b0000 | 4'b0101 | 0 |
+
+### stimulus 3
+| cycle | rst_n | set | set_num | number | zero |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 | 4'b0000 | 0 |
+| 1 | 1 | 1 | 4'b1111 | 4'b0000 | 0 |
+| 2 | 1 | 0 | 4'b0000 | 4'b0000 | 1 |
+| 3 | 1 | 0 | 4'b0000 | 4'b1111 | 0 |
+| 4 | 1 | 0 | 4'b0000 | 4'b0000 | 1 |
+
+### stimulus 4
+| cycle | rst_n | set | set_num | number | zero |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 | 4'b0000 | 0 |
+| 1 | 1 | 0 | 4'b0000 | 4'b0000 | 0 |
+| 2 | 1 | 0 | 4'b0000 | 4'b0000 | 1 |
+| 3 | 1 | 0 | 4'b0000 | 4'b0001 | 0 |
+| 4 | 1 | 0 | 4'b0000 | 4'b0010 | 0 |
+| 5 | 1 | 0 | 4'b0000 | 4'b0011 | 0 |
+| 6 | 1 | 0 | 4'b0000 | 4'b0100 | 0 |
+| 7 | 1 | 0 | 4'b0000 | 4'b0101 | 0 |
+| 8 | 1 | 0 | 4'b0000 | 4'b0110 | 0 |
+| 9 | 1 | 0 | 4'b0000 | 4'b0111 | 0 |
+| 10 | 1 | 0 | 4'b0000 | 4'b1000 | 0 |
+| 11 | 1 | 0 | 4'b0000 | 4'b1001 | 0 |
+| 12 | 1 | 0 | 4'b0000 | 4'b1010 | 0 |
+| 13 | 1 | 0 | 4'b0000 | 4'b1011 | 0 |
+| 14 | 1 | 0 | 4'b0000 | 4'b1100 | 0 |
+| 15 | 1 | 0 | 4'b0000 | 4'b1101 | 0 |
+| 16 | 1 | 0 | 4'b0000 | 4'b1110 | 0 |
+| 17 | 1 | 0 | 4'b0000 | 4'b1111 | 0 |
+| 18 | 1 | 0 | 4'b0000 | 4'b0000 | 1 |
+| 19 | 1 | 0 | 4'b0000 | 4'b0001 | 0 |
+| 20 | 1 | 0 | 4'b0000 | 4'b0010 | 0 |
+| 21 | 1 | 0 | 4'b0000 | 4'b0011 | 0 |
+| 22 | 1 | 0 | 4'b0000 | 4'b0100 | 0 |
+| 23 | 1 | 0 | 4'b0000 | 4'b0101 | 0 |
+| 24 | 1 | 0 | 4'b0000 | 4'b0110 | 0 |
+| 25 | 1 | 0 | 4'b0000 | 4'b0111 | 0 |
+| 26 | 1 | 0 | 4'b0000 | 4'b1000 | 0 |
+| 27 | 1 | 0 | 4'b0000 | 4'b1001 | 0 |
+| 28 | 1 | 0 | 4'b0000 | 4'b1010 | 0 |
+| 29 | 1 | 0 | 4'b0000 | 4'b1011 | 0 |
+| 30 | 1 | 0 | 4'b0000 | 4'b1100 | 0 |
+| 31 | 1 | 0 | 4'b0000 | 4'b1101 | 0 |
+| 32 | 1 | 0 | 4'b0000 | 4'b1110 | 0 |
+| 33 | 1 | 0 | 4'b0000 | 4'b1111 | 0 |
+| 34 | 1 | 0 | 4'b0000 | 4'b0000 | 1 |
+| 35 | 1 | 0 | 4'b0000 | 4'b0001 | 0 |
+| 36 | 1 | 0 | 4'b0000 | 4'b0010 | 0 |
+| 37 | 1 | 0 | 4'b0000 | 4'b0011 | 0 |
+| 38 | 1 | 0 | 4'b0000 | 4'b0100 | 0 |
+| 39 | 1 | 0 | 4'b0000 | 4'b0101 | 0 |
+| 40 | 1 | 0 | 4'b0000 | 4'b0110 | 0 |
+| 41 | 1 | 0 | 4'b0000 | 4'b0111 | 0 |
+| 42 | 1 | 0 | 4'b0000 | 4'b1000 | 0 |
+| 43 | 1 | 0 | 4'b0000 | 4'b1001 | 0 |
+| 44 | 1 | 0 | 4'b0000 | 4'b1010 | 0 |
+| 45 | 1 | 0 | 4'b0000 | 4'b1011 | 0 |
+| 46 | 1 | 0 | 4'b0000 | 4'b1100 | 0 |
+| 47 | 1 | 0 | 4'b0000 | 4'b1101 | 0 |
+| 48 | 1 | 0 | 4'b0000 | 4'b1110 | 0 |
+| 49 | 1 | 0 | 4'b0000 | 4'b1111 | 0 |
+| 50 | 1 | 0 | 4'b0000 | 4'b0000 | 1 |
+| 51 | 1 | 0 | 4'b0000 | 4'b0001 | 0 |
+
+### stimulus 5
+| cycle | rst_n | set | set_num | number | zero |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 | 4'b0000 | 0 |
+| 1 | 1 | 1 | 4'b0101 | 4'b0000 | 0 |
+| 2 | 1 | 0 | 4'b0000 | 4'b0000 | 1 |
+| 3 | 0 | 1 | 4'b1000 | 4'b0000 | 0 |
+| 4 | 1 | 0 | 4'b0000 | 4'b0000 | 0 |
+| 5 | 1 | 1 | 4'b0001 | 4'b0000 | 1 |
+| 6 | 1 | 0 | 4'b0000 | 4'b0001 | 0 |
+
+### stimulus 6
+| cycle | rst_n | set | set_num | number | zero |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 4'b0000 | 4'x | x |
+| 1 | 1 | 0 | 4'b0000 | 4'x | x |
+| 2 | 1 | 1 | 4'b1000 | 4'x | x |
+| 3 | 1 | 0 | 4'b0000 | 4'x | x |
+| 4 | 1 | 0 | 4'b0000 | 4'b1000 | 0 |
+
+### stimulus 7
+| cycle | rst_n | set | set_num | number | zero |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 4'b1111 | 4'b0000 | 0 |
+| 1 | 1 | 1 | 4'b0000 | 4'b0000 | 0 |
+| 2 | 1 | 0 | 4'b1111 | 4'b0000 | 1 |
+| 3 | 1 | 0 | 4'b1000 | 4'b0000 | 1 |
+| 4 | 1 | 0 | 4'b0101 | 4'b0001 | 0 |

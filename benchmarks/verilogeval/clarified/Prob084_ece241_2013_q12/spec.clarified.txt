@@ -1,0 +1,130 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- enable: input 1 bit.
+- S: input 1 bit.
+- A: input 1 bit.
+- B: input 1 bit.
+- C: input 1 bit.
+- Z: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset operation. At power-up, before any clock edge has occurred, Z is unknown for every address because no S samples have been captured. The implementation must leave the eight stored bit positions uninitialised: it must not use an initial block or declaration initialiser to give them defined values. Each stored position becomes valid only through enabled rising-edge captures as described below. Because there is no reset, there is no reset assertion, reset edge, or first step after reset release, and neither disabled edges nor any input sequence clear already captured samples.
+
+Timing
+
+Only a rising edge of clk can capture S. A rising edge captures the simultaneous S value exactly when enable is 1; when enable is 0, it retains all previously captured samples. Static clock levels, falling edges, and changes of S between qualifying rising edges do not alter the captured history.
+
+Z is combinational with zero-cycle latency from A, B, and C to selection of the currently stored history. Relative to S, a qualifying rising edge makes the newly captured S value available as the most recent sample immediately after that edge; a pre-edge observation still sees the old history. Z is not a pulse or a periodic generated signal.
+
+The normative evaluated trace uses the SpecIR full-cycle observation convention: row k is sampled at k times timing.step_ns after settling, with the output sampled before that row's active transition. This observation cadence is separate from the circuit law, which specifies rising-edge behavior and does not prescribe a physical clock period or propagation delay.
+
+Behaviour
+
+Only a rising edge of clk can capture S, and it does so exactly when enable is 1; static levels and falling edges have no effect, each qualifying repeated edge adds one new capture, nonqualifying edges neither interrupt nor clear prior captures, and there is no reset or distinct operating mode.
+
+enable is sampled on each rising clk edge: when 1 it causes the simultaneous S value to be captured as the newest sample, when 0 all prior samples are retained, and arbitrary interruption or repetition merely skips or accepts the corresponding edges without clearing or restarting anything.
+
+S is captured only at a rising clk edge on which enable is 1, has no effect at inactive edges or between edges, and each repeated qualifying edge independently captures its simultaneous value while interrupted or disabled intervals preserve earlier captures.
+
+With k = 4*A + 2*B + C, Z equals the S value captured on the (k+1)th most recent rising edge for which enable was 1, and is unknown if fewer than k+1 such captures have occurred. Thus k ranges from 0 through 7 for all possible one-bit encodings of A, B, and C.
+
+A acts combinationally as the weight-4 bit of k = 4*A + 2*B + C, so changing A immediately makes Z select between the samples captured on the (2*B+C+1)th and (2*B+C+5)th most recent enabled rising edges, with unknown selected when the chosen sample does not yet exist.
+
+B acts combinationally as the weight-2 bit of k = 4*A + 2*B + C, so changing B immediately makes Z select between the samples captured on the (4*A+C+1)th and (4*A+C+3)th most recent enabled rising edges, with unknown selected when the chosen sample does not yet exist.
+
+C acts combinationally as the weight-1 bit of k = 4*A + 2*B + C, so changing C immediately makes Z select between the samples captured on the (4*A+2*B+1)th and (4*A+2*B+2)th most recent enabled rising edges, with unknown selected when the chosen sample does not yet exist.
+
+At all times Z combinationally equals the S value captured on the (4*A+2*B+C+1)th most recent enabled rising clk edge, or unknown before that many captures; a pre-edge row observes the old history, a qualifying edge makes the new history observable immediately after the edge, disabled edges retain it, address changes take effect without an edge, and there is no reset, clear, completion, or restart interval.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | enable | S | A | B | C | Z |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | x |
+
+### stimulus 1
+| cycle | enable | S | A | B | C | Z |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 1 | x |
+
+### stimulus 2
+| cycle | enable | S | A | B | C | Z |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | x |
+
+### stimulus 3
+| cycle | enable | S | A | B | C | Z |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 1 | x |
+
+### stimulus 4
+| cycle | enable | S | A | B | C | Z |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 0 | x |
+
+### stimulus 5
+| cycle | enable | S | A | B | C | Z |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 1 | x |
+
+### stimulus 6
+| cycle | enable | S | A | B | C | Z |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 1 | 0 | x |
+
+### stimulus 7
+| cycle | enable | S | A | B | C | Z |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 1 | 1 | x |
+
+### stimulus 8
+| cycle | enable | S | A | B | C | Z |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 0 | x |
+| 1 | 1 | 0 | 0 | 0 | 1 | x |
+| 2 | 1 | 1 | 0 | 1 | 0 | x |
+| 3 | 1 | 1 | 0 | 1 | 1 | x |
+| 4 | 1 | 0 | 1 | 0 | 0 | x |
+| 5 | 1 | 0 | 1 | 0 | 1 | x |
+| 6 | 1 | 1 | 1 | 1 | 0 | x |
+| 7 | 1 | 0 | 1 | 1 | 1 | x |
+| 8 | 0 | 1 | 0 | 0 | 0 | 0 |
+| 9 | 0 | 0 | 1 | 1 | 1 | 1 |
+
+### stimulus 9
+| cycle | enable | S | A | B | C | Z |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | x |
+| 1 | 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 3 | 1 | 1 | 0 | 0 | 1 | 0 |
+| 4 | 1 | 0 | 0 | 1 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 1 | 0 | 1 |
+| 6 | 1 | 0 | 0 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 8 | 1 | 0 | 1 | 0 | 1 | 0 |
+| 9 | 1 | 1 | 1 | 1 | 0 | 0 |
+| 10 | 1 | 0 | 1 | 1 | 1 | 0 |
+| 11 | 1 | 1 | 0 | 0 | 0 | 0 |
+| 12 | 1 | 0 | 1 | 1 | 1 | 1 |
+| 13 | 1 | 1 | 0 | 0 | 1 | 1 |
+| 14 | 1 | 1 | 0 | 1 | 0 | 1 |
+| 15 | 1 | 0 | 0 | 1 | 1 | 1 |
+| 16 | 0 | 1 | 1 | 0 | 0 | 1 |
+| 17 | 1 | 0 | 1 | 0 | 1 | 0 |

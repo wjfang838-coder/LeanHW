@@ -1,0 +1,132 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- in: input 1 bit.
+- areset: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+-  C: default = 2.
+-  D: default = 3.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+The reset input areset is active high and asynchronous. Whenever areset is asserted, out immediately reads 0, all previously sampled input history is discarded, and reset dominates a coincident rising edge of clk. Out remains 0 for the entire time areset is asserted. Deasserting areset has no immediate effect: out remains 0, and the first rising edge after release samples the first bit of a fresh history. Every later assertion repeats this behavior.
+
+At power-up, before areset has ever been asserted, out is unknown. It remains unknown across rising and falling clock edges and for either value of in until areset is asserted. The implementation must leave this power-up state uninitialised, with no initial block or declaration initialiser that gives out or the sequence-history state a defined value.
+
+The sequence-history state is unknown before the first assertion of areset. While reset is asserted it denotes an empty sampled history. On the first rising edge after reset release, it records only that edge's sampled in value; out remains 0 because a one-bit history cannot end in 101.
+
+4. Timing.
+
+Only rising edges of clk advance the detector when areset is low. Steady clock levels and falling edges have no effect. The input in is sampled on each rising edge; changes to in between rising edges have no effect. Out is a registered Moore output of the sampled-input history, except that asynchronous reset can force it low immediately. A sampled in value affects out immediately after its rising edge and is observed in the following pre-edge trace row, giving one trace-row latency from the row containing that input to the row containing its result.
+
+A high on out begins after a rising edge completes a sampled history ending in 101. It lasts for one clock cycle unless the next rising edge completes another qualifying history or asynchronous reset clears it sooner. Consecutive overlapping detections are permitted; each qualifying sampled suffix independently makes out high for the following clock interval.
+
+The evaluated trace uses the interface timebase: row k is the settled pre-edge observation at k times step_ns, with the interface's sample_offset_ns preserved. This observation cadence is separate from the circuit law: the circuit advances only at each modeled rising edge of clk, and no implicit 10 ns clock period is imposed.
+
+5. Behaviour.
+
+When areset is low, each rising edge of clk samples in and updates the detector according to whether the complete sampled-input history since the latest reset ends in 101. Out is 1 exactly when that history ends in 101; otherwise out is 0. Thus the first possible high follows the third qualifying capture. Samples may overlap: for example, the final 1 of one detection may also be the initial 1 of a later detection.
+
+Asserting areset high forces out to 0 asynchronously in every mode and discards all previously sampled input history, dominates a coincident rising clk edge, and keeps out at 0 while asserted; deasserting it has no immediate effect, after which rising clk edges begin a fresh history, and every repeated assertion restarts this rule.
+
+With areset low, in affects behavior only through its value sampled on each rising clk edge, making out 1 exactly when the sampled history since reset ends in 101 and otherwise making it 0; changes between rising edges have no effect, a sample coincident with asserted areset is ignored, reset interrupts the sequence, and repeated samples support overlapping repeated 101 detections.
+
+Asynchronous assertion of areset immediately makes out 0 and it remains 0 through reset release until rising clk samples establish a history ending in 101; with rows sampled before the active edge, row k shows the result of samples through the preceding rising edge, the in value shown in row k is captured at that edge and its result is first observable in row k+1, so the first possible high follows the third qualifying capture, lasts until the next rising edge unless reset clears it sooner, and later overlapping 101 sequences can produce new one-interval highs.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | areset | out |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+
+### stimulus 1
+| cycle | in | areset | out |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | in | areset | out |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+
+### stimulus 3
+| cycle | in | areset | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 1 |
+| 5 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 1 |
+
+### stimulus 4
+| cycle | in | areset | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | in | areset | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+
+### stimulus 6
+| cycle | in | areset | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | in | areset | out |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 0 | x |
+| 2 | 0 | 0 | x |
+| 3 | 1 | 1 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 0 |
+| 7 | 1 | 0 | 0 |
+| 8 | 0 | 0 | 1 |

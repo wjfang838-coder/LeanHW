@@ -1,0 +1,113 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- d: input [7:0].
+- areset: input 1 bit.
+- q: output [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+areset is an active-high asynchronous reset. Whenever areset is asserted, q immediately reads 8'b00000000 regardless of clk or d, including when reset assertion coincides with a rising edge. q remains zero for the entire time areset is asserted.
+
+At power-up, before areset has ever been asserted and before the first rising edge, q is unknown. The implementation must leave q's stored value uninitialised: it must not give it a declaration initialiser or an initial-block value.
+
+Deasserting areset does not itself change q. On the first step after release, q continues to read 8'b00000000 until the next rising edge; that rising edge captures d, and the captured value is visible after the edge. Any later assertion of areset immediately clears q again.
+
+4. Timing
+
+q is a registered output driven by rising edges of clk, with asynchronous reset visibility. With areset low, d is sampled at a rising edge and q changes to that sampled value immediately after the edge; in the pre-edge row convention used by the normative trace, the captured value first appears in the following row. q holds its value between rising edges. Falling edges and steady clk levels do not change it.
+
+The object uses a full-cycle timebase. Trace row k observes the settled circuit immediately before transition k, and then transition k represents the next rising edge; rows count cycles and do not imply a 10 ns clock or any other physical period. The specification imposes no numeric clock period or propagation delay.
+
+5. Behaviour
+
+q is initially undefined, becomes 8'b00000000 immediately when areset is asserted, stays zero through reset release until an eligible rising clk edge, and thereafter takes the d value captured on each rising clk edge with areset low and holds it between events; because each row is sampled before its active edge, a capture caused by that edge first appears in the following pre-edge row, while a later asynchronous reset assertion clears q immediately and repeated operation follows the same timing.
+
+A rising edge of clk captures d into q when areset is low and leaves q at zero when areset is high; a falling edge or a steady clk level has no effect, simultaneous rising clk and assertion of areset produces zero, and every later rising edge repeats the same rule independently.
+
+Assertion of active-high areset immediately sets q to 8'b00000000 regardless of clk or d, including when coincident with a rising clk edge; while asserted q remains zero, deassertion alone does not change q, and after deassertion the next rising clk edge resumes capture of d, with any later assertion immediately interrupting that behavior and clearing q again.
+
+The 8-bit d value affects q only by being sampled on a rising edge of clk while areset is low; changes at other times have no immediate effect, areset overrides d on coincident events, and successive eligible rising edges capture successive d values independently.
+
+These laws cover every value of the one-bit control inputs and every 8-bit value of d. Input values are interpreted at their declared widths.
+
+6. Worked trace
+
+The following evaluated trace is normative. Each row is sampled before its row's rising-edge transition.
+
+### stimulus 0
+| cycle | d | areset | q |
+|---|---|---|---|
+| 0 | 8'b00000000 | 0 | 8'x |
+| 1 | 8'b00000001 | 1 | 8'b00000000 |
+| 2 | 8'b00000010 | 0 | 8'b00000000 |
+| 3 | 8'b00000011 | 0 | 8'b00000010 |
+
+### stimulus 1
+| cycle | d | areset | q |
+|---|---|---|---|
+| 0 | 8'b11111111 | 1 | 8'b00000000 |
+| 1 | 8'b10000000 | 1 | 8'b00000000 |
+| 2 | 8'b10000000 | 0 | 8'b00000000 |
+| 3 | 8'b00000000 | 0 | 8'b10000000 |
+
+### stimulus 2
+| cycle | d | areset | q |
+|---|---|---|---|
+| 0 | 8'b00000000 | 1 | 8'b00000000 |
+| 1 | 8'b00000001 | 0 | 8'b00000000 |
+| 2 | 8'b11111111 | 0 | 8'b00000001 |
+| 3 | 8'b01011010 | 0 | 8'b11111111 |
+
+### stimulus 3
+| cycle | d | areset | q |
+|---|---|---|---|
+| 0 | 8'b11111111 | 0 | 8'x |
+| 1 | 8'b00000000 | 0 | 8'b11111111 |
+| 2 | 8'b01011010 | 1 | 8'b00000000 |
+| 3 | 8'b00000001 | 0 | 8'b00000000 |
+
+### stimulus 4
+| cycle | d | areset | q |
+|---|---|---|---|
+| 0 | 8'b00000000 | 1 | 8'b00000000 |
+| 1 | 8'b01011010 | 0 | 8'b00000000 |
+| 2 | 8'b01011010 | 0 | 8'b01011010 |
+| 3 | 8'b01011010 | 0 | 8'b01011010 |
+
+### stimulus 5
+| cycle | d | areset | q |
+|---|---|---|---|
+| 0 | 8'b10000000 | 1 | 8'b00000000 |
+| 1 | 8'b11111111 | 0 | 8'b00000000 |
+| 2 | 8'b00000001 | 1 | 8'b00000000 |
+| 3 | 8'b00000000 | 0 | 8'b00000000 |
+
+### stimulus 6
+| cycle | d | areset | q |
+|---|---|---|---|
+| 0 | 8'b00000001 | 1 | 8'b00000000 |
+| 1 | 8'b00000010 | 0 | 8'b00000000 |
+| 2 | 8'b00000011 | 0 | 8'b00000010 |
+| 3 | 8'b00000100 | 0 | 8'b00000011 |
+| 4 | 8'b00000101 | 0 | 8'b00000100 |
+
+### stimulus 7
+| cycle | d | areset | q |
+|---|---|---|---|
+| 0 | 8'b10000000 | 0 | 8'x |
+| 1 | 8'b11111111 | 1 | 8'b00000000 |
+| 2 | 8'b01011010 | 0 | 8'b00000000 |
+| 3 | 8'b00000001 | 0 | 8'b01011010 |
+| 4 | 8'b00000000 | 0 | 8'b00000001 |

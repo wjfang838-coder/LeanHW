@@ -1,0 +1,118 @@
+Original implementation instruction (verbatim):
+
+Design a parameterized binary-to-one-hot decoder module named `binary_to_one_hot_decoder_sequencial` in Verilog. This module will convert a binary-encoded input signal into a one-hot encoded output signal using **sequential logic**, synchronized with a clock. The design must include two parameters: `BINARY_WIDTH` and `OUTPUT_WIDTH`, to configure the width of the binary input and the one-hot encoded output, respectively.
+
+Named module interface binding
+
+Module: binary_to_one_hot_decoder_sequential.
+Connect ports by name. The enumeration below does not establish positional order.
+- i_binary_in: input; 5 bits in the concrete formal instance.
+- i_clk: input; 1 bits in the concrete formal instance.
+- i_rstb: input; 1 bits in the concrete formal instance.
+- o_one_hot_out: output; 32 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+Amendment notice: the exact original clause is "Design a parameterized binary-to-one-hot decoder module named `binary_to_one_hot_decoder_sequencial` in Verilog." Under question Q6, the exact certain answer law is "The confirmed named boundary is module binary_to_one_hot_decoder_sequential with 5-bit input i_binary_in, scalar inputs i_clk and i_rstb, and 32-bit output o_one_hot_out; connections are by these exact names, no public parameters are established, and positional declaration order is unverified." Only within Q6's module-header scope, the corrected module name binary_to_one_hot_decoder_sequential, the exact port names and directions, the concrete formal-instance widths, named connection mode, and unverified positional order supersede the original misspelled module name and any guessed positional order. The answer does not amend the original public parameter requirements or symbolic port widths.
+
+The module name is binary_to_one_hot_decoder_sequential. It has public parameter BINARY_WIDTH with default value 5 and public parameter OUTPUT_WIDTH with default value 32. The symbolic width of i_binary_in is BINARY_WIDTH, and the symbolic width of o_one_hot_out is OUTPUT_WIDTH.
+
+The exact named boundary is: input i_binary_in, width BINARY_WIDTH; input i_clk, width 1; input i_rstb, width 1; and output o_one_hot_out, width OUTPUT_WIDTH. In the concrete formal instance these widths are 5, 1, 1, and 32 respectively. Positional declaration order is unverified, so no declaration order is normative and the module must be instantiated by name.
+
+OUTPUT_WIDTH is independently configurable subject to the mandatory legal-parameter constraint OUTPUT_WIDTH >= 2^BINARY_WIDTH. This ensures that every value representable by i_binary_in names an existing output bit. The default values satisfy this constraint.
+
+3. Reset.
+
+i_rstb is an active-low asynchronous reset. Assertion of i_rstb low asynchronously forces o_one_hot_out and its stored state to all zeros, takes priority over a coincident rising edge, and ignores i_binary_in while asserted. This behavior is independent of i_clk. Continued or repeated reset assertion retains all zeros.
+
+After i_rstb is released high, release alone leaves the stored reset value at zero. The first subsequent rising edge samples i_binary_in and replaces the stored zero with the decoded value. Reset release adds no warm-up cycle.
+
+Implementation choice C1: before any reset assertion or qualifying rising-edge transaction has established state, o_one_hot_out is chosen to be all zeros. This choice applies only to hardware power-up in that exact pre-establishment interval. It is a compatible implementation decision, not a fact established by the original source or by the unclear answer to Q1. It adds no reset-before-use restriction: a rising edge with i_rstb high establishes the normal decoded result even if reset has never been asserted.
+
+4. Timing.
+
+o_one_hot_out is registered. With i_rstb high, i_binary_in is sampled on each rising edge of i_clk and o_one_hot_out updates to the decoded value on that same rising edge. The latency is one active-edge event with no additional whole clock cycle. The output retains the most recently established decoded value between rising edges and is cleared immediately upon reset assertion. There are no pulse outputs, handshake signals, or internally generated periodic outputs.
+
+Only a rising edge of i_clk updates the registered decoded result; a static clock level and a falling edge do not update it. The requirements specify neither a clock period nor a numerical propagation delay, so neither may be inferred.
+
+For the concrete full-cycle SpecIR trace, row k denotes the settled observation at k times the interface step_ns and is sampled at the interface sample_offset_ns before that row's modeled active-edge transition; the resulting state is observed on the next row. The interface supplies no numeric step_ns or sample_offset_ns, so this convention does not imply a 10 ns tick or any other physical clock period. This trace observation convention is separate from the circuit's actual rising-edge and asynchronous-reset laws.
+
+5. Behaviour.
+
+With reset inactive, every rising edge samples the complete BINARY_WIDTH-bit unsigned value of i_binary_in and replaces o_one_hot_out with its decoded result; repeated and consecutive values obey the same law. For input value n, the result is an OUTPUT_WIDTH-bit value whose bit n is one and whose other bits are zero. Equivalently, the result is the unsigned value 1 shifted left by unsigned n in an OUTPUT_WIDTH-wide expression context, assigned at the OUTPUT_WIDTH-bit storage boundary. The shift is not prematurely truncated to the width of an unsized left operand.
+
+i_binary_in represents every unsigned integer from 0 through 2^BINARY_WIDTH - 1. A value outside that representable BINARY_WIDTH-bit domain is invalid. Because every legal parameterization satisfies OUTPUT_WIDTH >= 2^BINARY_WIDTH, every valid input index is within o_one_hot_out and the result is always exactly one-hot.
+
+At BINARY_WIDTH=5 and OUTPUT_WIDTH=32, input 5'd3 produces 00000000000000000000000000001000 on the rising edge. At BINARY_WIDTH=3 and OUTPUT_WIDTH=8, input 3'd2 produces 00000100 on the rising edge. At the defaults, the same general law covers all inputs 5'd0 through 5'd31.
+
+Changes to i_binary_in away from a rising edge do not alter the retained output. Assertion of reset interrupts and clears any retained result immediately. After reset release, conversion resumes on the first rising edge. There are no disabled-mode, start, ready, valid, done, completion, cancellation, or restart-control inputs; each qualifying rising edge is an independent complete transaction.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete BINARY_WIDTH=5, OUTPUT_WIDTH=32 SpecIR instance, including Implementation choice C1 at an initial pre-establishment row. Each row is a pre-transition observation under the convention stated in section 4.
+
+### stimulus 0
+| cycle | i_binary_in | i_rstb | o_one_hot_out |
+|---|---|---|---|
+| 0 | 5'b00000 | 0 | 32'h0 |
+| 1 | 5'b11111 | 0 | 32'h0 |
+| 2 | 5'b00001 | 1 | 32'h0 |
+| 3 | 5'b10000 | 1 | 32'h2 |
+| 4 | 5'b11111 | 1 | 32'h10000 |
+| 5 | 5'b00000 | 1 | 32'h80000000 |
+
+### stimulus 1
+| cycle | i_binary_in | i_rstb | o_one_hot_out |
+|---|---|---|---|
+| 0 | 5'b00011 | 1 | 32'h0 |
+| 1 | 5'b00111 | 1 | 32'h8 |
+| 2 | 5'b01100 | 0 | 32'h0 |
+| 3 | 5'b00101 | 1 | 32'h0 |
+| 4 | 5'b00110 | 1 | 32'h20 |
+
+### stimulus 2
+| cycle | i_binary_in | i_rstb | o_one_hot_out |
+|---|---|---|---|
+| 0 | 5'b00000 | 1 | 32'h0 |
+| 1 | 5'b00001 | 1 | 32'h1 |
+| 2 | 5'b00000 | 1 | 32'h2 |
+| 3 | 5'b00001 | 1 | 32'h1 |
+
+### stimulus 3
+| cycle | i_binary_in | i_rstb | o_one_hot_out |
+|---|---|---|---|
+| 0 | 5'b11111 | 1 | 32'h0 |
+| 1 | 5'b10000 | 1 | 32'h80000000 |
+| 2 | 5'b01001 | 1 | 32'h10000 |
+
+### stimulus 4
+| cycle | i_binary_in | i_rstb | o_one_hot_out |
+|---|---|---|---|
+| 0 | 5'b01010 | 0 | 32'h0 |
+| 1 | 5'b01011 | 1 | 32'h0 |
+| 2 | 5'b01100 | 0 | 32'h0 |
+| 3 | 5'b01101 | 1 | 32'h0 |
+
+### stimulus 5
+| cycle | i_binary_in | i_rstb | o_one_hot_out |
+|---|---|---|---|
+| 0 | 5'b00010 | 1 | 32'h0 |
+| 1 | 5'b00010 | 1 | 32'h4 |
+| 2 | 5'b00100 | 1 | 32'h4 |
+| 3 | 5'b00100 | 1 | 32'h10 |
+
+### stimulus 6
+| cycle | i_binary_in | i_rstb | o_one_hot_out |
+|---|---|---|---|
+| 0 | 5'b01111 | 0 | 32'h0 |
+| 1 | 5'b01111 | 1 | 32'h0 |
+| 2 | 5'b01111 | 1 | 32'h8000 |
+
+### stimulus 7
+| cycle | i_binary_in | i_rstb | o_one_hot_out |
+|---|---|---|---|
+| 0 | 5'b01000 | 1 | 32'h0 |
+| 1 | 5'b11000 | 1 | 32'h100 |
+| 2 | 5'b01000 | 1 | 32'h1000000 |

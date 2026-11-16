@@ -1,0 +1,257 @@
+Module and integration contract
+
+Module: multi_16bit.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- start: input 1 bit.
+- ain: input [15:0].
+- bin: input [15:0].
+- yout: output [31:0].
+- done: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+Reset is active low and asynchronous. Whenever rst_n is low, yout is 32'h00000000, done is low, transaction progress is cancelled, both captured operands are zero, and the retained product and completion state are zero. Reset has priority over simultaneous rising-edge activity. Releasing rst_n alone changes no output or state; if start is high at the next rising clk edge, that edge captures a new transaction, while yout remains zero and done remains low.
+
+Before reset has ever been asserted, yout and done are unknown. The implementation must leave their stored hardware state uninitialised, with no initial block or declaration initialiser supplying values.
+
+Timing
+
+All non-reset state changes occur only on rising clk edges. Inactive clock levels and falling clk edges have no effect. Assertion of rst_n acts asynchronously regardless of clk.
+
+yout is a registered output. A transaction-capture edge has no immediate product effect. Each of the following sixteen eligible rising edges performs one accumulation, and that edge's updated value is visible after the edge; under the normative pre-edge trace convention it first appears in the next sampled row. The complete product is first sampled one row after the sixteenth accumulation edge.
+
+done is a registered one-cycle completion pulse. It remains low through capture and the first fifteen accumulation edges, is high after the sixteenth accumulation edge, and returns low after the immediately following rising edge. On all other rising edges it retains its value.
+
+The evaluated trace uses the interface's full-cycle observation convention: row k samples the settled outputs before transition k, and then transition k computes the state for row k+1. Thus row k denotes k * step_ns after settling, with the interface's sample_offset_ns applied; it does not imply a 10 ns clock. The supplied interface gives no numeric step_ns or sample_offset_ns, and the functional object specifies no physical clock period, propagation delay, setup time, or hold time.
+
+Behaviour
+
+ain and bin are unsigned 16-bit operands. With rst_n high, a rising clk edge on which start is high and transaction progress is zero captures both operands. ain and bin are sampled only on such an edge. Later changes to either input do not affect the active transaction, and every restart captures both operands anew.
+
+For each k from 0 through 15, the kth eligible accumulation edge examines bit k of the captured ain. If that bit is one, yout becomes `(yout + (captured bin << k)) modulo 2^32`; if it is zero, yout retains its prior value. The captured bin is unsigned, the shift is evaluated in the 32-bit product context, and truncation occurs only at the explicit modulo-2^32 product-register boundary. In particular, the shifted value is not truncated to the captured bin's 16-bit width.
+
+With rst_n high, start high at progress zero captures a transaction. Keeping start high permits one operand-bit accumulation on each of the following sixteen rising edges. If start is low on any rising edge, progress resets to zero for a later transaction, but yout is not cleared. Such an interruption abandons all remaining additions. Reasserting start captures a new transaction, whose additions begin from the retained yout, so repeated transactions accumulate modulo 2^32 rather than implicitly clearing the previous result.
+
+Completion changes use the progress value present before the edge even when start is low on that edge. done becomes high on the edge whose pre-edge progress is 16, becomes low on the edge whose pre-edge progress is 17, and otherwise retains its previous value. Once progress has reached 17 it does not advance while start remains high. A new completion requires a start-low rising edge to reset progress, followed by a start-high capture edge and sixteen accumulation edges.
+
+The input encodings are exhaustive: rst_n low selects asynchronous reset regardless of every other input; with rst_n high, start low performs the interruption/idle progress reset described above, while start high performs capture, accumulation, or terminal retention according to pre-edge progress. Every possible ain and bin value follows the same unsigned bit-by-bit law.
+
+Worked trace
+
+The following evaluated trace is normative for its listed stimuli and uses the sampling convention stated above.
+
+### stimulus 0
+| cycle | rst_n | start | ain | bin | yout | done |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 16'h1 | 16'h1 | 32'x | x |
+
+### stimulus 1
+| cycle | rst_n | start | ain | bin | yout | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 1 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 2 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 3 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 4 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 5 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 6 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 7 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 8 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 9 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 10 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 11 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 12 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 13 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 14 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 15 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 16 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 17 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+| 18 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 1 |
+| 19 | 1 | 1 | 16'h0 | 16'hffff | 32'h0 | 0 |
+
+### stimulus 2
+| cycle | rst_n | start | ain | bin | yout | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 1 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 2 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 3 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 4 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 5 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 6 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 7 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 8 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 9 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 10 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 11 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 12 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 13 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 14 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 15 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 16 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 17 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+| 18 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 1 |
+| 19 | 1 | 1 | 16'hffff | 16'h0 | 32'h0 | 0 |
+
+### stimulus 3
+| cycle | rst_n | start | ain | bin | yout | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 16'h0 | 16'h0 | 32'h0 | 0 |
+| 1 | 1 | 1 | 16'hffff | 16'hffff | 32'h0 | 0 |
+| 2 | 1 | 1 | 16'hffff | 16'hffff | 32'h0 | 0 |
+| 3 | 1 | 1 | 16'hffff | 16'hffff | 32'hffff | 0 |
+| 4 | 1 | 1 | 16'hffff | 16'hffff | 32'h2fffd | 0 |
+| 5 | 1 | 1 | 16'hffff | 16'hffff | 32'h6fff9 | 0 |
+| 6 | 1 | 1 | 16'hffff | 16'hffff | 32'hefff1 | 0 |
+| 7 | 1 | 1 | 16'hffff | 16'hffff | 32'h1effe1 | 0 |
+| 8 | 1 | 1 | 16'hffff | 16'hffff | 32'h3effc1 | 0 |
+| 9 | 1 | 1 | 16'hffff | 16'hffff | 32'h7eff81 | 0 |
+| 10 | 1 | 1 | 16'hffff | 16'hffff | 32'hfeff01 | 0 |
+| 11 | 1 | 1 | 16'hffff | 16'hffff | 32'h1fefe01 | 0 |
+| 12 | 1 | 1 | 16'hffff | 16'hffff | 32'h3fefc01 | 0 |
+| 13 | 1 | 1 | 16'hffff | 16'hffff | 32'h7fef801 | 0 |
+| 14 | 1 | 1 | 16'hffff | 16'hffff | 32'hffef001 | 0 |
+| 15 | 1 | 1 | 16'hffff | 16'hffff | 32'h1ffee001 | 0 |
+| 16 | 1 | 1 | 16'hffff | 16'hffff | 32'h3ffec001 | 0 |
+| 17 | 1 | 1 | 16'hffff | 16'hffff | 32'h7ffe8001 | 0 |
+| 18 | 1 | 1 | 16'hffff | 16'hffff | 32'hfffe0001 | 1 |
+| 19 | 1 | 1 | 16'hffff | 16'hffff | 32'hfffe0001 | 0 |
+
+### stimulus 4
+| cycle | rst_n | start | ain | bin | yout | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 16'h0 | 16'h0 | 32'h0 | 0 |
+| 1 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 2 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 3 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 4 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 5 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 6 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 7 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 8 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 9 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 10 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 11 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 12 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 13 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 14 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 15 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 16 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 17 | 1 | 1 | 16'h8000 | 16'h1 | 32'h0 | 0 |
+| 18 | 1 | 1 | 16'h8000 | 16'h1 | 32'h8000 | 1 |
+| 19 | 1 | 1 | 16'h8000 | 16'h1 | 32'h8000 | 0 |
+
+### stimulus 5
+| cycle | rst_n | start | ain | bin | yout | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 16'h0 | 16'h0 | 32'h0 | 0 |
+| 1 | 1 | 1 | 16'h1234 | 16'h5678 | 32'h0 | 0 |
+| 2 | 1 | 1 | 16'h1234 | 16'h5678 | 32'h0 | 0 |
+| 3 | 1 | 1 | 16'h1234 | 16'h5678 | 32'h0 | 0 |
+| 4 | 1 | 1 | 16'h1234 | 16'h5678 | 32'h0 | 0 |
+| 5 | 1 | 1 | 16'h1234 | 16'h5678 | 32'h159e0 | 0 |
+| 6 | 1 | 1 | 16'h1234 | 16'h5678 | 32'h159e0 | 0 |
+| 7 | 1 | 0 | 16'h1 | 16'hffff | 32'h6c160 | 0 |
+| 8 | 1 | 1 | 16'h1 | 16'hffff | 32'h6c160 | 0 |
+| 9 | 1 | 1 | 16'h1 | 16'hffff | 32'h6c160 | 0 |
+| 10 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 11 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 12 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 13 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 14 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 15 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 16 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 17 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 18 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 19 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 20 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 21 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 22 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 23 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 24 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+| 25 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 1 |
+| 26 | 1 | 1 | 16'h1 | 16'hffff | 32'h7c15f | 0 |
+
+### stimulus 6
+| cycle | rst_n | start | ain | bin | yout | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 16'h0 | 16'h0 | 32'h0 | 0 |
+| 1 | 1 | 1 | 16'h1 | 16'h1 | 32'h0 | 0 |
+| 2 | 1 | 1 | 16'h1 | 16'h1 | 32'h0 | 0 |
+| 3 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 4 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 5 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 6 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 7 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 8 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 9 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 10 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 11 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 12 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 13 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 14 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 15 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 16 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 17 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 18 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 1 |
+| 19 | 1 | 1 | 16'h1 | 16'h1 | 32'h1 | 0 |
+| 20 | 1 | 0 | 16'haaaa | 16'h5555 | 32'h1 | 0 |
+| 21 | 1 | 1 | 16'h3 | 16'h5 | 32'h1 | 0 |
+| 22 | 1 | 1 | 16'h3 | 16'h5 | 32'h1 | 0 |
+| 23 | 1 | 1 | 16'h3 | 16'h5 | 32'h6 | 0 |
+| 24 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 25 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 26 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 27 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 28 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 29 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 30 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 31 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 32 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 33 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 34 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 35 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 36 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 37 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+| 38 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 1 |
+| 39 | 1 | 1 | 16'h3 | 16'h5 | 32'h10 | 0 |
+
+### stimulus 7
+| cycle | rst_n | start | ain | bin | yout | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 16'h0 | 16'h0 | 32'h0 | 0 |
+| 1 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h0 | 0 |
+| 2 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h0 | 0 |
+| 3 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 4 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 5 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 6 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 7 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 8 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 9 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 10 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 11 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 12 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 13 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 14 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 15 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 16 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 17 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h7fff | 0 |
+| 18 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h3fffffff | 1 |
+| 19 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h3fffffff | 0 |
+| 20 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h3fffffff | 0 |
+| 21 | 1 | 0 | 16'h8001 | 16'h7fff | 32'h3fffffff | 0 |
+| 22 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h3fffffff | 0 |
+| 23 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h3fffffff | 0 |
+| 24 | 1 | 1 | 16'h8001 | 16'h7fff | 32'h40007ffe | 0 |

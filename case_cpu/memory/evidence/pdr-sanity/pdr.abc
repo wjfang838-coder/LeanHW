@@ -1,0 +1,1 @@
+read_aiger /home/usr/leansilicon/case_cpu/memory/evidence/pdr-sanity/design.aig; fold; strash; orpos; pdr -v -T 30; write_cex -a /home/usr/leansilicon/case_cpu/memory/evidence/pdr-sanity/counterexample.aiw

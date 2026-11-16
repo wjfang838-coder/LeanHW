@@ -1,0 +1,139 @@
+Module and integration contract
+
+Module: adder_pipe_64bit.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- i_en: input 1 bit.
+- adda: input [DATA_WIDTH-1:0].
+- addb: input [DATA_WIDTH-1:0].
+- result: output [DATA_WIDTH:0].
+- o_en: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  DATA_WIDTH: default = 64.
+-  STG_WIDTH: default = 16.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+rst_n is an active-low asynchronous reset. While rst_n is low, result is the 65-bit value zero, o_en is 0, every pending transaction is cancelled, and reset takes priority over a simultaneous rising edge. Prolonged or repeated assertion keeps those outputs cleared. Raising rst_n alone leaves result at zero and o_en at 0; the first rising edge after release may accept a transaction but cannot yet complete one.
+
+Before rst_n has ever been asserted low, result and o_en are unknown. They must remain uninitialised at power-up: no initial block or declaration initialiser may give either port's supporting state a defined value. Once reset has been asserted, the reset values above apply through release until later clocked behavior changes them.
+
+4. Timing
+
+Each rising edge of clk with rst_n high advances the pipeline by one cycle. Other clk levels and falling edges have no effect. An enabled transaction sampled at rising edge k completes at the pre-edge observation for rising edge k+4: result then contains its sum and o_en is high. Thus result is registered with four-cycle latency from the enabled sampling of adda and addb, and o_en is the corresponding registered four-cycle-latency validity indication. Each isolated enabled transaction produces an o_en pulse exactly one cycle wide; consecutive enabled transactions produce a continuous high lasting one cycle per transaction. A low i_en produces a bubble and therefore a low o_en four cycles later.
+
+Trace rows use the object's full-cycle observation convention: row k is sampled before its active rising edge, and the transition after that sample computes row k+1. This convention describes observation order independently of the circuit's actual clock period. The interface supplies no numeric step_ns or sample_offset_ns value, so this document does not invent a nanosecond period or offset.
+
+5. Behaviour
+
+With rst_n high, i_en equal to 1 at a rising edge accepts the contemporaneous adda and addb. They are unsigned DATA_WIDTH-bit operands; their mathematical unsigned sum is delivered without carry truncation in the DATA_WIDTH+1-bit result four rising edges later, with o_en equal to 1 on that row. In the concrete sampled instance, this is a 65-bit result from two 64-bit operands. Consecutive enabled edges accept distinct consecutive transactions and complete them on consecutive rows.
+
+Only the low bit of each one-bit input is observable. Accordingly, the concrete stimulus encoding i_en=2 has its low bit clear and behaves as i_en=0; the same width rule applies to rst_n. Operand values are truncated to their declared unsigned port widths before addition.
+
+When i_en is low at a rising edge, no operand transaction is accepted and o_en is low four rising edges later. Changes to adda or addb on such an edge do not create a transaction. Outside rows where o_en is high, result is not a valid transaction result: it is not required to clear and is not guaranteed to retain the preceding valid sum. Consumers must use o_en to determine validity.
+
+A low rst_n at any time asynchronously clears the public outputs and cancels every pending transaction. Release alone accepts nothing; later transactions are accepted only on rising edges having i_en high. This reset behavior applies equally during disabled operation, between transactions, during consecutive transactions, and before a pending transaction would otherwise complete.
+
+Public result and validity behavior advances only on rising edges as described: with rst_n high, each rising edge captures the current transaction controls and advances all pending transactions by one of four capture-to-observation edges; repeated rising edges support consecutive transactions, while other clock levels and falling edges have no effect.
+
+The enable law is exact: with rst_n high, i_en high at a rising clk edge accepts the contemporaneous adda and addb and produces one o_en pulse with their sum four active edges later, consecutive highs accept consecutive transactions, i_en low inserts a bubble without accepting operands, and reset overrides either level and cancels pending accepts.
+
+The adda law is exact: with rst_n high, adda is sampled on a rising clk edge only when i_en is high and contributes as an unsigned 64-bit operand to the 65-bit result observed four active edges later; changes when i_en is low do not create a transaction, consecutive enabled samples remain distinct, and reset cancels pending samples.
+
+The addb law is exact: with rst_n high, addb is sampled on a rising clk edge only when i_en is high and contributes as an unsigned 64-bit operand to the 65-bit result observed four active edges later; changes when i_en is low do not create a transaction, consecutive enabled samples remain distinct, and reset cancels pending samples.
+
+The result law is exact: a low rst_n asynchronously clears result to 65-bit zero and rising release alone does not change it; because row k is sampled before its active edge, operands with i_en high in row k are captured at that edge and their unsigned 65-bit sum is valid in pre-edge row k+4, consecutive accepts yield consecutive valid sums, reset before completion cancels them, and outside completion rows result is neither cleared nor guaranteed to retain the last valid sum before a later transaction or restart.
+
+The o_en law is exact: a low rst_n asynchronously clears o_en to 1'b0 and rising release alone does not change it; because row k is sampled before its active edge, i_en in row k is captured at that edge and reproduced as o_en in pre-edge row k+4, so bubbles produce low rows, consecutive accepts produce consecutive high rows, and reset before completion cancels all pending highs before operation restarts.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance and uses the pre-edge row convention stated above.
+
+### stimulus 0
+| cycle | rst_n | i_en | adda | addb | result | o_en |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 64'h0 | 64'h0 | 65'h0 | 0 |
+| 1 | 0 | 1 | 64'h1 | 64'h0 | 65'h0 | 0 |
+| 2 | 1 | 1 | 64'h2 | 64'h3 | 65'h0 | 0 |
+| 3 | 1 | 0 | 64'h4 | 64'h5 | 65'h0 | 0 |
+| 4 | 1 | 0 | 64'h0 | 64'h0 | 65'h0 | 0 |
+
+### stimulus 1
+| cycle | rst_n | i_en | adda | addb | result | o_en |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 64'h0 | 64'h0 | 65'x | x |
+| 1 | 1 | 1 | 64'h1 | 64'h1 | 65'x | x |
+| 2 | 1 | 0 | 64'hffffffffffffffff | 64'h1 | 65'x | x |
+| 3 | 1 | 0 | 64'h0 | 64'h0 | 65'x | x |
+
+### stimulus 2
+| cycle | rst_n | i_en | adda | addb | result | o_en |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 64'h8000000000000000 | 64'h8000000000000000 | 65'h0 | 0 |
+| 1 | 1 | 1 | 64'h8000000000000000 | 64'h1 | 65'h0 | 0 |
+| 2 | 1 | 1 | 64'h123456789abcdef0 | 64'hfedcba987654321 | 65'h0 | 0 |
+| 3 | 1 | 0 | 64'h0 | 64'h0 | 65'h0 | 0 |
+
+### stimulus 3
+| cycle | rst_n | i_en | adda | addb | result | o_en |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 64'h0 | 64'hffffffffffffffff | 65'h0 | 0 |
+| 1 | 1 | 1 | 64'hffffffffffffffff | 64'hffffffffffffffff | 65'h0 | 0 |
+| 2 | 1 | 0 | 64'h1 | 64'h8000000000000000 | 65'h0 | 0 |
+| 3 | 1 | 1 | 64'h7 | 64'h9 | 65'h0 | 0 |
+| 4 | 1 | 0 | 64'h0 | 64'h0 | 65'h0 | 0 |
+
+### stimulus 4
+| cycle | rst_n | i_en | adda | addb | result | o_en |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 64'ha | 64'h14 | 65'h0 | 0 |
+| 1 | 1 | 1 | 64'ha | 64'h14 | 65'h0 | 0 |
+| 2 | 1 | 0 | 64'h1e | 64'h28 | 65'h0 | 0 |
+| 3 | 0 | 1 | 64'h32 | 64'h3c | 65'h0 | 0 |
+| 4 | 1 | 1 | 64'h46 | 64'h50 | 65'h0 | 0 |
+| 5 | 1 | 0 | 64'h0 | 64'h0 | 65'h0 | 0 |
+
+### stimulus 5
+| cycle | rst_n | i_en | adda | addb | result | o_en |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 64'h0 | 64'h0 | 65'h0 | 0 |
+| 1 | 1 | 0 | 64'h1234 | 64'h5678 | 65'h0 | 0 |
+| 2 | 1 | 0 | 64'h0 | 64'h0 | 65'h0 | 0 |
+| 3 | 1 | 0 | 64'h0 | 64'h0 | 65'h0 | 0 |
+
+### stimulus 6
+| cycle | rst_n | i_en | adda | addb | result | o_en |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 64'h0 | 64'h0 | 65'h0 | 0 |
+| 1 | 1 | 1 | 64'h64 | 64'hc8 | 65'h0 | 0 |
+| 2 | 1 | 0 | 64'h65 | 64'hc9 | 65'h0 | 0 |
+| 3 | 1 | 1 | 64'h12c | 64'h190 | 65'h0 | 0 |
+| 4 | 1 | 0 | 64'h12d | 64'h191 | 65'h0 | 0 |
+| 5 | 1 | 0 | 64'h0 | 64'h0 | 65'h0 | 1 |
+
+### stimulus 7
+| cycle | rst_n | i_en | adda | addb | result | o_en |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 64'h5 | 64'h6 | 65'h0 | 0 |
+| 1 | 1 | 1 | 64'h5 | 64'h6 | 65'h0 | 0 |
+| 2 | 1 | 0 | 64'h0 | 64'h0 | 65'h0 | 0 |
+| 3 | 1 | 0 | 64'h0 | 64'h0 | 65'h0 | 0 |
+| 4 | 1 | 0 | 64'h0 | 64'h0 | 65'h0 | 0 |
+| 5 | 1 | 0 | 64'h0 | 64'h0 | 65'h0 | 1 |
+
+## Normative clarification after closure validation
+
+All observations are made immediately before a rising edge of clk.  With rst_n high, that rising edge samples i_en, adda, and addb and then performs the state transition; its effects first appear at the next pre-rising-edge observation.  Falling edges and other clk activity have no effect.  Updates caused by one rising edge use only values that existed before that edge; newly sampled values cannot propagate through more than one pipeline position on the same edge.
+
+Assertion of rst_n low is asynchronous and has priority over every clocked action.  It immediately makes result zero and o_en low and cancels all previously sampled enables.  Deasserting rst_n has no effect by itself.  After rst_n has been asserted at least once, result remains the defined all-zero value on every observation while rst_n is high as well as while it is low; in particular, an asserted o_en does not replace that zero with adda+addb.  Before the first assertion of rst_n, both result and o_en are unknown and remain unknown regardless of rising edges.
+
+After reset history has been established and rst_n is high, o_en at a pre-edge observation is exactly the low bit of i_en sampled four rising edges earlier.  Thus each sampled high produces one high observation four active edges later, consecutive highs produce consecutive high observations, and a sampled low produces a low observation.  Any intervening reset removes all such pending observations.  adda and addb do not alter this externally visible result behavior.

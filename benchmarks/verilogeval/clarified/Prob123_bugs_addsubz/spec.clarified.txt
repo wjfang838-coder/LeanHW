@@ -1,0 +1,101 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- do_sub: input 1 bit.
+- a: input [7:0].
+- b: input [7:0].
+- out: output [7:0].
+- result_is_zero: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+There is no reset input and no reset behavior. The design has no state elements. From power-up, including before any edge has occurred, out and result_is_zero are definite combinational functions of the current inputs; neither output has an uninitialised interval.
+
+4. Timing
+
+out is combinational with zero clock-cycle latency from the current do_sub, a, and b inputs. result_is_zero is combinational with zero clock-cycle latency from those same current inputs through the selected 8-bit result. Neither output is a pulse or a periodic signal, and the circuit has no actual clock period or delay law.
+
+For the evaluated full-cycle trace, row k is observed after settling at k times the interface timing.step_ns, using the interface timing.sample_offset_ns; this observation convention does not imply a 10 ns clock tick and does not create a circuit period or state transition.
+
+5. Behaviour
+
+At all times, do_sub selects addition when it is 1'b0 and subtraction when it is 1'b1; changing do_sub immediately reselects the operation using the simultaneous current a and b values, including during repeated, simultaneous, or interrupted input changes, with neither selector level inactive and with no transaction state to retain.
+
+At all times, a is the unsigned 8-bit first operand: it contributes to a + b when do_sub is 1'b0 and is the minuend in a - b when do_sub is 1'b1; any change to a immediately affects the selected result using the simultaneous current inputs.
+
+At all times, b is the unsigned 8-bit second operand: it contributes to a + b when do_sub is 1'b0 and is the subtrahend in a - b when do_sub is 1'b1; any change to b immediately affects the selected result using the simultaneous current inputs.
+
+out is continuously the low 8 bits of the unsigned sum a + b when do_sub is 1'b0, and continuously the low 8 bits of the unsigned difference a - b when do_sub is 1'b1. Arithmetic is evaluated from the two unsigned 8-bit operands, and truncation to the low 8 bits occurs at out; subtraction therefore wraps modulo 256 on underflow.
+
+result_is_zero is continuously 1'b1 exactly when the current selected 8-bit value of out is 8'b00000000, and is 1'b0 otherwise. Both outputs use the current simultaneous inputs, with no capture, completion, hold, clear, cancellation, restart, first-result, retained-data, or disabled phase.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | do_sub | a | b | out | result_is_zero |
+|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 1 |
+| 1 | 1 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 1 |
+| 2 | 0 | 8'b00000001 | 8'b00000001 | 8'b00000010 | 0 |
+
+### stimulus 1
+| cycle | do_sub | a | b | out | result_is_zero |
+|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000001 | 8'b00000000 | 8'b00000001 | 0 |
+| 1 | 0 | 8'b00000000 | 8'b00000001 | 8'b00000001 | 0 |
+| 2 | 0 | 8'b00000001 | 8'b00000001 | 8'b00000010 | 0 |
+
+### stimulus 2
+| cycle | do_sub | a | b | out | result_is_zero |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000001 | 8'b00000000 | 8'b00000001 | 0 |
+| 1 | 1 | 8'b00000000 | 8'b00000001 | 8'b11111111 | 0 |
+| 2 | 1 | 8'b00000001 | 8'b00000001 | 8'b00000000 | 1 |
+
+### stimulus 3
+| cycle | do_sub | a | b | out | result_is_zero |
+|---|---|---|---|---|---|
+| 0 | 0 | 8'b11111111 | 8'b00000001 | 8'b00000000 | 1 |
+| 1 | 0 | 8'b10000000 | 8'b10000000 | 8'b00000000 | 1 |
+| 2 | 0 | 8'b11111111 | 8'b11111111 | 8'b11111110 | 0 |
+
+### stimulus 4
+| cycle | do_sub | a | b | out | result_is_zero |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000000 | 8'b11111111 | 8'b00000001 | 0 |
+| 1 | 1 | 8'b10000000 | 8'b00000001 | 8'b01111111 | 0 |
+| 2 | 1 | 8'b11111111 | 8'b11111111 | 8'b00000000 | 1 |
+
+### stimulus 5
+| cycle | do_sub | a | b | out | result_is_zero |
+|---|---|---|---|---|---|
+| 0 | 0 | 8'b10000000 | 8'b00000000 | 8'b10000000 | 0 |
+| 1 | 0 | 8'b01011010 | 8'b10100101 | 8'b11111111 | 0 |
+| 2 | 0 | 8'b01011010 | 8'b00100101 | 8'b01111111 | 0 |
+
+### stimulus 6
+| cycle | do_sub | a | b | out | result_is_zero |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b10000000 | 8'b00000000 | 8'b10000000 | 0 |
+| 1 | 1 | 8'b01011010 | 8'b00100101 | 8'b00110101 | 0 |
+| 2 | 1 | 8'b00100101 | 8'b01011010 | 8'b11001011 | 0 |
+
+### stimulus 7
+| cycle | do_sub | a | b | out | result_is_zero |
+|---|---|---|---|---|---|
+| 0 | 0 | 8'b11111110 | 8'b00000001 | 8'b11111111 | 0 |
+| 1 | 1 | 8'b11111111 | 8'b00000000 | 8'b11111111 | 0 |
+| 2 | 0 | 8'b01111111 | 8'b00000001 | 8'b10000000 | 0 |
+| 3 | 1 | 8'b00000000 | 8'b10000000 | 8'b10000000 | 0 |

@@ -1,0 +1,84 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in1: input 1 bit.
+- in2: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset behavior. At power-up, including before any edge has occurred, out is already defined by the current input levels: it is 1 exactly when in1 and in2 are both 0, and it is 0 otherwise. The design has no state elements and therefore has no first-reset-edge or reset-release transition.
+
+Timing
+
+out is combinational from the current in1 and in2 values, with zero clock-cycle latency. It has no capture edge, registered delay, pulse interval, periodic behavior, hold interval, or completion state.
+
+Trace rows are observations one full-cycle step apart. Since this autonomous model has no numeric step duration in the interface, row k denotes k interface steps after settling, not an implicit 10 ns clock tick. This observation convention does not impose a physical period or delay law on the circuit; the circuit itself is continuously combinational.
+
+Behaviour
+
+For every one-bit input combination, out is the one-bit NOR of the current inputs: out is 1 exactly when in1 is 0 and in2 is 0, and out is 0 for the other three combinations.
+
+in1 affects out immediately with no mode or stored transaction. While in2 is 0, out is the complement of in1; while in2 is 1, either value of in1 leaves out at 0. Simultaneous, interrupted, and repeated input changes obey this same relation.
+
+in2 affects out immediately with no mode or stored transaction. While in1 is 0, out is the complement of in2; while in1 is 1, either value of in2 leaves out at 0. Simultaneous, interrupted, and repeated input changes obey this same relation.
+
+out continuously reflects that NOR relation, with no reset, capture edge, observation-edge latency, hold or clear interval, completion state, or restart protocol. Consequently, each pre-transition trace row observes the relation for the input levels present in that row.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+
+### stimulus 4
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 1 |
+| 1 | 1 | 0 | 0 |
+
+### stimulus 5
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 1 |
+
+### stimulus 6
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+
+### stimulus 7
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 0 | 1 |

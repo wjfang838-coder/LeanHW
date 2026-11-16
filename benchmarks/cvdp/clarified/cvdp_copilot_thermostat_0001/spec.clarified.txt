@@ -1,0 +1,142 @@
+Original implementation instruction (verbatim):
+
+Design a Sequential Verilog Module named `thermostat` for a Thermostat Controller with an FSM that automatically switches between heating and cooling based on temperature feedback.
+
+Named module interface binding
+
+Module: thermostat.
+Connect ports by name. The enumeration below does not establish positional order.
+- i_temp_feedback: input; 6 bits in the concrete formal instance.
+- i_fan_on: input; 1 bits in the concrete formal instance.
+- i_enable: input; 1 bits in the concrete formal instance.
+- i_fault: input; 1 bits in the concrete formal instance.
+- i_clr: input; 1 bits in the concrete formal instance.
+- i_clk: input; 1 bits in the concrete formal instance.
+- i_rst: input; 1 bits in the concrete formal instance.
+- o_heater_full: output; 1 bits in the concrete formal instance.
+- o_heater_medium: output; 1 bits in the concrete formal instance.
+- o_heater_low: output; 1 bits in the concrete formal instance.
+- o_aircon_full: output; 1 bits in the concrete formal instance.
+- o_aircon_medium: output; 1 bits in the concrete formal instance.
+- o_aircon_low: output; 1 bits in the concrete formal instance.
+- o_fan: output; 1 bits in the concrete formal instance.
+- o_state: output; 3 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is thermostat. There are no established public parameters.
+
+The exact port spellings, directions, and widths are: i_temp_feedback is a 6-bit input; i_fan_on, i_enable, i_fault, i_clr, i_clk, and i_rst are 1-bit inputs; o_heater_full, o_heater_medium, o_heater_low, o_aircon_full, o_aircon_medium, o_aircon_low, and o_fan are 1-bit outputs; and o_state is a 3-bit output.
+
+The certain integration answer Q43 states: “The named top-level boundary is thermostat with six-bit input i_temp_feedback; one-bit inputs i_fan_on, i_enable, i_fault, i_clr, i_clk, and i_rst; one-bit outputs o_heater_full, o_heater_medium, o_heater_low, o_aircon_full, o_aircon_medium, o_aircon_low, and o_fan; and three-bit output o_state, with no public parameters established; connections are by name and positional declaration order is unverified.” Therefore positional declaration order is not normative, and every instantiation must connect these exact spellings by name.
+
+3. Reset.
+
+i_rst is an asynchronous, active-low reset with highest priority. Whenever i_rst is 0, including between rising edges, the FSM state and o_state are AMBIENT (3'b011), and o_heater_full, o_heater_medium, o_heater_low, o_aircon_full, o_aircon_medium, o_aircon_low, and o_fan are all 0.
+
+Releasing reset does not itself change these reset values. The first rising edge after release applies the fault, clear, enable, temperature-feedback, and fan laws in section 5.
+
+Implementation choice C1: solely for the finite verification instance before reset has ever been asserted or any rising edge has occurred, the model starts in AMBIENT (3'b011), with all seven actuator outputs 0 and no latched fault. This is a compatible implementation decision, not a source-established hardware power-up guarantee; RTL power-up values before asynchronous reset is asserted are unconstrained. It imposes no reset-before-use restriction. A normal rising edge before reset still applies the complete operational laws in section 5.
+
+4. Timing.
+
+i_clk is the sequential clock. Except for asynchronous reset assertion, state and output updates occur on rising edges and remain stable between rising edges. Temperature feedback, manual fan, enable, fault, and clear therefore have one rising-edge capture latency: values sampled at one rising edge are visible during the following cycle. There are no pulse, completion, or periodic outputs.
+
+The worked trace uses full-cycle pre-transition sampling. Row k observes the settled outputs before that row's rising-edge transition; that transition produces the state observed in row k+1. Row k denotes k × step_ns after settling, with the interface sample offset applied; it is not an implicit 10 ns tick. The interface supplies no numeric step_ns or sample_offset_ns, so this observation convention specifies no physical clock period or propagation delay.
+
+5. Behaviour.
+
+The valid state encodings are HEAT_LOW = 3'b000, HEAT_MED = 3'b001, HEAT_FULL = 3'b010, AMBIENT = 3'b011, COOL_LOW = 3'b100, COOL_MED = 3'b101, and COOL_FULL = 3'b110. Encoding 3'b111 is not a valid state.
+
+i_temp_feedback[5] is full cold, bit 4 medium cold, bit 3 low cold, bit 2 low hot, bit 1 medium hot, and bit 0 full hot. The source requires the cold group and hot group never to be asserted together.
+
+Outside reset, rising-edge control priority is: asserted i_fault; clearing a previously latched fault; retention of an uncleared latched fault; disable; then normal temperature and fan operation. If i_fault is 1 at a rising edge, the fault is latched and all six heating/cooling outputs and o_fan become 0. They remain forced off after i_fault returns to 0 until i_clr is sampled as 1 while i_fault is 0. If i_fault and i_clr are both 1, fault assertion wins. If i_fault is 0, i_clr is 1, and a fault is latched, that edge clears the fault, moves the FSM to AMBIENT, sets o_state to 3'b011, and leaves the seven actuator outputs 0. i_clr has no specified independent effect when no fault is latched.
+
+The source does not specify the value or retention law of o_state while a fault is active or remains latched, except that clearing the fault returns it to AMBIENT. Certain answer Q27 is limited to this law: “After fault is asserted during ambient operation and two rising edges occur, o_state is 3'b011.” This is an ambient-start observation only and does not require retention or AMBIENT for fault entry from another state.
+
+If no fault is active or latched and i_enable is 0 at a rising edge, the FSM moves to AMBIENT, o_state becomes 3'b011, and all six heating/cooling outputs and o_fan become 0 regardless of i_temp_feedback and i_fan_on. Repeated disabled cycles remain AMBIENT and off. Re-enabling applies normal evaluation on that rising edge.
+
+When enabled and free of an active or latched fault, each rising edge selects the next state by this complete priority chain: if bit 5 is 1, HEAT_FULL; else if bit 4 is 1, HEAT_MED; else if bit 3 is 1, HEAT_LOW; else if bit 0 is 1, COOL_FULL; else if bit 1 is 1, COOL_MED; else if bit 2 is 1, COOL_LOW; else AMBIENT. Same-side simultaneous indications therefore use full-over-medium-over-low priority. Mixed cold/hot assertion violates the stated input contract; for totality of the concrete model only, the same chain gives every cold indication priority over every hot indication, without weakening that input constraint.
+
+In HEAT_FULL only o_heater_full is 1; in HEAT_MED only o_heater_medium is 1; in HEAT_LOW only o_heater_low is 1. In COOL_FULL only o_aircon_full is 1; in COOL_MED only o_aircon_medium is 1; in COOL_LOW only o_aircon_low is 1. In AMBIENT all six heating/cooling outputs are 0.
+
+On the same rising edge that selects a normal state, o_fan becomes 1 if the selected state activates any heating or air-conditioning output or if i_fan_on is 1; otherwise it becomes 0. Reset, active or latched fault, and disable force o_fan to 0. These laws apply independently on every rising edge; there is no transaction handshake, cancellation protocol, completion signal, or result-valid protocol.
+
+6. Worked trace.
+
+The evaluated trace below is normative for the concrete six-bit model instance, subject to the source-authority and model-scope qualifications above.
+
+### stimulus 0
+| cycle | i_temp_feedback | i_fan_on | i_enable | i_fault | i_clr | i_rst | o_heater_full | o_heater_medium | o_heater_low | o_aircon_full | o_aircon_medium | o_aircon_low | o_fan | o_state |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 6'b000000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 1 | 6'b100000 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 2 | 6'b100000 | 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 3'b010 |
+
+### stimulus 1
+| cycle | i_temp_feedback | i_fan_on | i_enable | i_fault | i_clr | i_rst | o_heater_full | o_heater_medium | o_heater_low | o_aircon_full | o_aircon_medium | o_aircon_low | o_fan | o_state |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 6'b000000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 1 | 6'b010000 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 2 | 6'b001000 | 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 1 | 3'b001 |
+| 3 | 6'b000000 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 3'b000 |
+
+### stimulus 2
+| cycle | i_temp_feedback | i_fan_on | i_enable | i_fault | i_clr | i_rst | o_heater_full | o_heater_medium | o_heater_low | o_aircon_full | o_aircon_medium | o_aircon_low | o_fan | o_state |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 6'b000000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 1 | 6'b000001 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 2 | 6'b000010 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 3'b110 |
+| 3 | 6'b000100 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 1 | 3'b101 |
+| 4 | 6'b000000 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 3'b100 |
+
+### stimulus 3
+| cycle | i_temp_feedback | i_fan_on | i_enable | i_fault | i_clr | i_rst | o_heater_full | o_heater_medium | o_heater_low | o_aircon_full | o_aircon_medium | o_aircon_low | o_fan | o_state |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 6'b000000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 1 | 6'b100000 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 2 | 6'b000001 | 1 | 0 | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 3'b010 |
+| 3 | 6'b000000 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 4 | 6'b000000 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+
+### stimulus 4
+| cycle | i_temp_feedback | i_fan_on | i_enable | i_fault | i_clr | i_rst | o_heater_full | o_heater_medium | o_heater_low | o_aircon_full | o_aircon_medium | o_aircon_low | o_fan | o_state |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 6'b000000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 1 | 6'b000001 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 2 | 6'b000000 | 0 | 1 | 1 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 3'b110 |
+| 3 | 6'b000000 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b110 |
+| 4 | 6'b100000 | 0 | 1 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b110 |
+| 5 | 6'b010000 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+
+### stimulus 5
+| cycle | i_temp_feedback | i_fan_on | i_enable | i_fault | i_clr | i_rst | o_heater_full | o_heater_medium | o_heater_low | o_aircon_full | o_aircon_medium | o_aircon_low | o_fan | o_state |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 6'b000000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 1 | 6'b000000 | 0 | 1 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 2 | 6'b000000 | 0 | 1 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 3 | 6'b000000 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+
+### stimulus 6
+| cycle | i_temp_feedback | i_fan_on | i_enable | i_fault | i_clr | i_rst | o_heater_full | o_heater_medium | o_heater_low | o_aircon_full | o_aircon_medium | o_aircon_low | o_fan | o_state |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 6'b000000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 1 | 6'b111111 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 2 | 6'b100001 | 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 3'b010 |
+| 3 | 6'b000101 | 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 3'b010 |
+
+### stimulus 7
+| cycle | i_temp_feedback | i_fan_on | i_enable | i_fault | i_clr | i_rst | o_heater_full | o_heater_medium | o_heater_low | o_aircon_full | o_aircon_medium | o_aircon_low | o_fan | o_state |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 6'b010101 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 1 | 6'b000000 | 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 1 | 3'b001 |
+
+### stimulus 8
+| cycle | i_temp_feedback | i_fan_on | i_enable | i_fault | i_clr | i_rst | o_heater_full | o_heater_medium | o_heater_low | o_aircon_full | o_aircon_medium | o_aircon_low | o_fan | o_state |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 6'b000000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 1 | 6'b001000 | 1 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3'b011 |
+| 2 | 6'b000000 | 1 | 1 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 3'b000 |
+| 3 | 6'b000000 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 3'b011 |

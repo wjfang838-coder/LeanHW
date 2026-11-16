@@ -1,0 +1,166 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- d: input 1 bit.
+- done_counting: input 1 bit.
+- ack: input 1 bit.
+- state: input [9:0].
+- B3_next: output 1 bit.
+- S_next: output 1 bit.
+- S1_next: output 1 bit.
+- Count_next: output 1 bit.
+- Wait_next: output 1 bit.
+- done: output 1 bit.
+- counting: output 1 bit.
+- shift_ena: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  S: default = 0.
+-  S1: default = 1.
+-  S11: default = 2.
+-  S110: default = 3.
+-  B0: default = 4.
+-  B1: default = 5.
+-  B2: default = 6.
+-  B3: default = 7.
+-  Count: default = 8.
+-  Wait: default = 9.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+This combinational fragment has no reset port, no stored state, and no reset or power-up initialization behavior. Before any reset edge could have been seen, and at all later times, every output is already determined solely by the current inputs according to the equations below. Thus no output is unknown at power-up. The narrative reset value S belongs to the omitted state-storage portion of the larger state machine and does not alter this fragment.
+
+Timing
+
+All eight outputs are combinational, with zero clock-cycle latency from their named input dependencies. B3_next, done, counting, and shift_ena respond to state. S_next responds to state, d, and ack. S1_next responds to state and d. Count_next responds to state and done_counting. Wait_next responds to state, done_counting, and ack. There are no registered outputs, pulses, periodic signals, clock port, circuit period, or delay law in this fragment.
+
+For the evaluated trace, row k denotes the settled combinational observation at k times the interface step duration; it does not imply a 10 ns clock tick. The interface provides no numeric step duration or sample offset, and this observation convention is separate from circuit timing.
+
+Behaviour
+
+Number state bits from state[0] as the least-significant bit through state[9] as the most-significant bit. Every listed contribution applies concurrently, including for zero-hot and multi-hot state values:
+
+B3_next = state[6].
+
+S_next = ((state[0] OR state[1] OR state[3]) AND NOT d) OR (state[9] AND ack).
+
+S1_next = state[0] AND d.
+
+Count_next = state[7] OR (state[8] AND NOT done_counting).
+
+Wait_next = (state[8] AND done_counting) OR (state[9] AND NOT ack).
+
+done = state[9].
+
+counting = state[8].
+
+shift_ena = state[4] OR state[5] OR state[6] OR state[7].
+
+At all times, d affects only S_next and S1_next: d=0 enables state[0], state[1], or state[3] to assert S_next and prevents state[0] from asserting S1_next, while d=1 suppresses those three S_next terms and permits state[0] to assert S1_next; the state[9]-and-ack contribution to S_next and every other output are unaffected, simultaneous changes combine by these equations, and interruption or repetition has no retained effect because responses are immediate and combinational.
+
+At all times, done_counting affects only Count_next and Wait_next when state[8]=1: done_counting=0 asserts Count_next and not Wait_next from that state bit, whereas done_counting=1 asserts Wait_next and not Count_next from that state bit; contributions from state[7] to Count_next and state[9] with ack to Wait_next remain active during simultaneous events, all other outputs are unaffected, and interruption or repetition has no retained effect because responses are immediate and combinational.
+
+At all times, ack affects only S_next and Wait_next when state[9]=1: ack=0 asserts Wait_next and contributes nothing to S_next, whereas ack=1 asserts S_next and contributes nothing to Wait_next; all other contributions and outputs are unaffected during simultaneous events, and interruption or repetition has no retained effect because responses are immediate and combinational.
+
+At all times state maps combinationally by the eight equations above, with every bit contribution applying concurrently even for zero-hot or multi-hot values and with no retained effect across interrupted or repeated values.
+
+B3_next is continuously state[6], with no reset initialization, first-result latency, hold or clear interval, completion behavior, or restart state.
+
+S_next is continuously its stated equation, with no reset initialization, first-result latency, hold or clear interval, completion behavior, or restart state.
+
+S1_next is continuously its stated equation, with no reset initialization, first-result latency, hold or clear interval, completion behavior, or restart state.
+
+Count_next is continuously its stated equation, with no reset initialization, first-result latency, hold or clear interval, completion behavior, or restart state.
+
+Wait_next is continuously its stated equation, with no reset initialization, first-result latency, hold or clear interval, completion behavior, or restart state.
+
+done is continuously state[9], with no reset initialization, first-result latency, hold or clear interval, completion behavior, or restart state.
+
+counting is continuously state[8], with no reset initialization, first-result latency, hold or clear interval, completion behavior, or restart state.
+
+shift_ena is continuously the OR of state[7:4], with no reset initialization, first-result latency, hold or clear interval, completion behavior, or restart state.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | d | done_counting | ack | state | B3_next | S_next | S1_next | Count_next | Wait_next | done | counting | shift_ena |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 10'h1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 10'h1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | d | done_counting | ack | state | B3_next | S_next | S1_next | Count_next | Wait_next | done | counting | shift_ena |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 10'h2 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 10'h2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | d | done_counting | ack | state | B3_next | S_next | S1_next | Count_next | Wait_next | done | counting | shift_ena |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 10'h4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 10'h4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 3
+| cycle | d | done_counting | ack | state | B3_next | S_next | S1_next | Count_next | Wait_next | done | counting | shift_ena |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 10'h8 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 10'h8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 4
+| cycle | d | done_counting | ack | state | B3_next | S_next | S1_next | Count_next | Wait_next | done | counting | shift_ena |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 10'h10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| 1 | 0 | 0 | 0 | 10'h20 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| 2 | 0 | 0 | 0 | 10'h40 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| 3 | 0 | 0 | 0 | 10'h80 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | d | done_counting | ack | state | B3_next | S_next | S1_next | Count_next | Wait_next | done | counting | shift_ena |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 10'h100 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 1 | 0 | 1 | 0 | 10'h100 | 0 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
+
+### stimulus 6
+| cycle | d | done_counting | ack | state | B3_next | S_next | S1_next | Count_next | Wait_next | done | counting | shift_ena |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 10'h200 | 0 | 0 | 0 | 0 | 1 | 1 | 0 | 0 |
+| 1 | 0 | 0 | 1 | 10'h200 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | d | done_counting | ack | state | B3_next | S_next | S1_next | Count_next | Wait_next | done | counting | shift_ena |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 10'h0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 1 | 10'h0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 8
+| cycle | d | done_counting | ack | state | B3_next | S_next | S1_next | Count_next | Wait_next | done | counting | shift_ena |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 10'h3ff | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 |
+| 1 | 1 | 0 | 1 | 10'h3ff | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 |
+
+### stimulus 9
+| cycle | d | done_counting | ack | state | B3_next | S_next | S1_next | Count_next | Wait_next | done | counting | shift_ena |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 10'h3 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 10'h3 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 10
+| cycle | d | done_counting | ack | state | B3_next | S_next | S1_next | Count_next | Wait_next | done | counting | shift_ena |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 10'h155 | 1 | 1 | 0 | 1 | 0 | 0 | 1 | 1 |
+| 1 | 1 | 1 | 0 | 10'h155 | 1 | 0 | 1 | 0 | 1 | 0 | 1 | 1 |
+
+### stimulus 11
+| cycle | d | done_counting | ack | state | B3_next | S_next | S1_next | Count_next | Wait_next | done | counting | shift_ena |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 10'h100 | 0 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
+| 1 | 1 | 1 | 1 | 10'h200 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |

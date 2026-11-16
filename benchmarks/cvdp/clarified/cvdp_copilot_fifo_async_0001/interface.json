@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_fifo_async_0001",
+  "toplevel": "fifo_async",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

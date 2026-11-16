@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "comparator_4bit",
+  "toplevel": "comparator_4bit",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

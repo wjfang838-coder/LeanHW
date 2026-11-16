@@ -1,0 +1,89 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- ALUOp: input [1:0].
+- Funct7: input [6:0].
+- Funct3: input [2:0].
+- Operation: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset behavior. Operation is continuously determined from the current inputs at power-up, before any edge has occurred, and at all later times. There are no state elements and no uninitialised interval: whenever the three inputs have known values, Operation has the definite value specified below.
+
+Timing
+
+Operation is purely combinational. Its latency from each of ALUOp, Funct7, and Funct3 is zero clock cycles. There is no clock, capture edge, completion event, pulse, periodic output, inactive interval, or retained value.
+
+In an evaluated full-cycle trace, row k is the settled combinational observation at k times the interface step duration, sampled at the interface sample offset. This trace observation convention does not impose a circuit clock period or propagation-delay law; the circuit itself has no clock, and its only timing requirement here is combinational behavior.
+
+Behaviour
+
+Operation is a continuously driven combinational function of the current ALUOp, Funct7, and Funct3 values. Every input change, including a simultaneous change, interruption, or repetition, recomputes Operation without a transaction, disabled interval, capture, cancellation, or retained state.
+
+When ALUOp is 2'b00, Operation is 4'h2 independently of Funct7 and Funct3.
+
+When ALUOp is 2'b11, Operation is 4'ha independently of Funct7 and Funct3.
+
+When ALUOp is 2'b01, Funct7 has no effect. Funct3 values 3'b000 through 3'b111 select Operation values 4'h8, 4'h9, 4'h8, 4'h8, 4'hc, 4'hd, 4'he, and 4'hf, respectively.
+
+When ALUOp is 2'b10 and Funct3 is 3'b000, Operation is 4'h6 if Funct7 is 7'b0100000 and is 4'h2 for every other Funct7 value.
+
+When ALUOp is 2'b10 and Funct3 is 3'b001, 3'b010, 3'b011, 3'b100, 3'b110, or 3'b111, Operation is respectively 4'h4, 4'hc, 4'he, 4'h3, 4'h1, or 4'h0, independently of Funct7.
+
+When ALUOp is 2'b10 and Funct3 is 3'b101, Operation is 4'h5 for Funct7 7'b0000000, 4'h7 for Funct7 7'b0100000, and 4'h0 for every other Funct7 value.
+
+Thus Funct7 affects Operation only for ALUOp 2'b10 with Funct3 3'b000 or 3'b101; in every other case it has no effect. Funct3 has no effect when ALUOp is 2'b00 or 2'b11. The cases above cover every value representable by every input port.
+
+Worked trace
+
+The following evaluated trace is normative. Each row reports the settled output for the inputs in that row under the observation convention stated above.
+
+### stimulus 0
+| cycle | ALUOp | Funct7 | Funct3 | Operation |
+|---|---|---|---|---|
+| 0 | 2'b00 | 7'b0000000 | 3'b000 | 4'b0010 |
+
+### stimulus 1
+| cycle | ALUOp | Funct7 | Funct3 | Operation |
+|---|---|---|---|---|
+| 0 | 2'b01 | 7'b0000001 | 3'b001 | 4'b1001 |
+
+### stimulus 2
+| cycle | ALUOp | Funct7 | Funct3 | Operation |
+|---|---|---|---|---|
+| 0 | 2'b10 | 7'b1111111 | 3'b111 | 4'b0000 |
+
+### stimulus 3
+| cycle | ALUOp | Funct7 | Funct3 | Operation |
+|---|---|---|---|---|
+| 0 | 2'b11 | 7'b1000000 | 3'b100 | 4'b1010 |
+
+### stimulus 4
+| cycle | ALUOp | Funct7 | Funct3 | Operation |
+|---|---|---|---|---|
+| 0 | 2'b00 | 7'b0101010 | 3'b010 | 4'b0010 |
+
+### stimulus 5
+| cycle | ALUOp | Funct7 | Funct3 | Operation |
+|---|---|---|---|---|
+| 0 | 2'b01 | 7'b0100000 | 3'b011 | 4'b1000 |
+
+### stimulus 6
+| cycle | ALUOp | Funct7 | Funct3 | Operation |
+|---|---|---|---|---|
+| 0 | 2'b10 | 7'b0111111 | 3'b101 | 4'b0000 |
+
+### stimulus 7
+| cycle | ALUOp | Funct7 | Funct3 | Operation |
+|---|---|---|---|---|
+| 0 | 2'b11 | 7'b1111110 | 3'b110 | 4'b1010 |

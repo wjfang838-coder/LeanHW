@@ -1,0 +1,173 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- q: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+reset is active high and synchronous. Merely asserting or releasing reset between rising edges has no immediate effect. At every rising edge at which reset is asserted, q and the stored counter state become 4'b0000; this reset action has priority over counting. Repeated rising edges while reset remains asserted clear them to 4'b0000 again.
+
+Before the first rising edge that samples reset asserted, q and the stored counter state are unknown. They remain unknown across rising edges at which reset is inactive. The implementation must leave this power-up state uninitialised, with no initial block or declaration initialiser that gives it a defined value.
+
+After reset has been sampled asserted, the first rising edge after reset is released applies the normal count rule to the pre-edge value. Thus, if that pre-edge value is 4'b0000, q is 4'b0001 in the following sampled row.
+
+4. Timing.
+
+q is a registered output. It changes only as the result of a rising edge of clk and has a latency of one sampled row from the reset value and pre-edge q value used at that edge. A falling edge or an unchanged clk level has no effect.
+
+Rows use the full-cycle observation convention: row k samples the settled output before transition k, and transition k represents the following rising edge. Consequently, row k is observed k full-cycle steps after initial settling; no implicit 10 ns clock tick is assigned. The interface specifies no physical step duration or sample offset. This observation convention is separate from the circuit law that q repeats every 10 rising clk edges during uninterrupted counting: q is 4'b0000 for one cycle, then each of 4'b0001 through 4'b1001 for one cycle, giving a 10-cycle period.
+
+5. Behaviour.
+
+Only a rising edge of clk updates q: at each such edge reset has priority and clears q to 4'b0000, otherwise q clears to 4'b0000 when its pre-edge value is 4'b1001 and increments by one for every other known pre-edge value; a falling edge or an unchanged clk level has no effect, and the same rule applies independently on every repeated rising edge.
+
+reset is active high and synchronous: when asserted at a rising clk edge it clears q to 4'b0000 with priority over counting, assertion or release between rising edges has no immediate effect, every rising edge while it remains asserted clears q again, and the first rising edge after release resumes the normal count rule from q's pre-edge value.
+
+Because each row is sampled before its active edge, q in a row reflects the preceding rising-edge update: it is unknown before initialization, becomes 4'b0000 in the first row after a rising edge that samples reset asserted, then advances by one in each row after a rising edge with reset inactive through 4'b1001, clears to 4'b0000 after the next rising edge, and immediately restarts this sequence unless a sampled reset clears it again.
+
+For every known 4-bit pre-edge value other than 4'b1001, including 4'b1010 through 4'b1111, an inactive-reset rising edge increments the value modulo 16. Unknown state remains unknown until a rising edge samples reset asserted.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | reset | q |
+|---|---|---|
+| 0 | 0 | 4'x |
+| 1 | 0 | 4'x |
+| 2 | 0 | 4'x |
+
+### stimulus 1
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 0 | 4'b0000 |
+| 2 | 0 | 4'b0001 |
+
+### stimulus 2
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 1 | 4'b0000 |
+| 2 | 0 | 4'b0000 |
+| 3 | 0 | 4'b0001 |
+
+### stimulus 3
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 0 | 4'b0000 |
+| 2 | 0 | 4'b0001 |
+| 3 | 0 | 4'b0010 |
+| 4 | 0 | 4'b0011 |
+| 5 | 0 | 4'b0100 |
+| 6 | 0 | 4'b0101 |
+| 7 | 0 | 4'b0110 |
+| 8 | 0 | 4'b0111 |
+| 9 | 0 | 4'b1000 |
+| 10 | 0 | 4'b1001 |
+| 11 | 0 | 4'b0000 |
+| 12 | 0 | 4'b0001 |
+| 13 | 0 | 4'b0010 |
+| 14 | 0 | 4'b0011 |
+| 15 | 0 | 4'b0100 |
+| 16 | 0 | 4'b0101 |
+| 17 | 0 | 4'b0110 |
+| 18 | 0 | 4'b0111 |
+| 19 | 0 | 4'b1000 |
+| 20 | 0 | 4'b1001 |
+| 21 | 0 | 4'b0000 |
+| 22 | 0 | 4'b0001 |
+| 23 | 0 | 4'b0010 |
+| 24 | 0 | 4'b0011 |
+| 25 | 0 | 4'b0100 |
+| 26 | 0 | 4'b0101 |
+| 27 | 0 | 4'b0110 |
+| 28 | 0 | 4'b0111 |
+| 29 | 0 | 4'b1000 |
+| 30 | 0 | 4'b1001 |
+| 31 | 0 | 4'b0000 |
+| 32 | 0 | 4'b0001 |
+
+### stimulus 4
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 0 | 4'b0000 |
+| 2 | 0 | 4'b0001 |
+| 3 | 0 | 4'b0010 |
+| 4 | 0 | 4'b0011 |
+| 5 | 0 | 4'b0100 |
+| 6 | 0 | 4'b0101 |
+| 7 | 0 | 4'b0110 |
+| 8 | 0 | 4'b0111 |
+| 9 | 0 | 4'b1000 |
+| 10 | 0 | 4'b1001 |
+| 11 | 0 | 4'b0000 |
+| 12 | 1 | 4'b0001 |
+| 13 | 0 | 4'b0000 |
+| 14 | 0 | 4'b0001 |
+| 15 | 0 | 4'b0010 |
+
+### stimulus 5
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 0 | 4'b0000 |
+| 2 | 0 | 4'b0001 |
+| 3 | 0 | 4'b0010 |
+| 4 | 0 | 4'b0011 |
+| 5 | 0 | 4'b0100 |
+| 6 | 1 | 4'b0101 |
+| 7 | 0 | 4'b0000 |
+| 8 | 0 | 4'b0001 |
+
+### stimulus 6
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 0 | 4'b0000 |
+| 2 | 0 | 4'b0001 |
+| 3 | 0 | 4'b0010 |
+| 4 | 0 | 4'b0011 |
+| 5 | 0 | 4'b0100 |
+| 6 | 0 | 4'b0101 |
+| 7 | 0 | 4'b0110 |
+| 8 | 0 | 4'b0111 |
+| 9 | 0 | 4'b1000 |
+| 10 | 1 | 4'b1001 |
+| 11 | 0 | 4'b0000 |
+| 12 | 0 | 4'b0001 |
+| 13 | 0 | 4'b0010 |
+| 14 | 0 | 4'b0011 |
+| 15 | 0 | 4'b0100 |
+| 16 | 0 | 4'b0101 |
+| 17 | 0 | 4'b0110 |
+| 18 | 0 | 4'b0111 |
+| 19 | 0 | 4'b1000 |
+| 20 | 0 | 4'b1001 |
+| 21 | 0 | 4'b0000 |
+| 22 | 0 | 4'b0001 |
+
+### stimulus 7
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 0 | 4'b0000 |
+| 2 | 1 | 4'b0001 |
+| 3 | 0 | 4'b0000 |
+| 4 | 1 | 4'b0001 |
+| 5 | 0 | 4'b0000 |

@@ -1,0 +1,330 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+I would like you to implement a module named `TopModule` with the following interface. All input and output ports are one bit unless otherwise specified.
+
+### Inputs:
+- `clk`: System clock signal.
+- `rst_n`: Asynchronous reset signal, active low.
+- `data`: Single-bit input signal, representing the data to be checked.
+
+### Outputs:
+- `match`: A signal that outputs `1` when the input signal `data` matches the target sequence `011100`. It remains `0` at all other times.
+- `not_match`: A signal that outputs `1` when the input signal `data` does not match the target sequence `011100`. It remains `0` at all other times.
+
+### Module Description:
+The module must detect the sequence `011100` from the input signal `data`. Please use the state machine to solve this problem. The detection rules are as follows:
+1. The sequence check begins with every sixth bit of input data, meaning the module processes the input in groups of six bits and does not overlap or reuse bits between groups.
+2. If the first bit of a group does not match the sequence, the module skips the entire group and starts checking from the next group beginning at the seventh bit.
+3. When the sequence `011100` is detected, the `match` output should assert (go high).
+4. If the sequence is not detected in a group, the `not_match` output should assert (go high).
+
+### Output Logic:
+The output signals `match` and `not_match` should be implemented as follows:
+- Declare both outputs as `reg` type: `output reg match, output reg not_match`
+- Use combinational logic with Wildcard Sensitivity List block to control the outputs
+- The outputs are mutually exclusive - only one can be high at a time
+
+### Timing and Behavior:
+- When `rst_n` is low, the module should reset to its initial state and begin sequence detection from the start.
+- On every positive clock edge (`clk`), the module should evaluate the input signal `data` and transition states accordingly.
+
+Clarification: match and not_match are combinational (Moore) functions of the current state only, not of the current input bit. Each completed 6-bit group produces exactly one pulse aligned to the group's 6th bit: match=1 for a matching group or not_match=1 for a non-matching group, regardless of which bit first diverged.
+
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- data: input 1 bit.
+- match: output 1 bit.
+- not_match: output 1 bit.
+
+Public parameters:
+-  idle: default = 4'd0.
+-  s1: default = 4'd1.
+-  s2: default = 4'd2.
+-  s3: default = 4'd3.
+-  s4: default = 4'd4.
+-  s5: default = 4'd5.
+-  s6: default = 4'd6.
+-  sf1: default = 4'd7.
+-  sf2: default = 4'd8.
+-  sf3: default = 4'd9.
+-  sf4: default = 4'd10.
+-  sf5: default = 4'd11.
+-  sf6: default = 4'd12.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+3. Reset
+rst_n is asynchronous and active low. Its falling edge discards any incomplete group and any published pulse, and immediately makes match=0 and not_match=0 after propagation, independently of data and clk. Reset takes priority over a simultaneous rising clk edge. While reset remains low, both outputs remain 0, no bit is consumed, and detection remains at the beginning of a fresh group with no accumulated mismatch or pending result. Every reset assertion repeats this behavior, including interruption during a pulse or any partial group. Holding rst_n high does not restart detection.
+
+Release between clock edges leaves both outputs 0 and consumes no bit. The first positive edge after release consumes the first bit of a fresh group; the second and third edges consume the second and third bits. Both outputs remain 0 after all three edges, regardless of those samples. Reset release itself neither samples data nor publishes a result.
+
+Before any reset, with rst_n=1 and established binary inputs, both outputs are 0 before the first positive clk edge. In the certain answers' unreset four-state simulation scope, that first edge establishes a fresh starting boundary, keeps both outputs 0, and does not consume its data bit; the following six positive edges form the first group. This is the scoped Q1/Q4/Q9/Q11/Q12/Q13 startup law, rather than an inference of hardware power-up state from Lean initialization. The finite model begins in that boundary-not-yet-established condition. Its initial bookkeeping contains no sampled data, accumulated mismatch, or pending verdict; these abstract values represent the answered observations and boundary-establishment behavior, not a promise about physical power-up storage encodings. No reset-before-use restriction is imposed.
+
+4. Timing
+clk advances detection only on positive edges; falling edges and steady clock levels consume no bits and do not alter either output, except that asynchronous reset can clear both outputs at any time.
+
+Both outputs are combinational Moore functions of the current detection state, independent of the current data level. Preserve the original output-reg declarations and wildcard-sensitivity combinational output requirement. A state transition at the sixth sampling edge produces the group's result after propagation with zero additional clock cycles of delay. There is no separate output pipeline stage.
+
+Let E0 be reset assertion, followed by release between edges before E1. E1 accepts the first bit. Immediately after E1 through E5 both outputs are 0. E6 accepts the sixth bit and publishes the result; five complete inter-edge intervals have elapsed since E1, and no seventh sampling edge is required to produce it. E7 consumes the next group's first bit and clears both outputs. E8 through E11 keep both outputs 0, and E12 publishes the next result. This cadence repeats without reset and regardless of where a mismatch occurs.
+
+Each result pulse lasts exactly one positive-edge-to-positive-edge interval unless asynchronous reset truncates it. A matching result holds match=1 and not_match=0 from the completion edge until the next positive edge; a nonmatching result holds match=0 and not_match=1 for the same interval. For continuously matching groups, match has period six cycles, high for one cycle and low for five cycles; for continuously failing groups, not_match has the same period and duty counts. Arbitrary groups need not make either individual output periodic.
+
+5. Behaviour
+Consecutive chronological binary data samples form nonoverlapping groups of six: compare positions 1 through 6 with 0,1,1,1,0,0, respectively. Equality of every sample produces match=1 and not_match=0 at completion; any mismatch produces match=0 and not_match=1 at completion. The only matching binary group is 011100; every other binary group fails. Bits are never reused between groups.
+
+After a mismatch, all remaining positive edges still consume their positions in that group, their data values cannot reverse the failure, and exactly one nonmatching pulse is produced at its sixth edge.
+
+Immediately after each group completion, match is 1 exactly when that group's six chronological samples equal 011100, and is 0 after every other sampling edge.
+
+Immediately after each group completion, not_match is 1 exactly when that group's six chronological samples differ from 011100, and is 0 after every other sampling edge.
+
+The post-edge completion result depends on the five pre-edge accumulated comparisons and the sixth data sample at that edge. At the same edge the next group boundary becomes ready, but that advancement does not replace or skip the just-published verdict. At the following edge the verdict clears while the new first sample is accepted. Changing data between edges cannot affect the verdict or consume a position, including while a pulse is high. While reset is low data has no effect. The outputs are always mutually exclusive; outside completion pulses both are 0. No enable, start handshake, or terminal stopping condition exists. Detection continues for repeated groups indefinitely.
+
+Scoped amendment A1 — Q15 (source@dcc4da8cc9e23d4b).
+Original clause: "The sequence check begins with every sixth bit of input data, meaning the module processes the input in groups of six bits and does not overlap or reuse bits between groups."
+Exact certain answer law: "The first group samples edges E1 through E6, and the second samples E7 through E12; subsequent groups continue in consecutive blocks of six. 'Every sixth bit' denotes completion/checking, not the start of the first group."
+Within the frozen question's reset-asserted-then-released scope, this corrected completion interpretation supersedes only the ambiguous start wording. The nonoverlap obligation and the seventh-bit start of the next group remain binding. This is an amendment resolving the frozen alternatives, not a claim that both interpretations were preserved.
+
+Scoped amendment A2 — Q9 (rule@input.clk).
+Original clause: "On every positive clock edge (`clk`), the module should evaluate the input signal `data` and transition states accordingly."
+Exact certain answer law: "If no reset ever occurs in the reference's unreset four-state simulation, the first positive edge establishes the starting boundary without consuming data; groups start on the following positive edge."
+Only in that explicitly answered unreset four-state startup scope, the first positive edge establishes the boundary rather than consuming a group bit. This amendment does not alter any sampling edge after reset or after that boundary-establishing edge, and does not change reset polarity, priority, or event sensitivity. All ordinary positive edges still evaluate data and advance detection according to the group law.
+
+6. Worked trace
+The evaluated trace is normative within its stated finite observation scope. Each row samples the settled Moore outputs before its implicit positive clk edge; the step then commits that edge's state transition. Thus the row before E6 sees 0 for the first group, the row before E7 sees the E6 result, and the row before E8 sees 0. The interface represents active-edge scenarios with binary one-bit inputs, not all events between physical clock edges. Reset-low rows include assertion settled before observation and held through the active edge, and commit the reset state; release on a subsequent reset-high row starts from that reset state. This projection does not simulate a reset pulse wholly between rows, and does not restrict the circuit's obligation to respond asynchronously to such pulses. Startup without reset uses the answered boundary-establishment law above. There is no assumption that every stimulus block starts after reset. The interface specifies no step_ns or sample_offset_ns, so this table states no nanosecond period or sampling offset and does not imply a 10 ns clock.
+
+### stimulus 0
+| cycle | rst_n | data | match | not_match |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 0 |
+| 4 | 1 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 | 0 |
+| 7 | 1 | 1 | 0 | 1 |
+| 8 | 1 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 0 | 0 |
+| 10 | 1 | 0 | 0 | 0 |
+| 11 | 1 | 0 | 0 | 0 |
+| 12 | 1 | 1 | 0 | 0 |
+| 13 | 1 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | rst_n | data | match | not_match |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | rst_n | data | match | not_match |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 | 0 |
+| 7 | 1 | 0 | 1 | 0 |
+| 8 | 1 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | rst_n | data | match | not_match |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 | 0 |
+| 7 | 1 | 0 | 0 | 1 |
+| 8 | 1 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 0 | 0 |
+| 10 | 1 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 0 | 0 |
+| 12 | 1 | 0 | 0 | 0 |
+| 13 | 1 | 1 | 1 | 0 |
+| 14 | 1 | 0 | 0 | 0 |
+
+### stimulus 4
+| cycle | rst_n | data | match | not_match |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 | 0 |
+| 7 | 1 | 0 | 0 | 1 |
+| 8 | 1 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 0 | 0 |
+| 10 | 1 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 0 | 0 |
+| 12 | 1 | 0 | 0 | 0 |
+| 13 | 1 | 0 | 1 | 0 |
+| 14 | 1 | 1 | 0 | 0 |
+
+### stimulus 5
+| cycle | rst_n | data | match | not_match |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 | 0 |
+| 7 | 1 | 0 | 0 | 1 |
+| 8 | 1 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 0 | 0 |
+| 10 | 1 | 0 | 0 | 0 |
+| 11 | 1 | 0 | 0 | 0 |
+| 12 | 1 | 0 | 0 | 0 |
+| 13 | 1 | 0 | 0 | 1 |
+| 14 | 1 | 1 | 0 | 0 |
+
+### stimulus 6
+| cycle | rst_n | data | match | not_match |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 0 | 0 |
+| 7 | 1 | 0 | 0 | 1 |
+| 8 | 1 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 0 | 0 |
+| 10 | 1 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 0 | 0 |
+| 12 | 1 | 1 | 0 | 0 |
+| 13 | 1 | 0 | 0 | 1 |
+| 14 | 1 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | rst_n | data | match | not_match |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 | 0 |
+| 6 | 1 | 1 | 0 | 0 |
+| 7 | 1 | 1 | 0 | 0 |
+| 8 | 1 | 1 | 0 | 0 |
+| 9 | 1 | 0 | 0 | 0 |
+| 10 | 1 | 0 | 0 | 0 |
+| 11 | 1 | 0 | 1 | 0 |
+| 12 | 1 | 1 | 0 | 0 |
+| 13 | 1 | 1 | 0 | 0 |
+| 14 | 1 | 1 | 0 | 0 |
+| 15 | 1 | 0 | 0 | 0 |
+| 16 | 1 | 0 | 0 | 0 |
+| 17 | 1 | 1 | 1 | 0 |
+| 18 | 1 | 0 | 0 | 0 |
+
+### stimulus 8
+| cycle | rst_n | data | match | not_match |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 | 0 |
+| 7 | 1 | 0 | 1 | 0 |
+| 8 | 1 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 0 | 0 |
+| 10 | 1 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 0 | 0 |
+| 12 | 1 | 0 | 0 | 0 |
+| 13 | 1 | 0 | 1 | 0 |
+| 14 | 1 | 1 | 0 | 0 |
+| 15 | 1 | 1 | 0 | 0 |
+| 16 | 1 | 1 | 0 | 0 |
+| 17 | 1 | 0 | 0 | 0 |
+| 18 | 1 | 0 | 0 | 0 |
+| 19 | 1 | 0 | 1 | 0 |
+| 20 | 1 | 1 | 0 | 0 |
+| 21 | 1 | 1 | 0 | 0 |
+| 22 | 1 | 1 | 0 | 0 |
+| 23 | 1 | 0 | 0 | 0 |
+| 24 | 1 | 0 | 0 | 0 |
+| 25 | 1 | 0 | 1 | 0 |
+| 26 | 1 | 1 | 0 | 0 |
+| 27 | 1 | 1 | 0 | 0 |
+| 28 | 1 | 1 | 0 | 0 |
+| 29 | 1 | 0 | 0 | 0 |
+| 30 | 1 | 0 | 0 | 0 |
+| 31 | 1 | 0 | 1 | 0 |
+| 32 | 1 | 1 | 0 | 0 |
+| 33 | 1 | 1 | 0 | 0 |
+| 34 | 1 | 1 | 0 | 0 |
+| 35 | 1 | 0 | 0 | 0 |
+| 36 | 1 | 0 | 0 | 0 |
+| 37 | 1 | 0 | 1 | 0 |
+| 38 | 1 | 1 | 0 | 0 |
+
+### stimulus 9
+| cycle | rst_n | data | match | not_match |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 0 | 0 |
+| 6 | 1 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 0 | 1 |
+| 8 | 1 | 0 | 0 | 0 |
+| 9 | 1 | 0 | 0 | 0 |
+| 10 | 1 | 0 | 0 | 0 |
+| 11 | 1 | 0 | 0 | 0 |
+| 12 | 1 | 0 | 0 | 0 |
+| 13 | 1 | 1 | 0 | 1 |
+| 14 | 1 | 1 | 0 | 0 |
+| 15 | 1 | 1 | 0 | 0 |
+| 16 | 1 | 1 | 0 | 0 |
+| 17 | 1 | 1 | 0 | 0 |
+| 18 | 1 | 1 | 0 | 0 |
+| 19 | 1 | 0 | 0 | 1 |
+| 20 | 1 | 0 | 0 | 0 |
+| 21 | 1 | 0 | 0 | 0 |
+| 22 | 1 | 0 | 0 | 0 |
+| 23 | 1 | 0 | 0 | 0 |
+| 24 | 1 | 0 | 0 | 0 |
+| 25 | 1 | 1 | 0 | 1 |
+| 26 | 1 | 1 | 0 | 0 |
+| 27 | 1 | 1 | 0 | 0 |
+| 28 | 1 | 1 | 0 | 0 |
+| 29 | 1 | 1 | 0 | 0 |
+| 30 | 1 | 1 | 0 | 0 |
+| 31 | 1 | 0 | 0 | 1 |
+| 32 | 1 | 0 | 0 | 0 |
+| 33 | 1 | 0 | 0 | 0 |
+| 34 | 1 | 0 | 0 | 0 |
+| 35 | 1 | 0 | 0 | 0 |
+| 36 | 1 | 0 | 0 | 0 |
+| 37 | 1 | 1 | 0 | 1 |
+| 38 | 1 | 1 | 0 | 0 |

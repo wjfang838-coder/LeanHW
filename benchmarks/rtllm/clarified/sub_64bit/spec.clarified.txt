@@ -1,0 +1,89 @@
+Module and integration contract
+
+Module: sub_64bit.
+Ports below are in exact declaration order:
+- A: input [63:0].
+- B: input [63:0].
+- result: output [63:0].
+- overflow: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+The module has no reset input and no reset behavior. It has no state elements. From power-up, including before any edge has occurred, result and overflow are determined values of the current A and B inputs; neither output has an uninitialized interval.
+
+4. Timing.
+
+result is combinational with zero clock-cycle latency from A and B. overflow is combinational with zero clock-cycle latency from A and B and from the simultaneously determined result sign. Neither output is a pulse or periodic signal. There is no physical clock, circuit period, propagation-delay law, capture edge, hold interval, completion event, or restart interval in this specification.
+
+For the evaluated full-cycle trace only, row k is the settled observation at k times the interface sampling step from the initial observation, with the interface sample offset applied. This observation convention does not impose a clock period or propagation delay on the combinational circuit. The interface does not assign numeric step_ns or sample_offset_ns values, so this document does not invent them.
+
+5. Behaviour.
+
+For every pair of 64-bit input values, result continuously equals (A - B) modulo 2^64. Equivalently, result is the low 64 bits of the mathematical integer difference. A immediately contributes as the 64-bit minuend and B immediately contributes as the 64-bit subtrahend.
+
+For every pair of 64-bit input values, overflow continuously equals 1 exactly when A[63] differs from B[63] and result[63] differs from A[63]; otherwise overflow equals 0. This is signed two's-complement subtraction overflow detection applied to the 64-bit modular result.
+
+There is one continuously active mode. Changes to A or B, including simultaneous changes, immediately affect both outputs. Repeated values behave identically on every observation. There is no disabled input condition, interruption or cancellation behavior, input capture, first-result latency, retained result, transaction state, or completion pulse.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | A | B | result | overflow |
+|---|---|---|---|---|
+| 0 | 64'h0 | 64'h0 | 64'h0 | 0 |
+
+### stimulus 1
+| cycle | A | B | result | overflow |
+|---|---|---|---|---|
+| 0 | 64'h1 | 64'h0 | 64'h1 | 0 |
+
+### stimulus 2
+| cycle | A | B | result | overflow |
+|---|---|---|---|---|
+| 0 | 64'h0 | 64'h1 | 64'hffffffffffffffff | 0 |
+
+### stimulus 3
+| cycle | A | B | result | overflow |
+|---|---|---|---|---|
+| 0 | 64'hffffffffffffffff | 64'hffffffffffffffff | 64'h0 | 0 |
+
+### stimulus 4
+| cycle | A | B | result | overflow |
+|---|---|---|---|---|
+| 0 | 64'h8000000000000000 | 64'h0 | 64'h8000000000000000 | 0 |
+
+### stimulus 5
+| cycle | A | B | result | overflow |
+|---|---|---|---|---|
+| 0 | 64'h0 | 64'h8000000000000000 | 64'h8000000000000000 | 1 |
+
+### stimulus 6
+| cycle | A | B | result | overflow |
+|---|---|---|---|---|
+| 0 | 64'h7fffffffffffffff | 64'hffffffffffffffff | 64'h8000000000000000 | 1 |
+
+### stimulus 7
+| cycle | A | B | result | overflow |
+|---|---|---|---|---|
+| 0 | 64'h8000000000000000 | 64'h1 | 64'h7fffffffffffffff | 1 |
+
+### stimulus 8
+| cycle | A | B | result | overflow |
+|---|---|---|---|---|
+| 0 | 64'h123456789abcdef0 | 64'hfedcba987654321 | 64'h2468acf13579bcf | 0 |
+
+### stimulus 9
+| cycle | A | B | result | overflow |
+|---|---|---|---|---|
+| 0 | 64'hfedcba987654321 | 64'h123456789abcdef0 | 64'hfdb97530eca86431 | 0 |

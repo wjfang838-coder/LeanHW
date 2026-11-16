@@ -1,0 +1,175 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- x: input 1 bit.
+- y: input 1 bit.
+- z: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset behavior. The design has no state elements. From power-up onward, including before any observation step has occurred, z has the definite combinational value x OR NOT y. There is no first reset edge and no first-step state change.
+
+Timing
+
+z is combinational and continuously reflects the current x and y inputs with zero clock-cycle latency. There is no clock, capture edge, registered output, pulse, periodic signal, transaction, or specified propagation delay.
+
+The evaluated trace uses the interface observation convention independently of the circuit timing law: row k denotes k * 1 ns after settling, and sampling uses the interface offset of 0.001 ns. The 1 ns row spacing is not an implicit circuit clock tick and does not impose a circuit period or delay.
+
+Behaviour
+
+For every input combination, z continuously equals x OR NOT y. Equivalently, x=1 forces z=1; when x=0, z equals NOT y. Also equivalently, y=0 forces z=1; when y=1, z equals x. Thus z=0 only for x=0 and y=1, and z=1 for x=0,y=0; x=1,y=0; and x=1,y=1.
+
+Changes to either input, simultaneous changes, interruptions, and repeated input patterns have this same immediate effect. There is no reset, transaction state, capture or observation edge, initialization interval, latency, retained value, hold or clear interval, completion pulse, cancellation, or restart. Each trace row observes the value determined by the inputs present for that row.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 0 | 0 | 1 |
+| 1 | 0 | 0 | 1 |
+| 2 | 0 | 0 | 1 |
+| 3 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 1 |
+| 5 | 0 | 0 | 1 |
+| 6 | 0 | 0 | 1 |
+| 7 | 0 | 0 | 1 |
+| 8 | 0 | 0 | 1 |
+| 9 | 0 | 0 | 1 |
+| 10 | 0 | 0 | 1 |
+| 11 | 0 | 0 | 1 |
+| 12 | 0 | 0 | 1 |
+| 13 | 0 | 0 | 1 |
+| 14 | 0 | 0 | 1 |
+| 15 | 0 | 0 | 1 |
+| 16 | 0 | 0 | 1 |
+| 17 | 0 | 0 | 1 |
+| 18 | 0 | 0 | 1 |
+| 19 | 0 | 0 | 1 |
+| 20 | 0 | 0 | 1 |
+| 21 | 0 | 0 | 1 |
+| 22 | 0 | 0 | 1 |
+| 23 | 0 | 0 | 1 |
+| 24 | 0 | 0 | 1 |
+| 25 | 1 | 0 | 1 |
+| 26 | 1 | 0 | 1 |
+| 27 | 1 | 0 | 1 |
+| 28 | 1 | 0 | 1 |
+| 29 | 1 | 0 | 1 |
+| 30 | 1 | 0 | 1 |
+| 31 | 1 | 0 | 1 |
+| 32 | 1 | 0 | 1 |
+| 33 | 1 | 0 | 1 |
+| 34 | 1 | 0 | 1 |
+| 35 | 0 | 1 | 0 |
+| 36 | 0 | 1 | 0 |
+| 37 | 0 | 1 | 0 |
+| 38 | 0 | 1 | 0 |
+| 39 | 0 | 1 | 0 |
+| 40 | 0 | 1 | 0 |
+| 41 | 0 | 1 | 0 |
+| 42 | 0 | 1 | 0 |
+| 43 | 0 | 1 | 0 |
+| 44 | 0 | 1 | 0 |
+| 45 | 1 | 1 | 1 |
+| 46 | 1 | 1 | 1 |
+| 47 | 1 | 1 | 1 |
+| 48 | 1 | 1 | 1 |
+| 49 | 1 | 1 | 1 |
+| 50 | 1 | 1 | 1 |
+| 51 | 1 | 1 | 1 |
+| 52 | 1 | 1 | 1 |
+| 53 | 1 | 1 | 1 |
+| 54 | 1 | 1 | 1 |
+| 55 | 0 | 0 | 1 |
+| 56 | 0 | 0 | 1 |
+| 57 | 0 | 0 | 1 |
+| 58 | 0 | 0 | 1 |
+| 59 | 0 | 0 | 1 |
+| 60 | 0 | 1 | 0 |
+| 61 | 0 | 1 | 0 |
+| 62 | 0 | 1 | 0 |
+| 63 | 0 | 1 | 0 |
+| 64 | 0 | 1 | 0 |
+| 65 | 0 | 1 | 0 |
+| 66 | 0 | 1 | 0 |
+| 67 | 0 | 1 | 0 |
+| 68 | 0 | 1 | 0 |
+| 69 | 0 | 1 | 0 |
+| 70 | 1 | 1 | 1 |
+| 71 | 1 | 1 | 1 |
+| 72 | 1 | 1 | 1 |
+| 73 | 1 | 1 | 1 |
+| 74 | 1 | 1 | 1 |
+| 75 | 0 | 1 | 0 |
+| 76 | 0 | 1 | 0 |
+| 77 | 0 | 1 | 0 |
+| 78 | 0 | 1 | 0 |
+| 79 | 0 | 1 | 0 |
+| 80 | 0 | 1 | 0 |
+| 81 | 0 | 1 | 0 |
+| 82 | 0 | 1 | 0 |
+| 83 | 0 | 1 | 0 |
+| 84 | 0 | 1 | 0 |
+| 85 | 0 | 1 | 0 |
+| 86 | 0 | 1 | 0 |
+| 87 | 0 | 1 | 0 |
+| 88 | 0 | 1 | 0 |
+| 89 | 0 | 1 | 0 |
+| 90 | 1 | 1 | 1 |
+
+### stimulus 1
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+
+### stimulus 3
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 1 | 0 | 1 |
+
+### stimulus 4
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 1 | 1 | 1 |
+
+### stimulus 5
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 0 | 0 | 1 |
+| 1 | 1 | 0 | 1 |
+| 2 | 0 | 1 | 0 |
+| 3 | 1 | 1 | 1 |
+
+### stimulus 6
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 1 | 1 | 1 |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 1 |
+| 3 | 0 | 0 | 1 |
+
+### stimulus 7
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 1 |
+| 3 | 1 | 0 | 1 |

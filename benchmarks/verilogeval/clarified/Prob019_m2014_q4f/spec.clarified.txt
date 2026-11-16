@@ -1,0 +1,85 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in1: input 1 bit.
+- in2: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+TopModule has no reset input and no reset behavior. It contains no state elements. From power-up onward, including before any edge has occurred, out is determined by the current inputs according to the behavior below; it is not uninitialized and there is no first-reset-edge interval. Since there is no state, there is also no distinct first step after reset release.
+
+4. Timing.
+
+out is combinational with zero clock-cycle latency from in1 and in2. It is neither a pulse nor a periodic signal. There is no physical clock, capture edge, circuit period, or state-transition delay law.
+
+For the normative evaluated trace, row k is an observation at k * timing.step_ns after settling, with timing.sample_offset_ns preserved as specified by the interface. This sampling grid is only an observation convention; it does not impose a 10 ns clock tick, a circuit period, or a propagation delay.
+
+5. Behaviour.
+
+At all times, out continuously equals in1 AND NOT in2. Thus out is 1 exactly when in1 is 1 and in2 is 0, and out is 0 for all other input combinations.
+
+At all times, in1 directly enables out only while in2 is 0: out equals in1 then. When in2 is 1, in1 has no effect and out remains 0; simultaneous changes and repeated input patterns obey this same combinational relation without interruption, transaction, or retained state.
+
+At all times, in2 directly inhibits out while in1 is 1: out is 1 for in2 = 0 and 0 for in2 = 1. When in1 is 0, in2 has no effect and out remains 0; simultaneous changes and repeated input patterns obey this same combinational relation without interruption, transaction, or retained state.
+
+out has no reset behavior, capture or observation edge, initialization interval, hold or clear interval, completion, restart, cancellation, or state. Each sampled row therefore observes the value determined by the inputs present at that sampling point, not an edge-delayed result.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 1 | 0 | 1 |
+
+### stimulus 3
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+
+### stimulus 4
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 1 |
+
+### stimulus 5
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 1 | 0 | 1 |
+| 1 | 1 | 1 | 0 |
+
+### stimulus 6
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | in1 | in2 | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 1 |
+| 2 | 0 | 0 | 0 |

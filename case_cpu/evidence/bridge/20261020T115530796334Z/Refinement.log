@@ -1,0 +1,8 @@
+'CaseCPU.cycle_conservation' depends on axioms: [propext, Quot.sound]
+'CaseCPU.trace_conservation' depends on axioms: [propext, Quot.sound]
+'CaseCPU.trace_isa' depends on axioms: [propext, Quot.sound]
+'CaseCPU.drained_refinement' depends on axioms: [propext, Quot.sound]
+'CaseCPU.cycle_inv' depends on axioms: [propext, Quot.sound]
+'CaseCPU.cycle_refines' depends on axioms: [propext, Quot.sound]
+'CaseCPU.full_refinement' depends on axioms: [propext, Quot.sound]
+'CaseCPU.reset_refinement' depends on axioms: [propext, Quot.sound]

@@ -1,0 +1,125 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- in: input [7:0].
+- anyedge: output [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset behavior. At power-up, both stored input history and the stored result are uninitialised. Consequently, anyedge is unknown before the first rising edge and remains unknown after the first rising edge, because two input samples do not yet exist. The implementation must leave this power-up state uninitialised: no initial block or declaration initialiser may assign either the history or anyedge. After the second rising edge, anyedge becomes defined when the sampled in values are known. There is no reset-release step or reset value.
+
+Timing
+
+Every rising edge of clk samples in. The anyedge output is registered: immediately after the second and every subsequent rising edge, it reports the comparison of the input sampled at that edge with the input sampled at the preceding rising edge. Thus a transition between two consecutive rising-edge samples produces its anyedge indication for the one clock cycle following the later sample. anyedge holds its value between rising edges and updates after every rising edge; there is no pulse-clearing phase, so an indicated bit remains high for exactly one cycle only when the following pair of samples is equal, and may remain high across consecutive cycles when consecutive sample pairs keep differing.
+
+The normative evaluated trace uses full-cycle pre-edge observations. Row k observes the state before rising edge k and therefore, once valid, shows the result produced from samples at edges k-1 and k-2; the transition following that row samples the row's in value. Rows are indexed in full clock cycles. The interface specifies no numeric step_ns or sample_offset_ns, so this observation convention does not assert an implicit 10 ns tick or any physical clock period.
+
+Behaviour
+
+For every possible 8-bit value of in, every rising edge of clk samples all eight bits. Changes to in while clk is inactive, including at falling edges and between rising edges, do not immediately affect anyedge. A value coincident with a rising edge participates according to the value sampled at that edge. Successive rising edges repeat this operation continuously, without enable modes, interruption, cancellation, transaction boundaries, completion, clearing, or restart phases.
+
+After two samples have been captured, each output bit independently indicates whether the corresponding bits in the two most recent rising-edge samples differ. Equivalently, anyedge is the 8-bit bitwise XOR of those two samples. This law covers all 256 possible input encodings and all transitions between them: equal consecutive samples produce 8'b00000000, while each differing bit produces 1 in the corresponding anyedge position.
+
+Every rising edge of clk samples in and schedules a new anyedge result from that sample and the sample from the preceding rising edge; clk's low level, falling edges, and time between rising edges have no effect, and successive rising edges repeat this operation without modes, interruption, or transaction boundaries.
+
+in is sampled on every rising edge of clk, changes while clk is inactive do not immediately affect anyedge, a change coincident with a rising edge participates according to the value sampled at that edge, and each pair of consecutive samples independently determines the next bitwise-XOR result without modes, interruption, or transaction boundaries.
+
+There is no reset behavior: anyedge starts unknown, remains unknown through the first rising-edge capture when inputs are otherwise known, becomes the XOR of consecutive in samples after the second rising edge, updates after every later rising edge, and holds between rising edges; therefore pre-edge row k observes the result produced from samples at edges k-1 and k-2, with no completion, clearing, or restart phase.
+
+Worked trace
+
+The following evaluated trace is normative for the concrete 8-bit sampled instance and uses the pre-edge observation convention stated above.
+
+### stimulus 0
+| cycle | in | anyedge |
+|---|---|---|
+| 0 | 8'b00000000 | 8'x |
+| 1 | 8'b00000000 | 8'x |
+| 2 | 8'b00000000 | 8'b00000000 |
+| 3 | 8'b00000000 | 8'b00000000 |
+
+### stimulus 1
+| cycle | in | anyedge |
+|---|---|---|
+| 0 | 8'b00000001 | 8'x |
+| 1 | 8'b00000001 | 8'x |
+| 2 | 8'b00000000 | 8'b00000000 |
+| 3 | 8'b00000001 | 8'b00000001 |
+| 4 | 8'b00000001 | 8'b00000001 |
+
+### stimulus 2
+| cycle | in | anyedge |
+|---|---|---|
+| 0 | 8'b11111111 | 8'x |
+| 1 | 8'b11111111 | 8'x |
+| 2 | 8'b00000000 | 8'b00000000 |
+| 3 | 8'b11111111 | 8'b11111111 |
+| 4 | 8'b00000000 | 8'b11111111 |
+
+### stimulus 3
+| cycle | in | anyedge |
+|---|---|---|
+| 0 | 8'b10000000 | 8'x |
+| 1 | 8'b00000000 | 8'x |
+| 2 | 8'b10000000 | 8'b10000000 |
+| 3 | 8'b10000000 | 8'b10000000 |
+| 4 | 8'b00000000 | 8'b00000000 |
+
+### stimulus 4
+| cycle | in | anyedge |
+|---|---|---|
+| 0 | 8'b01011010 | 8'x |
+| 1 | 8'b10100101 | 8'x |
+| 2 | 8'b01011010 | 8'b11111111 |
+| 3 | 8'b10100101 | 8'b11111111 |
+| 4 | 8'b01011010 | 8'b11111111 |
+
+### stimulus 5
+| cycle | in | anyedge |
+|---|---|---|
+| 0 | 8'b00000000 | 8'x |
+| 1 | 8'b00000001 | 8'x |
+| 2 | 8'b00000011 | 8'b00000001 |
+| 3 | 8'b00000111 | 8'b00000010 |
+| 4 | 8'b00001111 | 8'b00000100 |
+| 5 | 8'b00011111 | 8'b00001000 |
+| 6 | 8'b00111111 | 8'b00010000 |
+| 7 | 8'b01111111 | 8'b00100000 |
+| 8 | 8'b11111111 | 8'b01000000 |
+| 9 | 8'b00000000 | 8'b10000000 |
+
+### stimulus 6
+| cycle | in | anyedge |
+|---|---|---|
+| 0 | 8'b11111111 | 8'x |
+| 1 | 8'b11111110 | 8'x |
+| 2 | 8'b11111100 | 8'b00000001 |
+| 3 | 8'b11111000 | 8'b00000010 |
+| 4 | 8'b11110000 | 8'b00000100 |
+| 5 | 8'b11100000 | 8'b00001000 |
+| 6 | 8'b11000000 | 8'b00010000 |
+| 7 | 8'b10000000 | 8'b00100000 |
+| 8 | 8'b00000000 | 8'b01000000 |
+| 9 | 8'b11111111 | 8'b10000000 |
+
+### stimulus 7
+| cycle | in | anyedge |
+|---|---|---|
+| 0 | 8'b00100100 | 8'x |
+| 1 | 8'b00100100 | 8'x |
+| 2 | 8'b00110100 | 8'b00000000 |
+| 3 | 8'b00110100 | 8'b00010000 |
+| 4 | 8'b00100100 | 8'b00000000 |
+| 5 | 8'b10100100 | 8'b00010000 |
+| 6 | 8'b00100100 | 8'b10000000 |

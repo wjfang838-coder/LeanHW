@@ -1,0 +1,6 @@
+'CaseCPUMem.Source.bits_decode' depends on axioms: [propext,
+ Quot.sound,
+ CaseCPU.Bridge.code_table._native.native_decide.ax_1_1]
+'CaseCPUMem.Source.code_legal' depends on axioms: [propext,
+ Quot.sound,
+ CaseCPU.Bridge.code_table._native.native_decide.ax_1_1]

@@ -1,0 +1,142 @@
+Original implementation instruction (verbatim):
+
+Write the RTL design for a data bus controller using System Verilog. Here are the design specifications.
+-  There will be two master interfaces (m0 and m1) which can send transaction independently regardless of each other. Both interfaces use ready-valid handshake mechanism. 
+- There will be only one slave to accept these transactions. This should also follow the ready-valid handshake mechanism. 
+- If both masters drive transaction at different clock cycles, then design should drive them to slave interface first come, first served basis. 
+- The ready signal for master should be dependent on slave's ready. Slave's ready signal should be transferred to masters's ready signal.
+- If both masters drives at the same cycle, then design should use a parameter named 'AFINITY' value to decide whose transaction will be sent to the slave and whose will be ignored.
+  - The parameter AFINITY can only have value 0 and 1
+  - if the value of AFINITY is 0 at that particular cycle, the transaction of m0 should be driven to the slave and m1 will be ignored.
+  - if the value of AFINITY is 1 at that particular cycle, the transaction of m1 should be driven to the slave and m0 will be ignored.
+- Latency of the design should be one cycle.
+ Here is the signal description of the interface.
+
+Module and integration contract
+
+Module: data_bus_controller.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- m0_read: output 1 bit.
+- m0_valid: input 1 bit.
+- m0_data: input [31:0].
+- m1_read: output 1 bit.
+- m1_valid: input 1 bit.
+- m1_data: input [31:0].
+- s_ready: input 1 bit.
+- s_valid: output 1 bit.
+- s_data: output [31:0].
+
+Public parameters:
+-  AFINITY: default = 0.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+rst_n is an asynchronous, active-low reset. While rst_n is low, s_valid is 0 and s_data is 32'h00000000 immediately, without waiting for a clock edge. Reset has priority over a simultaneous rising clk edge and data sampling. m0_read and m1_read remain combinational copies of s_ready while reset is asserted.
+
+After rst_n becomes high, the reset values remain until the next rising clk edge. That edge applies the ordinary sampling laws: in the following cycle s_valid is the sampled OR of m0_valid and m1_valid, and s_data is replaced only when at least one valid input was sampled.
+
+Implementation choice C1 — finite verification initialization only. Before any reset assertion or clock edge has been observed, the decided finite model starts with s_valid = 0 and s_data = 32'h00000000, the same state reached by reset. This is a compatible implementation decision, not a fact established by the source and not a hardware power-up guarantee. RTL power-up values before reset or an ordinary establishing rising edge are unconstrained by this specification. This choice neither imposes reset-before-use nor changes the first ordinary rising-edge update.
+
+4. Timing.
+
+m0_read and m1_read are combinational. Each continuously equals s_ready with zero-cycle latency before and after every edge and throughout reset.
+
+s_valid and s_data are registered outputs with exactly one clock-cycle latency from m0_valid, m1_valid, and the selected data sampled on a rising clk edge. Each pre-edge observation reports state produced by the preceding rising edge. Consecutive qualifying rising edges produce consecutive results, so s_valid remains high for as many consecutive cycles as at least one valid was sampled on the preceding edge; it is not necessarily a one-cycle pulse. The first rising edge sampling both valid inputs low makes s_valid low in the next cycle, while s_data retains its preceding value.
+
+The worked trace uses full-cycle pre-edge observation: row k applies i[k], allows combinational settling, and samples outputs before rising edge k; that edge produces the state observed in row k+1. No numeric step_ns or sample_offset_ns is supplied by the interface, so row numbers count successive rising-edge opportunities after settling and do not imply a 10 ns clock. This table observation convention is separate from the circuit laws above, including asynchronous reset assertion.
+
+5. Behaviour.
+
+Each master may present transactions independently. m0_read = s_ready and m1_read = s_ready continuously. s_ready does not affect capture, interruption, repetition, validity, or retention of s_valid and s_data.
+
+At every rising clk edge with rst_n high, the next cycle's s_valid equals the OR of m0_valid and m1_valid sampled at that edge, independently of s_ready. Repeated rising edges process repeated samples independently. A static clk level and a falling clk edge have no normal sampling effect; asynchronous reset assertion remains effective without a clk edge.
+
+If exactly m0_valid is high at such an edge, the simultaneously sampled unsigned 32-bit m0_data becomes s_data in the following cycle. If exactly m1_valid is high, the simultaneously sampled unsigned 32-bit m1_data becomes s_data in the following cycle. If neither is high, s_data retains its most recently reset or captured value and s_valid becomes low in the following cycle.
+
+If both valid inputs are high, AFINITY resolves the simultaneous request: AFINITY = 0 selects the simultaneously sampled m0_data and ignores m1_data; AFINITY = 1 selects the simultaneously sampled m1_data and ignores m0_data. The following cycle's s_valid is high. The only permitted AFINITY values are 0 and 1. This simultaneous-selection exception takes precedence over the general first-come, first-served rule. Requests sampled on different rising edges are processed chronologically, and each later qualifying edge replaces s_data for the following cycle.
+
+m0_data is captured on a rising edge only when rst_n is high, m0_valid is high, and either m1_valid is low or AFINITY = 0. m1_data is captured on a rising edge only when rst_n is high, m1_valid is high, and either m0_valid is low or AFINITY = 1. Otherwise changes on that data input have no effect. Every capture and validity rule is subject to asynchronous reset priority.
+
+Amendment notice A1. The exact original clause is: “Both interfaces use ready-valid handshake mechanism.” Q15's certain answer law states exactly: “s_ready continuously drives both confirmed readiness outputs m0_read and m1_read to the same level without clock or reset latency, while it has no effect on the capture, interruption, repetition, validity, or retention of s_valid and s_data.” Within Q15's `rule@input.s_ready` scope, the corrected law supersedes the quoted clause only insofar as that general clause would make this controller's sampling or production of s_valid and s_data conditional on s_ready. It does not amend continuous ready propagation, reset priority, one-cycle latency, arbitration, the AFINITY domain, or any other behavior.
+
+Amendment notice A2. The exact original clause is: “There will be only one slave to accept these transactions. This should also follow the ready-valid handshake mechanism.” Q15's certain answer law states exactly: “s_ready continuously drives both confirmed readiness outputs m0_read and m1_read to the same level without clock or reset latency, while it has no effect on the capture, interruption, repetition, validity, or retention of s_valid and s_data.” Within Q15's `rule@input.s_ready` scope, the corrected law supersedes the quoted clause only insofar as that general clause would make this controller's sampling or production of s_valid and s_data conditional on s_ready. The single-slave requirement and all other handshake, timing, reset, arbitration, and data laws remain unchanged.
+
+Amendment notice A3. The exact original clause is: “input         s_read   ,”. Q20's certain answer law states exactly: “The exact positional header is data_bus_controller(clk, rst_n, m0_read, m0_valid, m0_data, m1_read, m1_valid, m1_data, s_ready, s_valid, s_data), whose order fixes positional binding; clk, rst_n, m0_valid, m0_data[31:0], m1_valid, m1_data[31:0], and s_ready are inputs, m0_read, m1_read, s_valid, and s_data[31:0] are outputs, the public untyped parameter AFINITY defaults to 0, and there are no symbolic port ranges.” Within Q20's `module@header` scope, this corrected law supersedes only the quoted slave-ready input spelling: the physical input at that position is s_ready, not s_read. It does not amend the signal's direction, width, readiness behavior, any other port spelling or order, or any functional law.
+
+Amendment notice A4. The exact original clause is: “A successful handshake occurs when both valid and ready are high in the same clock cycle, enabling the data transfer.” Q15's certain answer law states exactly: “s_ready continuously drives both confirmed readiness outputs m0_read and m1_read to the same level without clock or reset latency, while it has no effect on the capture, interruption, repetition, validity, or retention of s_valid and s_data.” Within Q15's `rule@input.s_ready` scope, the corrected law supersedes the quoted clause only for this controller's capture and production of s_valid and s_data: those updates are independent of s_ready. It does not alter continuous readiness mapping or any reset, timing, selection, retention, or parameter rule.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete sampled instance with AFINITY = 0 and finite-model Implementation choice C1.
+
+### stimulus 0
+| cycle | rst_n | m0_valid | m0_data | m1_valid | m1_data | s_ready | m0_read | m1_read | s_valid | s_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 32'h0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h0 |
+| 1 | 0 | 1 | 32'h80000000 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 2 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 3 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+
+### stimulus 1
+| cycle | rst_n | m0_valid | m0_data | m1_valid | m1_data | s_ready | m0_read | m1_read | s_valid | s_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 32'hffffffff | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 1 | 0 | 1 | 32'h12345678 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 2 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 3 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+
+### stimulus 2
+| cycle | rst_n | m0_valid | m0_data | m1_valid | m1_data | s_ready | m0_read | m1_read | s_valid | s_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 32'h0 | 1 | 32'h1 | 1 | 1 | 1 | 0 | 32'h0 |
+| 1 | 0 | 0 | 32'h0 | 1 | 32'h80000000 | 1 | 1 | 1 | 0 | 32'h0 |
+| 2 | 0 | 0 | 32'h0 | 1 | 32'hffffffff | 1 | 1 | 1 | 0 | 32'h0 |
+| 3 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+
+### stimulus 3
+| cycle | rst_n | m0_valid | m0_data | m1_valid | m1_data | s_ready | m0_read | m1_read | s_valid | s_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 32'h11111111 | 1 | 32'h22222222 | 1 | 1 | 1 | 0 | 32'h0 |
+| 1 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 2 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+
+### stimulus 4
+| cycle | rst_n | m0_valid | m0_data | m1_valid | m1_data | s_ready | m0_read | m1_read | s_valid | s_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 32'h33333333 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h0 |
+| 1 | 0 | 1 | 32'h33333333 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 2 | 0 | 0 | 32'h0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h0 |
+| 3 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+
+### stimulus 5
+| cycle | rst_n | m0_valid | m0_data | m1_valid | m1_data | s_ready | m0_read | m1_read | s_valid | s_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 32'h0 | 1 | 32'h55555555 | 1 | 1 | 1 | 0 | 32'h0 |
+| 1 | 0 | 1 | 32'haaaaaaaa | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 2 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+
+### stimulus 6
+| cycle | rst_n | m0_valid | m0_data | m1_valid | m1_data | s_ready | m0_read | m1_read | s_valid | s_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 1 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 2 | 0 | 0 | 32'h0 | 1 | 32'h89abcdef | 1 | 1 | 1 | 0 | 32'h0 |
+| 3 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 4 | 0 | 1 | 32'h1 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 5 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+
+### stimulus 7
+| cycle | rst_n | m0_valid | m0_data | m1_valid | m1_data | s_ready | m0_read | m1_read | s_valid | s_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 32'h13579bdf | 1 | 32'h2468ace0 | 0 | 0 | 0 | 0 | 32'h0 |
+| 1 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 2 | 0 | 0 | 32'h0 | 1 | 32'h2468ace0 | 1 | 1 | 1 | 0 | 32'h0 |
+| 3 | 0 | 0 | 32'h0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h0 |

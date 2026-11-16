@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "serial2parallel",
+  "toplevel": "serial2parallel",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

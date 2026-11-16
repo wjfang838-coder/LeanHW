@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_palindrome_3b_0002",
+  "toplevel": "palindrome_detect",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

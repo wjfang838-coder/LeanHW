@@ -1,0 +1,528 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a SystemVerilog RTL module `microcode_sequencer` that takes a 5-bit instruction as input and generates a 4-bit address for the control store as output. The module decodes the instruction using combinational logic and computes the corresponding control store address based on predefined mappings. This address is an index to access control store entries in an external module, enabling precise microcode execution sequencing. The design ensures low-latency decoding and compatibility with a microcoded architecture.
+
+## Design Specification :
+The `microcode_sequencer` RTL module manages the execution of instructions, stack operations, and control signals for a microcoded system. It combines inputs like condition codes, instructions, and data inputs, and enables the generation of outputs for data, stack status, and control signals. The module integrates submodules for stack management, program counter control, instruction decoding, and arithmetic operations.
+
+## Interface:
+### Inputs:
+- `clk`(1-bit): The positive edge-triggered clock  signal required for the sequential components.
+- `c_n_in`(1-bit): Carry-in signal for the ripple carry adder.
+- `c_inc_in`(1-bit): Carry-in for the program counter incrementer.
+- `r_en`(1-bit): ACTIVE LOW auxiliary register enable signal.
+- `cc`(1-bit): ACTIVE LOW condition code input for instruction decoding.
+- `ien`(1-bit): ACTIVE LOW instruction enable signal.
+- `d_in`(4-bit , [3:0]): A 4-bit data input bus.
+- `instr_in`(5-bit, [4:0]): A 5-bit opcode representing the instruction.
+- `oen`(1-bit): ACTIVE LOW output enable for the data output path.
+
+### Outputs:
+- `d_out`(4-bit,[3:0]): A 4-bit address output bus.
+- `c_n_out`(1-bit): Carry-out signal from the ripple carry adder. LOGIC HIGH in this signal indicates the presence of carry.
+- `c_inc_out`(1-bit): Carry-out signal from the program counter incremented. LOGIC HIGH in this signal indicates the presence of carry.
+- `full`(1-bit): ACTIVE HIGH signal indicates if the Last In First Out (LIFO) stack is full.
+- `empty`(1-bit): ACTIVE HIGH signal indicates if the LIFO stack is empty.
+
+## Submodule Overview:
+### 1. Stack Management:
+#### LIFO Stack: (`lifo_stack`)
+- Implements stack operations using submodules for pointer management(`stack_pointer` submodule), memory storage(`stack_ram` submodule), and data selection(`stack_data_mux` submodule).
+- Handles push and pop operations based on decoded instructions.
+- Provides stack full and empty flags for status monitoring.
+
+## Interface
+  ##### Inputs
+  - `clk`(1-bit):  The positive edge-triggered clock signal for controlling reset , incrementing , decrementing of `stack_pointer` and read, write of `stack_ram` locations.
+  - `stack_data1_in`(4-bit,[3:0]) : Data coming from the data bus input port `d_in`.
+  - `stack_data2_in`(4-bit,[3:0]) : Data coming from the program counter
+  - `stack_reset`(1-bit): Control signal coming from the instruction decoder to initialize the stack pointer register to 5'b00000.
+  - `stack_push`(1-bit): Used in combination with `full_o` output signal to increment the stack pointer by 1.
+  - `stack_pop`(1-bit): Used in conjunction with `empty_o` output signal to decrement the stack pointer by 1.
+  - `stack_mux_sel`(1-bit): ACTIVE HIGH control signal coming from the instruction decoder to select one of the two data available at the input of `stack_mux` submodule.
+  - `stack_we`(1-bit): Control signal coming from the instruction decoder to write the selected data coming out from the `stack_mux_select` submodule into the `stack_ram` submodule given by the address provided by the `stack_pointer` submodule.
+  - `stack_re`(1-bit): Control signal coming from the instruction decoder to read the data from the selected address of the `stack_ram` submodule.
+  ##### Outputs :
+  - `stack_data_out` (4-bit,[3:0]) - The 4-bit data that is read from a stack location.
+  - `full_o` - Indicates whether the `stack_pointer` has reached the highest location of `stack_ram` submodule(i.e. Location number 16).
+  - `empty_o` - Indicates whether the `stack_pointer` has reached the lowest location of `stack_ram` submodule(i.e. Location number 0).
+  
+##### Submodules:
+- `stack_pointer`: Maintains the current stack address with full and empty detection.
+    ##### Interface
+    ##### Inputs :
+    - `clk`(1-bit):The positive edge-triggered clock signal to control reset, increment and decrement of 5-bit `stack_pointer` register.
+    - `rst`(1-bit) :  ACTIVE HIGH control signal that is coming out from the `instruction_decoder` module to initialize the `stack_pointer` register to 5'b00000.
+    - `push`(1-bit) : ACTIVE HIGH signal used in combination with `full` output signal to increment the stack pointer register by 1.
+    - `pop`(1-bit) : ACTIVE HIGH signal used in conjunction with `empty` output signal to decrement the stack pointer register by 1.
+   ##### Outputs :
+    - `stack_addr`(5-bit,[4:0]) : Value generated by the `stack_pointer` register to address a `stack_ram` location.
+    - `full`(1-bit) : ACTIVE HIGH signal indicates whether the `stack_pointer` has reached the highest location of `stack_ram` submodule(i.e. Location number 16). This condition is checked combinationally through continuous assignment statement.
+    - `empty`(1-bit): ACTIVE HIGH indicates whether the `stack_pointer` has reached the lowest location of `stack_ram` submodule(i.e. Location number 0). This condition is checked combinationally through continuous assignment statement.
+    
+- `stack_ram`: Stores 4-bit data words for stack operations.
+   ##### Interface
+   ##### Inputs :
+   - `clk`(1-bit) : The positive edge-triggered clock signal to control the read and write of `stack_ram` locations.
+   - `stack_addr`(5-bit,[4:0]) : 5-bit data coming from the `stack_pointer` submodule
+   - `stack_data_in`(4-bit,[3:0]) : 4-bit data coming from the `stack_data_mux` submodule.
+   - `stack_we`(1-bit) :  ACTIVE HIGH Write Enable control signal that is coming out from the `instruction_decoder` module to write the data coming out from`stack_data_mux` submodule into the location generated by `stack_pointer` submodule.
+   - `stack_re`(1-bit) :  ACTIVE HIGH Read Enable control signal that is coming out from the `instruction_decoder` module to read the data from `stack_ram` location that is provided by `stack_pointer` submodule
+   ##### Outputs :
+   - `stack_data_out` (4-bit,[3:0]) : Data coming out from the `stack_ram` location during a `read` operation
+   
+- `stack_data_mux`: Selects data input for stack operations based on control signals.
+   ##### Interface 
+   ##### Inputs :
+   - `data_in`(4-bit,[3:0]): Data coming from the data bus input port `d_in`.
+   - `pc_in`(4-bit,[3:0]): Data coming from the `program_counter` module
+   - `stack_mux_sel`(1-bit):  
+               - `stack_mux_sel` == 1'b1 : `data_in` is selected.
+               - `stack_mux_sel` == 1'b0 : `pc_in` is selected.
+   ##### Output :
+   - `stack_mux_out`(4-bit,[3:0]) : Data selected from one of the two inputs `data_in` or `pc_in`.
+
+### 2. Program Counter (PC) Control:
+#### Program Counter: (`program_counter`)
+- Computes the next PC value using a multiplexer(`pc_mux` submodule) and an incremented(`pc_incrementer` submodule)
+- Supports branching or sequential execution based on decoded signals.
+##### Interface 
+##### Inputs :
+- `clk`(1-bit): The positive edge-triggered clock signal to control the transfer the data from input to output of `pc_reg` submodule.
+- `full_adder_data_i`(4-bit,[3:0]) : 4-bit sum coming out of the `full_adder` submodule of `microcode_arithmetic` module.
+- `pc_c_in`(1-bit) : Input carry to control whether the data going into `pc_reg` module should get incremented or not.
+- `inc`(1-bit): ACTIVE HIGH control signal coming from the `instructicon_decoder` module to inhibit or allow the `pc_c_in` to have effect on the program counter increment operation.
+- `pc_mux_sel`(1-bit):  
+              - `pc_mux_sel` == 1'b1 : `full_adder_data` is selected.
+              - `pc_mux_sel` == 1'b0 : `pc_data` is selected.
+##### Outputs :
+- `pc_out`(4-bit,[3:0]) : 4-bit data coming out from the `pc_reg` submodule.
+- `pc_c_out`(1-bit) : Carry output coming out from the `pc_incrementer` submodule.
+
+##### Submodules:
+- `pc_mux`: Selects between the full adder output and the current PC value.
+   ##### Interface
+   ##### Inputs :
+   - `full_adder_data`(4-bit,[3:0]) : 4-bit sum coming out from the `full_adder` submodule of `microcode_arithmetic` submodule.
+   - `pc_data`(4-bit,[3:0]): 4-bit data coming out from the `pc_reg` submodule.
+   - `pc_mux_sel`(1-bit) : 
+                 - `pc_mux_sel` == 1'b1 : `full_adder_data` is selected.
+                 - `pc_mux_sel` == 1'b0 : `pc_data` is selected.
+   ##### Output :
+   - `pc_mux_out`(4-bit,[3:0]): 4-bit data selected from the inputs of the `pc_mux` submodule.
+   
+- `pc_incrementer`: Computes the incremented PC value with an optional `carry_in`
+   ##### Interface
+   ##### Inputs :
+   - `pc_c_in` (1-bit): Carry input to the ripple carry adder based `pc_incrementer` submodule.
+   - `inc` (1-bit): If ACTIVE HIGH , `pc_data_in` gets incremented with the value of `pc_c_in` and then goes to `pc_inc_out`. If  ACTIVE LOW , `pc_data_in` goes to `pc_inc_out` without any change.
+   - `pc_data_in`(4-bit,[3:0]) : 4-bit data coming from `pc_mux` submodule
+   ##### Outputs :
+   - `pc_inc_out`(4-bit,[3:0]) : 4-bit data coming out from the `pc_incrementer` submodule.
+   - `pc_c_out` (1-bit) : Carry output of the ripple carry adder based `pc_incrementer` submodule.
+   
+- `pc_reg`: Stores the updated PC value on the positive clock edge.
+   ##### Interface
+   ##### Inputs :
+   - `clk`(1-bit) : The positive edge-triggered clock signal to control the transfer the data from input to output of `pc_reg` submodule.
+   - `pc_data_in`(4-bit,[3:0]) : Data coming from the `pc_incrementer` submodule
+   ##### Output :
+   - `pc_data_out`(4-bit,[3:0]) : Data coming out from the `pc_reg` submodule. 
+
+### 3. Arithmetic Operations:
+#### Microcode Arithmetic: (`microcode_arithmetic`)
+- Executes addition microoperation through ripple carry full adder(`full_adder` submodule).
+- Provides flexibility for data selection through multiplexers for A(`a_in` of `full_adder` submodule) and B inputs(`b_in` of `full_adder` submodule).
+
+#### Interface
+##### Inputs :
+- `clk` (1-bit) : The positive edge-triggered clock signal to control the transfer of data from input to output of `aux_reg` submodule.
+- `fa_in`(4-bit,[3:0]) : The 4-bit sum coming out from the ripple carry adder is fed back into the adder through `aux_reg_mux` submodule.
+- `d_in`(4-bit,[3:0]): The 4-bit coming from the `d_in` input port of the `microcode_sequencer` module.
+- `stack_data_in`(4-bit,[3:0]) : The 4-bit data coming out from the `lifo_stack` module and is applied to one of the inputs of `b_mux` submodule.
+- `pc_data_in`(4-bit,[3:0]): The 4-bit data coming out from the `program_counter` module and is applied to one of the inputs of `b_mux` submodule.
+- `reg_en`(1-bit) : Used along with ACTIVE HIGH `rce` signal from `instruction_decoder` module to transfer the data from input to output of `aux_reg` submodule.
+- `oen`(1-bit) : ACTIVE LOW signal coming from the `microcode_sequencer` module.
+- `rce`(1-bit) : Used along with ACTIVE LOW `reg_en` signal from `microcode_sequencer` module to transfer the data from input to output of `aux_reg` submodule.
+- `cen` (1-bit): ACTIVE HIGH control signal from `instruction_decoder` module to allow or inhibit the input carry of the ripple carry `full_adder` submodule which in turn affect the addition microoperation.
+- `a_mux_sel`(2-bit,[1:0]) : Signal to select one of the three inputs of `a_mux` submodule.
+- `b_mux_sel`(2-bit,[1:0]): Signal to select one of the four inputs of `b_mux` submodule.
+- `arith_cin`(1-bit): Carry input coming from the `microcode_sequencer` module.
+- `oe`(1-bit) : ACTIVE HIGH control signal from `instruction_decoder` module that is used along with ACTIVE LOW `oen` signal to control the output of ripple carry `full_adder` module.
+##### Outputs :
+- `arith_cout`(1-bit): Carry output coming out from the ripple carry `full_adder` submodule.
+- `d_out`(4-bit,[3:0]): 4-bit sum coming out from the ripple carry `full_adder` submodule.
+
+##### Submodules:
+- `aux_reg_mux` : Selects one of the two inputs : sum from `full_adder` submodule or `d_in`
+   ##### Interface
+   ##### Inputs :
+   - `reg1_in`(4-bit,[3:0]): 4-bit sum of the ripple carry `full_adder` submodule
+   - `reg2_in`(4-bit,[3:0]): 4-bit data coming from the data bus input port `d_in` from `microcode_sequencer` module
+   - `rsel`(1-bit),`re`(1-bit) : `rsel`(**r**egister **sel**ect) is an ACTIVE HIGH control signal coming from `instruction_decoder` module. `re`(**r**egister **en**able) is the ACTIVE LOW signal coming from the `r_en` of `microcode_sequencer` module. Logical AND of the `rsel` and ~(`re`) signal generates the `aux_reg_mux` select signal.
+              `aux_reg_mux` select signal == 1'b1 : `reg1_in` is selected.
+              `aux_reg_mux` select signal == 1'b0 : `reg2_in` is selected.
+   ##### Output :
+   - `reg_mux_out`(4-bit,[3:0]) : Data coming out from the `aux_reg_
+- `aux_reg` : Transfers the data coming out from the `aux_reg_mux` submodule on the positive edge of clock signal.
+   ##### Interface
+   ##### Inputs :
+   - `clk`(1-bit): The positive edge-triggered clock signal that controls the transfer of data from input to output of `aux_reg` submodule.
+   - `reg_in`(4-bit,[3:0]): Data coming from the `aux_reg_mux` submodule.
+   - `rce`(1-bit),`re`(1-bit): `rce`(**r**egister **c**hip **e**nable) is an ACTIVE HIGH control signal coming from `instruction_decoder` module. `re`(**r**egister **en**able) is the ACTIVE LOW signal coming from the `r_en` of `microcode_sequencer` module. Logical  OR  of `rce` and ~(`re`) generate the enable signal for data transfer from input to output of `aux_reg` submodule.
+   ##### Output :
+   - `reg_out`(4-bit,[3:0]): Data transferred coming out of the `aux_reg` submodule.
+   
+- `a_mux` : Selects data from `full_adder` submodule , `aux_reg` submodule or 4-bit constant , 4'b0000
+   ##### Interface
+   ##### Inputs :
+   - `register_data`(4-bit,[3:0]) : Data coming from `aux_reg` submodule.
+   - `data_in`(4-bit,[3:0]): Data coming from data bus input `d_in`
+   - A 4-bit constant . 4'b0000
+   - `a_mux_sel`(2-bit,[1:0]) : Control signal coming from `instruction_decoder` module to select either `register_data` or `data_in` or 4'b0000.
+           - `a_mux_sel` == 2'b00 : `data_in`  is selected.
+           - `a_mux_sel` == 2'b01 : `register_data` is selected.
+           - `a_mux_sel` == 2'b10 : 4'b0000 is selected.
+   ##### Output :
+   - `a_mux_out`(4-bit,[3:0]): The 4-bit selected data coming out from the multiplexer module.
+
+- `b_mux` : Selects data from `aux_reg` submodule , `program_counter` module , `lifo_stack` module or 4-bit constant, 4'b0000.
+   ##### Interface
+   ##### Inputs :
+   - `register_data`(4-bit,[3:0]): 4-bit data coming from `aux_reg` submodule of the `microcode_arithmetic` module.
+   - `stack_data`(4-bit,[3:0]): 4-bit data coming from `lifo_stack` module.
+   - `pc_data`(4-bit,[3:0]): 4-bit data coming from `program_counter` module
+   - `b_mux_sel`(2-bit,[1:0]): Control signal coming from `instruction_decoder` module to select data coming from `aux_reg` submodule or `program_counter` module or `lifo_stack` module or 4-bit constant, 4'b0000.
+             - `b_mux_sel` == 2'b00 : `pc_data` is selected.
+             - `b_mux_sel` == 2'b01 : `stack_data` is selected.
+             - `b_mux_sel` == 2'b10 : 4'b0000 is selected
+             - `b_mux_sel` == 2'b11 : `register_data` is selected
+   ##### Output :
+   - `b_mux_out`(4-bit,[3:0]): The 4-bit selected data coming out from the multiplexer module.
+
+- `full_adder`: Performs 4-bit ripple-carry addition operation with optional carry-in.
+   ##### Interface
+   ##### Inputs :
+   - `a_in`(4-bit,[3:0]) : 4-bit data coming from the `a_mux` submodule. This is called **A operand** of the `full_adder` submodule
+   - `b_in`(4-bit,[3:0]): 4-bit data coming from the `b_mux` submodule. This is called **B operand** of the `full_adder` submodule
+   - `c_in`(1-bit) : Carry input of the ripple carry `full_adder` submodule.
+   - `cen`(1-bit) : ACTIVE HIGH control signal coming from `instruction_decoder` module , which inhibits or allows `c_in` from affecting the 4-bit sum.
+   ##### Output :
+   - `c_out`(4-bit,[3:0]) : 4-bit sum generated by the `full_adder` submodule.
+
+### 4. Instruction Decoder: (`instruction_decoder`)
+- Decodes the 5-bit instruction opcode and generates control signals for `microcode_arithmetic` , `lifo_stack` `program_counter` and `result_register` modules.
+- Supports conditional execution based on condition code (`cc`) input.
+##### Interface :
+##### Inputs :
+- `instr_in`(5-bit,[4:0]) : A 5-bit opcode 
+   Supported opcodes :
+   
+  - `5'b00000 - PRST (Program ReSeT)` - Forces the D output(`d_out`) of the `microcode_sequencer` module to 4'b0000. Loads zero or one into `program_counter` module , depending on the carry input of the `pc_incrementer` submodule of the `program_counter` module and reset  `stack_pointer` submodule of `lifo_stack` module. The contents in locations of `stack_ram` submodule of `lifo_stack` module remains unchanged and the `aux_reg` submodule and `aux_reg_mux` submodules are controlled by `reg_en` input signal of the `microcode_sequencer` module.
+   
+  - `5'b00001 - Fetch PC` - To provide the content of the `program_counter` module at the D output (`d_out) of the `microcode_sequencer` module.
+   
+  - `5'b00010 - Fetch R` - To provide the content of the `aux_reg` submodule of the `microcode_arithmetic` module at the D output (`d_out`) of the `microcode_sequencer_module`.
+   
+  - `5'b00011 - Fetch D` - To provide the content of `d_in` at the D output (`d_out`) of the `microcode_sequencer` module
+
+  - `5'b00100 - Fetch R + D` - To read `d_in` and `aux_reg` contents and provides their sum at the D output (`d_out`) of the `microcode_sequencer` module.
+   
+  - `5b01011 - Push PC` - To write the contents of `program_counter` module onto the `Top of Stack` given by the content of `stack_pointer` submodule of `lifo_stack` module. This operation also causes increment of the `stack_pointer` submodule
+   
+  - `5'b01110 - Pop PC` - To read the contents of  `Top of Stack` given by the content of `stack_pointer` submodule of `lifo_stack`  module and provide it at the D output (`d_out`) of `microcode_sequencer` module.
+
+- `cc_in`(1-bit) - Condition code . Generally maintained at LOGIC LOW for the opcodes to be decoded.
+- `instr_en`(1-bit) - ACTIVE LOW signal to enable the `instruction_decoder` module to generate control signals.
+##### Outputs :
+- `cen`(1-bit) : ACTIVE HIGH control signal that allows carry input of `full_adder` submodule of `microcode_arithmetic` module to have effect on addition operation.
+- `rst`(1-bit): ACTIVE HIGH control signal that resets the `stack_pointer` register of `stack_pointer` submodule of `lifo_stack` module.
+- `oen`(1-bit) : ACTIVE HIGH control signal that enables the output of `full_adder` submodule to be available at D output (`d_out`) of `microcode_sequencer` module.
+- `inc`(1-bit) : ACTIVE HIGH control signal that enables the increment operation of `pc_incrementer` submodule of `program_counter` module by 1.
+- `rsel`(1-bit) : ACTIVE HIGH control signal LOGICALLY ANDed with ACTIVE LOW `reg_en` signal of `microcode_sequencer` to select a value from `aux_reg_mux` submodule of `microcode_arithmetic` module.
+- `rce`(1-bit) : ACTIVE HIGH control signal LOGICALLY ORed with ACTIVE LOW `reg_en` signal of `microcode_sequencer` to transfer the content from input to output of `aux_reg` submodule of `microcode_arithmetic` module.
+- `pc_mux_sel`(1-bit) : ACTIVE HIGH control signal to select one of the two data available at the input of `pc_mux`
+- `a_mux_sel`(2-bit,[1:0]): Control signal coming from `instruction_decoder` module to select data either from `aux_reg` submodule of `microcode_arithmetic` module , `d_in` coming from the `microcode_sequencer` module or 4-bit constant , 4'b0000.
+- `b_mux_sel`(2-bit,[1:0]): Control signal coming from `instruction_decoder` module to select data coming from `aux_reg` submodule or `program_counter` module or `lifo_stack` module or 4-bit constant, 4'b0000.
+- `push`(1-bit) : ACTIVE HIGH control signal used along with `full` signal from `stack_pointer` submodule to increment the `stack_pointer` register of `stack_pointer` submodule of `lifo_stack` module by 1.
+- `pop`(1-bit):ACTIVE HIGH control signal used along with `empty` signal from `stack_pointer` submodule to decrement the `stack_pointer` register of `stack_pointer` submodule of `lifo_stack` module by 1.
+- `src_sel`(1-bit): ACTIVE HIGH control signal  to select one of the two data available at the input of `stack_mux` submodule of `lifo_stack` module.
+- `stack_we`(1-bit) : ACTIVE HIGH Write Enable control signal to write the data coming out from`stack_data_mux` submodule into the location generated by `stack_pointer` submodule.
+- `stack_re`(1-bit): ACTIVE HIGH Read Enable control signal  to read the data from `stack_ram` location that is provided by `stack_pointer` submodule.
+- `out_ce`(1-bit): ACTIVE HIGH control signal to enable the `result_register` module to output the data (`d_out`) from `microcode_arithmetic` module.
+   
+### 5. Result Register: (`result_register`)
+- Captures the output of the arithmetic unit 
+- Enables output only when instructed by control signal `out_ce` coming from `instruction_decoder` module.
+##### Interface
+##### Inputs :
+- `clk`(1-bit) : The positive edge-triggered clock signal which controls the data transfer from input to output of `result_register` module
+- `data_in`(4-bit,[3:0]) - Data coming from the D output (`d_out`) of `microcode_arithmetic` module.
+- `out_ce`(1-bit): ACTIVE HIGH control signal coming from `instruction_decoder` module that is synchronous with `clk` signal to transfer data rom input to output of `result_register` module.
+##### Output :
+- `data_out(4-bit,[3:0])` : 4-bit data coming out from the `result_register` module.
+
+## Control Flow and Signal Logic:
+### Instruction Decoding:
+- The instruction decoder interprets the `instr_in` opcode and generates control signals for stack, PC, and arithmetic units.
+- Outputs such as `push`, `pop`, `cen`, `rst`, and multiplexer select (`a_mux_sel`, `b_mux_sel`) are driven by the decoded signals.
+
+### Program Counter:
+- The PC value is updated based on the instruction, either incrementing or branching to a target address.
+- Branching is controlled by the `pc_mux_sel` signal.
+
+### Stack Operations:
+- Stack data is pushed or popped based on the `stack_push` and `stack_pop` signals.
+- The data source is selected via `stack_mux_sel`, either from the PC or from the output of `microcode_arithmetic` module.
+
+### Data Flow:
+- Addition operation is performed using the full adder, with inputs selected by the A(`a_mux` submodule of `microcode_arithmetic` module ) and B multiplexers(`b_mux` submodule of `microcode_arithmetic` module)
+- Results are written to the result register or output via `d_out`.
+
+## Key Assumptions and Constraints :
+- Instruction and Control Flow:
+Based on decoded signals, the module takes a 5-bit instruction opcode (`instr_in`) and determines the appropriate operations for the program counter, stack, and arithmetic unit.
+- Pipeline Integration:
+This module is designed to function as part of a microcoded pipeline. Based on micro-instructions, it coordinates stack pushes/pops, data flow, and PC updates.
+- Behavior:
+The module works sequentially, with support of combinational modules such as `full_adder`  , `a_mux` , `b_mux` , `stack_data_mux`  , `pc_mux` submodules. The various submodules of the design are :
+  - `lifo_stack` (Submodules present in this are :  `stack_data_mux` , `stack_pointer` , and `stack_ram`)
+  - `program_counter` (Submodules present in this are : `pc_mux` , `pc_incrementer` , and `pc_reg`)
+  - `microcode_arithmetic` (Submodules present in this are: `aux_reg_mux`, `aux_reg` , `a_mux` , `b_mux` , and `full_adder`) 
+  - `instruction_decoder`
+  - `result_register` 
+- Operating frequency of this module should be 50MHz. The module won't exhibit  correct behavior if there is any deviation in this operating frequency
+- Operational Latency :
+- The output latency for PUSH and POP instructions will be 2 and 3 clock cycles, respectively. For the remaining instructions, the output will be reflected for the immediate input change without delay.
+
+
+## Example Scenario:
+Instruction: Push PC onto the Stack (`instr_in` = 5'b01011).
+
+The decoder enables `stack_push` and `stack_we`.
+The data from the `program_counter` is selected via the multiplexer and written to the stack.
+
+Instruction: Fetch PC (`instr_in` = 5'b00001).
+
+The decoder enables the multiplexers in the `microcode_arithmetic` module, such that the PC value is routed to the Full Adder Output
+
+Instruction: Fetch Auxiliary Register (`instr_in` = 5'b00010).
+
+The decoder configures `a_mux_sel` and `b_mux_sel` for desired inputs.
+The value of the auxiliary register is routed to the `full_adder` output
+
+## Example Waveform :
+```wavedrom
+{
+  "signal": [
+    {"name": "clk", "wave": "p..............."},
+    {"name": "c_inc_in", "wave": "01....0.........", "data": []},
+    {"name": "c_inc_out", "wave": "0...............", "data": []},
+    {"name": "c_n_in", "wave": "0........1.0....", "data": []},
+    {"name": "c_n_out", "wave": "0...............", "data": []},
+    {"name": "cc", "wave": "0...1...........", "data": []},
+    {"name": "d_in[3:0]", "wave": "x...4..5.6....7.", "data": ["A", "B", "3","X"]},
+    {"name": "d_out[3:0]", "wave": "34567..8.9.9..99", "data": ["0","1","2","X","A","B","F","7","6","7"]},
+    {"name": "empty", "wave": "1..............0", "data": []},
+    {"name": "full", "wave": "0...............", "data": []},
+    {"name": "ien", "wave": "0...............", "data": []},
+    {"name": "instr_in[4:0]", "wave": "34.5...6.7....8.", "data": ["00", "01", "02", "03", "04","0B"]},
+    {"name": "oen", "wave": "0...............", "data": []},
+    {"name": "r_en", "wave": "0...............", "data": []}
+  ],
+  "config": {"hscale": 4}
+}
+```
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a SystemVerilog RTL module `microcode_sequencer` that takes a 5-bit instruction as input and generates a 4-bit address for the control store as output. The module decodes the instruction using combinational logic and computes the corresponding control store address based on predefined mappings. This address is an index to access control store entries in an external module, enabling precise microcode execution sequencing. The design ensures low-latency decoding and compatibility with a microcoded architecture.
+
+Module and integration contract
+
+Module: microcode_sequencer.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- c_n_in: input 1 bit.
+- c_inc_in: input 1 bit.
+- r_en: input 1 bit.
+- cc: input 1 bit.
+- ien: input 1 bit.
+- d_in: input [3:0].
+- instr_in: input [4:0].
+- oen: input 1 bit.
+- d_out: output [3:0].
+- c_n_out: output 1 bit.
+- c_inc_out: output 1 bit.
+- full: output 1 bit.
+- empty: output 1 bit.
+
+Public parameters:
+- None.
+- Verification-visible signal `c_inc_in`: Public input c_inc_in is harness-visible.
+- Verification-visible signal `c_inc_out`: Public output c_inc_out is harness-visible.
+- Verification-visible signal `c_n_in`: Public input c_n_in is harness-visible.
+- Verification-visible signal `c_n_out`: Public output c_n_out is harness-visible.
+- Verification-visible signal `cc`: Public input cc is harness-visible.
+- Verification-visible signal `clk`: Public input clk is harness-visible.
+- Verification-visible signal `d_in`: Public 4-bit input d_in is harness-visible.
+- Verification-visible signal `d_out`: Public 4-bit output d_out is harness-visible.
+- Verification-visible signal `empty`: Public output empty is harness-visible.
+- Verification-visible signal `full`: Public output full is harness-visible.
+- Verification-visible signal `ien`: Public input ien is harness-visible.
+- Verification-visible signal `instr_in`: Public 5-bit input instr_in is harness-visible.
+- Verification-visible signal `oen`: Public input oen is harness-visible.
+- Verification-visible signal `r_en`: Public input r_en is harness-visible.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no public reset port and no asynchronous reset. PRST is instr_in=5'b00000. On a rising edge E0 with ien=0, PRST loads the unsigned four-bit sequencing/program-counter value with c_inc_in (zero or one), synchronously clears the five-bit stack pointer and saved-entry count to zero, leaves every stack RAM location unchanged, and performs the ordinary r_en-controlled auxiliary capture. The post-E0 state is visible after E0: empty is 1 and full is 0. While PRST is selected, d_out is combinationally 4'h0 and c_inc_out is 0. If ien=1 at E0, PRST is not accepted and every retained value is unchanged.
+
+The certain Q4 answer establishes the auxiliary value as initially 0. Consequently, before the first clock edge, an enabled Fetch R reads 4'h0; an enabled Fetch R + D uses auxiliary operand zero; and c_n_out for Fetch R + D is computed with auxiliary operand zero. This initial-zero rule is an answer-established circuit requirement, not merely a verification setup.
+
+The sources do not establish hardware power-up values for the sequencing value, saved-entry count, or stack RAM before any state-establishing event. Absence of such a value does not require X, forbid an ordinary enabled edge from establishing state, or impose reset-before-use. For the finite Lean/table instance only, sequencing and saved-entry count start at the state reached after an enabled PRST edge with c_inc_in=0; empty is 1 and full is 0. This setup is not a general power-up guarantee. Every stack word starts invalid because PRST does not initialize stack RAM; no stack word is zeroed by the setup.
+
+4. Timing.
+
+The required operating frequency is exactly 50 MHz, so the circuit clock period is 20 ns; correct behavior is not guaranteed at another frequency. clk is positive-edge triggered. Only a rising edge can update retained values. With ien=0 it performs the operation selected by the inputs sampled at that edge; with ien=1 every retained value holds. Falling edges and steady clock levels have no retained effect. Repeated rising edges repeat the applicable operation. Combinational outputs may change without an edge.
+
+The evaluated table uses full-cycle observations: row k drives and settles i[k], samples out(s[k], i[k]) before the active edge, and that edge computes s[k+1]. Row k denotes k * step_ns after settling, and sampling occurs at timing.sample_offset_ns. The interface does not provide numeric values for either field, so none is invented here. This table observation convention is separate from the circuit's actual 20 ns clock period and all circuit latency laws.
+
+d_out, c_n_out, c_inc_out, full, and empty are combinational functions of the current inputs and/or pre-edge retained state. A direct-input change appears in the same settled observation. A retained-state change accepted at E0 first affects observations after E0; zero completed subsequent full-cycle intervals are required. There is no public completion pulse, result-hold phase, or restart latency. Separately, the supplied result_register contract captures its pre-E0 arithmetic input at E0 when out_ce is high and otherwise retains its prior value.
+
+Amendment — PUSH public-output latency. Exact original clause: “The output latency for PUSH and POP instructions will be 2 and 3 clock cycles, respectively. For the remaining instructions, the output will be reflected for the immediate input change without delay.” Question Q6 certain answer law: “When instr_in is 5'b01011 and both ien and oen are 0, d_out is combinationally 4'h8 before and after the transaction edge, independent of the sequencing value, d_in, and stack status.” Only for public d_out with instr_in=5'b01011, ien=0, and oen=0, this corrected law supersedes the original two-cycle PUSH latency. It does not change the stack write or pointer action at E0.
+
+Amendment — POP public-output latency. Exact original clause: “The output latency for PUSH and POP instructions will be 2 and 3 clock cycles, respectively. For the remaining instructions, the output will be reflected for the immediate input change without delay.” Question Q7 certain answer law: “When instr_in is 5'b01110 and both ien and oen are 0, d_out is combinationally 4'h8 before and after the transaction edge, including when no saved entry is available.” Only for public d_out with instr_in=5'b01110, ien=0, and oen=0, this corrected law supersedes the original three-cycle POP latency. It does not change the stack read, empty guard, or pointer action at E0.
+
+Amendment — public d_out registration. Exact original clause: “Results are written to the result register or output via `d_out`.” Question Q23 certain answer law: “There is no reset port: d_out is continuously the current opcode-selected 4-bit value when ien=0 and oen=0 and is otherwise 4'h0, so an input change is visible combinationally in the same pre-edge row while a retained-value capture at row k's rising edge first affects observation after that edge, with no completion pulse, hold interval, or restart latency.” This corrected law supersedes a retained-output interpretation only for public d_out timing. It does not remove result_register or alter its capture-and-retain contract.
+
+5. Behaviour.
+
+All public ports, buses, retained values, and arithmetic operands are unsigned. Each auxiliary-plus-d_in-plus-c_n_in addition is evaluated in a five-bit expression context. d_out selects only bits [3:0], and c_n_out selects bit 4; this is the documented truncation boundary. Each sequencing-plus-c_inc_in addition is likewise evaluated wide enough to retain carry: sequencing storage receives bits [3:0], while c_inc_out reports bit 4. No shift operation is involved.
+
+ien=1 immediately forces d_out to 4'h0 and makes every rising edge retain all state. ien=0 permits opcode- and r_en-controlled edge updates and permits the opcode-selected d_out only when oen=0. ien does not directly gate c_n_out, c_inc_out, full, or empty. oen=1 immediately forces d_out to 4'h0 regardless of all other inputs and state; oen affects no retained update and no other output.
+
+On every rising edge E0 with ien=0, r_en=0 captures the pre-E0 d_in into the four-bit auxiliary value, while r_en=1 retains the previous auxiliary value. This occurs alongside the opcode action. Repeated qualifying edges recapture. r_en has no direct combinational output effect. The newly captured value is observable only after E0.
+
+Amendment — condition code, complete affected scope. Exact original clauses: “The `microcode_sequencer` RTL module manages the execution of instructions, stack operations, and control signals for a microcoded system. It combines inputs like condition codes, instructions, and data inputs, and enables the generation of outputs for data, stack status, and control signals.” “`cc`(1-bit): ACTIVE LOW condition code input for instruction decoding.” “Supports conditional execution based on condition code (`cc`) input.” “`cc_in`(1-bit) - Condition code . Generally maintained at LOGIC LOW for the opcodes to be decoded.” Question Q18 certain answer law: “cc has no effect on any output or rising-edge operation at either level, including during simultaneous controls and repeated transactions.” For every input combination and repeated or simultaneous transaction, this corrected law supersedes only the quoted claims that cc/cc_in participates in decoding or conditions execution. It does not remove or rename cc, change its width or documented active-low designation, or alter another operation.
+
+With ien=0 and oen=0, instr_in selects d_out combinationally as follows: 00000 produces 4'h0; 00001 produces the current four-bit sequencing value; 00010 produces the current auxiliary value; 00011 produces d_in; 00100 produces bits [3:0] of the five-bit unsigned sum auxiliary + d_in + c_n_in; 01011 and 01110 each produce 4'h8; and every other encoding produces 4'h0. cc never changes this selection. The ien and oen forcing rules take priority over this table.
+
+Amendment — POP-PC public data. Exact original clause: “To read the contents of  `Top of Stack` given by the content of `stack_pointer` submodule of `lifo_stack`  module and provide it at the D output (`d_out`) of `microcode_sequencer` module.” Question Q7 certain answer law: “When instr_in is 5'b01110 and both ien and oen are 0, d_out is combinationally 4'h8 before and after the transaction edge, including when no saved entry is available.” This corrected law supersedes only public d_out for instr_in=5'b01110 with ien=0 and oen=0. POP still reads the addressed stack word internally, obeys stack_re and the empty guard, and updates the pointer as specified.
+
+c_n_out is bit 4 of the five-bit unsigned sum auxiliary + d_in + c_n_in exactly when instr_in=00100, and is 0 for every other opcode. It is not gated by ien or oen. c_n_in has no retained effect and no effect for other opcodes.
+
+c_inc_out is 0 when instr_in=00000. For every other opcode it is bit 4 of the current four-bit sequencing value plus c_inc_in, regardless of ien and oen. At every rising edge E0 with ien=0, opcode 00000 writes c_inc_in into the sequencing value and clears saved depth; every other opcode advances the sequencing value by c_inc_in modulo 16. ien=1 cancels either update. Thus c_inc_in=0 retains sequencing on non-PRST instructions, while c_inc_in=1 advances it once per accepted rising edge.
+
+For PUSH accepted at E0, the pre-E0 sequencing value is written to the pre-E0 addressed stack location and the saved-entry count advances at E0. A full stack blocks both the write and count advancement. For POP accepted at E0, the pre-E0 addressed top word is read and the saved-entry count retreats at E0. An empty stack blocks count advancement. PRST at E0 clears the count but never changes stack RAM. Each status output changes only after E0: full is 1 exactly when the current count is 16, and empty is 1 exactly when it is zero. Repeated accepted edges repeat the operation; ien=1 cancels every retained action. The public PUSH or POP d_out remains the amended combinational 4'h8 independently of stack status.
+
+The original LIFO requirements remain normative: lifo_stack comprises stack_pointer, stack_ram, and stack_data_mux; the five-bit stack pointer synchronously resets to 00000, increments only for push while not full, and decrements only for pop while not empty; full and empty continuously compare against locations 16 and 0; stack RAM contains sixteen four-bit words, performs its specified rising-edge write and addressed read, and is unchanged by PRST; stack_data_mux selects data_in for stack_mux_sel=1 and pc_in for stack_mux_sel=0. Simultaneous stack RAM read/write behavior remains unspecified because no authorized source fixes it.
+
+The original program-counter requirements remain normative. pc_mux selects full_adder_data for pc_mux_sel=1 and current pc_data for pc_mux_sel=0. pc_incrementer adds unsigned pc_c_in only when inc=1, otherwise passes its input unchanged, returns bits [3:0], and reports bit 4. pc_reg captures the value present at pc_data_in immediately before E0; a same-edge counter/index advance cannot alter that already sampled operand.
+
+The original arithmetic requirements remain normative. aux_reg_mux selects full-adder feedback when rsel AND NOT re is 1 and d_in otherwise. aux_reg captures its selected pre-edge value at a rising edge when rce OR NOT re is 1. a_mux selects d_in for 00, auxiliary data for 01, and 4'b0000 for 10; encoding 11 remains unspecified. b_mux selects PC for 00, stack data for 01, 4'b0000 for 10, and auxiliary data for 11. full_adder performs its unsigned five-bit-context addition and exposes low bits [3:0] plus carry bit 4 under the stated cen rule.
+
+instruction_decoder is enabled when instr_en/ien is low and supplies all decoder controls named in the retained original requirements. Unlisted public opcodes produce d_out=0 but, while enabled, still perform ordinary non-PRST sequencing advancement and r_en-controlled auxiliary capture. Under the scoped Q18 amendment, cc and cc_in do not affect decoding. result_register captures its pre-E0 four-bit arithmetic input at E0 when synchronous active-high out_ce is asserted and otherwise retains its previous value; that retained value is distinct from public combinational d_out.
+
+All integration-contract bindings remain harness-visible continuously. Inputs expose their currently driven values. clk advances retained state only on a rising edge. Outputs remain visible and continue to obey their individual laws in disabled, full, empty, unlisted-opcode, and post-result conditions. Reaching full or empty does not stop unrelated sequencing or auxiliary updates. There is no aggregate terminal freeze: d_out follows its enable/opcode law, c_n_out follows its arithmetic-carry law, c_inc_out follows its sequencing-carry law, and full and empty independently track saved depth after every accepted edge.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete closed instance and the settled pre-edge observation convention. Its initial sequencing and saved-depth state is the explicitly stated finite post-PRST setup; auxiliary zero is independently required by Q4; invalid stack RAM is never presented as initialized data.
+
+### stimulus 0
+| cycle | c_n_in | c_inc_in | r_en | cc | ien | d_in | instr_in | oen | d_out | c_n_out | c_inc_out | full | empty |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 4'b1111 | 5'b00000 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |
+| 1 | 0 | 1 | 0 | 0 | 0 | 4'b0001 | 5'b00011 | 0 | 4'b0001 | 0 | 0 | 0 | 1 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 4'b1000 | 5'b00001 | 0 | 4'b0001 | 0 | 0 | 0 | 1 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 4'b0110 | 5'b00001 | 0 | 4'b0001 | 0 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | c_n_in | c_inc_in | r_en | cc | ien | d_in | instr_in | oen | d_out | c_n_out | c_inc_out | full | empty |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b00000 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b00010 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 4'b1111 | 5'b00010 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |
+| 3 | 0 | 0 | 1 | 0 | 0 | 4'b0101 | 5'b00010 | 0 | 4'b1111 | 0 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | c_n_in | c_inc_in | r_en | cc | ien | d_in | instr_in | oen | d_out | c_n_out | c_inc_out | full | empty |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b00011 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 4'b0001 | 5'b00011 | 0 | 4'b0001 | 0 | 0 | 0 | 1 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 4'b1111 | 5'b00011 | 0 | 4'b1111 | 0 | 0 | 0 | 1 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 4'b1000 | 5'b00011 | 0 | 4'b1000 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 0 | 0 | 0 | 4'b0110 | 5'b00011 | 0 | 4'b0110 | 0 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | c_n_in | c_inc_in | r_en | cc | ien | d_in | instr_in | oen | d_out | c_n_out | c_inc_out | full | empty |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 4'b1111 | 5'b00100 | 0 | 4'b0000 | 1 | 0 | 0 | 1 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 4'b0001 | 5'b00100 | 0 | 4'b0000 | 1 | 0 | 0 | 1 |
+| 2 | 0 | 0 | 1 | 0 | 0 | 4'b1000 | 5'b00100 | 0 | 4'b1001 | 0 | 0 | 0 | 1 |
+
+### stimulus 4
+| cycle | c_n_in | c_inc_in | r_en | cc | ien | d_in | instr_in | oen | d_out | c_n_out | c_inc_out | full | empty |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 4'b0001 | 5'b01011 | 0 | 4'b1000 | 0 | 0 | 0 | 1 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 4'b1111 | 5'b01011 | 0 | 4'b1000 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01110 | 0 | 4'b1000 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01110 | 0 | 4'b1000 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b00001 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | c_n_in | c_inc_in | r_en | cc | ien | d_in | instr_in | oen | d_out | c_n_out | c_inc_out | full | empty |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01011 | 0 | 4'b1000 | 0 | 0 | 0 | 1 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01011 | 0 | 4'b1000 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01110 | 0 | 4'b1000 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01110 | 0 | 4'b1000 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01011 | 0 | 4'b1000 | 0 | 0 | 0 | 1 |
+| 5 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01110 | 0 | 4'b1000 | 0 | 0 | 0 | 0 |
+
+### stimulus 6
+| cycle | c_n_in | c_inc_in | r_en | cc | ien | d_in | instr_in | oen | d_out | c_n_out | c_inc_out | full | empty |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01011 | 0 | 4'b1000 | 0 | 0 | 0 | 1 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01110 | 0 | 4'b1000 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 4'b0101 | 5'b00011 | 0 | 4'b0101 | 0 | 0 | 0 | 1 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01011 | 0 | 4'b1000 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01110 | 0 | 4'b1000 | 0 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | c_n_in | c_inc_in | r_en | cc | ien | d_in | instr_in | oen | d_out | c_n_out | c_inc_out | full | empty |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 1 | 4'b1010 | 5'b00011 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |
+| 1 | 0 | 0 | 0 | 1 | 0 | 4'b1010 | 5'b00011 | 0 | 4'b1010 | 0 | 0 | 0 | 1 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 4'b1010 | 5'b00011 | 1 | 4'b0000 | 0 | 0 | 0 | 1 |
+| 3 | 0 | 0 | 0 | 1 | 1 | 4'b1010 | 5'b00011 | 1 | 4'b0000 | 0 | 0 | 0 | 1 |
+
+### stimulus 8
+| cycle | c_n_in | c_inc_in | r_en | cc | ien | d_in | instr_in | oen | d_out | c_n_out | c_inc_out | full | empty |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 4'b1001 | 5'b11111 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 4'b1001 | 5'b00101 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |
+| 2 | 0 | 0 | 0 | 0 | 1 | 4'b1001 | 5'b00000 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |
+| 3 | 0 | 0 | 0 | 1 | 0 | 4'b1001 | 5'b00000 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |
+
+### stimulus 9
+| cycle | c_n_in | c_inc_in | r_en | cc | ien | d_in | instr_in | oen | d_out | c_n_out | c_inc_out | full | empty |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b00000 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |
+| 1 | 1 | 1 | 0 | 0 | 0 | 4'b1000 | 5'b01011 | 0 | 4'b1000 | 0 | 0 | 0 | 1 |
+| 2 | 0 | 0 | 0 | 0 | 1 | 4'b0000 | 5'b01110 | 0 | 4'b0000 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b00000 | 0 | 4'b0000 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 | 0 | 4'b0110 | 5'b01011 | 0 | 4'b1000 | 0 | 0 | 0 | 1 |
+| 5 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b01110 | 0 | 4'b1000 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 4'b0000 | 5'b00001 | 0 | 4'b0000 | 0 | 0 | 0 | 1 |

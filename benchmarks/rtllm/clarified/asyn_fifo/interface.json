@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "asyn_fifo",
+  "toplevel": "asyn_fifo",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

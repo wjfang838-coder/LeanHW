@@ -1,0 +1,141 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- d1: input 1 bit.
+- d2: input 1 bit.
+- sel: input 1 bit.
+- out1: output 1 bit.
+- out2: output 1 bit.
+- out3: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  S0: default = 0.
+-  S0_5: default = 1.
+-  S1: default = 2.
+-  S1_5: default = 3.
+-  S2: default = 4.
+-  S2_5: default = 5.
+-  S3: default = 6.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+Reset is active low and asynchronous as observed at the outputs. Whenever rst is low, out1, out2, and out3 are all 0 immediately, independent of clk, d1, d2, and sel. A low rst cancels all accumulated credit and establishes empty credit; it overrides a coincident rising clk edge, and d1, d2, and sel have no effect while rst remains low.
+
+At power-up, before reset has ever been asserted, out1, out2, and out3 are all 0. Deposits presented before the first reset assertion are not captured, including on rising clk edges. Thus the outputs have the same values as during reset, but the machine does not begin accepting deposits until reset has first established the empty-credit state.
+
+After rst is released, the outputs remain at the empty-credit values until qualifying deposits have been captured on later rising edges. On the first rising edge after release, an accepted deposit may update the accumulated credit; because outputs are sampled before the edge, that deposit can affect the outputs only after the edge.
+
+Timing
+
+Rising clk edges are the only edges that update accumulated credit or complete a transaction. Falling edges and steady clock levels have no state effect. Apart from the immediate reset forcing described above, out1, out2, and out3 are combinational functions of sel and the credit captured on earlier rising edges. Their latency from an accepted deposit is one rising-edge transition: a deposit presented at an edge is excluded from the value sampled before that edge and is visible immediately after capture.
+
+Each beverage indication and change indication persists throughout the completed-credit interval. It is therefore one full clock cycle wide when sel remains at the completing selection: the rising edge after the indication first becomes visible completes the transaction and clears all three indications. Changing sel can change the combinational indications during that interval as specified below.
+
+The evaluated trace uses the interface's full-cycle observation convention: row k is the settled sample before active-edge transition k, followed by that transition. This observation cadence is distinct from, and does not prescribe, any physical clock period or propagation delay.
+
+Behaviour
+
+Credit is measured in half-yuan units: d1 represents one unit (0.5 yuan), and d2 represents two units (1 yuan). On each rising clk edge with rst high, if deposits are accepted, d1 high adds one unit. If d1 is low and d2 is high, d2 adds two units. Thus d1 has priority when both are high; simultaneous assertion adds only one unit. If both are low, credit is unchanged. Repeated accepted assertions add their respective amount on every rising edge.
+
+With rst high, sel continuously selects the observable result. For sel 0, out1 is 1 exactly when previously captured credit is at least three units (1.5 yuan), and out2 is 0. For sel 1, out2 is 1 exactly when previously captured credit is at least five units (2.5 yuan), and out1 is 0. Below three units, sel does not affect deposit capture.
+
+For sel 0, out3 is 1 exactly when previously captured credit is at least four units (2 yuan); it represents a single 0.5-yuan change indication. At three units, out1 is 1 and out3 is 0. For sel 1, out3 is 1 exactly at six units (3 yuan); at five units, out2 is 1 and out3 is 0. In all other cases out3 is 0.
+
+At previously captured credit of three or four units with sel 0, the next rising edge completes the transaction, discards d1 and d2 presented on that edge, and returns to empty credit. At credit below three units, sel 0 does not inhibit deposits. At credit of three or four units, sel 1 permits further deposits instead of completing the transaction.
+
+At previously captured credit of five or six units with sel 1, the completed result is retained for observation and the next rising edge completes the transaction, discards d1 and d2 presented on that edge, and returns to empty credit. Once a completed-credit result is being presented, deposits cannot extend it. Repeated rising edges therefore begin a new transaction only after the clearing edge. Reset cancellation has priority over every deposit and completion rule.
+
+The accumulated-credit state is a three-bit quantity and wraps modulo eight. The stated transaction rules ordinarily complete reachable transactions at five or six units, so no larger value is reached from reset under one-bit inputs.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst | d1 | d2 | sel | out1 | out2 | out3 |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 1 | 0 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 1
+| cycle | rst | d1 | d2 | sel | out1 | out2 | out3 |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | rst | d1 | d2 | sel | out1 | out2 | out3 |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 5 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 7 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 3
+| cycle | rst | d1 | d2 | sel | out1 | out2 | out3 |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 1 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 | 1 | 0 | 1 | 0 |
+| 5 | 1 | 0 | 1 | 1 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 1 | 1 | 0 | 0 | 0 |
+| 7 | 1 | 1 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 4
+| cycle | rst | d1 | d2 | sel | out1 | out2 | out3 |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 4 | 1 | 0 | 1 | 0 | 0 | 0 | 0 |
+| 5 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 5
+| cycle | rst | d1 | d2 | sel | out1 | out2 | out3 |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 1 | 0 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 1 | 1 | 0 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 1 | 1 | 0 | 0 | 0 |
+
+### stimulus 6
+| cycle | rst | d1 | d2 | sel | out1 | out2 | out3 |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 1 | 1 | 0 | 0 | 1 | 0 | 1 |
+| 6 | 1 | 0 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | rst | d1 | d2 | sel | out1 | out2 | out3 |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 1 | 1 | 0 | 0 | 0 |

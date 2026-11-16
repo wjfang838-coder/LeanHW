@@ -1,0 +1,92 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input 1 bit.
+- state: input [1:0].
+- next_state: output [1:0].
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+-  C: default = 2.
+-  D: default = 3.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset behavior. The design has no stored state elements. Both outputs are fully determined from the input values currently present, including at power-up before any edge has occurred: next_state follows the transition law below, and out follows the Moore-output law below. Neither output is uninitialised or unknown at power-up.
+
+Timing
+
+Both next_state and out are continuously combinational. Each has zero clock-cycle latency from its named inputs: next_state responds to in and state, while out responds to state. There is no capture edge, result pulse, periodic output, first-result delay, holding interval, completion event, or restart behavior.
+
+The evaluated trace uses the interface's full-cycle observation cadence. On each row, outputs are sampled for that row's current inputs before the model's transition step; the transition step changes no state. This observation cadence is separate from circuit timing: the circuit has no clocked period or autonomous delay law.
+
+Behaviour
+
+Inputs and outputs are interpreted at their declared widths, so the following cases cover every value each input can receive.
+
+For state 2'b00, next_state is 2'b01 when in is 1 and 2'b00 when in is 0. For state 2'b01, next_state is 2'b01 when in is 1 and 2'b10 when in is 0. For state 2'b10, next_state is 2'b11 when in is 1 and 2'b00 when in is 0. For state 2'b11, next_state is 2'b01 when in is 1 and 2'b10 when in is 0.
+
+The out output is 1 exactly when state is 2'b11. It is 0 for state values 2'b00, 2'b01, and 2'b10.
+
+Every change of in or state takes effect combinationally. Simultaneous, repeated, or interrupted input changes are reflected directly and create no retained mode, transaction history, cancellation behavior, or stored result. Because there is no transaction or state, disabled-input, repeated-start, first-result, and terminal-state cases introduce no additional behavior.
+
+Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance of this specification.
+
+### stimulus 0
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 0 | 2'b00 | 2'b00 | 0 |
+| 1 | 1 | 2'b00 | 2'b01 | 0 |
+
+### stimulus 1
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 0 | 2'b01 | 2'b10 | 0 |
+| 1 | 1 | 2'b01 | 2'b01 | 0 |
+
+### stimulus 2
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 0 | 2'b10 | 2'b00 | 0 |
+| 1 | 1 | 2'b10 | 2'b11 | 0 |
+
+### stimulus 3
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 0 | 2'b11 | 2'b10 | 1 |
+| 1 | 1 | 2'b11 | 2'b01 | 1 |
+
+### stimulus 4
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 1 | 2'b00 | 2'b01 | 0 |
+| 1 | 0 | 2'b00 | 2'b00 | 0 |
+
+### stimulus 5
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 1 | 2'b01 | 2'b01 | 0 |
+| 1 | 0 | 2'b10 | 2'b00 | 0 |
+
+### stimulus 6
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 1 | 2'b10 | 2'b11 | 0 |
+| 1 | 0 | 2'b11 | 2'b10 | 1 |
+
+### stimulus 7
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 1 | 2'b11 | 2'b01 | 1 |
+| 1 | 0 | 2'b01 | 2'b10 | 0 |

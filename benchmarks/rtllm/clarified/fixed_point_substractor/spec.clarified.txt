@@ -1,0 +1,91 @@
+Module and integration contract
+
+Module: fixed_point_subtractor.
+Ports below are in exact declaration order:
+- a: input [N-1:0].
+- b: input [N-1:0].
+- c: output [N-1:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  Q: default = 15.
+-  N: default = 32.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+The module has no reset input and no state. Therefore there is no reset edge, reset value, or release step. From power-up onward, including before any edge has occurred, c has the definite combinational value specified below for the current a and b; it is never an uninitialised or retained value.
+
+4. Timing
+
+c is continuously combinational from the current a and b. It has zero clock-cycle latency and no pulse, period, duty cycle, capture, hold, completion, cancellation, or restart behavior. Every change of either input affects c after combinational settling, including simultaneous changes, interrupted changes, and repeated values.
+
+The executable object's timebase is full-cycle only as a trace observation convention; the circuit itself has no clock, period, or delay law. Row k is the value after the row-k inputs have settled. The interface supplies no numeric step_ns or sample_offset_ns, so the observation rows imply no 10 ns tick or other physical duration.
+
+5. Behaviour
+
+For any supported parameter values, let M = 2^(N-1), let sa = a[N-1] and sb = b[N-1], and interpret A = a[N-2:0] and B = b[N-2:0] as unsigned magnitudes. Q fixes how many bits are fractional; because both operands have the same Q, it does not change the raw-bit subtraction law.
+
+If sa equals sb, c is {sa, (A - B) mod M}. The common sign is retained even when the modulo-M magnitude is zero.
+
+If sa differs from sb, c's magnitude is (A + B) mod M. Its sign is 1 exactly when that magnitude is nonzero and either sa is 0 with A less than or equal to B, or sa is 1 with A greater than B. Its sign is 0 in every other different-sign case, including every case in which the modulo-M magnitude is zero.
+
+Inputs a and b have no inactive level or mode. At all times c is recomputed from the current pair: each sign bit selects the applicable branch, and each magnitude participates in the corresponding modulo-M operation and comparison. No earlier input pair can affect the result.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete N = 32 sampled instance of this parameterized specification.
+
+### stimulus 0
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 32'h0 |
+
+### stimulus 1
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h1 | 32'h0 | 32'h1 |
+
+### stimulus 2
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h0 | 32'h1 | 32'h7fffffff |
+
+### stimulus 3
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'hffff | 32'h1 | 32'hfffe |
+
+### stimulus 4
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h8000 | 32'h0 | 32'h8000 |
+
+### stimulus 5
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h0 | 32'h8000 | 32'h7fff8000 |
+
+### stimulus 6
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h8001 | 32'h8002 | 32'h7fffffff |
+
+### stimulus 7
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h8002 | 32'h8001 | 32'h1 |
+
+### stimulus 8
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h1234 | 32'h102 | 32'h1132 |
+
+### stimulus 9
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h102 | 32'h1234 | 32'h7fffeece |

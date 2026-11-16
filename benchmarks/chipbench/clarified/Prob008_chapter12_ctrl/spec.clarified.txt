@@ -1,0 +1,137 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- rst: input 1 bit.
+- excepttype_i: input [31:0].
+- cp0_epc_i: input [31:0].
+- stallreq_from_if: input 1 bit.
+- stallreq_from_id: input 1 bit.
+- stallreq_from_ex: input 1 bit.
+- stallreq_from_mem: input 1 bit.
+- new_pc: output [31:0].
+- flush: output 1 bit.
+- stall: output [5:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+`rst` is active high and acts asynchronously and combinationally. Whenever `rst` is asserted, `new_pc` is `32'h00000000`, `flush` is `1'b0`, and `stall` is `6'b000000`, with priority over every exception and stall request. There are no public sequential state elements. The retained preceding-value history used only for unlisted exceptions is established as zero while reset is asserted.
+
+Before reset has ever been asserted, `flush` and `stall` are nevertheless determined entirely by the current inputs. `new_pc` is also determined for reset, idle, stall, and every listed exception encoding; it is unknown for an unlisted nonzero exception until a preceding determined `new_pc` value has been established. The implementation must leave that history uninitialised, with no initial block or declaration initialiser.
+
+On release of reset, all outputs immediately expose the values selected by the other current inputs. There is no reset-release edge latency.
+
+4. Timing
+
+All three outputs are combinationally observable with zero clock-cycle latency. `new_pc` responds immediately to `rst`, `excepttype_i`, and, for ERET, `cp0_epc_i`. `flush` responds immediately to `rst` and `excepttype_i`. `stall` responds immediately to `rst`, `excepttype_i`, and the four stall-request inputs. No output is a pulse or periodic signal, and there is no physical clock port, circuit period, or circuit delay law.
+
+For the normative worked trace, row k is the settled pre-transition observation at k times the interface step duration; it does not imply a 10 ns clock tick. The interface supplies no numeric `step_ns` or `sample_offset_ns` value. A row already reflects the settled current-input combinational result.
+
+5. Behaviour
+
+`rst` is active high and immediately forces `new_pc` to `32'h00000000`, `flush` to `1'b0`, and `stall` to `6'b000000` with priority over every exception and stall request; while deasserted it has no masking effect, release immediately exposes the result selected by the other current inputs, and repeated assertion has the same continuous effect without transaction state.
+
+With `rst` deasserted, any nonzero `excepttype_i` immediately forces `flush` to `1'b1` and `stall` to `6'b000000` ahead of all stall requests; `new_pc` is `32'h00000020` for `32'h00000001`, `32'h00000040` for `32'h00000008`, `32'h0000000a`, `32'h0000000c`, or `32'h0000000d`, `cp0_epc_i` for `32'h0000000e`, and otherwise retains its preceding determined value, while zero `excepttype_i` enables stall-request or idle behavior.
+
+`cp0_epc_i` immediately determines `new_pc` only when `rst` is deasserted and `excepttype_i` is `32'h0000000e`; in every other reset, exception, stall, or idle condition it has no effect, and repeated or changing values require no capture or completion interval.
+
+With `rst` deasserted and `excepttype_i` zero, `new_pc` is immediately `32'h00000000` and `flush` is immediately `1'b0`, including while any stall request is asserted. `stallreq_from_mem` has highest stall-request priority and immediately makes `stall` `6'b011111`, regardless of all other stall requests. If no memory request is asserted, `stallreq_from_ex` immediately makes `stall` `6'b001111`, regardless of decode or fetch requests. If neither memory nor execute requests are asserted, either `stallreq_from_id` or `stallreq_from_if` immediately makes `stall` `6'b000111`; decode and fetch asserted together produce the same value. If no request is asserted, `stall` is `6'b000000`.
+
+An asserted `stallreq_from_if` produces `stall = 6'b000111` only when reset is deasserted, `excepttype_i` is zero, and the memory, execute, and decode requests are deasserted; otherwise it is inactive or masked, and assertion, interruption, and repetition have no stored transaction state.
+
+An asserted `stallreq_from_id` produces `stall = 6'b000111` when reset is deasserted, `excepttype_i` is zero, and the memory and execute requests are deasserted, regardless of `stallreq_from_if`; otherwise it is inactive or masked, and assertion, interruption, and repetition have no stored transaction state.
+
+An asserted `stallreq_from_ex` produces `stall = 6'b001111` when reset is deasserted, `excepttype_i` is zero, and `stallreq_from_mem` is deasserted, regardless of decode or fetch requests; otherwise it is inactive or masked, and assertion, interruption, and repetition have no stored transaction state.
+
+An asserted `stallreq_from_mem` produces `stall = 6'b011111` when reset is deasserted and `excepttype_i` is zero, regardless of every other stall request; otherwise it is inactive or masked, and assertion, interruption, and repetition have no stored transaction state.
+
+`new_pc` is combinationally observable without a capture edge: reset immediately produces `32'h00000000`, a listed nonzero exception immediately produces its mapped address, an unlisted nonzero exception retains the preceding determined value, and stall or idle immediately produces `32'h00000000`; there is no edge latency, completion interval, or restart protocol.
+
+`flush` is combinationally observable without a capture edge and is immediately `1'b0` during reset, stall, or idle and `1'b1` for every nonzero `excepttype_i` when reset is deasserted; its value persists only while its condition persists and has no completion or restart latency.
+
+`stall` is combinationally observable without a capture edge and is immediately `6'b000000` during reset or any nonzero exception; otherwise it is `6'b011111` for a memory request, `6'b001111` for an execute request when no memory request exists, `6'b000111` for a decode or fetch request when neither higher-priority request exists, and `6'b000000` when none exists, with no hold, completion, or restart latency beyond the current conditions.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst | excepttype_i | cp0_epc_i | stallreq_from_if | stallreq_from_id | stallreq_from_ex | stallreq_from_mem | new_pc | flush | stall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 32'h80000000 | 0 | 0 | 0 | 1 | 32'h0 | 0 | 6'b000000 |
+| 1 | 0 | 32'h1 | 32'h7fffffff | 0 | 0 | 0 | 1 | 32'h20 | 1 | 6'b000000 |
+| 2 | 0 | 32'h0 | 32'hffffffff | 0 | 0 | 0 | 1 | 32'h0 | 0 | 6'b011111 |
+
+### stimulus 1
+| cycle | rst | excepttype_i | cp0_epc_i | stallreq_from_if | stallreq_from_id | stallreq_from_ex | stallreq_from_mem | new_pc | flush | stall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 32'h1 | 32'h1 | 0 | 0 | 0 | 0 | 32'h20 | 1 | 6'b000000 |
+| 1 | 0 | 32'h8 | 32'h12345678 | 0 | 0 | 0 | 0 | 32'h40 | 1 | 6'b000000 |
+| 2 | 0 | 32'ha | 32'h80000000 | 0 | 0 | 0 | 0 | 32'h40 | 1 | 6'b000000 |
+
+### stimulus 2
+| cycle | rst | excepttype_i | cp0_epc_i | stallreq_from_if | stallreq_from_id | stallreq_from_ex | stallreq_from_mem | new_pc | flush | stall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 32'hd | 32'hffffffff | 0 | 0 | 0 | 0 | 32'h40 | 1 | 6'b000000 |
+| 1 | 0 | 32'hc | 32'h0 | 0 | 0 | 0 | 0 | 32'h40 | 1 | 6'b000000 |
+| 2 | 0 | 32'he | 32'h13579bdf | 0 | 0 | 0 | 0 | 32'h13579bdf | 1 | 6'b000000 |
+
+### stimulus 3
+| cycle | rst | excepttype_i | cp0_epc_i | stallreq_from_if | stallreq_from_id | stallreq_from_ex | stallreq_from_mem | new_pc | flush | stall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 32'h2 | 32'h1 | 0 | 0 | 0 | 0 | 32'x | 1 | 6'b000000 |
+| 1 | 0 | 32'hffffffff | 32'h80000000 | 0 | 0 | 0 | 0 | 32'x | 1 | 6'b000000 |
+
+### stimulus 4
+| cycle | rst | excepttype_i | cp0_epc_i | stallreq_from_if | stallreq_from_id | stallreq_from_ex | stallreq_from_mem | new_pc | flush | stall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 0 | 1 | 32'h0 | 0 | 6'b011111 |
+| 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h0 | 0 | 6'b000000 |
+
+### stimulus 5
+| cycle | rst | excepttype_i | cp0_epc_i | stallreq_from_if | stallreq_from_id | stallreq_from_ex | stallreq_from_mem | new_pc | flush | stall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 1 | 0 | 32'h0 | 0 | 6'b001111 |
+| 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h0 | 0 | 6'b000000 |
+
+### stimulus 6
+| cycle | rst | excepttype_i | cp0_epc_i | stallreq_from_if | stallreq_from_id | stallreq_from_ex | stallreq_from_mem | new_pc | flush | stall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 32'h0 | 32'h0 | 0 | 1 | 0 | 0 | 32'h0 | 0 | 6'b000111 |
+| 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h0 | 0 | 6'b000000 |
+
+### stimulus 7
+| cycle | rst | excepttype_i | cp0_epc_i | stallreq_from_if | stallreq_from_id | stallreq_from_ex | stallreq_from_mem | new_pc | flush | stall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 32'h0 | 32'h0 | 1 | 0 | 0 | 0 | 32'h0 | 0 | 6'b000111 |
+| 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h0 | 0 | 6'b000000 |
+
+### stimulus 8
+| cycle | rst | excepttype_i | cp0_epc_i | stallreq_from_if | stallreq_from_id | stallreq_from_ex | stallreq_from_mem | new_pc | flush | stall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 1 | 1 | 32'h0 | 0 | 6'b011111 |
+| 1 | 0 | 32'h0 | 32'h0 | 0 | 1 | 0 | 1 | 32'h0 | 0 | 6'b011111 |
+| 2 | 0 | 32'h0 | 32'h0 | 0 | 1 | 1 | 0 | 32'h0 | 0 | 6'b001111 |
+| 3 | 0 | 32'h0 | 32'h0 | 1 | 0 | 1 | 0 | 32'h0 | 0 | 6'b001111 |
+| 4 | 0 | 32'h0 | 32'h0 | 1 | 1 | 0 | 0 | 32'h0 | 0 | 6'b000111 |
+| 5 | 0 | 32'h0 | 32'h0 | 1 | 0 | 0 | 1 | 32'h0 | 0 | 6'b011111 |
+
+### stimulus 9
+| cycle | rst | excepttype_i | cp0_epc_i | stallreq_from_if | stallreq_from_id | stallreq_from_ex | stallreq_from_mem | new_pc | flush | stall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 32'h8 | 32'h0 | 0 | 0 | 1 | 1 | 32'h40 | 1 | 6'b000000 |
+| 1 | 0 | 32'he | 32'habcdef01 | 0 | 1 | 0 | 0 | 32'habcdef01 | 1 | 6'b000000 |
+| 2 | 1 | 32'h1 | 32'h0 | 0 | 0 | 0 | 0 | 32'h0 | 0 | 6'b000000 |
+| 3 | 1 | 32'h8 | 32'h0 | 0 | 0 | 0 | 0 | 32'h0 | 0 | 6'b000000 |
+| 4 | 1 | 32'he | 32'hffffffff | 1 | 0 | 0 | 0 | 32'h0 | 0 | 6'b000000 |
+| 5 | 1 | 32'h0 | 32'h0 | 0 | 0 | 1 | 0 | 32'h0 | 0 | 6'b000000 |
+| 6 | 1 | 32'h0 | 32'h0 | 1 | 0 | 0 | 0 | 32'h0 | 0 | 6'b000000 |

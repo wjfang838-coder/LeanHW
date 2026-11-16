@@ -1,0 +1,413 @@
+{
+  "status": "full_refinement_proved",
+  "closed_rtl_to_isa": true,
+  "scope": "actual imported RTL/native RAM -> register-shaped pipeline -> cycle LeanSpec -> transaction ISA, including physical acceptance/retirement",
+  "modules": {
+    "MemISA": {
+      "seconds": 1.419,
+      "log": "evidence/replay/20261021T030805403651Z/MemISA.log",
+      "source_sha256": "a7f25204243b51a903c9cbacbc8ec42b80abae6cb63773c0bfe2a90c6dfc4d66"
+    },
+    "MemPipeline": {
+      "seconds": 0.817,
+      "log": "evidence/replay/20261021T030805403651Z/MemPipeline.log",
+      "source_sha256": "88dfd80bfbc886d9e2f29cc5dfc959661e9e573bab6ad4ca19cd8b2452e036bd"
+    },
+    "MemRefinement": {
+      "seconds": 1.82,
+      "log": "evidence/replay/20261021T030805403651Z/MemRefinement.log",
+      "source_sha256": "5ab1449ee777b5bdf094a45adee2dcc5d779f15dab96624cacb82f125b5fdb3d"
+    },
+    "MemEvents": {
+      "seconds": 1.769,
+      "log": "evidence/replay/20261021T030805403651Z/MemEvents.log",
+      "source_sha256": "25809af81de9a85956d37629e1cffd1f623968784c4c12c2d4a2cb81351f64eb"
+    },
+    "MemRaw": {
+      "seconds": 0.967,
+      "log": "evidence/replay/20261021T030805403651Z/MemRaw.log",
+      "source_sha256": "0cca28ff9a81de4a71cd68dbc8895c85e9165b458b680b11d06c40673f7ae0b5"
+    },
+    "MemRawProof": {
+      "seconds": 3.073,
+      "log": "evidence/replay/20261021T030805403651Z/MemRawProof.log",
+      "source_sha256": "419789c7dbe544cade8afd041d9cfcc3c25d1e6396d24d756e9b873f7fb0eae9"
+    },
+    "MemRawBridge": {
+      "seconds": 4.174,
+      "log": "evidence/replay/20261021T030805403651Z/MemRawBridge.log",
+      "source_sha256": "443078512fc55c8082e13347ea827291d247921f74c9df8808d51bb9fec43eb4"
+    },
+    "MemWordRefinement": {
+      "seconds": 2.72,
+      "log": "evidence/replay/20261021T030805403651Z/MemWordRefinement.log",
+      "source_sha256": "be61f7d64ba97d6cbec5670d6f6a785fc49847347d9d1ab62524d990b5b58fa7"
+    },
+    "MemMetadata": {
+      "seconds": 2.771,
+      "log": "evidence/replay/20261021T030805403651Z/MemMetadata.log",
+      "source_sha256": "af9b2152f3c969c1f644c9c7401229115bfa8120df6fa4386e054d5a090a66ff"
+    },
+    "NativeImported": {
+      "seconds": 2.37,
+      "log": "evidence/replay/20261021T030805403651Z/NativeImported.log",
+      "source_sha256": "353b36899efe88779798e1b5838b20906bed8a6464b12e6dfcdf00ce5d2aeb74"
+    },
+    "NativeCertificate": {
+      "seconds": 0.917,
+      "log": "evidence/replay/20261021T030805403651Z/NativeCertificate.log",
+      "source_sha256": "93647909e80de72ee8b5a642da594510257f78f3221796cad8b8e7c61eb2ef5c"
+    },
+    "MemoryCircuit": {
+      "seconds": 4.272,
+      "log": "evidence/replay/20261021T030805403651Z/MemoryCircuit.log",
+      "source_sha256": "2149de503ac146a03597bdc75e66972df2c7a65c7463745ade4e48f48a150c29"
+    },
+    "MemoryShallow": {
+      "mode": "previously_checked_object_reused",
+      "certificate": "evidence/shallow-latest.json",
+      "source_sha256": "7def024f702d9aa9539fe7c5198f90a1192dd4337124cfd175dd4c588da408c6",
+      "object_sha256": "28286befb48f8b8367723e847a666425ea2652ab9f4160d52dcea8203455d95f"
+    },
+    "MemNativeMemory": {
+      "seconds": 4.978,
+      "log": "evidence/replay/20261021T030805403651Z/MemNativeMemory.log",
+      "source_sha256": "cac06cd174c17f8aa855c9d632a4e50ae6d25412cc7e75b250631e164da8a83d"
+    },
+    "MemNativeStore": {
+      "seconds": 3.022,
+      "log": "evidence/replay/20261021T030805403651Z/MemNativeStore.log",
+      "source_sha256": "667c37b4f424cd85fe15e492494be304117751191aa92e1bc0260a5ea2b77da7"
+    },
+    "MemNativeLanes": {
+      "seconds": 8.429,
+      "log": "evidence/replay/20261021T030805403651Z/MemNativeLanes.log",
+      "source_sha256": "ca6ef4986c17ce65e35e6a88ac34324f2ebab7fc446fd5a9a29b16d1105fc8a1"
+    },
+    "MemDecode": {
+      "seconds": 8.63,
+      "log": "evidence/replay/20261021T030805403651Z/MemDecode.log",
+      "source_sha256": "686c2a7a6c27120597ae31fa7b0c0f7306b7556023d958a8287908fc1f8023c6"
+    },
+    "MemDecoderCircuit": {
+      "seconds": 6.326,
+      "log": "evidence/replay/20261021T030805403651Z/MemDecoderCircuit.log",
+      "source_sha256": "ea999ebe833dbe7f59f3fd8017c88bba3d8e9e3f7fd1ee8302982de4e2eef030"
+    },
+    "MemPhysical": {
+      "seconds": 0.866,
+      "log": "evidence/replay/20261021T030805403651Z/MemPhysical.log",
+      "source_sha256": "6c0622d5dc7a463d5f4879defdfcddf0409b689059e051f94f181a15d9398224"
+    },
+    "MemNetlistStep": {
+      "seconds": 6.325,
+      "log": "evidence/replay/20261021T030805403651Z/MemNetlistStep.log",
+      "source_sha256": "46243f65ef058f13be072e3c2535170b53331811b896150bcbb6adfbc5486e3e"
+    },
+    "MemALUCircuit": {
+      "seconds": 19.846,
+      "log": "evidence/replay/20261021T030805403651Z/MemALUCircuit.log",
+      "source_sha256": "8f2db64409254c0cec777c3c1d2d201a459a24b64b73c65d3a1c6496832559de"
+    },
+    "MemStorageCircuit": {
+      "seconds": 1.87,
+      "log": "evidence/replay/20261021T030805403651Z/MemStorageCircuit.log",
+      "source_sha256": "3bf14da7556c24e94b72d9d4c7a0765fe97481e30c1022d43421418a41c8087d"
+    },
+    "MemControlCircuit": {
+      "seconds": 2.873,
+      "log": "evidence/replay/20261021T030805403651Z/MemControlCircuit.log",
+      "source_sha256": "b4a3aab75d5c3a82d9114f98901af5def4428d43bd85df0a2ad03fb98a546ecf"
+    },
+    "MemMemoryCircuit": {
+      "seconds": 4.527,
+      "log": "evidence/replay/20261021T030805403651Z/MemMemoryCircuit.log",
+      "source_sha256": "36f5fa98b07ab54a217b8f545f19170a77c4c5bba87d06b5c490cb1f0719bed0"
+    },
+    "MemExecuteCircuit": {
+      "seconds": 3.57,
+      "log": "evidence/replay/20261021T030805403651Z/MemExecuteCircuit.log",
+      "source_sha256": "a2047c4e2c0d65365ba9b35a4f69f05ae383727001066ea01128b1e081458bac"
+    },
+    "MemRelation": {
+      "seconds": 9.43,
+      "log": "evidence/replay/20261021T030805403651Z/MemRelation.log",
+      "source_sha256": "76faf727e83ba2e22b7af8fcd8818254668006b4ba3ffdf1b56dae42d6d2b166"
+    },
+    "MemMemoryCommit": {
+      "seconds": 2.519,
+      "log": "evidence/replay/20261021T030805403651Z/MemMemoryCommit.log",
+      "source_sha256": "5b59aed20f2fb1dccebcb3807b3c0867b91c2b1755ad293abdfc1ba39b7dba40"
+    },
+    "MemStageRefinement": {
+      "seconds": 2.719,
+      "log": "evidence/replay/20261021T030805403651Z/MemStageRefinement.log",
+      "source_sha256": "121e2ec477df4279df45b124d638bb4efe4e0700b2bf2fe558f0ccfdbcf44fd3"
+    },
+    "MemDecodeFields": {
+      "seconds": 3.621,
+      "log": "evidence/replay/20261021T030805403651Z/MemDecodeFields.log",
+      "source_sha256": "369c7b3e98351d6b74654838a69547f4412e852582311dcd96f9535f9ca50d5e"
+    },
+    "MemIssueCircuit": {
+      "seconds": 28.736,
+      "log": "evidence/replay/20261021T030805403651Z/MemIssueCircuit.log",
+      "source_sha256": "7268c22c32bfc6b6bede5480b8933b6e84771cdaa9ff09d76f9f1d30422c8ba4"
+    },
+    "MemFrontCircuit": {
+      "seconds": 5.125,
+      "log": "evidence/replay/20261021T030805403651Z/MemFrontCircuit.log",
+      "source_sha256": "9a631ccb390233e9fd9a73c0bcd275b55b6e21942064e38a1b5e1af19e4cfda5"
+    },
+    "MemDispatchRelation": {
+      "seconds": 13.344,
+      "log": "evidence/replay/20261021T030805403651Z/MemDispatchRelation.log",
+      "source_sha256": "af38e1005f9c785524fb0ab72015f947e7960209142c87ce252aa292f85f59f2"
+    },
+    "MemCircuitRefinement": {
+      "seconds": 5.376,
+      "log": "evidence/replay/20261021T030805403651Z/MemCircuitRefinement.log",
+      "source_sha256": "8b649c6da6567062c31b53c62e432eb0c5ea1c4164b6a1ceb803d99f09a3d384"
+    },
+    "MemPortRefinement": {
+      "seconds": 20.898,
+      "log": "evidence/replay/20261021T030805403651Z/MemPortRefinement.log",
+      "source_sha256": "9cab19fcfb0a30d564d226662a1579dc5a86ed21960b166389eeb9b65468b7be"
+    },
+    "MemAcceptRefinement": {
+      "seconds": 2.971,
+      "log": "evidence/replay/20261021T030805403651Z/MemAcceptRefinement.log",
+      "source_sha256": "0da3cc97555fdc1d789ce5d85800c59c9e00c89791598724340c97a4a4a05bab"
+    },
+    "MemTraceRefinement": {
+      "seconds": 2.37,
+      "log": "evidence/replay/20261021T030805403651Z/MemTraceRefinement.log",
+      "source_sha256": "b811908e6cf55966d08a9542f0d0778ee00cf55468efebd2a6808897372655ad"
+    },
+    "MemOutputRefinement": {
+      "seconds": 13.591,
+      "log": "evidence/replay/20261021T030805403651Z/MemOutputRefinement.log",
+      "source_sha256": "f0883bb9732056f1c13e5707a7299158de4a2f6ee48bb2dbfa73279f4887a4bb"
+    },
+    "MemoryDiagnosis": {
+      "seconds": 0.916,
+      "log": "evidence/replay/20261021T030805403651Z/MemoryDiagnosis.log",
+      "source_sha256": "5ecf80df5c5e94a726c16c3abc45ad072096c411ec3fdfcedeabab9c60402e90"
+    },
+    "MemAudit": {
+      "seconds": 17.646,
+      "log": "evidence/replay/20261021T030805403651Z/MemAudit.log",
+      "source_sha256": "ec998ab8ba15f6030bdc6f09f31005ab3ab4ea389efe77bfbc587d7f5f198be6"
+    }
+  },
+  "source_binding": {
+    "status": "exact_text_match",
+    "rtl_sha256": "f5d0c13323902abe8d4077f214249e7fb6ef8f5753e7f7657959ab52a3fbe0c0",
+    "ast_sha256": "353b36899efe88779798e1b5838b20906bed8a6464b12e6dfcdf00ce5d2aeb74",
+    "memories": [
+      {
+        "name": "ram",
+        "addr_width": 8,
+        "data_width": 32,
+        "size": 256,
+        "read_ports": 3,
+        "write_ports": 1,
+        "initial_contents": "arbitrary"
+      }
+    ]
+  },
+  "sources": {
+    "case_cpu/bridge/ALUCircuit.lean": "ffeaafa84a21ad16315dcf288cf771b2e82ed3839b03190af4c1d0760552b67a",
+    "case_cpu/bridge/AcceptCircuit.lean": "f716320d31e5a17f913a92ae2180ce42f316265042c7fc9f2a7c3f68520731e5",
+    "case_cpu/bridge/Audit.lean": "606e72bead1bdd12d98ef9b92a3433d547576a8528096b54ff5e25457e143bbf",
+    "case_cpu/bridge/Circuit.lean": "e655c2683e23437515823965f61805aa42827fe4e315d403e6167ae0ed8e9d20",
+    "case_cpu/bridge/ControlCircuit.lean": "509596d49d842827efc0a44e71fce5238fd79bd13483d8a3d65bde21a0e244f6",
+    "case_cpu/bridge/DecodeFields.lean": "cf79ec73141afdca8cb797c52439233bbcd90490bc080c9b77a03d52236bdc41",
+    "case_cpu/bridge/DecodeSpec.lean": "82ca2dbaea6190b4f667a9a20846014f7c6e6b2aab756afe5af29d32dc4cc6d1",
+    "case_cpu/bridge/DecoderCircuit.lean": "4566d11e7d0a2aa4baf8ddb6506dc10408d871c8ebf585699def5c5a2fb42445",
+    "case_cpu/bridge/DecoderTable.lean": "c5c7e8d6178572b4d8b2563766474fce208489942d1d2657d697debf399f36bb",
+    "case_cpu/bridge/DispatchCircuit.lean": "16870f6e45791fff7bf151a4f69cdc64c732b03774629fc6c50237e06cfaff24",
+    "case_cpu/bridge/Events.lean": "48f98a9d2b6a08a925dfd5f8b446295481fccb1345a1b1565a2d3dc2fbf20b22",
+    "case_cpu/bridge/Forwarding.lean": "9c0f56ab18c243911a45e6e710b95778db53c354176961186b7e2ae022109db3",
+    "case_cpu/bridge/ImportCertificate.lean": "6272dccb976c5d8b4e800dd24c1a9f298be56f7fa06aff4252d087bde96933d7",
+    "case_cpu/bridge/ImportedData.lean": "e6caf00ee192c24143f0e8abec81c50ef06d18d776a77f61f2f9a08655cf8cca",
+    "case_cpu/bridge/NetFacts.lean": "1537d2098ca19da4e8b04b128ef5eb8d9ecbf30e5f759b6bf65ac9f86211071d",
+    "case_cpu/bridge/NetlistStep.lean": "1adc647928ec58e6dac3e0567d4498cf2271ed692d1feda447f5982264f65268",
+    "case_cpu/bridge/PacketPC.lean": "e4442c31cc28e9578fee6e638103fc645a8ddaa58cfba1479774f2a9a2eef85a",
+    "case_cpu/bridge/Physical.lean": "ae4d9752350c67bc36760b378ee3eaf937a5e725540a7410cef8ecf678eedb06",
+    "case_cpu/bridge/RawCPU.lean": "05604c256db4a5f0a8ff6da7fd0069b32a6169cf1eb7de626f9118496bfc8095",
+    "case_cpu/bridge/Shallow.lean": "094d284d6686b8287490c1198c330b9845e86cf9ac6791c17c11b8294d8292e4",
+    "case_cpu/bridge/SourceRefinement.lean": "d7d21fadaeb7d64c845991183615bb4f3e4cb57bd986d68639d32a087310fa10",
+    "case_cpu/bridge/StorageCircuit.lean": "edad4e6c4084af076f64e35c9d7e0632f0bb2e860830392f27f52e2c0d720e68",
+    "case_cpu/bridge/WordMath.lean": "04ebe53920866bb5154a858df54f08c79ff7063fca9b37907ed36051324586b7",
+    "case_cpu/lean/Diagnosis.lean": "3188a49511956f62bfef0f04cdb8d10a2c6c3df6b9c0a7c48b118d5e3569e205",
+    "case_cpu/lean/ISA.lean": "f0e7f52fe068f3f07f2b2743982a3e497ca063dbb94ac83a291fc9d1ba410db6",
+    "case_cpu/lean/Mutants.lean": "4a0c87d504f3f999a08cbc32829b56a5217cbbb4810d71d5a95da4f77216018a",
+    "case_cpu/lean/Pipeline.lean": "7133fea2926970be03dc5ec534faf8b208871aee51d70378a0f11a3ff5fc1da6",
+    "case_cpu/lean/Refinement.lean": "9ecefb68a89287f44090b9677d19c832c0ddc0b5c187716200088b362e70df66",
+    "case_cpu/lean/Trace.lean": "8149ed4ba715dbf2ccab57612b8bf3c74476e2b0ff76d0dde0acffde2c8edd3d",
+    "case_cpu/memory/lean/MemALUCircuit.lean": "8f2db64409254c0cec777c3c1d2d201a459a24b64b73c65d3a1c6496832559de",
+    "case_cpu/memory/lean/MemAcceptRefinement.lean": "0da3cc97555fdc1d789ce5d85800c59c9e00c89791598724340c97a4a4a05bab",
+    "case_cpu/memory/lean/MemAudit.lean": "ec998ab8ba15f6030bdc6f09f31005ab3ab4ea389efe77bfbc587d7f5f198be6",
+    "case_cpu/memory/lean/MemCircuitRefinement.lean": "8b649c6da6567062c31b53c62e432eb0c5ea1c4164b6a1ceb803d99f09a3d384",
+    "case_cpu/memory/lean/MemControlCircuit.lean": "b4a3aab75d5c3a82d9114f98901af5def4428d43bd85df0a2ad03fb98a546ecf",
+    "case_cpu/memory/lean/MemDecode.lean": "686c2a7a6c27120597ae31fa7b0c0f7306b7556023d958a8287908fc1f8023c6",
+    "case_cpu/memory/lean/MemDecodeFields.lean": "369c7b3e98351d6b74654838a69547f4412e852582311dcd96f9535f9ca50d5e",
+    "case_cpu/memory/lean/MemDecoderCircuit.lean": "ea999ebe833dbe7f59f3fd8017c88bba3d8e9e3f7fd1ee8302982de4e2eef030",
+    "case_cpu/memory/lean/MemDispatchRelation.lean": "af38e1005f9c785524fb0ab72015f947e7960209142c87ce252aa292f85f59f2",
+    "case_cpu/memory/lean/MemEvents.lean": "25809af81de9a85956d37629e1cffd1f623968784c4c12c2d4a2cb81351f64eb",
+    "case_cpu/memory/lean/MemExecuteCircuit.lean": "a2047c4e2c0d65365ba9b35a4f69f05ae383727001066ea01128b1e081458bac",
+    "case_cpu/memory/lean/MemFrontCircuit.lean": "9a631ccb390233e9fd9a73c0bcd275b55b6e21942064e38a1b5e1af19e4cfda5",
+    "case_cpu/memory/lean/MemISA.lean": "a7f25204243b51a903c9cbacbc8ec42b80abae6cb63773c0bfe2a90c6dfc4d66",
+    "case_cpu/memory/lean/MemIssueCircuit.lean": "7268c22c32bfc6b6bede5480b8933b6e84771cdaa9ff09d76f9f1d30422c8ba4",
+    "case_cpu/memory/lean/MemMemoryCircuit.lean": "36f5fa98b07ab54a217b8f545f19170a77c4c5bba87d06b5c490cb1f0719bed0",
+    "case_cpu/memory/lean/MemMemoryCommit.lean": "5b59aed20f2fb1dccebcb3807b3c0867b91c2b1755ad293abdfc1ba39b7dba40",
+    "case_cpu/memory/lean/MemMetadata.lean": "af9b2152f3c969c1f644c9c7401229115bfa8120df6fa4386e054d5a090a66ff",
+    "case_cpu/memory/lean/MemNativeLanes.lean": "ca6ef4986c17ce65e35e6a88ac34324f2ebab7fc446fd5a9a29b16d1105fc8a1",
+    "case_cpu/memory/lean/MemNativeMemory.lean": "cac06cd174c17f8aa855c9d632a4e50ae6d25412cc7e75b250631e164da8a83d",
+    "case_cpu/memory/lean/MemNativeStore.lean": "667c37b4f424cd85fe15e492494be304117751191aa92e1bc0260a5ea2b77da7",
+    "case_cpu/memory/lean/MemNetlistStep.lean": "46243f65ef058f13be072e3c2535170b53331811b896150bcbb6adfbc5486e3e",
+    "case_cpu/memory/lean/MemOutputRefinement.lean": "f0883bb9732056f1c13e5707a7299158de4a2f6ee48bb2dbfa73279f4887a4bb",
+    "case_cpu/memory/lean/MemPhysical.lean": "6c0622d5dc7a463d5f4879defdfcddf0409b689059e051f94f181a15d9398224",
+    "case_cpu/memory/lean/MemPipeline.lean": "88dfd80bfbc886d9e2f29cc5dfc959661e9e573bab6ad4ca19cd8b2452e036bd",
+    "case_cpu/memory/lean/MemPortRefinement.lean": "9cab19fcfb0a30d564d226662a1579dc5a86ed21960b166389eeb9b65468b7be",
+    "case_cpu/memory/lean/MemRaw.lean": "0cca28ff9a81de4a71cd68dbc8895c85e9165b458b680b11d06c40673f7ae0b5",
+    "case_cpu/memory/lean/MemRawBridge.lean": "443078512fc55c8082e13347ea827291d247921f74c9df8808d51bb9fec43eb4",
+    "case_cpu/memory/lean/MemRawProof.lean": "419789c7dbe544cade8afd041d9cfcc3c25d1e6396d24d756e9b873f7fb0eae9",
+    "case_cpu/memory/lean/MemRefinement.lean": "5ab1449ee777b5bdf094a45adee2dcc5d779f15dab96624cacb82f125b5fdb3d",
+    "case_cpu/memory/lean/MemRelation.lean": "76faf727e83ba2e22b7af8fcd8818254668006b4ba3ffdf1b56dae42d6d2b166",
+    "case_cpu/memory/lean/MemStageRefinement.lean": "121e2ec477df4279df45b124d638bb4efe4e0700b2bf2fe558f0ccfdbcf44fd3",
+    "case_cpu/memory/lean/MemStorageCircuit.lean": "3bf14da7556c24e94b72d9d4c7a0765fe97481e30c1022d43421418a41c8087d",
+    "case_cpu/memory/lean/MemTraceRefinement.lean": "b811908e6cf55966d08a9542f0d0778ee00cf55468efebd2a6808897372655ad",
+    "case_cpu/memory/lean/MemWordRefinement.lean": "be61f7d64ba97d6cbec5670d6f6a785fc49847347d9d1ab62524d990b5b58fa7",
+    "case_cpu/memory/lean/MemoryCircuit.lean": "2149de503ac146a03597bdc75e66972df2c7a65c7463745ade4e48f48a150c29",
+    "case_cpu/memory/lean/MemoryDiagnosis.lean": "5ecf80df5c5e94a726c16c3abc45ad072096c411ec3fdfcedeabab9c60402e90",
+    "case_cpu/memory/lean/MemoryShallow.lean": "7def024f702d9aa9539fe7c5198f90a1192dd4337124cfd175dd4c588da408c6",
+    "case_cpu/memory/lean/NativeCertificate.lean": "93647909e80de72ee8b5a642da594510257f78f3221796cad8b8e7c61eb2ef5c",
+    "case_cpu/memory/lean/NativeImported.lean": "353b36899efe88779798e1b5838b20906bed8a6464b12e6dfcdf00ce5d2aeb74",
+    "case_cpu/memory/rtl/cpu.sv": "f5d0c13323902abe8d4077f214249e7fb6ef8f5753e7f7657959ab52a3fbe0c0",
+    "case_cpu/memory/rtl/isa_reference.svh": "4a6d1aad4ac203dcf1edc9d3794ee6699137538e449ed42ba4a96804a1bccc8e",
+    "case_cpu/memory/rtl/memory_reference.svh": "468bf7008f938c6376cffea55b16b1985f5f9fc01952889f76bb042bc1c04b48",
+    "case_cpu/memory/rtl/tb.sv": "87a36bd95903b3ea1164ed15dbe83633667deac2ff6efc6b7b8a87984f809d63",
+    "case_cpu/memory/scripts/build_rtl.py": "83605761dd0a89beb6b69fd271d490961807ec279791dd7944ac31c9a1fb8337",
+    "case_cpu/memory/scripts/check_import.py": "722a03095341067f21a8dbd1510cd7d96ba2260d5f21673708c05f86750dabb0",
+    "case_cpu/memory/scripts/gen_shallow.py": "8c3d530bee04ab245dddeb4599738e61dbedba855c0359b14d8f409e100e850e",
+    "case_cpu/memory/scripts/import_native.py": "174836f5acdd0e5cc54f506d5d4063f1ee0c54baf381ab6189302e978477105b",
+    "case_cpu/memory/scripts/model.py": "0f1e675ad09f7bca29df34900958bbf08afeb3f3c2b9bd70673c99cfa6e96213",
+    "case_cpu/memory/scripts/mutants.py": "e3d4d9b202a5791511c03fd8f95ffb7d9370c1c629305aa4129fb4ed6a894c64",
+    "case_cpu/memory/scripts/pdr.py": "b292439f0d3edfe351baf4e2b03da53b037c5679f77370e23aa18ec3d79adc53",
+    "case_cpu/memory/scripts/replay.py": "6b0efe3ed450f9efba06c66c299f909f14002e2cc5739b9ec07bfb805de47246",
+    "case_cpu/memory/scripts/report.py": "877ecd9cece0d47adbf72c571278e11f2b4c3a4eff13a16fbfea5e5cdaf21a28",
+    "case_cpu/memory/scripts/simulate.py": "0dc2975050e8a875b136503f91cf47dd0005a95351c9446d363947cdafcefa56",
+    "case_cpu/memory/spec/decisions.json": "8d36d367f3042d6933cd31bc5a0cf4cf5ac90ceeda009a9a2f0c3de81882bfa0",
+    "case_cpu/memory/spec/original.txt": "bd236b027e5df21b7b66be1a60ad3055f530154d9e3d8aa6a39b0a86a0e44b69",
+    "case_cpu/memory/spec/revised.txt": "81fddf27edb86c037e44eac71bed8d2ea0bb634ab807cc492cbd800c8f6f5518",
+    "method/assets/lib/LeanRTL/Lib/BvBridge.lean": "ebf3c62b7e0e4cbf6291c0886fc1051853b11d9e5aa0b474e25d079fff22c8e4",
+    "method/assets/lib/LeanRTL/Lib/EvalLookup.lean": "e7413e21c0a7094e349659b680d56180cae6be667638e1fae04c4329879e7698",
+    "method/assets/lib/LeanRTL/Lib/Lift.lean": "ef303d269d0a01489b1303437175530eb0e277b45a47b0e259c9bd856da95123",
+    "method/assets/lib/LeanRTL/Lib/MultiCycle.lean": "d5a041b697816edffe3e7446a3a450aaeb0da36ef687fa969d73149a269679fd",
+    "method/assets/lib/LeanRTL/Lib/Semantic/Accum.lean": "673ea15cd0f42256685b94a8ef4d4b1060766ebbd0dabc46b6450cbe5a4f3f4f",
+    "method/assets/lib/LeanRTL/Lib/Semantic/BitVecArith.lean": "172305f982a9ba3693b3b03cf7d58a649b342768b7422400b2fce929a7c589ce",
+    "method/assets/lib/LeanRTL/Lib/Semantic/DecodeMod.lean": "6f071dbb4b6f6c4e21743d70d45f6791161f57906618aebcd5baba6b0f434963",
+    "method/assets/lib/LeanRTL/Lib/Semantic/Delay.lean": "c34d632e32545bab98b236379beb93c06a2a2d2d5d621c1c11ead1103b920db9",
+    "method/assets/lib/LeanRTL/Lib/Semantic/Divider.lean": "ddebc516e880521d5afc5ff65dc6aaf04d19d4c33f2f578af934d7a1f6de91fa",
+    "method/assets/lib/LeanRTL/Lib/Semantic/ParamLift.lean": "fa39d03899aec980ca503745d0d0e8654d9932a6dc6c39c2e6779b0cc69fdd33",
+    "method/assets/lib/LeanRTL/Lib/Semantic/Streams.lean": "ba2db8796fc1eaefb23e3e3e582d316b1658c5473c74134965d584b92dafcf69",
+    "method/assets/lib/LeanRTL/Lib/StepSimp.lean": "883aadf7b327d698a61f69eac94fda63fc16d6b3e234757577837375e97ed4f2",
+    "method/framework/FrozenSpecBridge.lean": "b0ca88e498d45eeac6e10e7072e5d9dca68283db1c359aff9dd97006a57adeb0",
+    "method/framework/LeanRTL/Core/Backend.lean": "15187d6f61785446c8b51e086022810f2f20ba9a713f4716a65f0666d164005f",
+    "method/framework/LeanRTL/Core/BackendSem.lean": "28641f7d80a34c084d318c7c50d60029d45eac84137b77603a9a0047fcb0cd36",
+    "method/framework/LeanRTL/Core/Check.lean": "d4605928c141702ff0bbb5f062078cad328c09c7bee237a1f7c98bbfdbe295ba",
+    "method/framework/LeanRTL/Core/CheckWidth.lean": "fc3be2114776ed761d61022f1509e13430dd870b742f72cb112fd196980962f9",
+    "method/framework/LeanRTL/Core/CheckWidthFast.lean": "02367a78c480b609c3963f42c41764f083e6da7eb20401ca42dc697d1964d671",
+    "method/framework/LeanRTL/Core/Compiler.lean": "b7dd834485fc38ebe369f536c855a338a3ed9b906981de7456980dba997c5312",
+    "method/framework/LeanRTL/Core/CompilerCorrect.lean": "82f46290a19e50ff39b255555a85ea3786a8a9995ef9b515c5c278a1b81905ff",
+    "method/framework/LeanRTL/Core/CompilerCorrectSeq.lean": "4934bd6ab3fd03140cf370e57285f1cdff456e2a8261c07026f7917bd0441fd6",
+    "method/framework/LeanRTL/Core/CompilerDeterministic.lean": "e1e4cad97685e6dc6b1d935fa00b6aab9f68a990047c8086933dcad3c2c5177b",
+    "method/framework/LeanRTL/Core/CompilerModuleCorrect.lean": "aa3c932b34cd3c93e2c8c09aecb18ec460daaf449dd3cceb8d1d1e705954084f",
+    "method/framework/LeanRTL/Core/Coverage.lean": "d6fe5ec61acbc6a641d99b1f5d53b9ffa2a72bf2848c718ecdbe2346a4abaa67",
+    "method/framework/LeanRTL/Core/DSL.lean": "e6f872c4973f763cd6c402b60f4a98c7875afff3f25cfdee9fa4bb286a87a000",
+    "method/framework/LeanRTL/Core/FourState.lean": "2f2260c2b338825cd7685a13f1fb9fc8eb177b278dcb3e36be3d9028b8bc95e6",
+    "method/framework/LeanRTL/Core/FourStateArithmeticCorrect.lean": "30f97109c19cfed9bd61d286ea0522295dc9d0283dcaad3a29b85f1ddf7f7b50",
+    "method/framework/LeanRTL/Core/FourStateClocked.lean": "dfc2b2bda05573650bdc339f6280f2dd9aa7dcd9710a32915d93d9095ab7b689",
+    "method/framework/LeanRTL/Core/FourStateComparisonCorrect.lean": "9225509dfd4a537c1be1d4849ecf75278436daf8a6527ea6827a0dc24400c8c0",
+    "method/framework/LeanRTL/Core/FourStateCompilerCorrect.lean": "4179c03e90ad484ffa934783b4d6b6115fe5368cc7910a9428043aeffdaff528",
+    "method/framework/LeanRTL/Core/FourStateControl.lean": "09de790436da8bc22b05a76168cf8ded78c093fa70822685e5232dd983a55110",
+    "method/framework/LeanRTL/Core/FourStateDAG.lean": "adade015624f6b7ed9070824d2829cf11c2a4aebf66d818a8942b63183d49403",
+    "method/framework/LeanRTL/Core/FourStateEncoding.lean": "c53fb7b5308436d1b474da9eae67c4df698dfe28427b916dd3074787b003021d",
+    "method/framework/LeanRTL/Core/FourStateEncodingCorrect.lean": "4dd0e197cebc3fe26fa80e1c8ab2ba4de458eacc37c702820803e2e2d8310846",
+    "method/framework/LeanRTL/Core/FourStateEnvironmentCorrect.lean": "10e9d2dff22c8309bc2b65dc97e2e5f08c26a6984f6dafd77d0444c4c442d09f",
+    "method/framework/LeanRTL/Core/FourStateModuleCorrect.lean": "edb5947e1121ff8e1d5114c14b7a88883047d41dac011788b9448ecbac60e65d",
+    "method/framework/LeanRTL/Core/FourStateNBA.lean": "241ec93fce316ab96c8fe86e87816d359513e8f87e509dff96781b960afc3e31",
+    "method/framework/LeanRTL/Core/FourStateNetlist.lean": "687131ef1113575709df4be92d9d9c2cdaf6ca98bed104a8a0e281542612dfb4",
+    "method/framework/LeanRTL/Core/FourStatePmuxCorrect.lean": "6c607dd1e63db546b97a27c79867a85231664a79ed931da626a3c8b9b27cf589",
+    "method/framework/LeanRTL/Core/FourStateProcedural.lean": "9b43e43365a5e367e171555413de615aed834ff4d388832ffbc2f9f4107e625a",
+    "method/framework/LeanRTL/Core/FourStateResolved.lean": "59014f739edffdfb261b41df25fffb4b8a846243744ce000a6a3951d9d4a7fdb",
+    "method/framework/LeanRTL/Core/FourStateShiftCorrect.lean": "c7e70ff8754c03c4e9c39a4566d87bf07c04017c1b3ad4e281919ef1dcb813a2",
+    "method/framework/LeanRTL/Core/FourStateStructuralCorrect.lean": "4afe41221c5ff00ae5d1bbbe70936236c1915b10f67cf4e822823f90cd7a2c11",
+    "method/framework/LeanRTL/Core/FourStateSubstitution.lean": "24101083d0dbca2d7cbf34ec2d48ba772bc6af5e32dd6951a8a221a4447f2636",
+    "method/framework/LeanRTL/Core/FourStateSystem.lean": "6c499c53f59ae943251b6651b28ac17f44ae10c4018df0001bc1e05a92ad5905",
+    "method/framework/LeanRTL/Core/FourStateTimed.lean": "fe018e3afe7cb6f251e5171e759dd6d57b0892984bf1ae32c74291334e25fd76",
+    "method/framework/LeanRTL/Core/FourStateTransition.lean": "da8babf2bc93ef1302a895d87aa98fb660130c13e4995121207ec589cc894154",
+    "method/framework/LeanRTL/Core/FourStateVerilog.lean": "8906313e0a1b301f850862dcd421cff804e4cfa3e423d33d7ee87f2b7c2b5397",
+    "method/framework/LeanRTL/Core/HierCorrect.lean": "dccdd174da038b29c130499e68f8062bc5dfac5678022b3a610913e1a636479d",
+    "method/framework/LeanRTL/Core/HierRefine.lean": "e9b577a057f6ea1e499d160396bfd30bf4a65bfdff81e956762745c598c79e43",
+    "method/framework/LeanRTL/Core/HierSeqBridge.lean": "a7c857135a8f2eb125d5486af92336a1e80843e171e0857d6402829d59a8697a",
+    "method/framework/LeanRTL/Core/HierSeqCorrect.lean": "437efd79ca73c1f3120959587a0c80266443cb9cf8e580857edcb02c2f05e38f",
+    "method/framework/LeanRTL/Core/MemSemantics.lean": "e58b9f3acc508cce385b2333052a550c904f68d1ce124f82c527b0c4693aab95",
+    "method/framework/LeanRTL/Core/NativeMemory.lean": "8d230a8f523ece367e0537d618bdb207a3607df26e2c92ba3918c25f05e45403",
+    "method/framework/LeanRTL/Core/NetTrace.lean": "a0a9569a2ddcaaa620fe0ed47d4d42a4f1c9bca2bcd7a466a510c715e5412321",
+    "method/framework/LeanRTL/Core/Optimize.lean": "7ff458e97045098b0b8e9c8b14dedcd4eae34b9c5daf04cc8d43421126570e59",
+    "method/framework/LeanRTL/Core/PModule.lean": "76ffa2c7d3db60a661add07f27dab2206f0b9052108893cc88504a32ba035a4a",
+    "method/framework/LeanRTL/Core/ParamBackend.lean": "a239c71d5d96e712997f4932f22bdea40b07b3b6c9f8e03dd3fdff1ba19cebcb",
+    "method/framework/LeanRTL/Core/ParamTemplates.lean": "80c2e2922d9e979d57277510b1dcd91b3114ee11bb46940ec140fee7afb2735a",
+    "method/framework/LeanRTL/Core/ProcVerilog.lean": "326ded164d334144eebe80045b0b3329d4b289a8cac00da3b579e46ef2671c0a",
+    "method/framework/LeanRTL/Core/Refine.lean": "2d39f45a3f941d8d04d928002fa952ac88485482cf48e240a9bdc603b92c81c1",
+    "method/framework/LeanRTL/Core/Semantics.lean": "1caaf7ab4c23e37af1bca9210e3df5120e10e7d9e38e838287b30284faf1f11f",
+    "method/framework/LeanRTL/Core/Spec/Model.lean": "06a087f95ff3268e363b21d80d5ded1af1627043f407037384d1d219aec3f697",
+    "method/framework/LeanRTL/Core/Spec.lean": "4a185cad81d352d495b2c500a5509b69de2b6797c4081e3194737ee645b48b3e",
+    "method/framework/LeanRTL/Core/Symbolic.lean": "03ca90b2331638a3e9fad40e5c860c7e1dec0bf9787e9c6be2e188cb421de56e",
+    "method/framework/LeanRTL/Core/Syntax.lean": "372ec7d4442703989ee7f9aafc1ee1a696e17ad233c45dc9193a07c69ed813bd",
+    "method/framework/LeanRTL.lean": "2054a4d4dfcf94bfdc08045e05829ed2db165622e85923e5d10f7dfe3cc6ac03",
+    "v2lean/__init__.py": "4a13af572293cd0222f7aaff0438f94a9ff0f19c7f47b3ea0f0eeb18e81dc74e",
+    "v2lean/__main__.py": "3b87324c4739f9abacad994e3a409a800390232378c843b7c8c730e153ba303e",
+    "v2lean/array_bounds.py": "7a8c6490aac4d3e5441c598213f9da8bd394455ff5626c78d7ba3c6c0da1e183",
+    "v2lean/bench.py": "ceca6a19f157ef744a46b16cd861decf38ccd90456d9c67fd499945b946ff13a",
+    "v2lean/case.py": "c13ec9908ec3d4f2752a3703a87713c111791308fa5927947144b4df761ca9f1",
+    "v2lean/checkproofs.py": "8efb5e8cfa91dd016e63330b0b4b3e51a999e8dc66004f5efeb0c411d3e91fc2",
+    "v2lean/clocked.py": "9825f8349319de6af2f52abcd76d68518a68bf35d6e961582389844fb3ddc8bf",
+    "v2lean/clocked_case.py": "03aece15e9d756e36af848b0a556938b7e33442161dd6361f4ba26e21ff9b739",
+    "v2lean/corpus.py": "0f035feedabe1459aa917d9bdce21799e8434f2d4bacc844dab1f6d0478f1e66",
+    "v2lean/coverage.py": "8a7b749162584b70f7d1a9f392e5ad0f8f39c83412585fe985fb918acd766f12",
+    "v2lean/dag.py": "f62b8b094121c5926227e9b77d3499da6a2c0eb485c60688d265b4ce65425fab",
+    "v2lean/fourstate.py": "ec5cc933b34062a85b118824c1fde761f97d009d466201cece90d48382b9c104",
+    "v2lean/fourstate_case.py": "72cec526b0dee5ecdf67393d3833fadae1c3887fc2b60ff1e503e122514b47f9",
+    "v2lean/fourstate_encoding.py": "9d7117a30071bb1f8fbc3e09a274aa0cf436577eace104fce236d7d1eb989d30",
+    "v2lean/import_only.py": "8610438455275b9b1b03c4afb05b9362d5bb15ec9b6dfb09e03e1b94b631860d",
+    "v2lean/import_refinement.py": "de0078a3ebe6e24c11a86889959629a6ffe3db67cf1c1f3eeff8a3fd4d02388a",
+    "v2lean/importer.py": "fe52692055f63819185fd199c22d6cce27e6d74090d5357c825999fe1faf7ee8",
+    "v2lean/jasper.py": "24bcd83b120c2cf7804152393e39cc8a28fc43d15f5a89f3975f3d0710b27223",
+    "v2lean/lowering.py": "844c06b5bfee2462e7108fc18139611b76fcf3c3600d2555204d2bf9a5db78c3",
+    "v2lean/memory_collisions.py": "52fa1317b0578e2f356002c134044734dc9b03f6e944c3312a0a11824af05c53",
+    "v2lean/memorycheck.py": "d627a4384f31c45c9761361a447fd9becf533e243f3dbe5eee7cdeb90d6e1de2",
+    "v2lean/modelcheck.py": "28376837cf8f3dd442141a63e031ce4c22262f1ebb40b5f991b014685d7f59c2",
+    "v2lean/native_memory.py": "38ad98f68a56b0b1f63e64fe8fde8c19fefb5b21a3997e5454bfc2f15d932a70",
+    "v2lean/pipeline.py": "50be39ef11a4e065b4536a817990dcc6ee473fdd29221929b6de3bc0727bd72d",
+    "v2lean/read_unknowns.py": "71dc4b96bc8e56912a3a9e734329705a86ffc94b135c3d79c3ccaaa1ec401311",
+    "v2lean/regression.py": "e4b97ca134455cee3ff355b0f3b389f7efa3b5cbc6935cc3069009f4cd6fbe25",
+    "v2lean/resolved.py": "d5b39424b0bc8c49e70d2da3267f67939da768946797ae83b2bba4f04aaabb93",
+    "v2lean/resolved_case.py": "2a78daa128b8fb635adaa2595dea749f969a056462f1286b1e64b116cf5eef81",
+    "v2lean/slang.py": "03efa6b9c20dbc66d718e16e9b4ebd21f123feb558298c361825e11a7702dff6",
+    "v2lean/statecheck.py": "f1a2dbf341145e97eaca0f4f2c3a7382fef3d16c6c70c5218ef62aa57d1249a1",
+    "v2lean/symbolic.py": "478c5aa257e7be9441b4c99b67ef6b4e1add8fc670fdddf99238e0c968f3d046",
+    "v2lean/system.py": "8436719050037c713f93d4823a12c0dcbac793427263346c35604d077b5cf082",
+    "v2lean/system_sec.py": "5cd69cf3dd5a8f98d54bdf95cd14a78413195c548851a828066c839d5f72f07d",
+    "v2lean/system_transition.py": "017e710a1db08d2561a8e39ec52bb6b3f8737370c432477418d9f42b8d47cd92",
+    "v2lean/timed.py": "7dc7ba1880b6ffe67fc76ec14e82b2608f3efdeb4af7e5364932e6838ccc6cfd",
+    "v2lean/timed_case.py": "a8ceba7cec4e42ae46ceb1b6215662ff3d81ac29719b91556bbf7ec1231549d8",
+    "v2lean/unknowns.py": "b7d81e10f84ad305284926433cc5791e1e54d2f73d4ae73f567fd334fd70ff85",
+    "v2lean/validate_case.py": "419dad4474c7dbbd7c7ab25ad83ed5272f645e49d681d288080604ade941d6f7"
+  },
+  "shallow_cache_reused": true,
+  "lean_version": "Lean (version 4.29.0, x86_64-unknown-linux-gnu, commit 98dc76e3c0a9b856c9b98726b713fb04fab16740, Release)"
+}

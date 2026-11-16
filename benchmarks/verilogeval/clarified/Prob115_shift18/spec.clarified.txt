@@ -1,0 +1,106 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- load: input 1 bit.
+- ena: input 1 bit.
+- amount: input [1:0].
+- data: input [63:0].
+- q: output [63:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input or reset operation. At power-up, before any rising edge of clk has been processed, q is unknown and must remain uninitialised: the implementation must not give it a declaration initialiser or an initial-block value. A rising edge with load deasserted leaves this unknown value unchanged, whether ena is asserted or deasserted, because an unknown prior q cannot become a known shifted result. The first rising edge with load asserted makes q equal to the data sampled at that edge, regardless of ena and amount.
+
+4. Timing.
+
+q is a 64-bit registered output updated only on rising edges of clk. It has one-edge state-update latency: an edge sampling asserted load captures data, and an edge sampling deasserted load and asserted ena updates q from its preceding value using amount. There are no completion pulses or periodic outputs.
+
+The normative evaluated trace uses full-cycle observations. Each row samples q before that row's active rising edge, and the transition caused by that edge is visible in the next row. Thus a row shows the value produced by the preceding rising edge. The interface specifies no numeric observation step or sample offset, so this observation convention does not assert an implicit 10 ns tick or any circuit period or propagation delay.
+
+5. Behaviour.
+
+q changes only in response to a rising edge of clk: at each such edge load has priority and captures data, otherwise ena selects the amount-controlled shift, otherwise q holds; steady clk levels and falling edges have no effect, and consecutive rising edges independently repeat this rule.
+
+At every rising clock edge, asserted load replaces q with the 64-bit data value sampled on that edge regardless of ena or amount; repeated asserted-load edges repeatedly capture the then-current data. When load is deasserted, data has no effect on q.
+
+At a rising clock edge with load deasserted, asserted ena updates q using the shift selected by amount and repeated asserted-ena edges repeat that shift, while deasserted ena retains q; ena has no effect when load is asserted because loading has priority.
+
+At a rising clock edge, amount affects q only when load is deasserted and ena is asserted: 2'b00 shifts q left by one bit and fills the vacated least-significant bit with zero; 2'b01 shifts q left by eight bits and fills the eight vacated least-significant bits with zeros; 2'b10 shifts q right by one bit and replicates the preceding most-significant bit into the vacated position; and 2'b11 shifts q right by eight bits and replicates the preceding most-significant bit into all eight vacated positions. Each left shift is evaluated from the 64-bit preceding q and only the low 64 bits of its result are retained. Each qualifying repeated edge uses the amount sampled on that edge. In all other circumstances amount has no effect.
+
+There is no separate completion interval, and every rising edge can perform another load, shift, or hold update. q retains its last known result indefinitely across edges where both load and ena are deasserted.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | load | ena | amount | data | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 2'b00 | 64'h0 | 64'x |
+| 1 | 1 | 0 | 2'b00 | 64'h1 | 64'x |
+| 2 | 0 | 1 | 2'b00 | 64'h0 | 64'h1 |
+| 3 | 0 | 1 | 2'b00 | 64'h0 | 64'h2 |
+
+### stimulus 1
+| cycle | load | ena | amount | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 2'b00 | 64'hffffffffffffffff | 64'x |
+| 1 | 0 | 1 | 2'b00 | 64'h0 | 64'hffffffffffffffff |
+| 2 | 0 | 0 | 2'b11 | 64'h1 | 64'hfffffffffffffffe |
+
+### stimulus 2
+| cycle | load | ena | amount | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 2'b01 | 64'h123456789abcdef | 64'x |
+| 1 | 0 | 1 | 2'b01 | 64'h0 | 64'h123456789abcdef |
+| 2 | 0 | 1 | 2'b01 | 64'h0 | 64'h23456789abcdef00 |
+
+### stimulus 3
+| cycle | load | ena | amount | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 2'b10 | 64'h8000000000000000 | 64'x |
+| 1 | 0 | 1 | 2'b10 | 64'h0 | 64'h8000000000000000 |
+| 2 | 0 | 1 | 2'b10 | 64'h0 | 64'hc000000000000000 |
+
+### stimulus 4
+| cycle | load | ena | amount | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 2'b11 | 64'hff00000000000000 | 64'x |
+| 1 | 0 | 1 | 2'b11 | 64'h0 | 64'hff00000000000000 |
+| 2 | 0 | 1 | 2'b11 | 64'h0 | 64'hffff000000000000 |
+
+### stimulus 5
+| cycle | load | ena | amount | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 2'b10 | 64'h1 | 64'x |
+| 1 | 0 | 1 | 2'b10 | 64'hffffffffffffffff | 64'h1 |
+| 2 | 1 | 1 | 2'b01 | 64'h8000000000000000 | 64'h0 |
+| 3 | 0 | 1 | 2'b01 | 64'h0 | 64'h8000000000000000 |
+
+### stimulus 6
+| cycle | load | ena | amount | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 2'b00 | 64'h123456789abcdef | 64'x |
+| 1 | 0 | 0 | 2'b01 | 64'hffffffffffffffff | 64'h123456789abcdef |
+| 2 | 0 | 1 | 2'b10 | 64'h1 | 64'h123456789abcdef |
+| 3 | 0 | 0 | 2'b11 | 64'h8000000000000000 | 64'h91a2b3c4d5e6f7 |
+
+### stimulus 7
+| cycle | load | ena | amount | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 2'b00 | 64'h1 | 64'x |
+| 1 | 0 | 1 | 2'b00 | 64'h0 | 64'h1 |
+| 2 | 0 | 0 | 2'b11 | 64'h0 | 64'h2 |
+| 3 | 1 | 0 | 2'b00 | 64'h8000000000000000 | 64'h2 |
+| 4 | 0 | 1 | 2'b11 | 64'h0 | 64'h8000000000000000 |

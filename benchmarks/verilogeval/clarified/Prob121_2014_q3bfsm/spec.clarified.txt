@@ -1,0 +1,129 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- x: input 1 bit.
+- z: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+-  C: default = 2.
+-  D: default = 3.
+-  E: default = 4.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is synchronous and active high. Merely asserting reset does not immediately change the held mode or z. On each rising edge at which reset is high, reset has priority over x and sets the held mode to M0. Repeated rising edges that sample reset high keep M0. On the first rising edge after reset is sampled low, progression resumes from the mode then held according to the sampled x value.
+
+At power-up, before any rising edge has sampled reset high, no behavioral mode is valid and z is unknown. This remains true even if reset is high before its first sampling rising edge. The implementation must leave this power-up state and z uninitialised, with no initial block or declaration initialiser that gives them a definite value. Immediately after the first rising edge sampling reset high, the mode is M0 and z is 0.
+
+4. Timing
+
+The circuit is triggered only by rising edges of clk. A low level, steady high level, or falling edge has no effect. Reset and x are sampled on each rising edge, with reset taking priority. z is a registered-state Moore output: after initial reset has established a valid mode, it reflects the currently held mode with one state-update opportunity per rising edge and changes only as a consequence of such an update. It has no completion pulse, transaction latency, or automatic restart.
+
+Trace rows use the interface full-cycle observation convention: row k is the settled pre-edge observation for full-cycle step k, and the transition computed by that step is visible in the next row. This observation convention is separate from the circuit law that state changes only on rising clk edges. The interface supplies no numeric step duration or sample offset, so this document does not invent a nanosecond clock period or delay.
+
+5. Behaviour
+
+The held behavioral modes are M0 through M4. When reset is low at a rising edge, the contemporaneous one-bit x value determines the next mode as follows: from M0, x=0 selects M0 and x=1 selects M1; from M1, x=0 selects M1 and x=1 selects M4; from M2, x=0 selects M2 and x=1 selects M1; from M3, x=0 selects M1 and x=1 selects M2; and from M4, x=0 selects M3 and x=1 selects M4. Changes of x between rising edges have no lasting effect. Every successive rising edge repeats this law, without a separate start, completion, cancellation, disabled-input, or interruption condition.
+
+After reset has established a valid mode, z is 1 exactly in M3 and M4, and is 0 exactly in M0, M1, and M2. Before that first sampled reset, z is unknown. Assertion of reset between rising edges does not clear z; the pre-edge observation at the rising edge that first samples reset high still reflects the preceding state, and z becomes 0 in the settled state immediately after that edge.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | reset | x | z |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 1 | x |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+
+### stimulus 1
+| cycle | reset | x | z |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 0 | 0 | x |
+| 2 | 1 | 0 | x |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 1 |
+| 6 | 0 | 1 | 1 |
+| 7 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | reset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 |
+
+### stimulus 3
+| cycle | reset | x | z |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 1 | 1 |
+| 6 | 0 | 1 | 1 |
+
+### stimulus 4
+| cycle | reset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 1 |
+| 4 | 0 | 1 | 1 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | reset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+
+### stimulus 6
+| cycle | reset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 1 |
+| 4 | 1 | 0 | 1 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | reset | x | z |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 0 | 1 | x |
+| 2 | 0 | 0 | x |
+| 3 | 1 | 0 | x |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 1 |
+| 7 | 0 | 1 | 1 |

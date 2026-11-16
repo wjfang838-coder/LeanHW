@@ -1,0 +1,84 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset behavior. The design has no state elements. From power-up onward, including before any edge has occurred and on every later observation, out is the determined combinational AND of the current a and b inputs; it is not uninitialised or retained from an earlier observation. Consequently, reset assertion, a first reset edge, and reset release do not apply.
+
+Timing
+
+out is combinational with zero clock-cycle latency from a and b. It has no capture edge, pulse interval, periodic-signal period, or duty cycle.
+
+The evaluated trace uses the interface's full-cycle observation convention: each row samples the settled output for that row's inputs before the stateless transition. This row spacing is only an observation convention; the circuit has no clock period and this specification imposes no numeric propagation delay.
+
+Behaviour
+
+For every input combination, out equals the bitwise AND of a and b, so it is 1 only when both inputs are 1 and is otherwise 0.
+
+At all times and with no modes or transaction state, a participates directly in out = a & b: when b is 1, out follows a, and when b is 0, changing a has no effect; simultaneous, interrupted, or repeated input changes are reflected combinationally without capture or retention.
+
+At all times and with no modes or transaction state, b participates directly in out = a & b: when a is 1, out follows b, and when a is 0, changing b has no effect; simultaneous, interrupted, or repeated input changes are reflected combinationally without capture or retention.
+
+out is continuously the combinational value a & b, with no reset, capture edge, observation latency, hold or clear interval, completion state, or restart behavior; therefore a pre-edge row observes the AND of the input values present before that edge.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 1 | 1 | 1 |
+
+### stimulus 4
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 1 |
+
+### stimulus 5
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+
+### stimulus 6
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 1 | 1 | 1 |
+| 1 | 0 | 0 | 0 |

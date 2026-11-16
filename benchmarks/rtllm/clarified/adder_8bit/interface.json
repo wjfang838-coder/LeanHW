@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "adder_8bit",
+  "toplevel": "adder_8bit",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

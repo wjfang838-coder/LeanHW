@@ -1,0 +1,11 @@
+--- faulty.sv
++++ repaired.sv
+@@ -64,7 +64,7 @@
+       case (op)
+         ADD: alu=a+b; SUB: alu=a-b; SLL: alu=a<<b[4:0];
+         SLT: alu=($signed(a)<$signed(b)); SLTU: alu=(a<b);
+-        XOR_: alu=a^b; SRL: alu=a>>b[4:0]; SRA: alu=a>>b[4:0];
++        XOR_: alu=a^b; SRL: alu=a>>b[4:0]; SRA: alu=$signed(a)>>>b[4:0];
+         OR_: alu=a|b; AND_: alu=a&b;
+         ADDI: alu=a+im; SLTI: alu=($signed(a)<$signed(im)); SLTIU: alu=(a<im);
+         XORI: alu=a^im; ORI: alu=a|im; ANDI: alu=a&im;

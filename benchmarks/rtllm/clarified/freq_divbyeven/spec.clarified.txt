@@ -1,0 +1,202 @@
+Module and integration contract
+
+Module: freq_divbyeven.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- clk_div: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  NUM_DIV: default = 6.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Reset is active low and asynchronous. Whenever rst_n is low, clk_div is immediately forced to 0 without waiting for a rising edge of clk, and the divide sequence is restarted. Continued low or repeated reset assertions retain clk_div at 0 and retain the restarted sequence. A reset assertion coincident with a rising edge has priority over that edge.
+
+Before reset has ever been asserted, clk_div and the counter state are unknown. The implementation must leave both uninitialised, with no initial block and no declaration initialiser. On release of reset, clk_div remains 0; release alone causes no state change. On the first and second rising edges after release it remains 0, and on the third rising edge it toggles to 1. The counter state is 0 while reset is asserted, remains 0 on release, advances to 1 and then 2 on the first two rising edges after release, and returns to 0 on the third rising edge as clk_div toggles.
+
+4. Timing.
+
+clk_div is a registered periodic output with asynchronous reset. For the default NUM_DIV value of 6, its half-period is exactly 3 rising edges of clk and its full period is exactly 6 rising edges: 3 cycles low followed by 3 cycles high after the initial post-reset cadence reaches its first toggle. More generally, for each supported NUM_DIV value, clk_div toggles every NUM_DIV/2 rising edges, so its period is NUM_DIV cycles and its duty counts are NUM_DIV/2 low cycles and NUM_DIV/2 high cycles.
+
+The evaluated object uses full-cycle sampling. Row k is the settled observation at k * step_ns according to the interface timing configuration, sampled at its configured sample_offset_ns, and is not based on an implicit 10 ns clock. Each row observes the state before that row's rising-edge transition; therefore, a toggle caused by row k's rising edge first appears in row k+1. This trace observation convention is separate from the circuit law above, whose period and delay are defined in rising-edge counts.
+
+5. Behaviour.
+
+The public parameter NUM_DIV defaults to 6. Supported configurations are the even integer values from 2 through 32 inclusive. Values outside that set are unsupported and their behavior is not specified.
+
+While rst_n is high, only rising edges of clk advance the divide sequence. Static clk levels and falling edges have no effect. Starting from a restarted sequence, clk_div holds its current value for the first NUM_DIV/2 - 1 rising edges and toggles on the NUM_DIV/2-th rising edge; the sequence then restarts and repeats indefinitely, with no completion state. For the default NUM_DIV value of 6, clk_div holds on the first two rising edges and toggles on the third, repeating that three-rising-edge half-period cadence thereafter.
+
+Driving rst_n low asynchronously forces clk_div to 0 and restarts the divide sequence. Deasserting rst_n alone has no effect. A later reset cancels any partial count immediately, clears clk_div, and causes the next toggle to occur on the NUM_DIV/2-th rising edge after reset is released. Repeated reset assertions and continued assertion do not advance the sequence. Reset has priority when asserted coincident with a rising edge.
+
+clk_div is asynchronously cleared to 0 by reset, stays low on reset release, holds through the first NUM_DIV/2 - 1 post-reset rising edges, and toggles on the NUM_DIV/2-th and every NUM_DIV/2-th rising edge thereafter. For NUM_DIV=6, it holds through two post-reset rising edges and toggles on the third. Before the first reset assertion, clk_div remains unknown.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete NUM_DIV=6 object and its listed stimuli.
+
+### stimulus 0
+| cycle | rst_n | clk_div |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+
+### stimulus 1
+| cycle | rst_n | clk_div |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 0 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+
+### stimulus 2
+| cycle | rst_n | clk_div |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 1 | x |
+| 2 | 0 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 0 |
+
+### stimulus 3
+| cycle | rst_n | clk_div |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 0 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 0 |
+
+### stimulus 4
+| cycle | rst_n | clk_div |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 0 | 0 |
+| 4 | 0 | 0 |
+| 5 | 1 | 0 |
+
+### stimulus 5
+| cycle | rst_n | clk_div |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 1 |
+| 5 | 1 | 1 |
+| 6 | 1 | 1 |
+| 7 | 1 | 0 |
+| 8 | 1 | 0 |
+| 9 | 1 | 0 |
+| 10 | 1 | 1 |
+| 11 | 1 | 1 |
+| 12 | 1 | 1 |
+| 13 | 1 | 0 |
+| 14 | 1 | 0 |
+| 15 | 1 | 0 |
+| 16 | 1 | 1 |
+| 17 | 1 | 1 |
+| 18 | 1 | 1 |
+| 19 | 1 | 0 |
+| 20 | 1 | 0 |
+| 21 | 1 | 0 |
+| 22 | 1 | 1 |
+| 23 | 1 | 1 |
+| 24 | 1 | 1 |
+| 25 | 1 | 0 |
+| 26 | 1 | 0 |
+| 27 | 1 | 0 |
+| 28 | 1 | 1 |
+| 29 | 1 | 1 |
+| 30 | 1 | 1 |
+| 31 | 1 | 0 |
+| 32 | 1 | 0 |
+| 33 | 1 | 0 |
+| 34 | 1 | 1 |
+| 35 | 1 | 1 |
+| 36 | 1 | 1 |
+| 37 | 1 | 0 |
+| 38 | 1 | 0 |
+| 39 | 1 | 0 |
+| 40 | 1 | 1 |
+| 41 | 1 | 1 |
+| 42 | 1 | 1 |
+| 43 | 1 | 0 |
+| 44 | 1 | 0 |
+| 45 | 1 | 0 |
+| 46 | 1 | 1 |
+| 47 | 1 | 1 |
+| 48 | 1 | 1 |
+| 49 | 1 | 0 |
+| 50 | 1 | 0 |
+| 51 | 1 | 0 |
+| 52 | 1 | 1 |
+| 53 | 1 | 1 |
+| 54 | 1 | 1 |
+| 55 | 1 | 0 |
+| 56 | 1 | 0 |
+| 57 | 1 | 0 |
+| 58 | 1 | 1 |
+| 59 | 1 | 1 |
+
+### stimulus 6
+| cycle | rst_n | clk_div |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 1 |
+| 5 | 1 | 1 |
+| 6 | 1 | 1 |
+| 7 | 1 | 0 |
+| 8 | 1 | 0 |
+| 9 | 1 | 0 |
+| 10 | 1 | 1 |
+| 11 | 1 | 1 |
+| 12 | 0 | 0 |
+| 13 | 1 | 0 |
+| 14 | 1 | 0 |
+| 15 | 1 | 0 |
+| 16 | 1 | 1 |
+| 17 | 1 | 1 |
+| 18 | 1 | 1 |
+| 19 | 1 | 0 |
+| 20 | 1 | 0 |
+| 21 | 1 | 0 |
+| 22 | 1 | 1 |
+| 23 | 1 | 1 |
+| 24 | 0 | 0 |
+| 25 | 1 | 0 |
+| 26 | 1 | 0 |
+| 27 | 1 | 0 |
+| 28 | 1 | 1 |
+| 29 | 1 | 1 |
+| 30 | 1 | 1 |
+| 31 | 1 | 0 |
+| 32 | 1 | 0 |
+| 33 | 1 | 0 |
+| 34 | 1 | 1 |
+| 35 | 1 | 1 |
+| 36 | 0 | 0 |
+| 37 | 1 | 0 |
+
+### stimulus 7
+| cycle | rst_n | clk_div |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 0 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 0 |
+| 5 | 1 | 1 |

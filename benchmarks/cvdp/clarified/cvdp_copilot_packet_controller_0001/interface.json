@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_packet_controller_0001",
+  "toplevel": "packet_controller",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

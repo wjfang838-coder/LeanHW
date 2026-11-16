@@ -1,0 +1,1 @@
+read_aiger /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-sanity/design.aig; fold; strash; orpos; pdr -v -T 60; write_cex -a /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-sanity/counterexample.aiw

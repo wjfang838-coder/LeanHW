@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_digital_dice_roller_0001",
+  "toplevel": "digital_dice_roller",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

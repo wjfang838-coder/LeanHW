@@ -1,0 +1,140 @@
+[
+  {
+    "query": "domain",
+    "ctx_total": 7,
+    "ctx_legal": 7,
+    "obs_total": 7,
+    "cost_sorted": true,
+    "max_cost": 41
+  },
+  {
+    "query": "deadness",
+    "cfg": "original",
+    "dead": true,
+    "cost": 1,
+    "ctx": {
+      "scenario": "reset=1 and WB valid on the same edge"
+    },
+    "ctx_lean": "CPUDiagnosis.Ctx.resetWithWriteback"
+  },
+  {
+    "query": "deadness",
+    "cfg": "progress",
+    "dead": true,
+    "cost": 41,
+    "ctx": {
+      "scenario": "accepted instruction, WB blocked for 41 edges"
+    },
+    "ctx_lean": "CPUDiagnosis.Ctx.permanentlyBlocked"
+  },
+  {
+    "query": "difference",
+    "choice": "stall",
+    "a": "local",
+    "b": "global",
+    "separated": true,
+    "a_dead": false,
+    "b_dead": false,
+    "discriminating": true,
+    "cost": 1,
+    "ctx": {
+      "scenario": "WB valid, EX externally stalled, WB unblocked"
+    },
+    "ctx_lean": "CPUDiagnosis.Ctx.wbDuringExStall",
+    "a_admits": [
+      1
+    ],
+    "b_admits": [
+      0
+    ]
+  },
+  {
+    "query": "difference",
+    "choice": "forward",
+    "a": "youngest",
+    "b": "oldest",
+    "separated": true,
+    "a_dead": false,
+    "b_dead": false,
+    "discriminating": true,
+    "cost": 1,
+    "ctx": {
+      "scenario": "older WB writes x1=7; younger MEM writes x1=9; ID reads x1"
+    },
+    "ctx_lean": "CPUDiagnosis.Ctx.competingWriters",
+    "a_admits": [
+      9
+    ],
+    "b_admits": [
+      7
+    ]
+  },
+  {
+    "query": "difference",
+    "choice": "latency",
+    "a": "includesEntry",
+    "b": "afterEntry",
+    "separated": true,
+    "a_dead": false,
+    "b_dead": false,
+    "discriminating": true,
+    "cost": 3,
+    "ctx": {
+      "scenario": "MUL enters EX; three unblocked EX edges including entry"
+    },
+    "ctx_lean": "CPUDiagnosis.Ctx.multiplyLatency",
+    "a_admits": [
+      3
+    ],
+    "b_admits": [
+      4
+    ]
+  },
+  {
+    "query": "hole",
+    "hole": "divzero",
+    "free": true,
+    "pinning": false,
+    "cost": 1,
+    "ctx": {
+      "scenario": "DIV x3,x1,x0 with x1=7"
+    },
+    "ctx_lean": "CPUDiagnosis.Ctx.divideByZero",
+    "admits": [
+      0,
+      1,
+      3,
+      4,
+      7,
+      9,
+      4294967295
+    ]
+  },
+  {
+    "query": "hole",
+    "hole": "x0",
+    "free": true,
+    "pinning": false,
+    "cost": 1,
+    "ctx": {
+      "scenario": "ADDI x0,x0,7; observe x0"
+    },
+    "ctx_lean": "CPUDiagnosis.Ctx.zeroDestination",
+    "admits": [
+      0,
+      1,
+      3,
+      4,
+      7,
+      9,
+      4294967295
+    ]
+  },
+  {
+    "query": "decided",
+    "cfg": "revised",
+    "determined": true,
+    "free_at": 0,
+    "dead_at": 0
+  }
+]

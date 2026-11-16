@@ -1,0 +1,66 @@
+# The method arm of leanRTL: two authors, serial, with a machine-enforced freeze between them.
+#
+# ## Why serial and not blind-parallel
+#
+# The tree this comes from ran S and R in parallel, blind to each other, and treated their
+# disagreement as evidence that the prose was ambiguous.  That was a good instrument when the
+# prose arrived unexamined.  It is a weaker one here: leanSpec answers the ambiguity question
+# upstream, on the prose itself, with a separating stimulus attached to each finding — which is
+# strictly more than "two readers read it differently, and one of them is wrong somewhere".
+#
+# So the parallel pair collapses to a serial pair, and the two roles that existed to service it
+# go with it.  A (adjudicator) decided which of two blind readings the prose supported; there are
+# no longer two blind readings.  R and P become one author, D, because splitting implementation
+# from proof bought independence — a prover that did not write the implementation cannot be
+# tempted to shape it — and that independence is only worth its cost when the prover also cannot
+# see the prose, which a serial D can.
+#
+# What replaces it is the freeze.  D may not edit the specification; the file is `chmod 0444` on
+# disk and on the confinement hook's READ-ONLY list, so this is enforced rather than requested.  D
+# reads it constantly — it is the whole task statement — and every write to it is refused.  The
+# cost is that a genuine specification bug now costs a whole round through `challenge.json`
+# instead of an edit.  That cost is the mechanism: an edit leaves nothing behind, and a round
+# leaves a quote, a reason and a counterexample trace.
+#
+# ## simdiff is still here, and means something different
+#
+# It was evidence of ambiguity: two blind authors' artifacts diverging on cycle 37 meant the
+# prose admitted both.  With a serial D that reading is gone — D read the specification, so a
+# divergence is D's bug, not the prose's.  It stays because it is a cheap deterministic check
+# before an expensive one: 160 cycles of pseudo-random stimulus through the specification's
+# executable form and through the implementation, run before D is asked to prove anything.  A
+# design that fails simdiff cannot be proved, and finding that out in two seconds rather than
+# after an hour of proof search is worth the gate on its own.
+#
+# ## No repair budget
+#
+# The build / diagnose / repair loop runs until it converges or the launcher's wall clock ends
+# the session.  `scripts/bb.py` carries a runaway guard at 100 red rounds per design — a guard,
+# not a budget, and a design it stops is reported as stopped rather than as failed.  A budget
+# would put a number in the results table that is about the budget rather than about the design.
+name: two-author
+description: >
+  The method arm.  S writes an executable BitVec specification from the prose and commits it;
+  the file is then frozen — read-only, deny-listed — and D writes the implementation against it,
+  passes a deterministic 160-cycle self-check, and proves the implementation refines the
+  specification.  D may not edit the specification; a disagreement costs a challenge round and
+  leaves a record.  "All gates green" entails, on its face, a machine-checked proof about the
+  implementation that reaches the pins.
+
+authoring: two-author
+assets: [lib, skills, core-md, rules, roles, f2]
+rules:  [HARD_RULES.md, CORE.md]
+
+# How many times D may send the specification back before the design is reported unresolved.
+# Two, not unlimited: a third challenge on one design has never been a specification bug in
+# anything observed, it has been an implementer that cannot build the thing and is relitigating.
+max_spec_versions: 2
+
+gates:
+  builds:        true
+  proves_impl:   true
+  zero_sorry:    true
+  axiom_clean:   true
+  undriven_nets: true
+  asset_leak:    true
+  simdiff:       true

@@ -1,0 +1,100 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- Cur_PC: input [PC_W-1:0].
+- Imm: input [31:0].
+- JalrSel: input 1 bit.
+- Branch: input 1 bit.
+- AluResult: input [31:0].
+- PC_Imm: output [31:0].
+- PC_Four: output [31:0].
+- BrPC: output [31:0].
+- PcSel: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  PC_W: default = 9.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. The module has no stored state. From power-up, including before any edge has occurred, every output is already the combinational value specified below for the current inputs; no output is unknown or dependent on a first reset edge. There is therefore no distinct first step after reset release.
+
+4. Timing.
+
+All four outputs, PC_Imm, PC_Four, BrPC, and PcSel, are purely combinational with zero clock-cycle latency from their named input dependencies. There are no pulses, periodic outputs, transactions, completion events, retained results, or circuit clock period or delay laws.
+
+For the evaluated full-cycle trace, row k is the settled combinational observation at k * step_ns, sampled using the interface's sample_offset_ns convention. This trace observation convention does not impose a 10 ns clock tick and does not define a circuit period or propagation delay.
+
+5. Behaviour.
+
+At all times, Cur_PC is zero-extended from PC_W bits to 32 bits. PC_Imm continuously equals that value plus the 32-bit Imm value, with the sum reduced modulo 2^32. Every input change, simultaneous change, or repetition is reflected immediately; there is no capture, retention, reset, cancellation, interruption, or transaction state.
+
+PC_Four continuously equals zero-extended Cur_PC plus 4, reduced modulo 2^32. Imm, JalrSel, Branch, and AluResult do not affect PC_Four.
+
+When JalrSel is 1, BrPC equals the complete 32-bit AluResult value and PcSel equals 1. In this mode Branch, Imm, and Cur_PC do not affect BrPC, and Branch does not affect PcSel.
+
+When JalrSel is 0 and both Branch and AluResult[0] are 1, BrPC equals PC_Imm and PcSel equals 1. Thus Imm contributes additively to BrPC only in this mode, and only bit 0 of AluResult affects the selection.
+
+When JalrSel is 0 and either Branch is 0 or AluResult[0] is 0, BrPC equals 32'b0 and PcSel equals 0. These cases cover every input encoding. Equivalently, PcSel continuously equals JalrSel OR (Branch AND AluResult[0]).
+
+PC_Imm and PC_Four are unaffected by JalrSel, Branch, and AluResult. No input condition disables their combinational updates. No output has a first-result exception, repeated-start behavior, or retained-data behavior.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | Cur_PC | Imm | JalrSel | Branch | AluResult | PC_Imm | PC_Four | BrPC | PcSel |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 9'h0 | 32'h0 | 0 | 0 | 32'h0 | 32'h0 | 32'h4 | 32'h0 | 0 |
+
+### stimulus 1
+| cycle | Cur_PC | Imm | JalrSel | Branch | AluResult | PC_Imm | PC_Four | BrPC | PcSel |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 9'h1 | 32'h1 | 0 | 1 | 32'h1 | 32'h2 | 32'h5 | 32'h2 | 1 |
+
+### stimulus 2
+| cycle | Cur_PC | Imm | JalrSel | Branch | AluResult | PC_Imm | PC_Four | BrPC | PcSel |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 9'h1ff | 32'hffffffff | 1 | 0 | 32'hffffffff | 32'h1fe | 32'h203 | 32'hffffffff | 1 |
+
+### stimulus 3
+| cycle | Cur_PC | Imm | JalrSel | Branch | AluResult | PC_Imm | PC_Four | BrPC | PcSel |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 9'h100 | 32'h80000000 | 0 | 1 | 32'h80000000 | 32'h80000100 | 32'h104 | 32'h0 | 0 |
+
+### stimulus 4
+| cycle | Cur_PC | Imm | JalrSel | Branch | AluResult | PC_Imm | PC_Four | BrPC | PcSel |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 9'ha5 | 32'h12345678 | 1 | 1 | 32'h89abcdef | 32'h1234571d | 32'ha9 | 32'h89abcdef | 1 |
+
+### stimulus 5
+| cycle | Cur_PC | Imm | JalrSel | Branch | AluResult | PC_Imm | PC_Four | BrPC | PcSel |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 9'h1fd | 32'h7 | 0 | 1 | 32'h3 | 32'h204 | 32'h201 | 32'h204 | 1 |
+
+### stimulus 6
+| cycle | Cur_PC | Imm | JalrSel | Branch | AluResult | PC_Imm | PC_Four | BrPC | PcSel |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 9'h1ff | 32'hffffffff | 0 | 0 | 32'h1 | 32'h1fe | 32'h203 | 32'h0 | 0 |
+
+### stimulus 7
+| cycle | Cur_PC | Imm | JalrSel | Branch | AluResult | PC_Imm | PC_Four | BrPC | PcSel |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 9'h2a | 32'hffffffd6 | 0 | 1 | 32'h2 | 32'h0 | 32'h2e | 32'h0 | 0 |
+
+### stimulus 8
+| cycle | Cur_PC | Imm | JalrSel | Branch | AluResult | PC_Imm | PC_Four | BrPC | PcSel |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 9'h1 | 32'hffffffff | 1 | 1 | 32'h0 | 32'h0 | 32'h5 | 32'h0 | 1 |
+
+### stimulus 9
+| cycle | Cur_PC | Imm | JalrSel | Branch | AluResult | PC_Imm | PC_Four | BrPC | PcSel |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 9'h100 | 32'h1 | 0 | 0 | 32'h80000001 | 32'h101 | 32'h104 | 32'h0 | 0 |

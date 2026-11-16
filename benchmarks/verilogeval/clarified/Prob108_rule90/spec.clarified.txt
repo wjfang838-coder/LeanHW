@@ -1,0 +1,107 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- load: input 1 bit.
+- data: input [511:0].
+- q: output [511:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+There is no reset input and no reset event, so reset polarity, reset synchrony, and a first step after reset release do not apply. The only state element is the 512-bit value exposed as q together with whether that value has yet been established by a load. At power-up, before any rising edge has occurred, q is unknown. It remains unknown through every rising edge at which load is low until the first rising edge at which load is high. The implementation must leave q uninitialised: it must have no initial block or declaration initialiser that gives it a defined value.
+
+4. Timing
+
+q is a registered output.
+
+Only a rising edge of clk updates q, sampling load and, when selected, data at that edge; low levels and falling edges have no effect, and every repeated rising edge performs a new selected capture or Rule-90 step without any busy, completion, or interruption state.
+
+The new q value is observable immediately after the updating rising edge. Thus a load sampled high has a one-edge update relationship: the pre-edge value remains visible at the edge's sample point, and the sampled data is the value seen after that edge and in the next pre-edge row. There are no pulse or periodic output ports.
+
+The evaluated trace uses the interface's full-cycle observation convention. Row k denotes k * step_ns after settling, with the interface's sample_offset_ns applied; it does not imply a 10 ns clock tick. These observation coordinates do not prescribe any physical clock period or propagation delay, neither of which is specified.
+
+5. Behaviour
+
+At each rising clk edge, load high has priority and makes q take the sampled data value, while load low makes q take the next Rule-90 value; consecutive high samples repeatedly replace q, and changing load between rising edges has no effect.
+
+Data is sampled only on a rising clk edge at which load is high and then supplies all 512 bits of the next q value; when load is low or between rising edges, data has no effect, including during consecutive transactions.
+
+There is no reset, so q is initially unknown; each rising clk edge makes q become sampled data if load is high, otherwise makes q[511]=old q[510], q[i]=old q[i+1] XOR old q[i-1] for 1<=i<=510, and q[0]=old q[1], with the new value observable only after that edge (so a pre-edge row shows the old value), and there is no hold, clear, completion, or restart interval because this update repeats on every rising edge.
+
+Equivalently for a defined old q and load low, the complete 512-bit next value is `((old q << 1) XOR (old q >> 1))` truncated to bits [511:0]. Both operands are unsigned 512-bit cell vectors, the shifts are evaluated in the 512-bit result context, and truncation occurs only at the assignment to the 512-bit next q. The discarded bit above bit 511 and the zero introduced below bit 0 implement the two off-array boundary cells. If old q is still unknown because no load has occurred, a load-low update remains unknown.
+
+Inputs are one-bit where declared as such: load=1 selects capture and load=0 selects Rule 90, so there are no additional load encodings. Repeated loads repeatedly capture; any number of load-low edges repeatedly advance; there is no transaction cancellation, completion pulse, retained final result, or terminal state.
+
+6. Worked trace
+
+The following evaluated trace is normative. Each row reports the settled pre-edge output for that row's inputs before the corresponding state transition.
+
+### stimulus 0
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 0 | 512'h0 | 512'x |
+
+### stimulus 1
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 512'h0 | 512'x |
+| 1 | 0 | 512'h1 | 512'h0 |
+| 2 | 0 | 512'h0 | 512'h0 |
+
+### stimulus 2
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 512'h1 | 512'x |
+| 1 | 0 | 512'h0 | 512'h1 |
+| 2 | 0 | 512'h0 | 512'h2 |
+| 3 | 0 | 512'h0 | 512'h5 |
+
+### stimulus 3
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 512'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff | 512'x |
+| 1 | 0 | 512'h0 | 512'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff |
+| 2 | 0 | 512'h0 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001 |
+
+### stimulus 4
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 | 512'x |
+| 1 | 0 | 512'h0 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 |
+| 2 | 0 | 512'h0 | 512'h40000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 |
+
+### stimulus 5
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 512'h1000000000000000000000000000000000000000000008000000000000000000000000000007 | 512'x |
+| 1 | 0 | 512'h0 | 512'h1000000000000000000000000000000000000000000008000000000000000000000000000007 |
+| 2 | 0 | 512'h0 | 512'h280000000000000000000000000000000000000000001400000000000000000000000000000d |
+
+### stimulus 6
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 512'h1 | 512'x |
+| 1 | 0 | 512'h0 | 512'h1 |
+| 2 | 1 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 | 512'h2 |
+| 3 | 0 | 512'h0 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 |
+| 4 | 0 | 512'h0 | 512'h40000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 |
+
+### stimulus 7
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 0 | 512'h1 | 512'x |
+| 1 | 0 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 | 512'x |
+| 2 | 1 | 512'h8000000000000000000000000000000000000000000000000000000000000001 | 512'x |
+| 3 | 0 | 512'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff | 512'h8000000000000000000000000000000000000000000000000000000000000001 |
+| 4 | 1 | 512'h0 | 512'h14000000000000000000000000000000000000000000000000000000000000002 |
+| 5 | 0 | 512'h1 | 512'h0 |

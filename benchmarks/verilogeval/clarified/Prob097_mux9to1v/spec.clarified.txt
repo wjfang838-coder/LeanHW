@@ -1,0 +1,208 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input [15:0].
+- b: input [15:0].
+- c: input [15:0].
+- d: input [15:0].
+- e: input [15:0].
+- f: input [15:0].
+- g: input [15:0].
+- h: input [15:0].
+- i: input [15:0].
+- sel: input [3:0].
+- out: output [15:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Specification for TopModule
+
+1. Module and ports
+
+
+
+3. Reset
+
+There is no reset input and no reset-dependent behavior. At power-up, before any edge or reset event, out is already the combinational value selected from the current inputs as specified below. The design has no stored state elements and no uninitialised output interval. Because no reset exists, reset assertion, reset release, and a first step after release are inapplicable and do not alter out.
+
+4. Timing
+
+out is combinational, with zero clock-cycle latency from a, b, c, d, e, f, g, h, i, and sel. A simultaneous change of selector and data inputs is reflected according to their new current values, with no capture, completion pulse, hold interval, cancellation interval, restart interval, or retained result.
+
+The evaluated trace uses the interface's full-cycle observation convention: row k observes the current combinational inputs and output before the model's transition for that row. The interface supplies no numeric step_ns or sample_offset_ns. This row convention does not imply a 10 ns clock tick. The circuit has no actual clock, period, duty cycle, or delay law.
+
+5. Behaviour
+
+Input a continuously determines out exactly when sel is 4'h0 and has no effect for every other sel value.
+
+Input b continuously determines out exactly when sel is 4'h1 and has no effect for every other sel value.
+
+Input c continuously determines out exactly when sel is 4'h2 and has no effect for every other sel value.
+
+Input d continuously determines out exactly when sel is 4'h3 and has no effect for every other sel value.
+
+Input e continuously determines out exactly when sel is 4'h4 and has no effect for every other sel value.
+
+Input f continuously determines out exactly when sel is 4'h5 and has no effect for every other sel value.
+
+Input g continuously determines out exactly when sel is 4'h6 and has no effect for every other sel value.
+
+Input h continuously determines out exactly when sel is 4'h7 and has no effect for every other sel value.
+
+Input i continuously determines out exactly when sel is 4'h8 and has no effect for every other sel value.
+
+The current sel selects out = a, b, c, d, e, f, g, h, or i for sel values 4'h0, 4'h1, 4'h2, 4'h3, 4'h4, 4'h5, 4'h6, 4'h7, or 4'h8, respectively; for every other four-bit sel value, 4'h9 through 4'hf, out = 16'hffff.
+
+out is continuously and combinationally determined by that selection law. Every selector or data change, including simultaneous changes and repeated changes, takes effect without priority or transaction history; there is no stored state, interruption, cancellation, retention, capture, completion, clear, or restart behavior.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b0000 | 16'h0 |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b0000 | 16'h1 |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b0000 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b0000 | 16'h8000 |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b0000 | 16'h5a5a |
+
+### stimulus 1
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b0001 | 16'h0 |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b0001 | 16'h1 |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b0001 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b0001 | 16'h8000 |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b0001 | 16'ha5a5 |
+
+### stimulus 2
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b0010 | 16'h0 |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b0010 | 16'h1 |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b0010 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b0010 | 16'h8000 |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b0010 | 16'h1234 |
+
+### stimulus 3
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b0011 | 16'h0 |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b0011 | 16'h1 |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b0011 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b0011 | 16'h8000 |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b0011 | 16'habcd |
+
+### stimulus 4
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b0100 | 16'h0 |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b0100 | 16'h1 |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b0100 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b0100 | 16'h8000 |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b0100 | 16'hf0f |
+
+### stimulus 5
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b0101 | 16'h0 |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b0101 | 16'h1 |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b0101 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b0101 | 16'h8000 |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b0101 | 16'hf0f0 |
+
+### stimulus 6
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b0110 | 16'h0 |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b0110 | 16'h1 |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b0110 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b0110 | 16'h8000 |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b0110 | 16'h1357 |
+
+### stimulus 7
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b0111 | 16'h0 |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b0111 | 16'h1 |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b0111 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b0111 | 16'h8000 |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b0111 | 16'h2468 |
+
+### stimulus 8
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b1000 | 16'h0 |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b1000 | 16'h1 |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b1000 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b1000 | 16'h8000 |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b1000 | 16'h55aa |
+
+### stimulus 9
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b1001 | 16'hffff |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b1001 | 16'hffff |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b1001 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b1001 | 16'hffff |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b1001 | 16'hffff |
+
+### stimulus 10
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b1010 | 16'hffff |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b1010 | 16'hffff |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b1010 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b1010 | 16'hffff |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b1010 | 16'hffff |
+
+### stimulus 11
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b1011 | 16'hffff |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b1011 | 16'hffff |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b1011 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b1011 | 16'hffff |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b1011 | 16'hffff |
+
+### stimulus 12
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b1100 | 16'hffff |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b1100 | 16'hffff |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b1100 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b1100 | 16'hffff |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b1100 | 16'hffff |
+
+### stimulus 13
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b1101 | 16'hffff |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b1101 | 16'hffff |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b1101 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b1101 | 16'hffff |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b1101 | 16'hffff |
+
+### stimulus 14
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b1110 | 16'hffff |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b1110 | 16'hffff |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b1110 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b1110 | 16'hffff |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b1110 | 16'hffff |
+
+### stimulus 15
+| cycle | a | b | c | d | e | f | g | h | i | sel | out |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 4'b1111 | 16'hffff |
+| 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 4'b1111 | 16'hffff |
+| 2 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 4'b1111 | 16'hffff |
+| 3 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 4'b1111 | 16'hffff |
+| 4 | 16'h5a5a | 16'ha5a5 | 16'h1234 | 16'habcd | 16'hf0f | 16'hf0f0 | 16'h1357 | 16'h2468 | 16'h55aa | 4'b1111 | 16'hffff |

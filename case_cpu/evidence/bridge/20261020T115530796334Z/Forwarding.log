@@ -1,0 +1,9 @@
+'CaseCPU.Bridge.forward_state' depends on axioms: [propext, Classical.choice, Quot.sound]
+'CaseCPU.Bridge.forward_a' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ forward_a._native.bv_decide.ax_1_20]
+'CaseCPU.Bridge.forward_b' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ forward_b._native.bv_decide.ax_1_20]

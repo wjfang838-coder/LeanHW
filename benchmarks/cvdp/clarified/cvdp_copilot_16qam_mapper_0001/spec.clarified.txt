@@ -1,0 +1,101 @@
+Original implementation instruction (verbatim):
+
+Design a combinational RTL (using SystemVerilog) module to implement a QAM16 mapper with interpolation. The module maps input bits into QAM16 symbols, computes interpolated values between adjacent symbols, and outputs real (`I`) and imaginary (`Q`) components of the mapped and interpolated values.
+
+Named module interface binding
+
+Module: qam16_mapper_interpolated.
+Connect ports by name. The enumeration below does not establish positional order.
+- bits: input; 16 bits in the concrete formal instance.
+- I: output; 18 bits in the concrete formal instance.
+- Q: output; 18 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is qam16_mapper_interpolated. It has these public parameters:
+
+N: number of input symbols; default 4; N shall be at least 2 and a multiple of 2.
+IN_WIDTH: input-symbol width; default 4; it is fixed at 4.
+OUT_WIDTH: component width; default 3; it is fixed at 3.
+
+The confirmed named boundary consists of the following canonical enumeration in declaration-table order: input bits, width N*IN_WIDTH; output I, width (N + N/2)*OUT_WIDTH; output Q, width (N + N/2)*OUT_WIDTH. The exact spellings are normative. Positional declaration order was not established, so this enumeration is not a normative positional order and the module shall be instantiated using the exact port names.
+
+3. Reset.
+
+There is no reset input and no reset phase. The module has no state elements. From power-up, including before any event has occurred, I and Q are the combinational results of the current bits value; there is no initially unconstrained interval and no first-reset-edge or first-step exception.
+
+4. Timing.
+
+The module is entirely combinational and has no clock. I and Q each have zero-clock-cycle latency from bits: after combinational propagation, each reflects the current bits value. Every immediate replacement or repetition of bits determines the complete outputs. There are no pulses, periodic signals, capture phases, completion phases, restart phases, retained transactions, disabled modes, or clock edges.
+
+For the evaluated trace, row k denotes the settled combinational observation for stimulus row k. The interface defines a full-cycle observation convention but supplies neither step_ns nor sample_offset_ns; this observation convention does not introduce a circuit clock, period, or delay law.
+
+5. Behaviour.
+
+At all times bits is interpreted as N consecutive IN_WIDTH-bit symbols from its most-significant slice to its least-significant slice; for each symbol the upper two bits map the corresponding I level and the lower two bits map the corresponding Q level by 2'b00 to -3, 2'b01 to -1, 2'b10 to 1, and 2'b11 to 3, and each consecutive pair produces the first level, their signed arithmetic mean, and the second level, so every change, including an immediate replacement or repetition, combinationally determines the complete outputs without an inactive mode, transaction priority, or retained transaction state.
+
+Every possible four-bit symbol encoding is valid. Symbols are grouped as the non-overlapping consecutive pairs (0,1), (2,3), and so on in most-significant-symbol to least-significant-symbol order. For each pair and independently for each component, the interpolation is the signed arithmetic mean (first level + second level) / 2. Since mapped levels are odd, every such sum is even and the result is exact; possible interpolated levels are -3, -2, -1, 0, 1, 2, and 3. The addition is performed in a signed width of OUT_WIDTH+1 before division, and only the resulting component is represented in OUT_WIDTH-bit two's complement, preserving the specified truncation boundary.
+
+I is packed from most-significant slice to least-significant slice as, for each consecutive input-symbol pair in input order, the first symbol's I level, the signed arithmetic mean of the pair's I levels, and the second symbol's I level, with each level represented in OUT_WIDTH-bit two's complement.
+
+Q is packed from most-significant slice to least-significant slice as, for each consecutive input-symbol pair in input order, the first symbol's Q level, the signed arithmetic mean of the pair's Q levels, and the second symbol's Q level, with each level represented in OUT_WIDTH-bit two's complement.
+
+I has no reset, capture, completion, or restart phase and is continuously the combinational result for the current bits value, becoming observable after combinational propagation even for the first, interrupted, or repeated value and remaining unchanged only while that result remains unchanged; because there is no active edge, a pre-edge row observes the result of the bits value already applied before that row rather than a clock-delayed result.
+
+Q has no reset, capture, completion, or restart phase and is continuously the combinational result for the current bits value, becoming observable after combinational propagation even for the first, interrupted, or repeated value and remaining unchanged only while that result remains unchanged; because there is no active edge, a pre-edge row observes the result of the bits value already applied before that row rather than a clock-delayed result.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete sampled instance N=4, IN_WIDTH=4, and OUT_WIDTH=3.
+
+### stimulus 0
+| cycle | bits | I | Q |
+|---|---|---|---|
+| 0 | 16'h0 | 18'h2db6d | 18'h2db6d |
+
+### stimulus 1
+| cycle | bits | I | Q |
+|---|---|---|---|
+| 0 | 16'h5555 | 18'h3ffff | 18'h3ffff |
+
+### stimulus 2
+| cycle | bits | I | Q |
+|---|---|---|---|
+| 0 | 16'haaaa | 18'h9249 | 18'h9249 |
+
+### stimulus 3
+| cycle | bits | I | Q |
+|---|---|---|---|
+| 0 | 16'hffff | 18'h1b6db | 18'h1b6db |
+
+### stimulus 4
+| cycle | bits | I | Q |
+|---|---|---|---|
+| 0 | 16'h1 | 18'h2db6d | 18'h2db77 |
+
+### stimulus 5
+| cycle | bits | I | Q |
+|---|---|---|---|
+| 0 | 16'h8000 | 18'hfb6d | 18'h2db6d |
+
+### stimulus 6
+| cycle | bits | I | Q |
+|---|---|---|---|
+| 0 | 16'h1234 | 18'h2db77 | 18'h382c5 |
+
+### stimulus 7
+| cycle | bits | I | Q |
+|---|---|---|---|
+| 0 | 16'hfedc | 18'h1b6db | 18'h1a3f5 |
+
+### stimulus 8
+| cycle | bits | I | Q |
+|---|---|---|---|
+| 0 | 16'h5af | 18'h2ee53 | 18'h2ee53 |
+
+### stimulus 9
+| cycle | bits | I | Q |
+|---|---|---|---|
+| 0 | 16'h8421 | 18'h8f6d | 18'h2da47 |

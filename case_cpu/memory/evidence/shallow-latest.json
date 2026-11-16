@@ -1,0 +1,16 @@
+{
+  "status": "checked",
+  "checked_utc": "2026-10-21T03:05:39.239618+00:00",
+  "seconds": 922.14,
+  "source_log": "evidence/rebuild-MemoryShallow.log",
+  "log_sha256": "e53251326f43b7130f96ad2035f5be5268e9117e07557622720681355d183671",
+  "object_sha256": "28286befb48f8b8367723e847a666425ea2652ab9f4160d52dcea8203455d95f",
+  "sources": {
+    "case_cpu/memory/lean/MemoryShallow.lean": "7def024f702d9aa9539fe7c5198f90a1192dd4337124cfd175dd4c588da408c6",
+    "case_cpu/memory/lean/MemoryCircuit.lean": "2149de503ac146a03597bdc75e66972df2c7a65c7463745ade4e48f48a150c29",
+    "case_cpu/memory/lean/NativeImported.lean": "353b36899efe88779798e1b5838b20906bed8a6464b12e6dfcdf00ce5d2aeb74",
+    "case_cpu/bridge/NetFacts.lean": "1537d2098ca19da4e8b04b128ef5eb8d9ecbf30e5f759b6bf65ac9f86211071d",
+    "method/framework/LeanRTL/Core/NativeMemory.lean": "8d230a8f523ece367e0537d618bdb207a3607df26e2c92ba3918c25f05e45403"
+  },
+  "lean_version": "Lean (version 4.29.0, x86_64-unknown-linux-gnu, commit 98dc76e3c0a9b856c9b98726b713fb04fab16740, Release)"
+}

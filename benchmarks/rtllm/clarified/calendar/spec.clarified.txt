@@ -1,0 +1,297 @@
+Module and integration contract
+
+Module: calendar.
+Ports below are in exact declaration order:
+- CLK: input 1 bit.
+- RST: input 1 bit.
+- Hours: output [5:0].
+- Mins: output [5:0].
+- Secs: output [5:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+RST is active high and asynchronous: asserting it immediately makes Hours, Mins, and Secs zero, with priority over a simultaneous rising edge of CLK. They remain zero throughout assertion, including across any number of CLK edges. Deasserting RST causes no immediate change. On the first subsequent rising edge of CLK, normal counting applies to the retained reset values: immediately after that edge Secs is 1, while Mins and Hours remain 0.
+
+At power-up, before any reset edge has been seen, Hours, Mins, and Secs are all 0, the same values produced by reset. The complete state consists of the current hour, minute, and second counts, all of which are zero both at power-up and whenever reset is asserted.
+
+4. Timing
+
+Hours, Mins, and Secs are registered outputs. Each changes immediately after an applicable rising edge of CLK and otherwise retains its value, except that asynchronous reset can clear it immediately. An edge uses the values present immediately before that edge. Thus the updated value has one rising-edge transition of latency from those pre-edge values and is visible after that same edge. There are no completion pulses, busy intervals, or disabled transaction intervals; every rising edge is immediately eligible to apply the laws below.
+
+A steady CLK level and a falling CLK edge have no effect. With RST high, rising edges also leave all outputs at zero. Measured in CLK rising-edge cycles with RST low, the complete Secs value sequence has period 60 cycles, the complete Mins value sequence has period 3,600 cycles, and the complete Hours value sequence has period 86,400 cycles. Duty cycle is not applicable to these multibit count outputs. No physical CLK period or propagation delay is specified.
+
+For the evaluated full-cycle trace, row k denotes the settled observation at k full-cycle steps from the start of its stimulus block. Each row samples outputs before that row's transition, and the resulting state is observed on the next row. This observation convention is separate from the circuit law above and does not imply a 10 ns clock tick or any other physical duration.
+
+5. Behaviour
+
+RST has priority over all counting. For either value of CLK, RST high makes every output zero and holds it there. Releasing RST while CLK is steady or falling changes nothing. With RST low, only a rising edge advances the calendar, and repeated rising edges apply the same rules continuously without cancellation, interruption, or a completion state.
+
+With RST low, Secs updates just after every rising edge, wrapping from 59 to 0 and otherwise incrementing by one.
+
+With RST low, Mins updates just after a rising edge only when pre-edge Secs is 59: it wraps from 59 to 0 and otherwise increments by one; on every other edge it retains its value.
+
+With RST low, Hours updates just after a rising edge only when the pre-edge Mins and Secs are both 59: it wraps from 23 to 0 and otherwise increments by one; on every other edge it retains its value.
+
+All three decisions use the same pre-edge values. Consequently, 23:59:59 becomes 00:00:00 on one rising edge. The reachable output ranges are Hours 0 through 23 and Mins and Secs 0 through 59. Since there are no data inputs or command inputs, CLK and RST exhaust the input cases the module can receive.
+
+6. Worked trace
+
+The evaluated trace below is normative for its listed stimulus blocks and follows the pre-transition sampling convention stated above.
+
+### stimulus 0
+| cycle | RST | Hours | Mins | Secs |
+|---|---|---|---|---|
+| 0 | 1 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 1 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 2 | 0 | 6'b000000 | 6'b000000 | 6'b000001 |
+| 3 | 0 | 6'b000000 | 6'b000000 | 6'b000010 |
+
+### stimulus 1
+| cycle | RST | Hours | Mins | Secs |
+|---|---|---|---|---|
+| 0 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 1 | 1 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 2 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 3 | 0 | 6'b000000 | 6'b000000 | 6'b000001 |
+
+### stimulus 2
+| cycle | RST | Hours | Mins | Secs |
+|---|---|---|---|---|
+| 0 | 1 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 1 | 1 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 2 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 3 | 0 | 6'b000000 | 6'b000000 | 6'b000001 |
+
+### stimulus 3
+| cycle | RST | Hours | Mins | Secs |
+|---|---|---|---|---|
+| 0 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 1 | 0 | 6'b000000 | 6'b000000 | 6'b000001 |
+| 2 | 1 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 3 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+
+### stimulus 4
+| cycle | RST | Hours | Mins | Secs |
+|---|---|---|---|---|
+| 0 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 1 | 0 | 6'b000000 | 6'b000000 | 6'b000001 |
+| 2 | 0 | 6'b000000 | 6'b000000 | 6'b000010 |
+| 3 | 0 | 6'b000000 | 6'b000000 | 6'b000011 |
+| 4 | 0 | 6'b000000 | 6'b000000 | 6'b000100 |
+| 5 | 0 | 6'b000000 | 6'b000000 | 6'b000101 |
+| 6 | 0 | 6'b000000 | 6'b000000 | 6'b000110 |
+| 7 | 0 | 6'b000000 | 6'b000000 | 6'b000111 |
+| 8 | 0 | 6'b000000 | 6'b000000 | 6'b001000 |
+| 9 | 0 | 6'b000000 | 6'b000000 | 6'b001001 |
+| 10 | 0 | 6'b000000 | 6'b000000 | 6'b001010 |
+| 11 | 0 | 6'b000000 | 6'b000000 | 6'b001011 |
+| 12 | 0 | 6'b000000 | 6'b000000 | 6'b001100 |
+| 13 | 0 | 6'b000000 | 6'b000000 | 6'b001101 |
+| 14 | 0 | 6'b000000 | 6'b000000 | 6'b001110 |
+| 15 | 0 | 6'b000000 | 6'b000000 | 6'b001111 |
+| 16 | 0 | 6'b000000 | 6'b000000 | 6'b010000 |
+| 17 | 0 | 6'b000000 | 6'b000000 | 6'b010001 |
+| 18 | 0 | 6'b000000 | 6'b000000 | 6'b010010 |
+| 19 | 0 | 6'b000000 | 6'b000000 | 6'b010011 |
+| 20 | 0 | 6'b000000 | 6'b000000 | 6'b010100 |
+| 21 | 0 | 6'b000000 | 6'b000000 | 6'b010101 |
+| 22 | 0 | 6'b000000 | 6'b000000 | 6'b010110 |
+| 23 | 0 | 6'b000000 | 6'b000000 | 6'b010111 |
+| 24 | 0 | 6'b000000 | 6'b000000 | 6'b011000 |
+| 25 | 0 | 6'b000000 | 6'b000000 | 6'b011001 |
+| 26 | 0 | 6'b000000 | 6'b000000 | 6'b011010 |
+| 27 | 0 | 6'b000000 | 6'b000000 | 6'b011011 |
+| 28 | 0 | 6'b000000 | 6'b000000 | 6'b011100 |
+| 29 | 0 | 6'b000000 | 6'b000000 | 6'b011101 |
+| 30 | 0 | 6'b000000 | 6'b000000 | 6'b011110 |
+| 31 | 0 | 6'b000000 | 6'b000000 | 6'b011111 |
+| 32 | 0 | 6'b000000 | 6'b000000 | 6'b100000 |
+| 33 | 0 | 6'b000000 | 6'b000000 | 6'b100001 |
+| 34 | 0 | 6'b000000 | 6'b000000 | 6'b100010 |
+| 35 | 0 | 6'b000000 | 6'b000000 | 6'b100011 |
+| 36 | 0 | 6'b000000 | 6'b000000 | 6'b100100 |
+| 37 | 0 | 6'b000000 | 6'b000000 | 6'b100101 |
+| 38 | 0 | 6'b000000 | 6'b000000 | 6'b100110 |
+| 39 | 0 | 6'b000000 | 6'b000000 | 6'b100111 |
+| 40 | 0 | 6'b000000 | 6'b000000 | 6'b101000 |
+| 41 | 0 | 6'b000000 | 6'b000000 | 6'b101001 |
+| 42 | 0 | 6'b000000 | 6'b000000 | 6'b101010 |
+| 43 | 0 | 6'b000000 | 6'b000000 | 6'b101011 |
+| 44 | 0 | 6'b000000 | 6'b000000 | 6'b101100 |
+| 45 | 0 | 6'b000000 | 6'b000000 | 6'b101101 |
+| 46 | 0 | 6'b000000 | 6'b000000 | 6'b101110 |
+| 47 | 0 | 6'b000000 | 6'b000000 | 6'b101111 |
+| 48 | 0 | 6'b000000 | 6'b000000 | 6'b110000 |
+| 49 | 0 | 6'b000000 | 6'b000000 | 6'b110001 |
+| 50 | 0 | 6'b000000 | 6'b000000 | 6'b110010 |
+| 51 | 0 | 6'b000000 | 6'b000000 | 6'b110011 |
+| 52 | 0 | 6'b000000 | 6'b000000 | 6'b110100 |
+| 53 | 0 | 6'b000000 | 6'b000000 | 6'b110101 |
+| 54 | 0 | 6'b000000 | 6'b000000 | 6'b110110 |
+| 55 | 0 | 6'b000000 | 6'b000000 | 6'b110111 |
+| 56 | 0 | 6'b000000 | 6'b000000 | 6'b111000 |
+| 57 | 0 | 6'b000000 | 6'b000000 | 6'b111001 |
+| 58 | 0 | 6'b000000 | 6'b000000 | 6'b111010 |
+| 59 | 0 | 6'b000000 | 6'b000000 | 6'b111011 |
+| 60 | 0 | 6'b000000 | 6'b000001 | 6'b000000 |
+| 61 | 0 | 6'b000000 | 6'b000001 | 6'b000001 |
+| 62 | 0 | 6'b000000 | 6'b000001 | 6'b000010 |
+| 63 | 0 | 6'b000000 | 6'b000001 | 6'b000011 |
+| 64 | 0 | 6'b000000 | 6'b000001 | 6'b000100 |
+| 65 | 0 | 6'b000000 | 6'b000001 | 6'b000101 |
+| 66 | 0 | 6'b000000 | 6'b000001 | 6'b000110 |
+| 67 | 0 | 6'b000000 | 6'b000001 | 6'b000111 |
+| 68 | 0 | 6'b000000 | 6'b000001 | 6'b001000 |
+| 69 | 0 | 6'b000000 | 6'b000001 | 6'b001001 |
+| 70 | 0 | 6'b000000 | 6'b000001 | 6'b001010 |
+| 71 | 0 | 6'b000000 | 6'b000001 | 6'b001011 |
+| 72 | 0 | 6'b000000 | 6'b000001 | 6'b001100 |
+| 73 | 0 | 6'b000000 | 6'b000001 | 6'b001101 |
+| 74 | 0 | 6'b000000 | 6'b000001 | 6'b001110 |
+| 75 | 0 | 6'b000000 | 6'b000001 | 6'b001111 |
+| 76 | 0 | 6'b000000 | 6'b000001 | 6'b010000 |
+| 77 | 0 | 6'b000000 | 6'b000001 | 6'b010001 |
+| 78 | 0 | 6'b000000 | 6'b000001 | 6'b010010 |
+| 79 | 0 | 6'b000000 | 6'b000001 | 6'b010011 |
+| 80 | 0 | 6'b000000 | 6'b000001 | 6'b010100 |
+| 81 | 0 | 6'b000000 | 6'b000001 | 6'b010101 |
+| 82 | 0 | 6'b000000 | 6'b000001 | 6'b010110 |
+| 83 | 0 | 6'b000000 | 6'b000001 | 6'b010111 |
+| 84 | 0 | 6'b000000 | 6'b000001 | 6'b011000 |
+| 85 | 0 | 6'b000000 | 6'b000001 | 6'b011001 |
+| 86 | 0 | 6'b000000 | 6'b000001 | 6'b011010 |
+| 87 | 0 | 6'b000000 | 6'b000001 | 6'b011011 |
+| 88 | 0 | 6'b000000 | 6'b000001 | 6'b011100 |
+| 89 | 0 | 6'b000000 | 6'b000001 | 6'b011101 |
+| 90 | 0 | 6'b000000 | 6'b000001 | 6'b011110 |
+| 91 | 0 | 6'b000000 | 6'b000001 | 6'b011111 |
+| 92 | 0 | 6'b000000 | 6'b000001 | 6'b100000 |
+| 93 | 0 | 6'b000000 | 6'b000001 | 6'b100001 |
+| 94 | 0 | 6'b000000 | 6'b000001 | 6'b100010 |
+| 95 | 0 | 6'b000000 | 6'b000001 | 6'b100011 |
+| 96 | 0 | 6'b000000 | 6'b000001 | 6'b100100 |
+| 97 | 0 | 6'b000000 | 6'b000001 | 6'b100101 |
+| 98 | 0 | 6'b000000 | 6'b000001 | 6'b100110 |
+| 99 | 0 | 6'b000000 | 6'b000001 | 6'b100111 |
+| 100 | 0 | 6'b000000 | 6'b000001 | 6'b101000 |
+| 101 | 0 | 6'b000000 | 6'b000001 | 6'b101001 |
+| 102 | 0 | 6'b000000 | 6'b000001 | 6'b101010 |
+| 103 | 0 | 6'b000000 | 6'b000001 | 6'b101011 |
+| 104 | 0 | 6'b000000 | 6'b000001 | 6'b101100 |
+| 105 | 0 | 6'b000000 | 6'b000001 | 6'b101101 |
+| 106 | 0 | 6'b000000 | 6'b000001 | 6'b101110 |
+| 107 | 0 | 6'b000000 | 6'b000001 | 6'b101111 |
+| 108 | 0 | 6'b000000 | 6'b000001 | 6'b110000 |
+| 109 | 0 | 6'b000000 | 6'b000001 | 6'b110001 |
+| 110 | 0 | 6'b000000 | 6'b000001 | 6'b110010 |
+| 111 | 0 | 6'b000000 | 6'b000001 | 6'b110011 |
+| 112 | 0 | 6'b000000 | 6'b000001 | 6'b110100 |
+| 113 | 0 | 6'b000000 | 6'b000001 | 6'b110101 |
+| 114 | 0 | 6'b000000 | 6'b000001 | 6'b110110 |
+| 115 | 0 | 6'b000000 | 6'b000001 | 6'b110111 |
+| 116 | 0 | 6'b000000 | 6'b000001 | 6'b111000 |
+| 117 | 0 | 6'b000000 | 6'b000001 | 6'b111001 |
+| 118 | 0 | 6'b000000 | 6'b000001 | 6'b111010 |
+| 119 | 0 | 6'b000000 | 6'b000001 | 6'b111011 |
+| 120 | 0 | 6'b000000 | 6'b000010 | 6'b000000 |
+| 121 | 0 | 6'b000000 | 6'b000010 | 6'b000001 |
+| 122 | 0 | 6'b000000 | 6'b000010 | 6'b000010 |
+| 123 | 0 | 6'b000000 | 6'b000010 | 6'b000011 |
+| 124 | 0 | 6'b000000 | 6'b000010 | 6'b000100 |
+| 125 | 0 | 6'b000000 | 6'b000010 | 6'b000101 |
+| 126 | 0 | 6'b000000 | 6'b000010 | 6'b000110 |
+| 127 | 0 | 6'b000000 | 6'b000010 | 6'b000111 |
+| 128 | 0 | 6'b000000 | 6'b000010 | 6'b001000 |
+| 129 | 0 | 6'b000000 | 6'b000010 | 6'b001001 |
+| 130 | 0 | 6'b000000 | 6'b000010 | 6'b001010 |
+| 131 | 0 | 6'b000000 | 6'b000010 | 6'b001011 |
+| 132 | 0 | 6'b000000 | 6'b000010 | 6'b001100 |
+| 133 | 0 | 6'b000000 | 6'b000010 | 6'b001101 |
+| 134 | 0 | 6'b000000 | 6'b000010 | 6'b001110 |
+| 135 | 0 | 6'b000000 | 6'b000010 | 6'b001111 |
+| 136 | 0 | 6'b000000 | 6'b000010 | 6'b010000 |
+| 137 | 0 | 6'b000000 | 6'b000010 | 6'b010001 |
+| 138 | 0 | 6'b000000 | 6'b000010 | 6'b010010 |
+| 139 | 0 | 6'b000000 | 6'b000010 | 6'b010011 |
+| 140 | 0 | 6'b000000 | 6'b000010 | 6'b010100 |
+| 141 | 0 | 6'b000000 | 6'b000010 | 6'b010101 |
+| 142 | 0 | 6'b000000 | 6'b000010 | 6'b010110 |
+| 143 | 0 | 6'b000000 | 6'b000010 | 6'b010111 |
+| 144 | 0 | 6'b000000 | 6'b000010 | 6'b011000 |
+| 145 | 0 | 6'b000000 | 6'b000010 | 6'b011001 |
+| 146 | 0 | 6'b000000 | 6'b000010 | 6'b011010 |
+| 147 | 0 | 6'b000000 | 6'b000010 | 6'b011011 |
+| 148 | 0 | 6'b000000 | 6'b000010 | 6'b011100 |
+| 149 | 0 | 6'b000000 | 6'b000010 | 6'b011101 |
+| 150 | 0 | 6'b000000 | 6'b000010 | 6'b011110 |
+| 151 | 0 | 6'b000000 | 6'b000010 | 6'b011111 |
+| 152 | 0 | 6'b000000 | 6'b000010 | 6'b100000 |
+| 153 | 0 | 6'b000000 | 6'b000010 | 6'b100001 |
+| 154 | 0 | 6'b000000 | 6'b000010 | 6'b100010 |
+| 155 | 0 | 6'b000000 | 6'b000010 | 6'b100011 |
+| 156 | 0 | 6'b000000 | 6'b000010 | 6'b100100 |
+| 157 | 0 | 6'b000000 | 6'b000010 | 6'b100101 |
+| 158 | 0 | 6'b000000 | 6'b000010 | 6'b100110 |
+| 159 | 0 | 6'b000000 | 6'b000010 | 6'b100111 |
+| 160 | 0 | 6'b000000 | 6'b000010 | 6'b101000 |
+| 161 | 0 | 6'b000000 | 6'b000010 | 6'b101001 |
+| 162 | 0 | 6'b000000 | 6'b000010 | 6'b101010 |
+| 163 | 0 | 6'b000000 | 6'b000010 | 6'b101011 |
+| 164 | 0 | 6'b000000 | 6'b000010 | 6'b101100 |
+| 165 | 0 | 6'b000000 | 6'b000010 | 6'b101101 |
+| 166 | 0 | 6'b000000 | 6'b000010 | 6'b101110 |
+| 167 | 0 | 6'b000000 | 6'b000010 | 6'b101111 |
+| 168 | 0 | 6'b000000 | 6'b000010 | 6'b110000 |
+| 169 | 0 | 6'b000000 | 6'b000010 | 6'b110001 |
+| 170 | 0 | 6'b000000 | 6'b000010 | 6'b110010 |
+| 171 | 0 | 6'b000000 | 6'b000010 | 6'b110011 |
+| 172 | 0 | 6'b000000 | 6'b000010 | 6'b110100 |
+| 173 | 0 | 6'b000000 | 6'b000010 | 6'b110101 |
+| 174 | 0 | 6'b000000 | 6'b000010 | 6'b110110 |
+| 175 | 0 | 6'b000000 | 6'b000010 | 6'b110111 |
+| 176 | 0 | 6'b000000 | 6'b000010 | 6'b111000 |
+| 177 | 0 | 6'b000000 | 6'b000010 | 6'b111001 |
+| 178 | 0 | 6'b000000 | 6'b000010 | 6'b111010 |
+| 179 | 0 | 6'b000000 | 6'b000010 | 6'b111011 |
+
+### stimulus 5
+| cycle | RST | Hours | Mins | Secs |
+|---|---|---|---|---|
+| 0 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 1 | 0 | 6'b000000 | 6'b000000 | 6'b000001 |
+| 2 | 0 | 6'b000000 | 6'b000000 | 6'b000010 |
+| 3 | 1 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 4 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 5 | 0 | 6'b000000 | 6'b000000 | 6'b000001 |
+| 6 | 0 | 6'b000000 | 6'b000000 | 6'b000010 |
+| 7 | 0 | 6'b000000 | 6'b000000 | 6'b000011 |
+
+### stimulus 6
+| cycle | RST | Hours | Mins | Secs |
+|---|---|---|---|---|
+| 0 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 1 | 1 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 2 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 3 | 0 | 6'b000000 | 6'b000000 | 6'b000001 |
+| 4 | 0 | 6'b000000 | 6'b000000 | 6'b000010 |
+| 5 | 0 | 6'b000000 | 6'b000000 | 6'b000011 |
+
+### stimulus 7
+| cycle | RST | Hours | Mins | Secs |
+|---|---|---|---|---|
+| 0 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 1 | 0 | 6'b000000 | 6'b000000 | 6'b000001 |
+| 2 | 0 | 6'b000000 | 6'b000000 | 6'b000010 |
+| 3 | 0 | 6'b000000 | 6'b000000 | 6'b000011 |
+| 4 | 1 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 5 | 0 | 6'b000000 | 6'b000000 | 6'b000000 |
+| 6 | 0 | 6'b000000 | 6'b000000 | 6'b000001 |

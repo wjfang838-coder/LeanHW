@@ -1,0 +1,137 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a **Generate/Propagate (GP) module** in Verilog .v format for use in a **carry lookahead adder** design.The **Generate/Propagate (GP)** module is an essential part of the **carry lookahead adder** (CLA) architecture, which is designed to speed up the process of adding binary numbers by precomputing the carry signals in parallel. 
+
+
+## Interface
+
+### Outputs:
+- **generate** signal (`o_generate`) : 1-bit signal, true if both `i_A` and `i_B` are 1 (indicates carry generation).
+- **propagate** signal (`o_propagate`) : 1-bit signal, true if either `i_A` or `i_B` is 1 (indicates carry propagation).
+- **carry-out** signal (`o_Cout `) : 1-bit carry-out signal, computed using the generate, propagate, and carry-in signals.
+
+### Inputs:
+- **i_A** : 1-bit input signal representing one operand bit.
+- **i_B** : 1-bit input signal representing the other operand bit.
+- **i_Cin** : 1-bit carry-in signal from the previous stage.
+
+
+## Truth Table:
+| i_A   | i_B   | i_Cin| o_generate | o_propagate | o_Cout (carry-out) |
+| --- | --- | --- | ------------ | ------------- | ---------------- |
+|  0  |  0  |  0  |      0       |       0       |        0         |
+|  0  |  0  |  1  |      0       |       0       |        0         |
+|  0  |  1  |  0  |      0       |       1       |        0         |
+|  0  |  1  |  1  |      0       |       1       |        1         |
+|  1  |  0  |  0  |      0       |       1       |        0         |
+|  1  |  0  |  1  |      0       |       1       |        1         |
+|  1  |  1  |  0  |      1       |       1       |        1         |
+|  1  |  1  |  1  |      1       |       1       |        1         |
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a **Generate/Propagate (GP) module** in Verilog .v format for use in a **carry lookahead adder** design.The **Generate/Propagate (GP)** module is an essential part of the **carry lookahead adder** (CLA) architecture, which is designed to speed up the process of adding binary numbers by precomputing the carry signals in parallel. 
+
+Named module interface binding
+
+Module: GP.
+Connect ports by name. The enumeration below does not establish positional order.
+- i_A: input; 1 bits in the concrete formal instance.
+- i_B: input; 1 bits in the concrete formal instance.
+- i_Cin: input; 1 bits in the concrete formal instance.
+- o_generate: output; 1 bits in the concrete formal instance.
+- o_propagate: output; 1 bits in the concrete formal instance.
+- o_Cout: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+- Verification-visible signal `clk` (not an additional port): A harness-visible signal named clk is required for edge synchronization, but the authorized sources establish no DUT-generated cadence, reset value, or observable behavioral effect for it.
+- Verification-visible signal `enable` (not an additional port): A harness-visible signal named enable is required and may be driven low until one rising edge of clk and then high until the next rising edge, but the authorized sources establish no resulting DUT behavior.
+- Verification-visible signal `reset` (not an additional port): A harness-visible active-high signal named reset is required and may be held high for a requested duration and then low for that duration, but the authorized sources establish no reset effect on the public outputs.
+
+1. Module and ports.
+
+The module name is GP. It has no public parameters or symbolic port ranges. The boundary consists of the following one-bit ports: output o_generate, output o_propagate, output o_Cout, input i_A, input i_B, and input i_Cin. These exact spellings are normative. Declaration order and positional instantiation are not established; the displayed sequence is only a canonical enumeration. The module must therefore be instantiated using named connections.
+
+The harness-visible names clk, enable, and reset are verification bindings, not GP public ports.
+
+3. Reset.
+
+GP has no reset port, reset behavior, or state. Its public outputs are continuously determined by its current inputs, including at power-up before any reset-related harness event, while a harness reset binding is asserted, and after it is released. Thus there is no first reset edge, reset value, stored power-up value, or first-step-after-release state for any public output.
+
+The harness-visible active-high reset binding may be held high for a requested duration and then low for that duration; neither level changes the public-output equations. It has no established cadence state to advance, no pause/resume effect, and no terminal behavior because GP has no terminal state.
+
+4. Timing.
+
+All three public outputs are continuously combinational with zero clock-cycle latency from the current inputs. o_generate responds to i_A and i_B; o_propagate responds to i_A and i_B; o_Cout responds to i_A, i_B, and i_Cin. There are no capture edges, registered results, pulses, periodic DUT outputs, hold intervals, completion events, or restart events.
+
+For the evaluated full-cycle table, row k is the settled observation associated with index k and is sampled before the nominal transition; because GP is autonomous and combinational, that convention introduces no storage or latency and each row uses that row's inputs. The interface establishes no numeric step_ns or sample_offset_ns values, so no implicit 10 ns tick is asserted. This table-observation convention is separate from the circuit law, which is continuously combinational and has no actual clock period or delay law.
+
+The harness-visible clk binding exists only for edge synchronization. No DUT-generated cadence, reset value, or public behavioral effect is established for it. Its advancement guard is a harness synchronization request; GP neither pauses nor resumes because of clk, and its public outputs continue to follow their equations after any harness sequence ends.
+
+The harness-visible enable binding may be low until one rising edge of clk and then high until the next rising edge. Neither value enables, disables, pauses, resumes, or otherwise changes GP. Its advancement guard is that stated harness-driving interval; after the interval and in every other mode, the public outputs continue to follow their equations, with no terminal state.
+
+5. Behaviour.
+
+Inputs are one-bit values. At all times and for every input combination, with no modes, inactive phase, capture event, interruption, or transaction history, i_A contributes combinationally so that o_generate = i_A & i_B, o_propagate = i_A | i_B, and o_Cout = (i_A & i_B) | ((i_A | i_B) & i_Cin); simultaneous changes and repeated values are governed by these same equations.
+
+At all times and for every input combination, with no modes, inactive phase, capture event, interruption, or transaction history, i_B contributes combinationally so that o_generate = i_A & i_B, o_propagate = i_A | i_B, and o_Cout = (i_A & i_B) | ((i_A | i_B) & i_Cin); simultaneous changes and repeated values are governed by these same equations.
+
+At all times and for every input combination, with no modes, inactive phase, capture event, interruption, or transaction history, i_Cin affects only o_Cout through o_Cout = (i_A & i_B) | ((i_A | i_B) & i_Cin), while o_generate = i_A & i_B and o_propagate = i_A | i_B are independent of i_Cin; simultaneous changes and repeated values obey these same combinational equations.
+
+o_generate is continuously combinational as i_A & i_B, has no reset assertion or release behavior, capture or observation edge, hold or clear interval, completion, or restart, and therefore a pre-edge row observes the value from the inputs present before that edge rather than a newly edge-captured result.
+
+o_propagate is continuously combinational as i_A | i_B, has no reset assertion or release behavior, capture or observation edge, hold or clear interval, completion, or restart, and therefore a pre-edge row observes the value from the inputs present before that edge rather than a newly edge-captured result.
+
+o_Cout is continuously combinational as (i_A & i_B) | ((i_A | i_B) & i_Cin), has no reset assertion or release behavior, capture or observation edge, hold or clear interval, completion, or restart, and therefore a pre-edge row observes the value from the inputs present before that edge rather than a newly edge-captured result.
+
+Changing any input, including simultaneous changes or repeated values, immediately recomputes the outputs by these equations. No transaction can be cancelled or repeated, there is no disabled mode, no first-result distinction, and no retained data. Every one of the eight possible three-bit input combinations is covered by the equations.
+
+The harness-visible clk, enable, and reset bindings do not alter, gate, pause, retain, or terminate the public-output computation. In particular, public-output updates and harness-binding activity are independent: the outputs always follow the current data inputs, including after any verification binding reaches the end of its requested driving interval.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete one-bit instance and uses the observation convention stated above.
+
+### stimulus 0
+| cycle | i_A | i_B | i_Cin | o_generate | o_propagate | o_Cout |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | i_A | i_B | i_Cin | o_generate | o_propagate | o_Cout |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | i_A | i_B | i_Cin | o_generate | o_propagate | o_Cout |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 1 | 0 |
+
+### stimulus 3
+| cycle | i_A | i_B | i_Cin | o_generate | o_propagate | o_Cout |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 0 | 1 | 1 |
+
+### stimulus 4
+| cycle | i_A | i_B | i_Cin | o_generate | o_propagate | o_Cout |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | i_A | i_B | i_Cin | o_generate | o_propagate | o_Cout |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 | 1 | 1 |
+
+### stimulus 6
+| cycle | i_A | i_B | i_Cin | o_generate | o_propagate | o_Cout |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 1 | 1 | 1 |
+
+### stimulus 7
+| cycle | i_A | i_B | i_Cin | o_generate | o_propagate | o_Cout |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 | 1 |

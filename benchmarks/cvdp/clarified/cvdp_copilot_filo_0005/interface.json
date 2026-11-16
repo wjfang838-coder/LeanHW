@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_filo_0005",
+  "toplevel": "FILO_RTL",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

@@ -1,0 +1,145 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- s: input 1 bit.
+- w: input 1 bit.
+- z: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+-  C: default = 2.
+-  S10: default = 3.
+-  S11: default = 4.
+-  S20: default = 5.
+-  S21: default = 6.
+-  S22: default = 7.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Reset is active high and synchronous to the rising edge of clk. Before any rising edge has sampled reset high, z is unknown and must remain uninitialised: no initial value or declaration initialiser may define it. A rising edge with reset high has priority over s and w, discards any partially collected group, enters the waiting phase, clears all sample-count and one-count state, clears any pending verdict, and makes z equal to 0 immediately after that edge. Holding reset high repeats this reset action on every rising edge. Merely asserting reset between rising edges has no immediate effect.
+
+After reset is released, the first rising edge performs normal waiting behavior: s=0 retains the waiting phase and z=0, while s=1 begins collection and z remains 0. Thus every state element after the first release edge is determined by that edge and the reset-established waiting state.
+
+4. Timing.
+
+All state changes occur on rising edges of clk. Low, high-without-an-edge, and falling transitions cause no state change. z is registered. In the waiting and collection intervals it is 0. The verdict for a group appears immediately after the rising edge that captures that group's third w sample, so its latency is three rising-edge clock cycles from the first w sample of that group. A successful verdict is high for exactly one clock interval. On the next rising edge z clears to 0 and that same edge captures the first w sample of the next group. Consecutive groups therefore begin every three rising edges, while high verdict pulses, when present, last one cycle.
+
+The evaluated trace uses the interface's full-cycle observation convention: row k is the settled pre-edge observation for full-cycle step k, and the transition following that row represents the corresponding rising edge. This observation cadence is separate from the circuit law, which is expressed in clk cycles; the interface provides no numeric nanosecond step or sample offset to restate.
+
+5. Behaviour.
+
+Before the first reset-high rising edge, z is uninitialized (unknown). A reset-high rising edge establishes the waiting phase and z=0.
+
+With reset low in the reset-established waiting phase, s=0 on a rising edge leaves the module waiting. s=1 on a rising edge begins collection; w on that starting edge is not one of the three collected samples. Before collection begins, w has no effect.
+
+After collection begins, every rising edge with reset low captures one w bit. The module partitions these samples into uninterrupted consecutive groups of exactly three. For every possible three-bit group, z becomes 1 immediately after the third capture exactly when precisely two of the three samples are 1; for groups containing zero, one, or three 1 bits, z is 0. While samples are being collected between three-sample verdicts, z is 0.
+
+The verdict interval lasts exactly one clock cycle. The rising edge that ends it also captures the first w bit of the next group, after which the remaining two bits are captured on the next two rising edges. Once collection has begun, s has no effect during collection, a verdict interval, or any later group. Repeated or continuously asserted s therefore neither restarts nor cancels collection. A reset-high rising edge always overrides s and w, cancels any partial group or verdict, and returns to waiting with z=0; after release, a new s=1 rising edge is required to begin a new sequence.
+
+6. Worked trace.
+
+The following evaluated trace is normative. Each row is sampled before its associated state transition.
+
+### stimulus 0
+| cycle | reset | s | w | z |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | x |
+| 1 | 1 | 1 | 1 | x |
+| 2 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 1 | 0 |
+| 4 | 0 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 1 | 0 |
+| 7 | 0 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | reset | s | w | z |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | x |
+| 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | reset | s | w | z |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | x |
+| 1 | 0 | 1 | 1 | 0 |
+| 2 | 0 | 1 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 |
+| 5 | 0 | 1 | 1 | 0 |
+
+### stimulus 3
+| cycle | reset | s | w | z |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 1 |
+
+### stimulus 4
+| cycle | reset | s | w | z |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | x |
+| 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 0 |
+| 3 | 1 | 1 | 1 | 0 |
+| 4 | 0 | 1 | 1 | 0 |
+| 5 | 0 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | reset | s | w | z |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | x |
+| 1 | 0 | 0 | 1 | x |
+| 2 | 0 | 1 | 0 | x |
+| 3 | 0 | 0 | 1 | x |
+| 4 | 0 | 0 | 1 | x |
+| 5 | 0 | 0 | 0 | x |
+
+### stimulus 6
+| cycle | reset | s | w | z |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | x |
+| 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 1 | 1 |
+| 6 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 1 | 0 |
+| 8 | 0 | 0 | 0 | 1 |
+| 9 | 0 | 0 | 0 | 0 |
+| 10 | 0 | 0 | 1 | 0 |
+| 11 | 0 | 0 | 1 | 0 |
+| 12 | 0 | 0 | 0 | 0 |
+| 13 | 0 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | reset | s | w | z |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | x |
+| 1 | 0 | 1 | 1 | 0 |
+| 2 | 0 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 | 0 |

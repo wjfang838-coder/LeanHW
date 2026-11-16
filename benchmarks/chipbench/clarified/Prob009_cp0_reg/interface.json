@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob009_cp0_reg",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

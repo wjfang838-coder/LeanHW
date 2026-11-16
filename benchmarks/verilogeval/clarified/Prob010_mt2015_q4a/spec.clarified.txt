@@ -1,0 +1,78 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- x: input 1 bit.
+- y: input 1 bit.
+- z: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+
+
+Reset
+
+There is no reset input, reset behavior, or reset edge. The design has no state. From power-up, including before any input transition, z is defined solely by the current x and y values; it is never uninitialized or unknown.
+
+Timing
+
+z is continuously combinational. Its latency from either x or y is zero clock cycles. There is no clock, capture edge, completion pulse, clear interval, periodic signal, inactive mode, transaction, or retained result.
+
+The evaluated full-cycle trace uses the interface observation cadence: row k denotes k * step_ns after settling, with the interface's timing.step_ns and timing.sample_offset_ns preserved by the evaluator. This observation convention does not imply a 10 ns clock tick. The circuit itself has no clock, period, or delay law.
+
+Behaviour
+
+For every input condition, x=0 forces z=0 and x=1 makes z the complement of y; changes to x, including changes simultaneous with y or repeated without interruption, affect z combinationally with no inactive mode, transaction state, or retained history.
+
+For every input condition, y has no effect while x=0 because z remains 0, while for x=1 y=0 produces z=1 and y=1 produces z=0; changes to y, including changes simultaneous with x or repeated without interruption, affect z combinationally with no inactive mode, transaction state, or retained history.
+
+z is continuously combinational with z=(x XOR y) AND x, so there is no reset, capture edge, completion, clear interval, or initialization: each pre-edge row observes the value implied by x and y at that sampling instant, input changes propagate without a clock-cycle latency, and z holds only while those inputs imply the same value.
+
+Because x and y are one-bit inputs, these laws cover every possible input encoding. Simultaneous changes, repeated values, and all four combinations of x and y require no additional cases.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 1 | 0 | 1 |
+
+### stimulus 3
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+
+### stimulus 4
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+
+### stimulus 6
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+
+### stimulus 7
+| cycle | x | y | z |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |

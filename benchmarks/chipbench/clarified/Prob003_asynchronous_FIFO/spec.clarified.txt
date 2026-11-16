@@ -1,0 +1,454 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+I would like you to implement a module named TopModule with the following
+interface. All input and output ports are one bit unless otherwise
+specified.
+
+ - input  wclk
+ - input  rclk
+ - input  wrstn
+ - input  rrstn
+ - input  winc
+ - input  rinc
+ - input  wdata (WIDTH bits)
+ - output wfull
+ - output rempty
+ - output rdata (WIDTH bits)
+
+The module should implement an asynchronous FIFO (First-In-First-Out) buffer
+with parameterizable width and depth. The FIFO uses a dual-port RAM for
+data storage and implements proper read/write pointer management with
+clock domain crossing.
+
+The asynchronous FIFO should work as follows:
+- Write interface: Uses wclk domain with winc (write enable) and wdata
+- Read interface: Uses rclk domain with rinc (read enable) and rdata
+- Reset: wrstn (write domain reset) and rrstn (read domain reset)
+- Status signals: wfull (write full) and rempty (read empty)
+
+FIFO operation:
+- Data is written when winc is high and wfull is low
+- Data is read when rinc is high and rempty is low
+- wfull indicates the FIFO is full and cannot accept more writes
+- rempty indicates the FIFO is empty and has no data to read
+- The FIFO should handle clock domain crossing properly
+
+
+Dual-port RAM module (provided):
+```verilog
+module dual_port_RAM #(parameter DEPTH = 16,
+   parameter WIDTH = 8)(
+ input wclk
+,input wenc
+,input [$clog2(DEPTH)-1:0] waddr
+,input [WIDTH-1:0] wdata
+,input rclk
+,input renc
+,input [$clog2(DEPTH)-1:0] raddr
+,output reg [WIDTH-1:0] rdata
+);
+
+reg [WIDTH-1:0] RAM_MEM [0:DEPTH-1];
+
+always @(posedge wclk) begin
+if(wenc)
+RAM_MEM[waddr] <= wdata;
+end 
+
+always @(posedge rclk) begin
+if(renc)
+rdata <= RAM_MEM[raddr];
+end 
+
+endmodule  
+```
+
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- wclk: input 1 bit.
+- rclk: input 1 bit.
+- wrstn: input 1 bit.
+- rrstn: input 1 bit.
+- winc: input 1 bit.
+- rinc: input 1 bit.
+- wdata: input [WIDTH-1:0].
+- wfull: output 1 bit.
+- rempty: output 1 bit.
+- rdata: output [WIDTH-1:0].
+
+Public parameters:
+-  WIDTH: default = 8.
+-  DEPTH: default = 16.
+-  ADDR_WIDTH: default = $clog2(DEPTH).
+
+Event convention: each table row drives the explicitly named clock levels and data, then observes settled outputs. The model must apply the edge described by those levels exactly once; it must not insert a second pipeline delay.
+
+1. Module and ports.
+
+
+2. Given submodules.
+The implementation file must contain the following provided definition verbatim alongside TopModule and must instantiate it rather than reimplement its function inline.
+
+module dual_port_RAM #(parameter DEPTH = 16,
+   parameter WIDTH = 8)(
+ input wclk
+,input wenc
+,input [$clog2(DEPTH)-1:0] waddr
+,input [WIDTH-1:0] wdata
+,input rclk
+,input renc
+,input [$clog2(DEPTH)-1:0] raddr
+,output reg [WIDTH-1:0] rdata
+);
+
+reg [WIDTH-1:0] RAM_MEM [0:DEPTH-1];
+
+always @(posedge wclk) begin
+if(wenc)
+RAM_MEM[waddr] <= wdata;
+end 
+
+always @(posedge rclk) begin
+if(renc)
+rdata <= RAM_MEM[raddr];
+end 
+
+endmodule  
+
+3. Reset.
+wrstn is an active-low asynchronous write-domain reset: assertion immediately sets the write ordinal and its remote-read observation history to zero and wfull to zero, independently of clocks, and low wrstn takes priority over a coincident rising wclk edge.
+rrstn is an active-low asynchronous read-domain reset: assertion immediately sets the read ordinal and its remote-write observation history to zero and rempty to one, independently of clocks, and low rrstn takes priority over a coincident rising rclk edge.
+Neither reset erases any stored word or clears rdata. Write reset does not reset the read domain or prohibit an otherwise eligible read; read reset does not reset the write domain or prohibit an otherwise eligible write. A remote reset affects the other domain's status through its receiving-edge history. Repeated assertions restart the corresponding ordinal and history again. While a reset is low its domain ordinal and observation history remain zero, its flag remains at its reset value, and its transfers are blocked; the other domain continues independently.
+Reset release alone accepts no transaction, changes no rdata, and leaves the corresponding status at its reset value until reevaluated on a rising domain edge. On the first rising write edge after release, an enabled write can be accepted at ordinal zero and wfull is reevaluated. On the first rising read edge after release, the pre-edge rempty=1 blocks a read and rempty is reevaluated. Both receiving histories begin with zero; their subsequent evolution follows section 5.
+Before any write reset, wfull is hardware-unknown x; before any read reset, rempty is hardware-unknown x. Before the first accepted read, rdata is hardware-unknown x, including during and after either reset. Unwritten storage is hardware-unknown x. These are certain answer laws, not arbitrary don't-cares or concrete initialization choices. No reset initializes storage or rdata. After an accepted read, rdata can be known without a reset clearing it and retains its prior value across reset assertion and release unless another eligible read replaces it.
+
+4. Timing.
+wclk acts only on rising edges to accept writes and publish wfull; falling edges and static levels do neither, and wclk alone does not publish rempty or rdata.
+rclk acts only on rising edges to accept reads and publish rempty and accepted-read rdata; falling edges and static levels do neither, and rclk alone does not publish wfull.
+Status is registered in its own domain and holds between active edges, except for its own asynchronous reset. Status is reevaluated on every rising domain edge even with the request disabled or blocked. rdata is registered: an accepted read at edge E0 publishes its selected word immediately after E0, using the pre-edge read ordinal and pre-event stored data, while that ordinal advances on the same edge. A strictly pre-E0 observation sees the old rdata. There is no additional data pipeline edge. rdata holds at E1 and all later events without an accepted read. No periodic output or completion pulse is specified, and no relative clock schedule, frequency or duty cycle is imposed.
+For a write accepted at E0 into a reset empty FIFO, E1, E2 and E3 are the first three strictly subsequent rising rclk edges. With no intervening relevant change, rempty stays one after E0, E1 and E2 and becomes zero immediately after E3. A simultaneous rclk edge at E0 observes pre-E0 history and is not E1. A read requested at E3 remains blocked by pre-edge rempty=1. For a final accepted read at E0 whose post-read ordinal equals the delayed write ordinal, rempty becomes one immediately after E0.
+For a write accepted at E0 that makes the post-write ordinal equal delayed read ordinal plus capacity modulo the ordinal modulus, wfull becomes one immediately after E0. For a read or read reset at E0 that frees the compared position, E1, E2 and E3 are the first three strictly subsequent rising wclk edges. With no intervening relevant change, wfull keeps its prior value after E1 and E2 and reflects the remote change immediately after E3. A simultaneous wclk edge at E0 observes pre-E0 history and is not E1. Clock stoppage freezes clocked publication.
+Observation scope: the Lean instance has WIDTH=8, DEPTH=16 and ADDR_WIDTH=4 and explicit clock levels. Each row observes settled outputs after the pending level-change/reset/edge events relative to the preceding row; the single transition is then committed once. Row zero starts with clocks low and hardware-uninitialized storage and outputs, except that a reset low in that row immediately establishes its domain reset state. Reset pulses represented by rows need not reach a clock edge. This event scenario does not impose restrictions on circuit reset pulses or input stability between physical edges. The interface specifies no numerical step_ns or sample_offset_ns; row indices are observations, not an implicit 10 ns tick. Circuit timing is governed by the edge and asynchronous laws above, not by a row-index period.
+
+5. Behaviour.
+Let A=ADDR_WIDTH, capacity=2**A and ordinal modulus=2*capacity. Write and read ordinals count accepted transfers since their respective latest resets modulo that modulus. These are mathematical descriptions, not implementation signal names. Write address is the pre-acceptance write ordinal modulo capacity; read address is the pre-acceptance read ordinal modulo capacity.
+winc is sampled only on rising wclk edges: a write is accepted exactly when wrstn=1, winc=1 and pre-edge wfull=0; holding winc high repeats acceptance on every eligible edge, and blocked requests are discarded rather than deferred.
+rinc is sampled only on rising rclk edges: a read is accepted exactly when rrstn=1, rinc=1 and pre-edge rempty=0; holding rinc high repeats acceptance on every eligible edge, and blocked requests are discarded rather than deferred.
+wdata is sampled bit-for-bit only at accepted rising wclk edges and never controls acceptance or status; changes elsewhere do not change stored words, flags or rdata.
+Deasserting a request interrupts further transfers without discarding prior words. Neither request has an asynchronous effect or is sampled by the other clock. Independently eligible simultaneous requests both proceed; a full write or empty read cannot become eligible from a same-edge remote transfer.
+Immediately after every rising wclk edge with wrstn=1, wfull is one exactly when the post-acceptance write ordinal equals delayed read ordinal plus capacity modulo the ordinal modulus, and otherwise zero.
+Immediately after every rising rclk edge with rrstn=1, rempty is one exactly when the post-acceptance read ordinal equals delayed write ordinal, and otherwise zero.
+For each domain's status calculation, the delayed remote ordinal is the remote ordinal sampled immediately before the second preceding rising edge of the receiving clock since its latest local reset, or zero when fewer than two preceding edges exist. Receiving-edge history advances even when transfers are disabled, full or empty. Simultaneous remote transfers or reset assertions are not forwarded into the pre-event sample. A reset already asserted at an earlier event is visible as ordinal zero. Unknown remote history remains hardware-unknown where it prevents determining status; the certain startup law requires an unreset domain's status to remain hardware-unknown.
+Each accepted read publishes the WIDTH-bit word from the latest earlier accepted write at the same ordinal modulo capacity, or hardware-unknown x if that address has never been written; simultaneous same-address read and write return the preceding stored word, with no bypass, and every result bit retains its written bit position.
+rdata retains its last value on blocked reads, rinc=0, absent rising rclk edges and reset assertion or release; with only write reset asserted, an independently eligible read can still replace it.
+The data selected for a read is determined by the pre-event storage and pre-acceptance read ordinal; the post-edge read ordinal is the old ordinal plus one modulo the ordinal modulus. The word stored by a write is determined by current wdata and the pre-acceptance write ordinal; the post-edge write ordinal is the old ordinal plus one modulo the ordinal modulus. Each reset changes only its own ordinal/history and flag. Previously written locations survive both resets and can be selected again after ordinal restart. No conversion, sign extension or arithmetic on data is performed; storage preserves exactly WIDTH bits.
+Public parameterization is retained beyond the concrete verification instance. Derived parameter constraint P1: WIDTH and DEPTH must be positive integers, ADDR_WIDTH must be a nonnegative integer, and 2**ADDR_WIDTH<=DEPTH; every address from zero through 2**ADDR_WIDTH-1 must be representable by the provided RAM's address ports. The exact source bases are "input [WIDTH-1:0] wdata", "reg [WIDTH-1:0] RAM_MEM [0:DEPTH-1];", and "input [$clog2(DEPTH)-1:0] waddr", together with the certain answer law "For this law let A=ADDR_WIDTH, C=2**A and M=2*C." The WIDTH-bit word and DEPTH-location representation require positive dimensions; the ordinal/address law requires an integral nonnegative A and storage for all C selected locations. A capacity exceeding DEPTH would require a location outside the supplied RAM, so cannot satisfy that law. ADDR_WIDTH=0 is supported wherever the RAM address representation permits address zero: capacity is one and ordinal modulus is two. In particular WIDTH=8, DEPTH=16, ADDR_WIDTH=0 is feasible; its RAM address ports remain four bits wide. There is no requirement that ADDR_WIDTH itself describe a nonempty physical RAM address port. A larger DEPTH with a smaller supported capacity is feasible, so no generic power-of-two depth restriction is imposed. With default ADDR_WIDTH=$clog2(DEPTH), the capacity bound implies DEPTH=2**ADDR_WIDTH; overrides retain the full feasible domain. There is no mandatory reset-before-use requirement; the specified hardware unknowns apply until state-establishing events as stated above.
+All clarifications above close unstated source details using certain scoped laws Q1–Q25. No original source clause is superseded, no example erratum or source self-erratum is applied, and no implementation initialization choice is made. The retained original requirements, including its supplied RAM, remain authoritative.
+
+6. Worked trace.
+The following evaluated trace is normative for the concrete instance and observation scenario stated above; it does not replace the full parameterized circuit contract.
+### stimulus 0
+| half-cycle | wclk | rclk | wrstn | rrstn | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 1 | 0 | 0 | 8'b00000000 | x | x | 8'x |
+| 1 | 1 | 0 | 1 | 1 | 0 | 0 | 8'b11111111 | x | x | 8'x |
+| 2 | 0 | 1 | 1 | 1 | 0 | 0 | 8'b00000000 | x | x | 8'x |
+| 3 | 1 | 1 | 1 | 1 | 0 | 0 | 8'b11111111 | x | x | 8'x |
+| 4 | 0 | 0 | 1 | 1 | 0 | 0 | 8'b00000000 | x | x | 8'x |
+| 5 | 1 | 0 | 1 | 1 | 0 | 0 | 8'b11111111 | x | x | 8'x |
+| 6 | 0 | 1 | 1 | 1 | 0 | 0 | 8'b00000000 | x | x | 8'x |
+| 7 | 1 | 1 | 1 | 1 | 0 | 0 | 8'b11111111 | x | x | 8'x |
+| 8 | 0 | 0 | 1 | 1 | 0 | 0 | 8'b00000000 | x | x | 8'x |
+| 9 | 1 | 0 | 1 | 1 | 0 | 0 | 8'b11111111 | x | x | 8'x |
+
+### stimulus 1
+| half-cycle | wclk | rclk | wrstn | rrstn | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'x |
+| 1 | 1 | 0 | 0 | 0 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'x |
+| 2 | 0 | 1 | 0 | 0 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'x |
+| 3 | 1 | 1 | 1 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 4 | 0 | 0 | 1 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 5 | 1 | 0 | 1 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 6 | 0 | 1 | 1 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 7 | 1 | 1 | 1 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 8 | 0 | 0 | 1 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 9 | 1 | 0 | 1 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+
+### stimulus 2
+| half-cycle | wclk | rclk | wrstn | rrstn | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 1 | 1 | 0 | 0 | 0 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 2 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 3 | 1 | 0 | 1 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 4 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00000001 | 0 | 1 | 8'x |
+| 5 | 1 | 0 | 1 | 1 | 1 | 0 | 8'b00000001 | 0 | 1 | 8'x |
+| 6 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 7 | 1 | 0 | 1 | 1 | 1 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 8 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b10000000 | 0 | 1 | 8'x |
+| 9 | 1 | 0 | 1 | 1 | 1 | 0 | 8'b10000000 | 0 | 1 | 8'x |
+
+### stimulus 3
+| half-cycle | wclk | rclk | wrstn | rrstn | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 1 | 0 | 1 | 0 | 0 | 0 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 2 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 3 | 0 | 1 | 1 | 1 | 0 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 4 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 5 | 0 | 1 | 1 | 1 | 0 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 6 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 7 | 0 | 1 | 1 | 1 | 0 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 8 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 9 | 0 | 1 | 1 | 1 | 0 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+
+### stimulus 4
+| half-cycle | wclk | rclk | wrstn | rrstn | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 1 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 1 | 1 | 1 | 0 | 0 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'x |
+| 2 | 0 | 0 | 1 | 1 | 1 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 3 | 1 | 1 | 1 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'x |
+| 4 | 0 | 0 | 1 | 1 | 1 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 5 | 1 | 1 | 1 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'x |
+| 6 | 0 | 0 | 1 | 1 | 1 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 7 | 1 | 1 | 1 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'x |
+| 8 | 0 | 0 | 1 | 1 | 1 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 9 | 1 | 1 | 1 | 1 | 1 | 1 | 8'b11111111 | 0 | 0 | 8'x |
+
+### stimulus 5
+| half-cycle | wclk | rclk | wrstn | rrstn | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 1 | 1 | 1 | 0 | 0 | 0 | 0 | 8'b00100101 | 0 | 1 | 8'x |
+| 2 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b01001010 | 0 | 1 | 8'x |
+| 3 | 1 | 1 | 0 | 0 | 0 | 0 | 8'b01101111 | 0 | 1 | 8'x |
+| 4 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b10010100 | 0 | 1 | 8'x |
+| 5 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b10111001 | 0 | 1 | 8'x |
+| 6 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b11011110 | 0 | 1 | 8'x |
+| 7 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b00000011 | 0 | 1 | 8'x |
+| 8 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00101000 | 0 | 1 | 8'x |
+| 9 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b01001101 | 0 | 1 | 8'x |
+| 10 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b01110010 | 0 | 1 | 8'x |
+| 11 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b10010111 | 0 | 0 | 8'x |
+| 12 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b10111100 | 0 | 0 | 8'x |
+| 13 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b11100001 | 0 | 0 | 8'x |
+| 14 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00000110 | 0 | 0 | 8'x |
+| 15 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b00101011 | 0 | 0 | 8'x |
+| 16 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b01010000 | 0 | 0 | 8'x |
+| 17 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b01110101 | 0 | 0 | 8'x |
+| 18 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b10011010 | 0 | 0 | 8'x |
+| 19 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b10111111 | 0 | 0 | 8'x |
+| 20 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b11100100 | 0 | 0 | 8'x |
+| 21 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b00001001 | 0 | 0 | 8'x |
+| 22 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00101110 | 0 | 0 | 8'x |
+| 23 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b01010011 | 0 | 0 | 8'x |
+| 24 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b01111000 | 0 | 0 | 8'x |
+| 25 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b10011101 | 0 | 0 | 8'x |
+| 26 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b11000010 | 0 | 0 | 8'x |
+| 27 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b11100111 | 0 | 0 | 8'x |
+| 28 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00001100 | 0 | 0 | 8'x |
+| 29 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b00110001 | 0 | 0 | 8'x |
+| 30 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b01010110 | 0 | 0 | 8'x |
+| 31 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b01111011 | 0 | 0 | 8'x |
+| 32 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b10100000 | 0 | 0 | 8'x |
+| 33 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b11000101 | 0 | 0 | 8'x |
+| 34 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b11101010 | 0 | 0 | 8'x |
+| 35 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b00001111 | 1 | 0 | 8'x |
+| 36 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00110100 | 1 | 0 | 8'x |
+| 37 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b01011001 | 1 | 0 | 8'x |
+| 38 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b01111110 | 1 | 0 | 8'x |
+| 39 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b10100011 | 1 | 0 | 8'x |
+| 40 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b11001000 | 1 | 0 | 8'x |
+| 41 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b11101101 | 1 | 0 | 8'b10111001 |
+| 42 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b00010010 | 1 | 0 | 8'b10111001 |
+| 43 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b00110111 | 1 | 0 | 8'b00000011 |
+| 44 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b01011100 | 1 | 0 | 8'b00000011 |
+| 45 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b10000001 | 1 | 0 | 8'b01001101 |
+| 46 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b10100110 | 1 | 0 | 8'b01001101 |
+| 47 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b11001011 | 0 | 0 | 8'b10010111 |
+| 48 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b11110000 | 0 | 0 | 8'b10010111 |
+| 49 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b00010101 | 0 | 0 | 8'b11100001 |
+| 50 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b00111010 | 0 | 0 | 8'b11100001 |
+| 51 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b01011111 | 0 | 0 | 8'b00101011 |
+| 52 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b10000100 | 0 | 0 | 8'b00101011 |
+| 53 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b10101001 | 0 | 0 | 8'b01110101 |
+| 54 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b11001110 | 0 | 0 | 8'b01110101 |
+| 55 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b11110011 | 0 | 0 | 8'b10111111 |
+| 56 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b00011000 | 0 | 0 | 8'b10111111 |
+| 57 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b00111101 | 0 | 0 | 8'b00001001 |
+| 58 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b01100010 | 0 | 0 | 8'b00001001 |
+| 59 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b10000111 | 0 | 0 | 8'b01010011 |
+| 60 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b10101100 | 0 | 0 | 8'b01010011 |
+| 61 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b11010001 | 0 | 0 | 8'b10011101 |
+| 62 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b11110110 | 0 | 0 | 8'b10011101 |
+| 63 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b00011011 | 0 | 0 | 8'b11100111 |
+| 64 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b01000000 | 0 | 0 | 8'b11100111 |
+| 65 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b01100101 | 0 | 0 | 8'b00110001 |
+| 66 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b10001010 | 0 | 0 | 8'b00110001 |
+| 67 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b10101111 | 0 | 0 | 8'b01111011 |
+| 68 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b11010100 | 0 | 0 | 8'b01111011 |
+| 69 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b11111001 | 0 | 0 | 8'b11000101 |
+| 70 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b00011110 | 0 | 0 | 8'b11000101 |
+| 71 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b01000011 | 0 | 1 | 8'b00001111 |
+| 72 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b01101000 | 0 | 1 | 8'b00001111 |
+| 73 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b10001101 | 0 | 1 | 8'b00001111 |
+| 74 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b10110010 | 0 | 1 | 8'b00001111 |
+| 75 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b11010111 | 0 | 1 | 8'b00001111 |
+| 76 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b11111100 | 0 | 1 | 8'b00001111 |
+| 77 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b00100001 | 0 | 1 | 8'b00001111 |
+| 78 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b01000110 | 0 | 1 | 8'b00001111 |
+| 79 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b01101011 | 0 | 1 | 8'b00001111 |
+| 80 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b10010000 | 0 | 1 | 8'b00001111 |
+| 81 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b10110101 | 0 | 1 | 8'b00001111 |
+| 82 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b11011010 | 0 | 1 | 8'b00001111 |
+| 83 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b11111111 | 0 | 0 | 8'b00001111 |
+| 84 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00100100 | 0 | 0 | 8'b00001111 |
+| 85 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b01001001 | 0 | 0 | 8'b00001111 |
+| 86 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b01101110 | 0 | 0 | 8'b00001111 |
+| 87 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b10010011 | 0 | 0 | 8'b00001111 |
+| 88 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b10111000 | 0 | 0 | 8'b00001111 |
+| 89 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b11011101 | 0 | 0 | 8'b00001111 |
+| 90 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00000010 | 0 | 0 | 8'b00001111 |
+| 91 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b00100111 | 0 | 0 | 8'b00001111 |
+| 92 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b01001100 | 0 | 0 | 8'b00001111 |
+| 93 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b01110001 | 0 | 0 | 8'b00001111 |
+| 94 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b10010110 | 0 | 0 | 8'b00001111 |
+| 95 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b10111011 | 0 | 0 | 8'b00001111 |
+| 96 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b11100000 | 0 | 0 | 8'b00001111 |
+| 97 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b00000101 | 0 | 0 | 8'b00001111 |
+| 98 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00101010 | 0 | 0 | 8'b00001111 |
+| 99 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b01001111 | 0 | 0 | 8'b00001111 |
+| 100 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b01110100 | 0 | 0 | 8'b00001111 |
+| 101 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b10011001 | 0 | 0 | 8'b00001111 |
+| 102 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b10111110 | 0 | 0 | 8'b00001111 |
+| 103 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b11100011 | 0 | 0 | 8'b00001111 |
+| 104 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00001000 | 0 | 0 | 8'b00001111 |
+| 105 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b00101101 | 0 | 0 | 8'b00001111 |
+| 106 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b01010010 | 0 | 0 | 8'b00001111 |
+| 107 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b01110111 | 1 | 0 | 8'b00001111 |
+| 108 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b10011100 | 1 | 0 | 8'b00001111 |
+| 109 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b11000001 | 1 | 0 | 8'b00001111 |
+| 110 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b11100110 | 1 | 0 | 8'b00001111 |
+| 111 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b00001011 | 1 | 0 | 8'b00001111 |
+| 112 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b00110000 | 1 | 0 | 8'b00001111 |
+| 113 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b01010101 | 1 | 0 | 8'b00100001 |
+| 114 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b01111010 | 1 | 0 | 8'b00100001 |
+| 115 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b10011111 | 1 | 0 | 8'b01101011 |
+| 116 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b11000100 | 1 | 0 | 8'b01101011 |
+| 117 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b11101001 | 1 | 0 | 8'b10110101 |
+| 118 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b00001110 | 1 | 0 | 8'b10110101 |
+| 119 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b00110011 | 0 | 0 | 8'b11111111 |
+| 120 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b01011000 | 0 | 0 | 8'b11111111 |
+| 121 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b01111101 | 0 | 0 | 8'b01001001 |
+| 122 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b10100010 | 0 | 0 | 8'b01001001 |
+| 123 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b11000111 | 0 | 0 | 8'b10010011 |
+| 124 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b11101100 | 0 | 0 | 8'b10010011 |
+| 125 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b00010001 | 0 | 0 | 8'b11011101 |
+| 126 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b00110110 | 0 | 0 | 8'b11011101 |
+| 127 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b01011011 | 0 | 0 | 8'b00100111 |
+| 128 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b10000000 | 0 | 0 | 8'b00100111 |
+| 129 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b10100101 | 0 | 0 | 8'b01110001 |
+| 130 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b11001010 | 0 | 0 | 8'b01110001 |
+| 131 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b11101111 | 0 | 0 | 8'b10111011 |
+| 132 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b00010100 | 0 | 0 | 8'b10111011 |
+| 133 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b00111001 | 0 | 0 | 8'b00000101 |
+| 134 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b01011110 | 0 | 0 | 8'b00000101 |
+| 135 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b10000011 | 0 | 0 | 8'b01001111 |
+| 136 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b10101000 | 0 | 0 | 8'b01001111 |
+| 137 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b11001101 | 0 | 0 | 8'b10011001 |
+| 138 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b11110010 | 0 | 0 | 8'b10011001 |
+| 139 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b00010111 | 0 | 0 | 8'b11100011 |
+| 140 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b00111100 | 0 | 0 | 8'b11100011 |
+| 141 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b01100001 | 0 | 0 | 8'b00101101 |
+| 142 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b10000110 | 0 | 0 | 8'b00101101 |
+| 143 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b10101011 | 0 | 1 | 8'b01110111 |
+| 144 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b11010000 | 0 | 1 | 8'b01110111 |
+| 145 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b11110101 | 0 | 1 | 8'b01110111 |
+| 146 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b00011010 | 0 | 1 | 8'b01110111 |
+| 147 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b00111111 | 0 | 1 | 8'b01110111 |
+
+### stimulus 6
+| half-cycle | wclk | rclk | wrstn | rrstn | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 1 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 1 | 1 | 0 | 0 | 0 | 1 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 2 | 0 | 1 | 1 | 1 | 1 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 3 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 4 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 5 | 1 | 0 | 1 | 1 | 1 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 6 | 0 | 1 | 1 | 1 | 0 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 7 | 1 | 1 | 0 | 0 | 0 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 8 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 9 | 1 | 0 | 1 | 1 | 1 | 0 | 8'b01010101 | 0 | 1 | 8'x |
+| 10 | 0 | 1 | 1 | 1 | 1 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 11 | 1 | 1 | 1 | 1 | 1 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 12 | 0 | 0 | 1 | 1 | 1 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 13 | 1 | 0 | 1 | 1 | 1 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 14 | 0 | 1 | 1 | 1 | 1 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+| 15 | 1 | 1 | 1 | 1 | 1 | 1 | 8'b01010101 | 0 | 1 | 8'x |
+
+### stimulus 7
+| half-cycle | wclk | rclk | wrstn | rrstn | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 1 | 0 | 8'b10000000 | 0 | 1 | 8'x |
+| 1 | 0 | 1 | 0 | 0 | 1 | 0 | 8'b10000000 | 0 | 1 | 8'x |
+| 2 | 1 | 0 | 1 | 1 | 1 | 0 | 8'b10000000 | 0 | 1 | 8'x |
+| 3 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b10000000 | 0 | 1 | 8'x |
+| 4 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b10000000 | 0 | 1 | 8'x |
+| 5 | 0 | 1 | 1 | 1 | 1 | 0 | 8'b10000000 | 0 | 1 | 8'x |
+| 6 | 1 | 0 | 1 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'x |
+| 7 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b10000000 | 0 | 0 | 8'x |
+| 8 | 0 | 0 | 0 | 1 | 0 | 1 | 8'b10000000 | 0 | 0 | 8'x |
+| 9 | 0 | 1 | 1 | 1 | 0 | 1 | 8'b10000000 | 0 | 1 | 8'b10000000 |
+| 10 | 1 | 0 | 1 | 1 | 0 | 1 | 8'b10000000 | 0 | 1 | 8'b10000000 |
+| 11 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b10000000 | 0 | 0 | 8'b10000000 |
+| 12 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b10000000 | 0 | 0 | 8'b10000000 |
+| 13 | 0 | 1 | 1 | 1 | 0 | 1 | 8'b10000000 | 0 | 0 | 8'b10000000 |
+| 14 | 1 | 0 | 1 | 1 | 0 | 1 | 8'b10000000 | 0 | 0 | 8'b10000000 |
+| 15 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b10000000 | 0 | 0 | 8'x |
+
+### stimulus 8
+| half-cycle | wclk | rclk | wrstn | rrstn | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 1 | 0 | 8'b00000001 | 0 | 1 | 8'x |
+| 1 | 1 | 0 | 0 | 0 | 1 | 0 | 8'b00000001 | 0 | 1 | 8'x |
+| 2 | 0 | 1 | 1 | 1 | 1 | 0 | 8'b00000001 | 0 | 1 | 8'x |
+| 3 | 1 | 1 | 1 | 1 | 1 | 0 | 8'b00000001 | 0 | 1 | 8'x |
+| 4 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00000001 | 0 | 1 | 8'x |
+| 5 | 1 | 0 | 1 | 1 | 1 | 0 | 8'b00000001 | 0 | 1 | 8'x |
+| 6 | 0 | 1 | 1 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 7 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 8 | 0 | 0 | 1 | 0 | 0 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 9 | 1 | 0 | 1 | 1 | 0 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 10 | 0 | 1 | 1 | 1 | 0 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 11 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 12 | 0 | 0 | 1 | 1 | 0 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 13 | 1 | 0 | 1 | 1 | 0 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 14 | 0 | 1 | 1 | 1 | 0 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+| 15 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b00000001 | 0 | 1 | 8'x |
+
+### stimulus 9
+| half-cycle | wclk | rclk | wrstn | rrstn | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 1 | 0 | 0 | 8'b00000000 | x | x | 8'x |
+| 1 | 1 | 1 | 1 | 1 | 0 | 0 | 8'b00000000 | x | x | 8'x |
+| 2 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b00000000 | x | x | 8'x |
+| 3 | 1 | 1 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 4 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 5 | 1 | 1 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 6 | 0 | 0 | 1 | 1 | 1 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 7 | 1 | 1 | 1 | 1 | 0 | 1 | 8'b11111111 | 0 | 1 | 8'x |
+| 8 | 0 | 0 | 1 | 1 | 0 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 9 | 1 | 1 | 1 | 1 | 0 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 10 | 0 | 0 | 1 | 1 | 0 | 0 | 8'b11111111 | 0 | 1 | 8'x |
+| 11 | 1 | 1 | 1 | 1 | 0 | 0 | 8'b11111111 | 0 | 1 | 8'x |

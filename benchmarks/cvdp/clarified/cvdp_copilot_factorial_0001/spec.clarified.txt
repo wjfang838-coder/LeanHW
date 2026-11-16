@@ -1,0 +1,321 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Write a System Verilog RTL for Factorial computation.  The design should take a number as input and computes factorial on it and return its factorial. Here are some design specifications and port list signals description. 
+
+1- `clk` (Input): This is a single bit input to the design. The design runs on this clock. 
+2- `arst_n`  (Input): Asynchronous Active low reset signal for the design.
+3- `num_in` (Input): 5 bit input number who's factorial to be calculated.  The input can range from 0 to 31.
+4- `start`  (input): This signal indicates that design should start calculating factorial on the provided input. This should be driven along with `num_in` for one clock cycle when busy is not asserted.
+5- `busy` (output) : This signal indicates that design is busy in calculating the factorial for the provided input. During this signal asserted, design should not accept any new input to process. Design should de-assert it when done is asserted. 
+6- `fact` (Outputs): An unsigned 64-bit output that holds the low 64 bits of the mathematical factorial, i.e. num_in! modulo 2^64 for every input 0..31. The accepting rising edge captures num_in and registers this result.
+7- `done` (output) : This signal indicates that the factorial is calculated the on previous input and now design is ready to accept new input. This should be asserted for one cycle and along with `fact` output. 
+To achieve these feature, implement an FSM which will handle the entire factorial computation flow. The FSM should consist of three states i.e. IDLE, BUSY and DONE. A start request is accepted at any rising edge when busy is low, including the DONE indication interval, with no mandatory idle bubble. A positive input enters BUSY; input zero produces fact=1, busy=0 and a one-cycle done indication immediately at the accepting edge. At BUSY state, the factorial computation will be done. For positive accepted n, busy remains high for n subsequent rising edges; at the nth subsequent edge busy falls and done rises for one cycle. The accepting edge is E0 and completion is En. fact retains the registered result until another accepted request or reset. A new start in the done/busy-low interval is accepted at the next rising edge. Asynchronous reset clears fact, busy and done and cancels the pending transaction. Once all the iterations for factorial calculations are done, then design should move to DONE state, de-asserting the busy signal and asserting the done signal for one cycle. 
+One of the major feature of the design is that it should take as many cycles to compute the factorial as the input value is. For example, if design get input to calculate factorial for 5, it will take 5 cycles to compute the factorial and finally drive it to output signal. 
+
+Factorial Overview:
+A factorial, denoted by n!, is the product of all positive integers from 1 to n. It’s a mathematical function that grows very quickly as n increases. The factorial of 0 is defined as 1, and for any positive integer n, the factorial is calculated as:
+
+    n!=nx(n−1)x(n−2)x⋯x1
+
+For example:
+
+    4!=4x3x2x1=24
+    5!=5x4x3x2x1=120
+
+Factorials are commonly used in permutations, combinations, and probability theory.
+
+This is a locally revised benchmark prompt (2026-10-01), with explicit errata that supersede conflicting earlier clauses. It is not an unchanged upstream CVDP problem. Implementation choices for behavior still unspecified must be disclosed and must not contradict these requirements.
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Write a System Verilog RTL for Factorial computation.  The design should take a number as input and computes factorial on it and return its factorial. Here are some design specifications and port list signals description. 
+
+Named module interface binding
+
+Module: factorial.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- arst_n: input; 1 bits in the concrete formal instance.
+- num_in: input; 5 bits in the concrete formal instance.
+- start: input; 1 bits in the concrete formal instance.
+- busy: output; 1 bits in the concrete formal instance.
+- fact: output; 64 bits in the concrete formal instance.
+- done: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is factorial. The public ports are: input clk, 1 bit; input arst_n, 1 bit; input num_in, unsigned 5 bits; input start, 1 bit; output busy, 1 bit; output fact, unsigned 64 bits; output done, 1 bit. There are no public parameters or symbolic ranges.
+
+This enumeration follows the integration answer's canonical enumeration, not a verified declaration order. This document does not guarantee positional order. Portable consumer guidance is to connect these exact names by name. A consumer possessing the actual module declaration may instantiate positionally in that declaration's order.
+
+3. Reset.
+
+arst_n is asynchronous and active low: assertion immediately clears fact, busy and done to zero and cancels the pending transaction without waiting for clk. While asserted these outputs stay zero and no request is accepted. The FSM is IDLE, with no pending intervals, and the stored result is valid zero. Reset takes priority over a simultaneous rising edge, consistently with these while-reset-active requirements.
+
+Implementation choice C1: before any reset or clock event, initialize fact=0, busy=0 and done=0, the FSM to IDLE, the pending interval count to zero, and the stored result to valid zero. This is a compatible implementation decision for the otherwise unspecified initial state, not a source-derived hardware power-up guarantee. It establishes no reset-before-use restriction; all normal rising-edge laws apply immediately, including before the first reset. No memory or additional state is implicitly initialized.
+
+Implementation choice C2: reset release alone retains the reset state and does not accept a request or advance the transaction; the first rising edge after release applies the ordinary acceptance law without a warm-up edge. This completes the unstated release-event behavior without changing asynchronous assertion, rising-edge acceptance or latency. Falling clock edges and between-edge input changes cause no registered updates; asynchronous reset assertion remains effective at any clock level. On a rising edge while reset remains asserted, every state element remains in its reset state.
+
+4. Timing.
+
+All three outputs are registered during reset-released operation, with asynchronous reset clearing. Rising edges of clk accept requests, advance pending transactions and publish outputs; pre-edge busy determines which action occurs.
+
+At an accepting rising edge E0, fact immediately becomes the complete low-64-bit factorial of the sampled num_in, busy becomes 1 for positive n and 0 for zero, and done becomes 1 for zero and 0 for positive n.
+
+For positive n, E0 enters BUSY. Each interval E(j-1) to Ej completes one subsequent clock interval. Immediately after E1 through E(n-1), busy=1 and done=0; immediately after En, busy=0 and done=1. En is the completion action edge after n completed intervals, with no additional action edge. The exact source law is: "For positive accepted n, busy remains high for n subsequent rising edges; at the nth subsequent edge busy falls and done rises for one cycle. The accepting edge is E0 and completion is En." Thus the phrase about remaining high is governed by its explicit En transition, not an extra high interval after En.
+
+busy is high for n complete intervals from E0 to En; zero never asserts busy. done indicates each completion for one cycle, but adjacent zero completions can make consecutive indication cycles continuously high. No output is periodic. fact's publication latency is zero subsequent cycles from acceptance, not n cycles; completion latency is n subsequent cycles for positive inputs and zero for input zero. The source explicitly identifies its revised accepting-edge and completion rules as superseding conflicting informal descriptions of driving the result at completion; these are source-provided errata, not new amendments inferred from the answers.
+
+The finite model uses a full-cycle active-edge scenario with no physical clk input: row k samples the settled outputs before the represented rising edge, then that row's transition produces the state seen at row k+1. It is not a simulation of all between-edge events. Reset assertions represented in the scenario are held through that row's active edge, so the output override and state transition both apply reset. This finite sampling scope does not restrict the circuit's legal asynchronous reset pulses. Reset release in this scenario follows a committed reset; the physical circuit must also cancel work on assertion pulses entirely between clock edges. The interface supplies no step_ns or sample_offset_ns values, and no nanosecond clock period is assumed.
+
+From reset assertion through release and the first three rising edges: assertion clears all outputs and pending work; release holds them; if the first rising edge accepts n=2 it is E0 and publishes fact=2, busy=1, done=0; the second is E1 and retains fact=2, busy=1, done=0; the third is E2 and retains fact=2 while publishing busy=0, done=1. If no request occurs at the first edge, it instead retains fact=0, busy=0, done=0.
+
+5. Behaviour.
+
+The FSM has the source's IDLE, BUSY and DONE states. IDLE is ready without a completion indication, BUSY has a pending positive transaction, and DONE is ready with a completion indication. DONE does not require an idle bubble.
+
+num_in is captured only when pre-edge busy=0 and start=1 with reset released; its unsigned value n spans every encoding 0..31 and selects both n! modulo 2^64 and the completion interval count n.
+
+Factorial is the product of integers 1 through n, with the empty product 0!=1. Operands are unsigned mathematical integers; the modeled product is exact and is truncated only on writing the unsigned 64-bit result. This is modulo arithmetic, not saturation. There is no excluded input encoding and no parameter-domain restriction.
+
+If pre-edge busy=1, start and num_in are ignored even on the completion edge; the existing transaction advances without restart, cancellation or result replacement.
+
+busy becomes 1 at acceptance for positive n, stays 1 after E1 through E(n-1), and becomes 0 at En; a busy-low edge without a request leaves it 0.
+
+fact is registered at E0 as n! modulo 2^64 and is retained across every subsequent edge, including completion and idle edges, until another accepted request or asynchronous reset.
+
+done is 1 immediately after zero acceptance or positive completion at En, and on the next rising edge becomes 0 unless that edge accepts another zero request.
+
+At a busy-low edge with start=0, fact retains its previous value, busy stays zero, done clears, and the FSM is IDLE. Changes to num_in alone do not publish a result. At a busy-low edge with start=1 during DONE, the new request is accepted immediately: a positive input enters BUSY and clears done, while zero publishes fact=1 and another completion indication. Holding start high during a positive transaction does not change its schedule; if still high at the edge following completion, it accepts the then-current num_in. Holding start high with zero accepts a new zero transaction at each busy-low edge, without forcing a low gap in done. The prescribed consumer stimulus is a one-cycle start along with num_in while busy is low; these laws also define repeated or held controls.
+
+Simultaneous update equations in behavioural terms: on acceptance, the post-edge result depends on pre-edge num_in, and the post-edge pending interval count equals that captured n. On a BUSY edge, the post-edge pending count equals the pre-edge count minus one, post-edge done is true exactly when the pre-edge count was one, and fact is unchanged. The count is bounded to unsigned five-bit range 0..31; decrement is performed only when nonzero. Acceptance is decided from pre-edge busy, not from the count after decrement, so the completion edge cannot also accept a request.
+
+No certain answer amends a source clause. Q1 through Q10 have unclear confidence; their x-valued headlines authorize neither hardware unknowns nor altered functionality. The original source supplies the ordinary functional and reset laws, while C1 and C2 explicitly complete only their stated unspecified scopes.
+
+6. Worked trace.
+
+The evaluated trace is normative for this finite active-edge scenario and the disclosed implementation choices; it does not establish unspecified physical declaration order or replace the full asynchronous circuit contract.
+
+### stimulus 0
+| cycle | arst_n | num_in | start | busy | fact | done |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 5'b00101 | 1 | 0 | 64'h0 | 0 |
+| 1 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 2 | 0 | 5'b11111 | 1 | 0 | 64'h0 | 0 |
+| 3 | 1 | 5'b00000 | 1 | 0 | 64'h0 | 0 |
+| 4 | 1 | 5'b00000 | 0 | 0 | 64'h1 | 1 |
+| 5 | 1 | 5'b00000 | 0 | 0 | 64'h1 | 0 |
+
+### stimulus 1
+| cycle | arst_n | num_in | start | busy | fact | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 5'b00000 | 0 | 0 | 64'h0 | 0 |
+| 1 | 1 | 5'b00001 | 1 | 0 | 64'h0 | 0 |
+| 2 | 1 | 5'b00000 | 0 | 1 | 64'h1 | 0 |
+| 3 | 1 | 5'b00000 | 0 | 0 | 64'h1 | 1 |
+| 4 | 1 | 5'b00001 | 1 | 0 | 64'h1 | 0 |
+| 5 | 1 | 5'b00000 | 0 | 1 | 64'h1 | 0 |
+| 6 | 1 | 5'b00000 | 0 | 0 | 64'h1 | 1 |
+| 7 | 1 | 5'b00000 | 0 | 0 | 64'h1 | 0 |
+
+### stimulus 2
+| cycle | arst_n | num_in | start | busy | fact | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 5'b00000 | 0 | 0 | 64'h0 | 0 |
+| 1 | 1 | 5'b00101 | 1 | 0 | 64'h0 | 0 |
+| 2 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 3 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 4 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 5 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 6 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 7 | 1 | 5'b00100 | 1 | 0 | 64'h78 | 1 |
+| 8 | 1 | 5'b00000 | 0 | 1 | 64'h18 | 0 |
+| 9 | 1 | 5'b00000 | 0 | 1 | 64'h18 | 0 |
+| 10 | 1 | 5'b00000 | 0 | 1 | 64'h18 | 0 |
+| 11 | 1 | 5'b00000 | 0 | 1 | 64'h18 | 0 |
+| 12 | 1 | 5'b00000 | 0 | 0 | 64'h18 | 1 |
+| 13 | 1 | 5'b00000 | 0 | 0 | 64'h18 | 0 |
+
+### stimulus 3
+| cycle | arst_n | num_in | start | busy | fact | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 5'b00000 | 0 | 0 | 64'h0 | 0 |
+| 1 | 1 | 5'b00101 | 1 | 0 | 64'h0 | 0 |
+| 2 | 1 | 5'b11111 | 1 | 1 | 64'h78 | 0 |
+| 3 | 1 | 5'b00000 | 1 | 1 | 64'h78 | 0 |
+| 4 | 1 | 5'b10000 | 1 | 1 | 64'h78 | 0 |
+| 5 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 6 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 7 | 1 | 5'b00000 | 0 | 0 | 64'h78 | 1 |
+| 8 | 1 | 5'b00000 | 0 | 0 | 64'h78 | 0 |
+
+### stimulus 4
+| cycle | arst_n | num_in | start | busy | fact | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 5'b00000 | 0 | 0 | 64'h0 | 0 |
+| 1 | 1 | 5'b00101 | 1 | 0 | 64'h0 | 0 |
+| 2 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 3 | 0 | 5'b00001 | 1 | 0 | 64'h0 | 0 |
+| 4 | 1 | 5'b00100 | 1 | 0 | 64'h0 | 0 |
+| 5 | 1 | 5'b00000 | 0 | 1 | 64'h18 | 0 |
+| 6 | 1 | 5'b00000 | 0 | 1 | 64'h18 | 0 |
+| 7 | 1 | 5'b00000 | 0 | 1 | 64'h18 | 0 |
+| 8 | 1 | 5'b00000 | 0 | 1 | 64'h18 | 0 |
+| 9 | 1 | 5'b00000 | 0 | 0 | 64'h18 | 1 |
+| 10 | 1 | 5'b00000 | 0 | 0 | 64'h18 | 0 |
+
+### stimulus 5
+| cycle | arst_n | num_in | start | busy | fact | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 5'b00000 | 0 | 0 | 64'h0 | 0 |
+| 1 | 1 | 5'b00000 | 1 | 0 | 64'h0 | 0 |
+| 2 | 1 | 5'b00001 | 1 | 0 | 64'h1 | 1 |
+| 3 | 1 | 5'b00000 | 0 | 1 | 64'h1 | 0 |
+| 4 | 1 | 5'b00000 | 1 | 0 | 64'h1 | 1 |
+| 5 | 1 | 5'b00000 | 1 | 0 | 64'h1 | 1 |
+| 6 | 1 | 5'b00000 | 0 | 0 | 64'h1 | 1 |
+| 7 | 1 | 5'b00000 | 0 | 0 | 64'h1 | 0 |
+
+### stimulus 6
+| cycle | arst_n | num_in | start | busy | fact | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 5'b00000 | 0 | 0 | 64'h0 | 0 |
+| 1 | 1 | 5'b10000 | 1 | 0 | 64'h0 | 0 |
+| 2 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 3 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 4 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 5 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 6 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 7 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 8 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 9 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 10 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 11 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 12 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 13 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 14 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 15 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 16 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 17 | 1 | 5'b00001 | 0 | 1 | 64'h130777758000 | 0 |
+| 18 | 1 | 5'b00001 | 0 | 0 | 64'h130777758000 | 1 |
+| 19 | 1 | 5'b00001 | 0 | 0 | 64'h130777758000 | 0 |
+| 20 | 1 | 5'b00001 | 0 | 0 | 64'h130777758000 | 0 |
+
+### stimulus 7
+| cycle | arst_n | num_in | start | busy | fact | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 5'b00000 | 0 | 0 | 64'h0 | 0 |
+| 1 | 1 | 5'b11111 | 1 | 0 | 64'h0 | 0 |
+| 2 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 3 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 4 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 5 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 6 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 7 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 8 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 9 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 10 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 11 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 12 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 13 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 14 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 15 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 16 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 17 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 18 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 19 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 20 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 21 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 22 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 23 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 24 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 25 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 26 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 27 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 28 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 29 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 30 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 31 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 32 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 33 | 1 | 5'b11111 | 1 | 0 | 64'h4560c5cd2c000000 | 1 |
+| 34 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 35 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 36 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 37 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 38 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 39 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 40 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 41 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 42 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 43 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 44 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 45 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 46 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 47 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 48 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 49 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 50 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 51 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 52 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 53 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 54 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 55 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 56 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 57 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 58 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 59 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 60 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 61 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 62 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 63 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 64 | 1 | 5'b00000 | 0 | 1 | 64'h4560c5cd2c000000 | 0 |
+| 65 | 1 | 5'b00000 | 0 | 0 | 64'h4560c5cd2c000000 | 1 |
+| 66 | 1 | 5'b00000 | 0 | 0 | 64'h4560c5cd2c000000 | 0 |
+| 67 | 1 | 5'b00000 | 0 | 0 | 64'h4560c5cd2c000000 | 0 |
+
+### stimulus 8
+| cycle | arst_n | num_in | start | busy | fact | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 5'b00000 | 0 | 0 | 64'h0 | 0 |
+| 1 | 1 | 5'b01101 | 1 | 0 | 64'h0 | 0 |
+| 2 | 1 | 5'b00000 | 1 | 1 | 64'h17328cc00 | 0 |
+| 3 | 1 | 5'b00001 | 1 | 1 | 64'h17328cc00 | 0 |
+| 4 | 1 | 5'b00010 | 1 | 1 | 64'h17328cc00 | 0 |
+| 5 | 1 | 5'b00011 | 1 | 1 | 64'h17328cc00 | 0 |
+| 6 | 1 | 5'b00100 | 1 | 1 | 64'h17328cc00 | 0 |
+| 7 | 1 | 5'b00101 | 1 | 1 | 64'h17328cc00 | 0 |
+| 8 | 1 | 5'b00110 | 1 | 1 | 64'h17328cc00 | 0 |
+| 9 | 1 | 5'b00111 | 1 | 1 | 64'h17328cc00 | 0 |
+| 10 | 1 | 5'b01000 | 1 | 1 | 64'h17328cc00 | 0 |
+| 11 | 1 | 5'b01001 | 1 | 1 | 64'h17328cc00 | 0 |
+| 12 | 1 | 5'b01010 | 1 | 1 | 64'h17328cc00 | 0 |
+| 13 | 1 | 5'b01011 | 1 | 1 | 64'h17328cc00 | 0 |
+| 14 | 1 | 5'b01100 | 1 | 1 | 64'h17328cc00 | 0 |
+| 15 | 1 | 5'b00000 | 0 | 0 | 64'h17328cc00 | 1 |
+| 16 | 1 | 5'b00000 | 0 | 0 | 64'h17328cc00 | 0 |
+| 17 | 1 | 5'b00000 | 0 | 0 | 64'h17328cc00 | 0 |
+
+### stimulus 9
+| cycle | arst_n | num_in | start | busy | fact | done |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 5'b10000 | 0 | 0 | 64'h0 | 0 |
+| 1 | 1 | 5'b11111 | 0 | 0 | 64'h0 | 0 |
+| 2 | 1 | 5'b00001 | 0 | 0 | 64'h0 | 0 |
+| 3 | 1 | 5'b01101 | 0 | 0 | 64'h0 | 0 |
+| 4 | 1 | 5'b00000 | 0 | 0 | 64'h0 | 0 |
+| 5 | 1 | 5'b00101 | 1 | 0 | 64'h0 | 0 |
+| 6 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 7 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 8 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 9 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 10 | 1 | 5'b00000 | 0 | 1 | 64'h78 | 0 |
+| 11 | 1 | 5'b00000 | 0 | 0 | 64'h78 | 1 |
+| 12 | 1 | 5'b00000 | 0 | 0 | 64'h78 | 0 |
+| 13 | 1 | 5'b00000 | 0 | 0 | 64'h78 | 0 |

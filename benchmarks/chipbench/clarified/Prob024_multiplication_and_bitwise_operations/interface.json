@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob024_multiplication_and_bitwise_operations",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

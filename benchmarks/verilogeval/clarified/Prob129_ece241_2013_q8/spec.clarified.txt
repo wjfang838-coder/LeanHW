@@ -1,0 +1,132 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- aresetn: input 1 bit.
+- x: input 1 bit.
+- z: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  S: default = 0.
+-  S1: default = 1.
+-  S10: default = 2.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+aresetn is an asynchronous, active-low reset. Assertion immediately makes z 0, regardless of clk or x, and discards all previously captured recognition history. Reset has priority over a coincident rising edge. z remains 0 for the entire time aresetn is low, including repeated or continued reset.
+
+Deasserting aresetn does not itself capture x. Immediately after release and before the first subsequent rising edge, the remembered history is the empty prefix and z is 0 for either value of x. On that first rising edge, x is captured as the first sample of new history; recognition can occur only when later samples complete 101.
+
+At power-up before reset has ever been asserted, the recognition history is uninitialised. If x is 0, z is necessarily 0. If x is 1, z is unknown while the uninitialised history still permits both detecting and non-detecting prior suffixes. The implementation must leave that history uninitialised: it must not use an initial block or declaration initialiser to force it. Captured rising-edge samples resolve the history; one captured 1 resolves it immediately, while a leading captured 0 may require the following captured sample.
+
+4. Timing
+
+All sequential state advances on each rising edge of clk while aresetn is high. Falling edges and steady clk levels do not capture x or advance recognition history. Each rising edge captures exactly one x sample. Assertion of aresetn acts asynchronously as specified above.
+
+z is a combinational Mealy output. It has no registered-result latency: with aresetn high, it responds to current x and to recognition history captured only through the preceding rising edge. A detection indication lasts for exactly as long within the current clock cycle as the detecting condition remains true; there is no completion hold, busy interval, or restart delay.
+
+The evaluated full-cycle trace uses rows as observation steps: row k samples z before the kth modeled rising-edge transition, then that transition captures the row's x. No numeric physical clock period, step duration, or sample offset is specified by the interface, so the row index must not be interpreted as an implicit 10 ns clock tick. This observation convention is separate from the circuit law that state changes only on rising clk edges.
+
+5. Behaviour
+
+The machine recognizes the bit sequence 101 using exactly three logical recognition states: no useful suffix, suffix 1, and suffix 10. With aresetn high, every rising clk edge captures x and updates the remembered suffix to the longest suffix of all captured samples that is also a prefix of 101.
+
+For every possible input history with reset-established state, z is 1 exactly when current x is 1 and the two preceding rising-edge samples end in 10. Otherwise z is 0. Equivalently, current x completes 101 against the preceding two captured samples. Two consecutive post-reset samples of 1 do not assert z.
+
+Recognition is overlapping. After a detection, the final 1 is retained as the prefix of a possible following occurrence, so the stream 10101 produces two detections. Every rising edge processes another sample; there is no disabled transaction state, cancellation mode, retained result, or completion pulse beyond the combinational detecting condition.
+
+Changes of x while aresetn is high affect z combinationally but do not alter remembered history until a rising clk edge. x=0 cannot assert z. While aresetn is low, x is ineffective. Repeated starts and uninterrupted samples are treated identically to all other samples, and a reset assertion cancels all partial recognition history immediately.
+
+Before reset-established or sufficiently captured history exists, the power-up unknown behavior stated in the Reset section applies. Once captured samples establish the remembered suffix, the complete 101 law above applies without exception.
+
+6. Worked trace
+
+The following evaluated trace is normative. Each row reports the settled inputs and output before that row's rising-edge state transition.
+
+### stimulus 0
+| cycle | aresetn | x | z |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 1 |
+| 4 | 1 | 0 | 0 |
+
+### stimulus 1
+| cycle | aresetn | x | z |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 1 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 1 | 1 |
+| 7 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | aresetn | x | z |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 1 | 1 |
+
+### stimulus 3
+| cycle | aresetn | x | z |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 1 |
+| 3 | 1 | 0 | 0 |
+
+### stimulus 4
+| cycle | aresetn | x | z |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 1 | 1 |
+
+### stimulus 5
+| cycle | aresetn | x | z |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 1 |
+| 5 | 1 | 1 | 0 |
+
+### stimulus 6
+| cycle | aresetn | x | z |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | aresetn | x | z |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 1 | 1 |

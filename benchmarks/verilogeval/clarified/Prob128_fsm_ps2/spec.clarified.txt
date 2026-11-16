@@ -1,0 +1,140 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- in: input [7:0].
+- reset: input 1 bit.
+- done: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  BYTE1: default = 0.
+-  BYTE2: default = 1.
+-  BYTE3: default = 2.
+-  DONE: default = 3.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Reset is active high and synchronous to the rising edge of `clk`. A rising edge that samples `reset` high has priority over all input processing, aborts any partial or completed message, returns the protocol to waiting for a first byte, and makes `done` 0 immediately after that edge. While reset remains asserted, every rising edge repeats this action; between rising edges, asserting reset does not immediately change either the protocol phase or `done`.
+
+At power-up, before any rising edge has sampled reset high, `done` is unknown regardless of the current values of `reset` and `in`. The implementation must leave it uninitialized, with no declaration initializer or `initial` assignment. Once a rising edge samples reset high, `done` is known to be 0 and remains known thereafter. Deasserting reset has no immediate effect. On the first rising edge after release, normal input processing resumes from the waiting condition: `in[3]=1` begins a message and `in[3]=0` leaves the module waiting; `done` remains 0 after that edge.
+
+4. Timing.
+
+All state changes occur only on rising edges of `clk`. Steady clock levels and falling edges have no effect. `done` is a registered output. For a first byte whose `in[3]` is sampled as 1 while waiting at rising edge E, `done` is 0 in the pre-edge observations at E, E+1, and E+2, and is 1 in the pre-edge observation at E+3. Thus completion has a latency of three rising-edge intervals from the qualifying first-byte sample and `done` is high for exactly one clock cycle. The rising edge ending that high cycle both clears `done` and processes `in[3]` for a possible immediately following message.
+
+Trace rows use the object's full-cycle observation convention: row k is the settled pre-edge observation for full cycle k, followed by that row's rising-edge transition. No nanosecond clock period or propagation delay is specified; the row index must not be interpreted as an implicit 10 ns tick.
+
+5. Behaviour.
+
+Only `in[3]` affects behavior; `in[7:4]` and `in[2:0]` are ignored for every possible input byte.
+
+When reset is inactive and the module is waiting, a rising edge sampling `in[3]=0` leaves it waiting with `done=0,` while a rising edge sampling `in[3]=1` accepts that byte as byte 1 of a three-byte message. The next two rising edges accept bytes 2 and 3 respectively, regardless of every bit of those bytes. `done` becomes 1 immediately after the edge accepting byte 3.
+
+While `done` is 1, the next rising edge clears it. On that same edge, `in[3]=1` immediately accepts the current byte as byte 1 of the next message, whereas `in[3]=0` returns to waiting. This permits back-to-back messages without an extra idle edge. A reset sampled high on any rising edge overrides all of these actions, cancels any partial or completed transaction, and returns to waiting with `done=0`.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 8'b00000000 | 1 | x |
+| 1 | 8'b00001000 | 0 | 0 |
+| 2 | 8'b00000001 | 0 | 0 |
+| 3 | 8'b11111111 | 0 | 0 |
+| 4 | 8'b00000000 | 0 | 1 |
+
+### stimulus 1
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 8'b11111111 | 1 | x |
+| 1 | 8'b00000001 | 1 | 0 |
+| 2 | 8'b10000000 | 0 | 0 |
+| 3 | 8'b00010000 | 0 | 0 |
+| 4 | 8'b00001000 | 0 | 0 |
+| 5 | 8'b00000000 | 0 | 0 |
+| 6 | 8'b00000001 | 0 | 0 |
+| 7 | 8'b00000000 | 0 | 1 |
+
+### stimulus 2
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 8'b00000000 | 1 | x |
+| 1 | 8'b00000000 | 0 | 0 |
+| 2 | 8'b00000001 | 0 | 0 |
+| 3 | 8'b10000000 | 0 | 0 |
+| 4 | 8'b01111111 | 0 | 0 |
+| 5 | 8'b00001000 | 0 | 0 |
+| 6 | 8'b11111111 | 0 | 0 |
+| 7 | 8'b00010000 | 0 | 1 |
+| 8 | 8'b00000000 | 0 | 0 |
+
+### stimulus 3
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 8'b00001000 | 1 | x |
+| 1 | 8'b00001000 | 0 | 0 |
+| 2 | 8'b00000000 | 0 | 0 |
+| 3 | 8'b11111111 | 1 | 0 |
+| 4 | 8'b00000000 | 0 | 0 |
+| 5 | 8'b00001000 | 0 | 0 |
+| 6 | 8'b00000001 | 0 | 0 |
+| 7 | 8'b10000000 | 0 | 0 |
+| 8 | 8'b00000000 | 0 | 1 |
+
+### stimulus 4
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 8'b00000000 | 1 | x |
+| 1 | 8'b00001000 | 0 | 0 |
+| 2 | 8'b00000001 | 0 | 0 |
+| 3 | 8'b00000010 | 0 | 0 |
+| 4 | 8'b00001000 | 0 | 1 |
+| 5 | 8'b10000000 | 0 | 0 |
+| 6 | 8'b11111111 | 0 | 0 |
+| 7 | 8'b00000000 | 0 | 1 |
+
+### stimulus 5
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 8'b00000000 | 1 | x |
+| 1 | 8'b11111111 | 0 | 0 |
+| 2 | 8'b11111111 | 0 | 0 |
+| 3 | 8'b11111111 | 0 | 0 |
+| 4 | 8'b11111111 | 0 | 1 |
+| 5 | 8'b11111111 | 0 | 0 |
+| 6 | 8'b11111111 | 0 | 0 |
+| 7 | 8'b00000000 | 0 | 1 |
+
+### stimulus 6
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 8'b00000000 | 1 | x |
+| 1 | 8'b00000000 | 0 | 0 |
+| 2 | 8'b00000001 | 0 | 0 |
+| 3 | 8'b00010000 | 0 | 0 |
+| 4 | 8'b10000000 | 0 | 0 |
+| 5 | 8'b01111111 | 0 | 0 |
+| 6 | 8'b00001000 | 0 | 0 |
+| 7 | 8'b00000000 | 0 | 0 |
+| 8 | 8'b00000000 | 0 | 1 |
+| 9 | 8'b00000000 | 0 | 0 |
+
+### stimulus 7
+| cycle | in | reset | done |
+|---|---|---|---|
+| 0 | 8'b00001000 | 0 | x |
+| 1 | 8'b00000001 | 0 | x |
+| 2 | 8'b11111111 | 0 | x |
+| 3 | 8'b10000000 | 1 | x |
+| 4 | 8'b00001000 | 0 | 0 |
+| 5 | 8'b00000000 | 0 | 0 |
+| 6 | 8'b00000001 | 0 | 0 |

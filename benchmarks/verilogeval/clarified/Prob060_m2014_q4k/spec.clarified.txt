@@ -1,0 +1,134 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- resetn: input 1 bit.
+- in: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+resetn is an active-low synchronous reset sampled only on a rising edge of clk. If resetn is low at a rising edge, reset takes priority over in: all four stages of stored history become valid zero, and out is 0 at the next pre-edge observation. Repeated rising edges with resetn low keep all stored history and out at 0. Merely asserting or releasing resetn between rising edges has no immediate effect. On the first rising edge after release, the current in value is accepted into the delay history while out remains the oldest reset-established zero.
+
+At power-up, before any reset edge or enough input history has been observed, every stored bit is uninitialised and out is unknown. The implementation must leave this state uninitialised, with no initial block or declaration initialiser. Four accepted input samples can establish out even if reset has never been asserted.
+
+4. Timing.
+
+All sequential effects occur on rising edges of clk. out is registered history: when resetn is high, the in value accepted at a rising edge is first visible at the pre-edge observation four full clock cycles later. Consecutive rising edges accept consecutive samples and produce consecutive delayed output values. out holds between rising edges. There is no completion pulse or separate completion phase.
+
+The evaluated trace uses full-cycle observations: row k is sampled before active edge k, and the transition caused by that edge appears beginning in row k+1. If the interface assigns a step duration, row k denotes k times that duration after settling, with the interface's sample offset applied; it is not an implicit 10 ns clock tick. This observation convention is separate from the circuit law, whose delay is four rising-edge capture-to-pre-edge-observation intervals.
+
+5. Behaviour.
+
+Only a rising edge of clk captures an effect. With resetn low, that edge synchronously clears the entire four-sample history to zero in priority to in. With resetn high, that edge accepts the current one-bit in value and advances each previously accepted sample by one stage toward out. Falling edges, steady clock levels, and changes of in between rising edges have no effect.
+
+When resetn is high, in is sampled on every rising clk edge and that sample becomes out after four rising-edge capture-to-pre-edge-observation intervals, with consecutive edges accepting consecutive samples. A simultaneous resetn-low edge ignores in, cancels all pending sample effects, and makes out zero at the following observation. Repeated reset-active edges retain zero. After reset release, four new accepted samples successively replace the reset-established zero history; the first new sample reaches out four cycles after its capture.
+
+Rows are observed before their active edge, so a resetn-low row does not force out until the following row, where out is 1'b0. Release does not change out immediately, an in value captured on a resetn-high rising edge is first observed four rows later, out holds between rising edges, successive captures produce successive delayed results without a separate completion phase, and any reset-active edge clears the result on the next observation and restarts the four-edge delay.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | resetn | in | out |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 1 |
+
+### stimulus 1
+| cycle | resetn | in | out |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 0 | 1 |
+| 7 | 1 | 0 | 1 |
+
+### stimulus 2
+| cycle | resetn | in | out |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 1 | 1 | x |
+| 2 | 1 | 0 | x |
+| 3 | 1 | 0 | x |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 1 |
+
+### stimulus 3
+| cycle | resetn | in | out |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 1 | 0 | x |
+| 2 | 1 | 1 | x |
+| 3 | 1 | 0 | x |
+| 4 | 1 | 1 | 1 |
+| 5 | 1 | 0 | 0 |
+
+### stimulus 4
+| cycle | resetn | in | out |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 0 |
+
+### stimulus 5
+| cycle | resetn | in | out |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 1 |
+
+### stimulus 6
+| cycle | resetn | in | out |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 1 | 1 | x |
+| 2 | 0 | 1 | x |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | resetn | in | out |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 0 | 1 |
+| 6 | 1 | 0 | 1 |
+| 7 | 1 | 0 | 1 |
+| 8 | 1 | 0 | 1 |
+| 9 | 1 | 1 | 0 |
+| 10 | 1 | 1 | 0 |
+| 11 | 1 | 1 | 0 |
+| 12 | 1 | 1 | 0 |
+| 13 | 1 | 0 | 1 |

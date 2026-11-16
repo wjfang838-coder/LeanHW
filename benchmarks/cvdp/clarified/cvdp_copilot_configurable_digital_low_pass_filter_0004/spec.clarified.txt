@@ -1,0 +1,133 @@
+Original implementation instruction (verbatim):
+
+Implement a complete SystemVerilog `advanced_decimator_with_adaptive_peak_detection` module that performs data decimation and peak detection. The module should process input samples, reduce the dataset based on a configurable decimation factor, and identify the peak value among the decimated samples. The implementation should be parameterizable.
+
+Module and integration contract
+
+Module: advanced_decimator_with_adaptive_peak_detection.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- valid_in: input 1 bit.
+- data_in: input [DATA_WIDTH*N-1:0].
+- valid_out: output 1 bit.
+- data_out: output [DATA_WIDTH*(N/DEC_FACTOR)-1:0].
+- peak_value: output signed [DATA_WIDTH-1:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- integer N: default = 8.
+- integer DATA_WIDTH: default = 16.
+- integer DEC_FACTOR: default = 4.
+- Verification-visible signal `data_vec_in`: data_vec_in exposes N signed DATA_WIDTH-bit lanes of the most recently rising-edge-captured data_in, with lane i corresponding to data_in[i*DATA_WIDTH +: DATA_WIDTH], and all lanes become zero upon reset assertion.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Reset is active high and asynchronous. Assertion immediately overrides a simultaneous rising edge, discards the previously observable result, and forces valid_out, data_out, peak_value, the captured packed sample data, the captured validation state, and every lane exposed by data_vec_in to zero. These values remain zero throughout assertion regardless of clk, valid_in, or data_in.
+
+After release, the reset values remain observable until the next rising edge. That edge performs an ordinary capture, and the captured transaction is observable in the following cycle. There is no restart, busy, or separate completion state.
+
+Before reset has ever been asserted and before the first rising edge has occurred, valid_out, data_out, and peak_value are unknown. A first rising edge with reset low defines all three for the following observation: valid_out takes valid_in, and data_out and peak_value are calculated from data_in even if valid_in is low.
+
+4. Timing.
+
+The active edge is the rising edge of clk. With reset low, data_in and valid_in are captured on every rising edge. Other clock levels and falling edges have no effect; changes between rising edges do not alter the captured transaction. Repeated rising edges perform consecutive captures and replace prior values.
+
+All three outputs have a fixed latency of one clock cycle. data_out and peak_value are combinational functions of the data_in captured on the preceding rising edge; valid_out is the registered value of valid_in captured on that edge. Each output remains unchanged until asynchronous reset assertion or the next rising-edge capture. A one-cycle high valid_in therefore produces a one-cycle high valid_out; consecutive high captures produce consecutive high cycles. valid_out is a validation indication, not a separate completion pulse.
+
+The normative trace uses full-cycle pre-edge observations: row k applies i[k], allows combinational settling, and observes out(s[k], i[k]) before the rising edge; that edge produces s[k+1]. Thus row k denotes k times timing.step_ns after settling, with timing.sample_offset_ns applied when supplied, and does not imply a 10 ns clock. This observation convention is separate from the circuit's one-rising-edge-cycle latency. This interface supplies no numeric timing.step_ns or timing.sample_offset_ns.
+
+5. Behaviour.
+
+N defaults to 8 and is an integer greater than 1. DATA_WIDTH defaults to 16 and is an integer greater than 1. DEC_FACTOR defaults to 4 and must be an integer divisor of N. data_in contains N signed two's-complement DATA_WIDTH-bit samples. Exactly N / DEC_FACTOR samples are selected, at lane indices 0, DEC_FACTOR, 2*DEC_FACTOR, and so on below N.
+
+On every rising edge with reset low, data_in and valid_in are captured independently. valid_in does not gate data capture. Input changes between rising edges have no effect, a later edge replaces the preceding capture, and reset overrides capture with zeros.
+
+data_vec_in exposes N signed DATA_WIDTH-bit lanes of the most recently rising-edge-captured data_in, with lane i corresponding to data_in[i*DATA_WIDTH +: DATA_WIDTH], and all lanes become zero upon reset assertion. Its enabling condition is a rising edge while reset is low. It pauses during reset, resumes on the first rising edge after release, and advances on every enabled edge regardless of valid_in or valid_out. The module has no terminal state; no public-output value stops data_vec_in from advancing.
+
+data_out is asynchronously zero during reset. Otherwise it is the ascending packed sequence of the selected lanes from the data_in captured at the preceding rising edge, and is replaced at every later capture regardless of valid_in. Selected lane 0 occupies data_out[DATA_WIDTH-1:0], selected lane DEC_FACTOR occupies the next DATA_WIDTH bits, and so on. At N=8, DATA_WIDTH=16, and DEC_FACTOR=4, data_out[15:0] equals captured data_in[15:0] and data_out[31:16] equals captured data_in[79:64].
+
+peak_value is asynchronously zero during reset. Otherwise it is the signed maximum of those same selected DATA_WIDTH-bit lanes from the data_in captured at the preceding rising edge, and is replaced at every later capture regardless of valid_in. The first selected sample initializes the comparison value. A later selected sample replaces it exactly when that sample is greater under signed DATA_WIDTH-bit comparison; equality retains the current value. At N=8, DATA_WIDTH=16, and DEC_FACTOR=4, peak_value is the signed maximum of captured data_in[15:0] and captured data_in[79:64].
+
+valid_out is asynchronously zero throughout reset. After release, each observation shows the valid_in captured at the preceding rising edge, including consecutive captures; its low or high value remains until the next edge replaces it. There is no separate completion, cancellation, restart, disabled-transaction, busy, or terminal state. A low valid_in makes the corresponding valid_out low but does not suppress data capture or preserve an older data result.
+
+Amendment notice — data_out packing. Exact original clause: “data_in = {16'd10, 16'd20, 16'd30, 16'd40, 16'd50, 16'd60, 16'd70, 16'd80}” together with “data_out = {16'd10, 16'd50}”. Question ID: Q17. Certain answer law: “data_out is asynchronously zero during reset and otherwise each pre-edge row shows the ascending packed sequence of DATA_WIDTH-bit lanes numbered 0, DEC_FACTOR, 2*DEC_FACTOR, and so on below N from data_in captured at the preceding rising edge, retaining that value only until the next capture regardless of valid_in.” This corrected law supersedes only the worked example's inconsistent physical lane orientation and resulting data_out value; it applies when mapping packed data_in lanes to data_out. All other example conditions, including its parameter values, valid_in, one-cycle latency, and validation result, remain requirements.
+
+Amendment notice — peak result for the same packing inconsistency. Exact original clause: “peak_value = 16'd50”. Question ID: Q18. Certain answer law: “peak_value is asynchronously zero during reset and otherwise each pre-edge row shows the signed maximum of the DATA_WIDTH-bit lanes numbered 0, DEC_FACTOR, 2*DEC_FACTOR, and so on below N from data_in captured at the preceding rising edge, retaining that result only until the next capture regardless of valid_in.” This corrected law supersedes only the worked example's peak_value insofar as that value follows from its inconsistent physical lane orientation. It does not alter signed comparison, parameter values, latency, or reset behavior.
+
+For every valid_in value, the corresponding captured data replaces data_out and peak_value even when valid_out is low. Every DATA_WIDTH-bit lane encoding is interpreted as signed two's complement for peak comparison. Because DEC_FACTOR divides N, there is no partial final decimation group.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete N=8, DATA_WIDTH=16, DEC_FACTOR=4 instance and uses the pre-edge observation convention above.
+
+### stimulus 0
+| cycle | reset | valid_in | data_in | valid_out | data_out | peak_value |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 128'h0 | 0 | 32'h0 | 16'h0 |
+| 1 | 0 | 1 | 128'ha000a0000000000d172c9b07e4000 | 0 | 32'h0 | 16'h0 |
+| 2 | 0 | 0 | 128'h1 | 1 | 32'h4000 | 16'h4000 |
+| 3 | 0 | 0 | 128'h0 | 0 | 32'h1 | 16'h1 |
+
+### stimulus 1
+| cycle | reset | valid_in | data_in | valid_out | data_out | peak_value |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 128'h0 | x | 32'x | 16'x |
+| 1 | 1 | 1 | 128'hffffffffffffffffffffffffffffffff | 0 | 32'h0 | 16'h0 |
+| 2 | 0 | 1 | 128'h1 | 0 | 32'h0 | 16'h0 |
+| 3 | 0 | 0 | 128'h0 | 1 | 32'h1 | 16'h1 |
+
+### stimulus 2
+| cycle | reset | valid_in | data_in | valid_out | data_out | peak_value |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 128'h0 | 0 | 32'h0 | 16'h0 |
+| 1 | 0 | 1 | 128'h80000000000000000000000000000000 | 0 | 32'h0 | 16'h0 |
+| 2 | 0 | 1 | 128'hffffffffffffffffffffffffffffffff | 1 | 32'h0 | 16'h0 |
+| 3 | 0 | 0 | 128'h0 | 1 | 32'hffffffff | 16'hffff |
+| 4 | 0 | 0 | 128'h0 | 0 | 32'h0 | 16'h0 |
+
+### stimulus 3
+| cycle | reset | valid_in | data_in | valid_out | data_out | peak_value |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 128'h0 | 0 | 32'h0 | 16'h0 |
+| 1 | 0 | 1 | 128'ha000a0000000000d172c9b07e4000 | 0 | 32'h0 | 16'h0 |
+| 2 | 0 | 1 | 128'h14001400000000014f850e91158000 | 1 | 32'h4000 | 16'h4000 |
+| 3 | 0 | 0 | 128'h0 | 1 | 32'h8000 | 16'h0 |
+
+### stimulus 4
+| cycle | reset | valid_in | data_in | valid_out | data_out | peak_value |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 128'h0 | 0 | 32'h0 | 16'h0 |
+| 1 | 0 | 1 | 128'ha000a0000000000d172c9b07e4000 | 0 | 32'h0 | 16'h0 |
+| 2 | 0 | 0 | 128'hffffffffffffffffffffffffffffffff | 1 | 32'h4000 | 16'h4000 |
+| 3 | 0 | 1 | 128'h14001400000000014f850e91158000 | 0 | 32'hffffffff | 16'hffff |
+| 4 | 0 | 0 | 128'h0 | 1 | 32'h8000 | 16'h0 |
+
+### stimulus 5
+| cycle | reset | valid_in | data_in | valid_out | data_out | peak_value |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 128'ha000a0000000000d172c9b07e4000 | x | 32'x | 16'x |
+| 1 | 0 | 1 | 128'h14001400000000014f850e91158000 | 1 | 32'h4000 | 16'h4000 |
+| 2 | 0 | 0 | 128'h0 | 1 | 32'h8000 | 16'h0 |
+
+### stimulus 6
+| cycle | reset | valid_in | data_in | valid_out | data_out | peak_value |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 128'h1 | 0 | 32'h0 | 16'h0 |
+| 1 | 1 | 1 | 128'hffffffffffffffffffffffffffffffff | 0 | 32'h0 | 16'h0 |
+| 2 | 0 | 0 | 128'h0 | 0 | 32'h0 | 16'h0 |
+| 3 | 0 | 0 | 128'h0 | 0 | 32'h0 | 16'h0 |
+
+### stimulus 7
+| cycle | reset | valid_in | data_in | valid_out | data_out | peak_value |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 128'h0 | 0 | 32'h0 | 16'h0 |
+| 1 | 0 | 1 | 128'h50004fffebbd905433ad9833ce000 | 0 | 32'h0 | 16'h0 |
+| 2 | 0 | 0 | 128'h0 | 1 | 32'hbbd9e000 | 16'he000 |
+| 3 | 0 | 1 | 128'h1e0009f2ca2f68ee49a95929b2c000 | 0 | 32'h0 | 16'h0 |
+| 4 | 0 | 0 | 128'h0 | 1 | 32'h2f68c000 | 16'h2f68 |

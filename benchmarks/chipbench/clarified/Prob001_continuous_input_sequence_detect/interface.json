@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob001_continuous_input_sequence_detect",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

@@ -1,0 +1,105 @@
+Module and integration contract
+
+Module: adder_bcd.
+Ports below are in exact declaration order:
+- A: input [3:0].
+- B: input [3:0].
+- Cin: input 1 bit.
+- Sum: output [3:0].
+- Cout: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+The module has no reset input, reset behavior, or state elements. Sum and Cout are continuously determined from the current inputs from power-up onward; there is no interval before a reset edge and neither output is unknown or uninitialized at power-up.
+
+4. Timing.
+
+Sum is combinational with zero clock-cycle latency from A, B, and Cin. Cout is combinational with zero clock-cycle latency from A, B, and Cin. There are no clocked outputs, pulses, periodic signals, capture edges, inactive intervals, completion events, or retained results.
+
+The evaluated trace uses a full-cycle observation-step convention even though the circuit has no clock. Each row samples the settled combinational outputs for that row's current inputs before an inert state transition. Row k denotes observation step k; the interface specifies neither step_ns nor sample_offset_ns, so the row number does not imply a 10 ns clock or any physical circuit period or propagation delay.
+
+5. Behaviour.
+
+Treat A and B as unsigned 4-bit values and Cin as an unsigned one-bit value. Let T = A + B + Cin, evaluated without truncating the operands or intermediate sum.
+
+For every possible encoding of A and B, including values 10 through 15, Sum is continuously combinational and equals T modulo 16 when T is at most 9, or (T + 6) modulo 16 when T is greater than 9.
+
+Cout is continuously combinational and equals 1 exactly when the current unsigned T is greater than 9, and otherwise equals 0.
+
+At all times, the current unsigned 4-bit value of A contributes to T, and every change of A immediately recomputes both outputs. At all times, the current unsigned 4-bit value of B contributes to T, and every change of B immediately recomputes both outputs. At all times, the current unsigned one-bit value of Cin contributes to T, and either level and every change of Cin immediately recomputes both outputs.
+
+Simultaneous input changes and repeated values follow the same laws. There is no mode or transaction state, no disabled input or inactive control level, no interruption or cancellation behavior, no reset, no capture edge, no first-result distinction, no restart behavior, no completion indication, and no retained data.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | A | B | Cin | Sum | Cout |
+|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b0000 | 0 | 4'b0000 | 0 |
+| 1 | 4'b0001 | 4'b0000 | 0 | 4'b0001 | 0 |
+| 2 | 4'b1000 | 4'b0000 | 0 | 4'b1000 | 0 |
+| 3 | 4'b0101 | 4'b0000 | 0 | 4'b0101 | 0 |
+| 4 | 4'b1111 | 4'b0000 | 0 | 4'b0101 | 1 |
+
+### stimulus 1
+| cycle | A | B | Cin | Sum | Cout |
+|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b0001 | 0 | 4'b0001 | 0 |
+| 1 | 4'b0000 | 4'b1000 | 0 | 4'b1000 | 0 |
+| 2 | 4'b0000 | 4'b0101 | 0 | 4'b0101 | 0 |
+| 3 | 4'b0000 | 4'b1111 | 0 | 4'b0101 | 1 |
+
+### stimulus 2
+| cycle | A | B | Cin | Sum | Cout |
+|---|---|---|---|---|---|
+| 0 | 4'b0100 | 4'b0101 | 0 | 4'b1001 | 0 |
+| 1 | 4'b0100 | 4'b0101 | 1 | 4'b0000 | 1 |
+| 2 | 4'b1001 | 4'b0000 | 0 | 4'b1001 | 0 |
+| 3 | 4'b1001 | 4'b0000 | 1 | 4'b0000 | 1 |
+
+### stimulus 3
+| cycle | A | B | Cin | Sum | Cout |
+|---|---|---|---|---|---|
+| 0 | 4'b1001 | 4'b1001 | 0 | 4'b1000 | 1 |
+| 1 | 4'b1001 | 4'b1001 | 1 | 4'b1001 | 1 |
+| 2 | 4'b0101 | 4'b0101 | 0 | 4'b0000 | 1 |
+| 3 | 4'b0101 | 4'b0101 | 1 | 4'b0001 | 1 |
+
+### stimulus 4
+| cycle | A | B | Cin | Sum | Cout |
+|---|---|---|---|---|---|
+| 0 | 4'b1000 | 4'b0001 | 0 | 4'b1001 | 0 |
+| 1 | 4'b1000 | 4'b0001 | 1 | 4'b0000 | 1 |
+| 2 | 4'b0001 | 4'b1000 | 1 | 4'b0000 | 1 |
+
+### stimulus 5
+| cycle | A | B | Cin | Sum | Cout |
+|---|---|---|---|---|---|
+| 0 | 4'b1010 | 4'b0000 | 0 | 4'b0000 | 1 |
+| 1 | 4'b1011 | 4'b0001 | 1 | 4'b0011 | 1 |
+| 2 | 4'b1110 | 4'b1001 | 0 | 4'b1101 | 1 |
+
+### stimulus 6
+| cycle | A | B | Cin | Sum | Cout |
+|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b1010 | 0 | 4'b0000 | 1 |
+| 1 | 4'b0001 | 4'b1100 | 1 | 4'b0100 | 1 |
+| 2 | 4'b1001 | 4'b1110 | 0 | 4'b1101 | 1 |
+
+### stimulus 7
+| cycle | A | B | Cin | Sum | Cout |
+|---|---|---|---|---|---|
+| 0 | 4'b1111 | 4'b1111 | 0 | 4'b0100 | 1 |
+| 1 | 4'b1111 | 4'b1111 | 1 | 4'b0101 | 1 |
+| 2 | 4'b1010 | 4'b1010 | 1 | 4'b1011 | 1 |

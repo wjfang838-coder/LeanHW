@@ -1,0 +1,185 @@
+Original implementation instruction (verbatim):
+
+Design an **8-bit** an APB-accessible, global history shift register for a branch prediction module named `APBGlobalHistoryRegister` in Verilog. The register updates synchronously on every gated rising edge of the `history_shift_valid` clock, shifting in predicted outcomes or restoring history on mispredictions. An asynchronous reset (`presetn`) clears all internal state. Mispredictions have the highest priority to enable accurate pipeline recovery and state management. Additionally, the design includes clock gating for power efficiency and provides interrupt signals when the shift register is full or when an error is detected.
+
+Module and integration contract
+
+Module: APBGlobalHistoryRegister.
+Ports below are in exact declaration order:
+- pclk: input 1 bit.
+- presetn: input 1 bit.
+- paddr: input [9:0].
+- pselx: input 1 bit.
+- penable: input 1 bit.
+- pwrite: input 1 bit.
+- pwdata: input [7:0].
+- pready: output 1 bit.
+- prdata: output [7:0].
+- pslverr: output 1 bit.
+- history_shift_valid: input 1 bit.
+- clk_gate_en: input 1 bit.
+- history_full: output 1 bit.
+- history_empty: output 1 bit.
+- error_flag: output 1 bit.
+- interrupt_full: output 1 bit.
+- interrupt_error: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+- Verification-visible signal `clk_gate_en`: Top-level input port clk_gate_en is directly visible to verification.
+- Verification-visible signal `error_flag`: Top-level output port error_flag is directly visible to verification.
+- Verification-visible signal `history_empty`: Top-level output port history_empty is directly visible to verification.
+- Verification-visible signal `history_full`: Top-level output port history_full is directly visible to verification.
+- Verification-visible signal `history_shift_valid`: Top-level input port history_shift_valid is directly visible to verification.
+- Verification-visible signal `interrupt_error`: Top-level output port interrupt_error is directly visible to verification.
+- Verification-visible signal `interrupt_full`: Top-level output port interrupt_full is directly visible to verification.
+- Verification-visible signal `paddr`: Top-level input port paddr is directly visible to verification.
+- Verification-visible signal `pclk`: Top-level input port pclk is directly visible to verification.
+- Verification-visible signal `penable`: Top-level input port penable is directly visible to verification.
+- Verification-visible signal `prdata`: Top-level output port prdata is directly visible to verification.
+- Verification-visible signal `presetn`: Top-level input port presetn is directly visible to verification.
+- Verification-visible signal `pselx`: Top-level input port pselx is directly visible to verification.
+- Verification-visible signal `pslverr`: Top-level output port pslverr is directly visible to verification.
+- Verification-visible signal `pwdata`: Top-level input port pwdata is directly visible to verification.
+- Verification-visible signal `pwrite`: Top-level input port pwrite is directly visible to verification.
+
+Event convention: each table row drives the explicitly named clock levels and data, then observes settled outputs. The model must apply the edge described by those levels exactly once; it must not insert a second pipeline delay.
+
+1. Module and ports.
+
+
+
+The implementation deliverable shall be Verilog. The declaration order rendered by the interface contract is normative, including the exact module name APBGlobalHistoryRegister and exact port spellings. There are no public parameters.
+
+2. Reset.
+
+presetn is an active-low asynchronous reset. Assertion immediately clears the retained control data, seven-bit training data, eight-bit prediction history, and retained transfer-error result, dominates simultaneous APB and history events, and establishes the IDLE protocol state. While presetn is low, pready, prdata, pslverr, error_flag, interrupt_full, and interrupt_error are 0; history_full is 0 and history_empty is 1. Reset release immediately makes pready high but performs no APB capture or history update. The first later qualifying active edge applies the ordinary law stated below.
+
+Before reset has ever been asserted, the original requirements specify no power-up value for retained state or state-derived outputs. This absence of a power-up guarantee does not require an X output and does not prevent an ordinary qualifying edge from establishing state. Combinational outputs obey their stated laws for whatever retained state exists.
+
+3. Timing.
+
+APB state capture is registered on each rising edge of the effective pclk when presetn is high and clk_gate_en is low. A transfer qualifies only when pselx and penable are both high at that edge. Captured writes and transfer-error results become visible immediately after the edge, which is one edge of capture latency from their sampled inputs. An APB operation has a setup cycle followed by an access cycle and completes in two pclk cycles; no wait states are inserted. The READ_STATE or WRITE_STATE completes and returns to IDLE after that access. pready is combinationally equal to presetn and is not a completion pulse.
+
+prdata is combinational from paddr and retained data, with zero cycles of read latency. history_full, history_empty, interrupt_full, error_flag, and interrupt_error are combinational from retained state as specified below. pslverr reflects the retained result of the latest qualifying transfer.
+
+Prediction history is registered on every rising edge of history_shift_valid while presetn is high; the new value is visible immediately after that edge. history_shift_valid events are independent of clk_gate_en. No output is periodic and no output is specified as a pulse.
+
+The evaluated trace uses the interface half-cycle timebase. Each row is sampled before its pending edge transition, and the following row first shows the transition's result. Row k denotes k multiplied by the interface step_ns after settling, with the interface sample_offset_ns applied; this observation convention does not impose a 10 ns clock, change either clock's actual period, or alter the edge and delay laws above.
+
+4. Behaviour.
+
+The APB register map has three valid addresses. Address 10'h000 selects control_register. Its writable and readable bits are predict_valid at bit 0, predict_taken at bit 1, train_mispredicted at bit 2, and train_taken at bit 3; bits [7:4] read as zero. Address 10'h001 selects train_history[6:0], the recorded history before a mispredicted branch; bit 7 reads as zero. Address 10'h002 selects the eight-bit, APB-read-only predict_history. Every other 10-bit address is invalid.
+
+paddr continuously selects prdata as zero-extended control_register[3:0] at 10'h000, zero-extended train_history[6:0] at 10'h001, predict_history at 10'h002, and 8'h00 at every invalid address. This decode applies regardless of pselx, penable, pwrite, clk_gate_en, or APB protocol state. Thus READ_STATE drives the selected value, while entering or leaving READ_STATE adds no read-data latency.
+
+With presetn high, an effective pclk rising edge captures a transfer only when pselx and penable are both high. clk_gate_en high suppresses pclk-based capture and low permits it; low pclk has no effect. A clk_gate_en transition that creates a rising edge of the effective clock can capture under the same qualification. Interrupted, unselected, disabled, or gated transactions capture nothing and retain prior data and error state. Repeated qualifying edges each capture anew.
+
+At every qualifying transfer, pslverr, error_flag, and interrupt_error capture 0 for addresses 10'h000, 10'h001, or 10'h002, and capture 1 for every other address. They retain that captured result until reset or another qualifying transfer. This applies to reads and writes. error_flag and interrupt_error equal the same retained transfer-error result.
+
+At a qualifying transfer with pwrite high, address 10'h000 stores pwdata[3:0] in control_register and address 10'h001 stores pwdata[6:0] in train_history. A write to address 10'h002 or an invalid address changes neither data register, and predict_history cannot be written through APB. With pwrite low, no data register is written. pwdata and pwrite have no state effect outside a qualifying edge. The WRITE_STATE completes and returns to IDLE after the access.
+
+On each history_shift_valid rising edge with presetn high, train_mispredicted has highest priority. If retained control_register[2] is 1, predict_history becomes `{train_history[6:0], control_register[3]}`. Otherwise, if retained control_register[0] is 1, predict_history shifts toward the most-significant bit, discards its former bit 7, and sets bit 0 to retained control_register[1]. Otherwise predict_history retains its value. Repeated rising edges apply this law repeatedly. A coincident reset assertion dominates. If an APB capture and history edge coincide, the history operation consumes the previously retained control_register and train_history values.
+
+history_full is 1 exactly when predict_history is 8'hFF and otherwise 0. history_empty is 1 exactly when predict_history is 8'h00 and otherwise 0. interrupt_full equals history_full. These outputs change with predict_history and retain their levels while it is unchanged.
+
+Verification-visible input bindings clk_gate_en, history_shift_valid, paddr, pclk, penable, presetn, pselx, pwdata, and pwrite are enabled continuously and expose the corresponding top-level input without state or latency. Reset does not alter an input binding. Their visibility continues in IDLE, READ_STATE, WRITE_STATE, disabled, interrupted, gated, and terminal output conditions.
+
+Verification-visible output bindings prdata, pslverr, error_flag, history_empty, history_full, interrupt_error, and interrupt_full are enabled continuously and expose the corresponding top-level output. Their reset values, advancement conditions, retention, and post-completion behavior are exactly their separate output laws above; completion or a frozen public result does not disable observation.
+
+5. Worked trace.
+
+The evaluated trace below is normative for its listed stimuli and uses the sampling convention stated in section 3.
+
+### stimulus 0
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | history_shift_valid | clk_gate_en | pready | prdata | pslverr | history_full | history_empty | error_flag | interrupt_full | interrupt_error |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 10'h3ff | 0 | 0 | 0 | 8'b11111111 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 10'h1 | 0 | 0 | 0 | 8'b10000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 1
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | history_shift_valid | clk_gate_en | pready | prdata | pslverr | history_full | history_empty | error_flag | interrupt_full | interrupt_error |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 10'h0 | 1 | 0 | 1 | 8'b00000011 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 10'h0 | 1 | 1 | 1 | 8'b00000011 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000011 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 1 | 0 | 1 | 8'b00000011 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000011 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 1 | 0 | 1 | 8'b00000011 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 2
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | history_shift_valid | clk_gate_en | pready | prdata | pslverr | history_full | history_empty | error_flag | interrupt_full | interrupt_error |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 10'h1 | 1 | 0 | 1 | 8'b01010101 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 10'h1 | 1 | 1 | 1 | 8'b01010101 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 10'h1 | 1 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b01010101 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 1 | 1 | 10'h1 | 1 | 1 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b01010101 | 0 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 3
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | history_shift_valid | clk_gate_en | pready | prdata | pslverr | history_full | history_empty | error_flag | interrupt_full | interrupt_error |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 10'h0 | 1 | 0 | 1 | 8'b00001100 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 10'h0 | 1 | 1 | 1 | 8'b00001100 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00001100 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 10'h1 | 1 | 0 | 1 | 8'b01111111 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 1 | 1 | 10'h1 | 1 | 1 | 1 | 8'b01111111 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00001100 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 1 | 0 | 1 | 8'b00001100 | 0 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 4
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | history_shift_valid | clk_gate_en | pready | prdata | pslverr | history_full | history_empty | error_flag | interrupt_full | interrupt_error |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 10'h0 | 1 | 0 | 1 | 8'b00001111 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 10'h0 | 1 | 1 | 1 | 8'b00001111 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00001111 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 1 | 0 | 1 | 8'b00001111 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00001111 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 1 | 0 | 1 | 8'b00001111 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 5
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | history_shift_valid | clk_gate_en | pready | prdata | pslverr | history_full | history_empty | error_flag | interrupt_full | interrupt_error |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 10'h2 | 1 | 0 | 1 | 8'b11111111 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b11111111 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 10'h2 | 1 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 1 | 1 | 10'h2 | 1 | 1 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 6
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | history_shift_valid | clk_gate_en | pready | prdata | pslverr | history_full | history_empty | error_flag | interrupt_full | interrupt_error |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 10'h3 | 1 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 10'h3 | 1 | 1 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 1 | 0 | 1 | 1 | 0 | 1 |
+| 5 | 0 | 1 | 10'h3ff | 1 | 0 | 1 | 8'b10000000 | 0 | 0 | 1 | 8'b00000000 | 1 | 0 | 1 | 1 | 0 | 1 |
+| 6 | 1 | 1 | 10'h3ff | 1 | 1 | 1 | 8'b10000000 | 0 | 0 | 1 | 8'b00000000 | 1 | 0 | 1 | 1 | 0 | 1 |
+
+### stimulus 7
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | history_shift_valid | clk_gate_en | pready | prdata | pslverr | history_full | history_empty | error_flag | interrupt_full | interrupt_error |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 5 | 1 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 1 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 8 | 1 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 9 | 0 | 1 | 10'h0 | 1 | 0 | 0 | 8'b00000000 | 0 | 1 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 10 | 1 | 1 | 10'h0 | 1 | 1 | 0 | 8'b00000000 | 1 | 1 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 |

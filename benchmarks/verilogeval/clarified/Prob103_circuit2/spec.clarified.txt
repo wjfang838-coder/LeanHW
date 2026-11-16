@@ -1,0 +1,118 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- c: input 1 bit.
+- d: input 1 bit.
+- q: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+
+
+Reset.
+
+There is no reset input and no reset behavior. The circuit has no state elements. From power-up, including before any edge could have occurred, q is immediately the definite combinational value specified below; it is never an uninitialised or retained value.
+
+Timing.
+
+q is combinational and continuously reflects the current values of a, b, c, and d with zero clock-cycle latency. There are no pulses, periodic outputs, clock period, duty cycle, capture edge, or specified propagation-delay law.
+
+For the evaluated full-cycle trace, row k denotes the settled observation at abstract step k. It does not imply a 10 ns clock tick. Because the circuit is stateless and combinational, advancing from one row to the next performs no circuit transition; each row observes q from that row's inputs.
+
+Behaviour.
+
+At all times, q = (~a) ^ b ^ c ^ d, with all operands interpreted as one-bit values. Equivalently, q is 1 exactly when an even number of a, b, c, and d are 1, and q is 0 exactly when an odd number are 1.
+
+With b, c, and d fixed, changing a toggles q. With a, c, and d fixed, changing b toggles q. With a, b, and d fixed, changing c toggles q. With a, b, and c fixed, changing d toggles q.
+
+All simultaneous and repeated input changes are resolved immediately by that same expression. There are no modes, disabled inputs, transactions, capture or cancellation behavior, retained results, completion state, clear interval, or restart state. q remains unchanged only while the value of the expression remains unchanged.
+
+Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 1 | 1 |
+
+### stimulus 4
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 1 | 1 |
+
+### stimulus 6
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 0 | 1 |
+
+### stimulus 7
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 0 |
+
+### stimulus 8
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 |
+
+### stimulus 9
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 1 |
+
+### stimulus 10
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 | 1 |
+
+### stimulus 11
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 1 | 0 |
+
+### stimulus 12
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 1 |
+
+### stimulus 13
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 1 | 0 |
+
+### stimulus 14
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 0 |
+
+### stimulus 15
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 |

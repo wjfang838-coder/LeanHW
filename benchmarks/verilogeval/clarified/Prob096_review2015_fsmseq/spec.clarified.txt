@@ -1,0 +1,147 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- data: input 1 bit.
+- start_shifting: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  S: default = 0.
+-  S1: default = 1.
+-  S11: default = 2.
+-  S110: default = 3.
+-  Done: default = 4.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+Reset is active high and synchronous to the rising edge of clk. At every rising edge where reset is high, reset takes priority over data, cancels any partial match or completed detection, and clears start_shifting to 0 immediately after that edge. Consecutive rising edges sampling reset high keep this cleared condition. Releasing reset between rising edges has no immediate effect; on the first rising edge after release, normal data sampling resumes from the cleared detector state.
+
+Before any rising edge has sampled reset high, start_shifting is unknown, including after preceding rising edges on which reset was low and regardless of data. The implementation must leave this power-up state uninitialised: it must not use an initial block or declaration initialiser to give start_shifting or its determining state a definite value.
+
+Timing
+
+Only a rising edge of clk advances or resets detection. A steady clock level, a falling edge, and input changes between rising edges have no effect. No physical clock period is prescribed.
+
+start_shifting is a registered output. It becomes 0 immediately after a rising edge sampling reset high and becomes 1 immediately after the rising edge sampling the final `1` of a completing sequence. In the evaluated full-cycle trace, each row observes settled outputs before that row's active edge and then applies the transition; therefore an input sampled on row k can first appear in the observed output on row k+1. Rows count full rising-edge cycles; they do not imply a 10 ns clock tick or prescribe the circuit's physical period.
+
+Once asserted, start_shifting remains continuously high for whole cycles until a later rising edge samples reset high. It is a retained level, not a pulse.
+
+Behaviour
+
+While reset is low and completion has not occurred, data is sampled at every rising edge. The detection law is: completion occurs when the sampled history contains at least two consecutive `1` values followed by `0` and then `1`. Leading `0` values leave detection idle. The first `1` starts a candidate. A second `1`, and every further consecutive `1`, establishes or retains the required prefix. A `0` after only one `1` abandons that candidate. A `0` after at least two consecutive `1` values records that the final `1` is awaited. Another `0` abandons the candidate. A final `1` in that awaiting condition completes detection.
+
+Before completion, start_shifting remains 0 after initialization by reset. On completion it becomes 1 and stays 1; subsequent sampled data has no effect until reset. A rising edge sampling reset high aborts a partial candidate or completed detection, ignores data on that edge, and clears the output. After a later release, repeated attempts follow the same per-edge detection law from the cleared state.
+
+Worked trace
+
+The following evaluated trace is normative for the listed stimuli and uses the observation convention stated above.
+
+### stimulus 0
+| cycle | reset | data | start_shifting |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 0 | 1 | x |
+| 2 | 0 | 0 | x |
+
+### stimulus 1
+| cycle | reset | data | start_shifting |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 1 | 1 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 1 |
+| 7 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | reset | data | start_shifting |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 1 | 1 |
+| 6 | 0 | 0 | 1 |
+| 7 | 0 | 1 | 1 |
+| 8 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | reset | data | start_shifting |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 |
+| 6 | 0 | 1 | 1 |
+| 7 | 0 | 0 | 1 |
+| 8 | 0 | 1 | 1 |
+| 9 | 0 | 0 | 1 |
+
+### stimulus 4
+| cycle | reset | data | start_shifting |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 0 |
+| 8 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | reset | data | start_shifting |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 1 |
+| 6 | 1 | 1 | 1 |
+| 7 | 0 | 1 | 0 |
+| 8 | 0 | 1 | 0 |
+| 9 | 0 | 0 | 0 |
+| 10 | 0 | 1 | 0 |
+| 11 | 0 | 0 | 1 |
+
+### stimulus 6
+| cycle | reset | data | start_shifting |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 0 |
+| 8 | 0 | 1 | 0 |
+| 9 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | reset | data | start_shifting |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 |
+| 7 | 0 | 0 | 1 |
+| 8 | 0 | 0 | 1 |

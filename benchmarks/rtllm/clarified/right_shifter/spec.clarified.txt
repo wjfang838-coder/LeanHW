@@ -1,0 +1,122 @@
+Module and integration contract
+
+Module: right_shifter.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- q: output [7:0].
+- d: input 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and therefore no reset polarity, assertion event, reset state, or reset-release step. At power-up, before any clock edge, q is 8'b00000000; this is the same definite initial value specified for normal operation, not an unknown value. The only stored state is the eight-bit value presented by q, and it has that initial value. On the first rising edge, the ordinary shift law applies.
+
+4. Timing.
+
+q is a registered output. At every rising edge of clk it samples d and the pre-edge value of q; the updated q is observable after that edge and is the value sampled in the next pre-edge trace row. q holds at low clk levels, falling edges, and between rising edges. There are no pulse or periodic outputs other than the externally supplied clk, whose physical period and duty cycle are not specified by this module contract.
+
+The evaluated trace uses full-cycle observations: row k is the settled, pre-edge observation for abstract cycle k, and the transition following that row represents one rising edge. The interface provides no numeric step_ns or sample_offset_ns value, so these rows impose neither an implicit 10 ns clock tick nor any physical clock period or propagation-delay law.
+
+5. Behaviour.
+
+Every rising edge of clk, with no mode or reset guard, samples d and updates q to {d, the pre-edge q[7:1]}; low levels and falling edges have no effect, q holds between rising edges, and successive rising edges repeat this operation without any busy state, completion condition, or interruption behavior.
+
+At every rising edge of clk, the contemporaneous value of d becomes q[7] while the other bits take the pre-edge q[7:1]; changes to d at all other times have no effect on q, and each later rising edge samples d anew with no mode, inactive-control, interruption, or transaction guard.
+
+q starts at 8'b00000000 without a reset input, holds between rising clock edges, and after each rising edge becomes {d sampled at that edge, pre-edge q[7:1]}; because row k is sampled before its active edge, that edge's result first appears in the next pre-edge row, repeated edges continuously shift so prior contents are gone after eight edges, and there is no separate clear, completion, or restart interval.
+
+For d = 0 the inserted most-significant bit is zero, and for d = 1 it is one. Those are all values representable by the one-bit input. After eight successive rising edges, the initial contents have been completely displaced and q contains the eight sampled d values in reverse chronological order, with the most recently sampled value in q[7].
+
+6. Worked trace.
+
+The following evaluated trace is normative for the listed stimuli and uses the observation convention stated above.
+
+### stimulus 0
+| cycle | d | q |
+|---|---|---|
+| 0 | 0 | 8'b00000000 |
+
+### stimulus 1
+| cycle | d | q |
+|---|---|---|
+| 0 | 1 | 8'b00000000 |
+
+### stimulus 2
+| cycle | d | q |
+|---|---|---|
+| 0 | 0 | 8'b00000000 |
+| 1 | 1 | 8'b00000000 |
+| 2 | 0 | 8'b10000000 |
+
+### stimulus 3
+| cycle | d | q |
+|---|---|---|
+| 0 | 1 | 8'b00000000 |
+| 1 | 0 | 8'b10000000 |
+| 2 | 1 | 8'b01000000 |
+
+### stimulus 4
+| cycle | d | q |
+|---|---|---|
+| 0 | 1 | 8'b00000000 |
+| 1 | 1 | 8'b10000000 |
+| 2 | 1 | 8'b11000000 |
+| 3 | 1 | 8'b11100000 |
+| 4 | 1 | 8'b11110000 |
+| 5 | 1 | 8'b11111000 |
+| 6 | 1 | 8'b11111100 |
+| 7 | 1 | 8'b11111110 |
+| 8 | 0 | 8'b11111111 |
+| 9 | 0 | 8'b01111111 |
+
+### stimulus 5
+| cycle | d | q |
+|---|---|---|
+| 0 | 1 | 8'b00000000 |
+| 1 | 0 | 8'b10000000 |
+| 2 | 0 | 8'b01000000 |
+| 3 | 0 | 8'b00100000 |
+| 4 | 0 | 8'b00010000 |
+| 5 | 0 | 8'b00001000 |
+| 6 | 0 | 8'b00000100 |
+| 7 | 0 | 8'b00000010 |
+| 8 | 0 | 8'b00000001 |
+| 9 | 1 | 8'b00000000 |
+
+### stimulus 6
+| cycle | d | q |
+|---|---|---|
+| 0 | 1 | 8'b00000000 |
+| 1 | 0 | 8'b10000000 |
+| 2 | 1 | 8'b01000000 |
+| 3 | 0 | 8'b10100000 |
+| 4 | 1 | 8'b01010000 |
+| 5 | 0 | 8'b10101000 |
+| 6 | 1 | 8'b01010100 |
+| 7 | 0 | 8'b10101010 |
+| 8 | 1 | 8'b01010101 |
+| 9 | 0 | 8'b10101010 |
+
+### stimulus 7
+| cycle | d | q |
+|---|---|---|
+| 0 | 0 | 8'b00000000 |
+| 1 | 1 | 8'b00000000 |
+| 2 | 1 | 8'b10000000 |
+| 3 | 0 | 8'b11000000 |
+| 4 | 1 | 8'b01100000 |
+| 5 | 0 | 8'b10110000 |
+| 6 | 0 | 8'b01011000 |
+| 7 | 1 | 8'b00101100 |
+| 8 | 1 | 8'b10010110 |
+| 9 | 0 | 8'b11001011 |
+| 10 | 1 | 8'b01100101 |
+| 11 | 0 | 8'b10110010 |

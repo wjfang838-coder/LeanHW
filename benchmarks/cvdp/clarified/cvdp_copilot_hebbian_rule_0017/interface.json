@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_hebbian_rule_0017",
+  "toplevel": "hebb_gates",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

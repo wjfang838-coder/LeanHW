@@ -1,0 +1,265 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Implement a complete SystemVerilog module for `fsm_linear_reg` module, a finite state machine (FSM) for linear regression computations. It processes input data using configurable weights and biases to produce filtered results. The FSM operates in three states: `IDLE`, `COMPUTE`, and `DONE`. When triggered by a start signal, the module computes and outputs the filtered results, signaling completion with a `done` flag.
+
+---
+
+## Parameters
+
+| **Parameter**    | **Description**                          | **Default Value** | **Constraint**          |
+|------------------|------------------------------------------|-------------------|-------------------------|
+| `DATA_WIDTH`     | Bit-width of the input data              | 16                | Minimum: 2              |
+
+---
+
+## Inputs and Outputs
+
+### Inputs
+
+| **Port**      | **Size**            | **Description**                                      | **Constraint**                                |
+|---------------|---------------------|------------------------------------------------------|-----------------------------------------------|
+| `clk`         | 1 bit               | Clock signal, active on the rising edge              | None                                          |
+| `reset`       | 1 bit               | Asynchronous reset, active high                      | None                                          |
+| `start`       | 1 bit               | Start signal to initiate computation                 | None                                          |
+| `x_in`        | `DATA_WIDTH` bits   | Input data (integer signed)                          | Range: -2**DATA_WIDTH to 2**DATA_WIDTH - 1    |
+| `w_in`        | `DATA_WIDTH` bits   | Trained weight for linear regression (integer signed)| Range: -2**DATA_WIDTH to 2**DATA_WIDTH - 1    |
+| `b_in`        | `DATA_WIDTH` bits   | Trained bias for linear regression (integer signed)  | Range: -2**DATA_WIDTH to 2**DATA_WIDTH - 1    |
+
+### Outputs
+
+| **Port**      | **Size**            | **Description**                                                   | **Constraint**                                                   |
+|---------------|---------------------|-------------------------------------------------------------------|------------------------------------------------------------------|
+| `result1`     | `2*DATA_WIDTH` bits | Output result of the weighted sum calculation (integer signed)    | Size accommodates the product of two `DATA_WIDTH`-sized signals. |
+| `result2`     | `DATA_WIDTH+1` bits | Output result of bias-adjusted input calculation (integer signed) | Size accommodates the sum of two `DATA_WIDTH`-sized signals.     |
+| `done`        | 1 bit               | Completion signal                                                 |  High for 1 clock cycle                                          |
+---
+
+## Behavioral Description
+
+The FSM operates in three states: **`IDLE`**, **`COMPUTE`**, and **`DONE`**.
+
+- **IDLE**:  
+  - Waits for `start` signal.  
+  - Outputs are held at zero.
+
+- **COMPUTE**:  
+  - Computes results using combinational logic:  
+    - **`result1`** = `w_in * x_in >>> 1`  
+       - The size of **result1** is calculated to prevent overflow during multiplication when the inputs have maximum or minimum values.
+    - **`result2`** = `b_in + (x_in >>> 2)`  
+       - The size of **result2** is calculated to prevent overflow during the sum when the inputs have maximum or minimum values.
+  - Updates the output registers.  
+  - Transitions to `DONE` upon completion.
+
+- **DONE**:  
+  - Asserts `done` signal for 1 clock cycle.  
+     - Even if the `start` input is always `1`, the `done` output will only be `1` for one cycle during the state transitions from `IDLE` to `COMPUTE` and from `COMPUTE` to `DONE`.
+  - Returns to `IDLE` state to await the next `start`.
+
+- **Default**:
+   -  If, for any reason, there is a failure in the state transition and the next state becomes invalid, the FSM must return to the `IDLE` state.
+
+---
+
+## Reset and Latency
+
+- **Reset**:  
+  - When `reset` is high, all outputs (`result1`, `result2`, `done`) are reset to zero.  
+  - FSM returns to `IDLE`.
+
+- **Latency**:  
+  - Fixed latency: 2 clock cycles from `start` asserted to changes in `result1`  and `result2`.
+  - Fixed latency: 3 clock cycles from `start` asserted to assertion of `done`.
+
+---
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Implement a complete SystemVerilog module for `fsm_linear_reg` module, a finite state machine (FSM) for linear regression computations. It processes input data using configurable weights and biases to produce filtered results. The FSM operates in three states: `IDLE`, `COMPUTE`, and `DONE`. When triggered by a start signal, the module computes and outputs the filtered results, signaling completion with a `done` flag.
+
+Module and integration contract
+
+Module: fsm_linear_reg.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- start: input 1 bit.
+- x_in: input signed [DATA_WIDTH-1:0].
+- w_in: input signed [DATA_WIDTH-1:0].
+- b_in: input signed [DATA_WIDTH-1:0].
+- result1: output signed [(2*DATA_WIDTH)-1:0].
+- result2: output signed [DATA_WIDTH:0].
+- done: output 1 bit.
+
+Public parameters:
+- integer DATA_WIDTH: default = 16.
+- Verification-visible signal `current_state`: Harness-visible 2-bit state value: asynchronous reset assertion sets it to 2'd0; with reset low it is 2'd0 in idle, 2'd1 for compute, and 2'd2 for completion, advancing on falling clk edges according to the transaction sequence.
+- Verification-visible signal `next_state`: Harness-visible 2-bit combinational next-state value: from 2'd0 it is 2'd1 when start is 1 and otherwise 2'd0; from 2'd1 it is 2'd2; from 2'd2 or any unsupported value it is 2'd0. After reset sets the current state to 2'd0, this value therefore reflects start.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+reset is active high. Assertion is asynchronous: a rising reset event immediately sets result1, result2, and done to zero, sets current_state to IDLE (2'd0), cancels every pending transaction and completion, and has priority over a simultaneous falling clk edge. While reset is high, falling clk edges preserve those reset values; start, x_in, w_in, and b_in have no effect.
+
+Before any reset assertion or other updating event has occurred, result1, result2, and done are unknown. This is limited to that pre-event power-up interval. It neither imposes reset-before-use nor prevents an ordinary authorized event from establishing defined values.
+
+Implementation choice C1 (finite model initialization only): the concrete DATA_WIDTH=16 model starts its private payloads at zero and its private mode at IDLE, while an initialization-valid flag makes all public outputs unknown. This compatible verification choice is not a hardware power-up guarantee.
+
+On reset deassertion while clk is high, result1, result2, and done remain zero, and start=1 is accepted at that release event while start=0 leaves the transaction phase idle. On reset deassertion while clk is low, the release event performs the same phase update as an ordinary falling clk event. The next falling edge continues from the phase selected at release. The finite full-cycle model has no physical clk-level input and projects the first reset-low step as the applicable release-processing event; that projection does not narrow the RTL obligations for reset transitions.
+
+4. Timing.
+
+Amendment A1 (Q11; active-edge scope only). Exact original clause: "Clock signal, active on the rising edge". Exact certain answer law: "The active clock transition is the falling edge of clk." The corrected law supersedes the original only for the active clock transition and timing measured from it; reset polarity, arithmetic, widths, result latency, and done latency are unchanged.
+
+Amendment A7 (Q11; latency clauses' active-edge interpretation only). Exact original clause: "Fixed latency: 2 clock cycles from `start` asserted to changes in `result1`  and `result2`." Exact original clause: "Fixed latency: 3 clock cycles from `start` asserted to assertion of `done`." Exact certain answer law: "The active clock transition is the falling edge of clk." The corrected law supersedes only the rising-edge interpretation of “clock cycles” in these two clauses: their counts remain exactly two and three completed falling-edge intervals from acceptance, respectively.
+
+All three outputs are registered. For an ordinary transaction, E0 is the falling clk edge that processes IDLE with start=1. E1, E2, E3, and E4 are the next four falling clk edges, after one, two, three, and four completed intervals from E0. The pre-E1 x_in, w_in, and b_in values determine the registered results; advancement on E1 does not change which operands are sampled.
+
+result1 and result2 are zero immediately after E0 and E1, first change to the computed values immediately after E2, retain those values immediately after E3, and become zero immediately after E4. Thus their latency is exactly two cycles from E0. done is zero immediately after E0, E1, and E2, becomes one immediately after E3, and becomes zero immediately after E4. Thus done has exactly three-cycle latency and is high for exactly one falling-edge interval. With start continuously high, E3 also accepts the next transaction without shortening the pulse or changing the preceding results' E4 clearing.
+
+Amendment A6 (Q19; observable done timing and its state association only). Exact original clause: "Asserts `done` signal for 1 clock cycle." Exact original clause: "Returns to `IDLE` state to await the next `start`." Exact certain answer law: "done is zero immediately after E0, E1, and E2; it becomes one immediately after E3 and returns to zero immediately after E4, so it is high for one falling-edge interval." Under precisely that E0–E4 transaction history, the quoted Q19 timing law supersedes any reading of the general DONE/IDLE prose that would assert done before E3 or prevent the Q13-authorized same-E3 restart. The one-cycle pulse, three-state requirement, and all other state transitions remain unchanged.
+
+A pre-edge observer sees values produced by the preceding event: pre-E2 sees zero results; pre-E3 and pre-E4 see computed results; pre-E1, pre-E2, and pre-E3 see done=0; pre-E4 sees done=1; pre-E5 sees cleared results and done=0.
+
+The evaluated table is an active-edge scenario. After settling, row k denotes k * timing.step_ns with timing.sample_offset_ns applied and is sampled before the modeled transition; there is no implicit 10 ns tick. The source fixes neither the physical clock period nor a duty cycle. The scenario includes reset asserted at a modeled active edge where shown, but does not claim to simulate every between-edge reset event or restrict legal asynchronous reset pulses.
+
+5. Behaviour.
+
+The three supported phases are IDLE (current_state=2'd0), COMPUTE (2'd1), and DONE (2'd2). With reset low, falling clk edges advance the transaction; rising clk edges have no effect. An unsupported state encoding returns to IDLE at the next applicable falling-edge update. Reset overrides every phase and input.
+
+With reset low, start is sampled only when an idle phase is processed at a falling clk edge and on reset deassertion while clk is high. start=1 accepts a transaction and start=0 leaves the interface idle. start changes during COMPUTE or DONE neither interrupt, cancel, postpone, nor restart that transaction. If start remains high, E3 accepts the next transaction while publishing the preceding transaction's done pulse.
+
+x_in has no effect at E0. At E1, x_in, w_in, and b_in are sampled simultaneously as signed DATA_WIDTH-bit two's-complement operands. x_in contributes to both results, w_in only to result1, and b_in only to result2. Values at E0 or after E1 do not affect that transaction. Each repeated transaction takes fresh E1 operands, and reset cancels sampling.
+
+At E1, result1 is computed by multiplying signed x_in and signed w_in in a signed 2*DATA_WIDTH-bit expression context, then arithmetic-shifting the complete 2*DATA_WIDTH-bit product right by one in that same context. The 2*DATA_WIDTH-bit shifted value is captured and published unchanged at E2; the shift is not truncated to DATA_WIDTH bits.
+
+At E1, x_in and b_in are each sign-extended to DATA_WIDTH+1 bits. The extended x_in is arithmetic-shifted right by two in that signed DATA_WIDTH+1-bit context and added to extended b_in in the same width. The DATA_WIDTH+1-bit sum is captured and published unchanged at E2; its mathematical range fits, so no overflow bit is discarded.
+
+Amendment A2 (Q21; encoded x_in/w_in domains and result1 impossible endpoints only). Exact original clause: "Range: -2**DATA_WIDTH to 2**DATA_WIDTH - 1". Exact certain answer law: "x_in and w_in are DATA_WIDTH-bit two's-complement values, so their legal encoded domain is -2**(DATA_WIDTH-1) through 2**(DATA_WIDTH-1)-1; the wider written endpoints are not encodable and require no additional mapping." Only that domain correction supersedes the original; every representable value and every result1 arithmetic and timing requirement remains unchanged.
+
+Amendment A3 (Q22; encoded x_in/b_in domains and result2 impossible endpoints only). Exact original clause: "Range: -2**DATA_WIDTH to 2**DATA_WIDTH - 1". Exact certain answer law: "x_in and b_in are DATA_WIDTH-bit two's-complement values, so their legal encoded domain is -2**(DATA_WIDTH-1) through 2**(DATA_WIDTH-1)-1; the wider written endpoints are not encodable and require no additional mapping." Only that domain correction supersedes the original; every representable value and every result2 arithmetic and timing requirement remains unchanged.
+
+Amendment A4 (Q17; result1 only in the post-E3/pre-E4 retained-result IDLE interval). Exact original clause: "Outputs are held at zero." Exact certain answer law: "It retains that value after E3, the completion-publication edge, and becomes zero after E4." Only in that interval, the retained result1 supersedes the general IDLE-zero clause; all other IDLE intervals, reset behavior, arithmetic, acceptance, and state laws remain unchanged.
+
+Amendment A5 (Q18; result2 only in the post-E3/pre-E4 retained-result IDLE interval). Exact original clause: "Outputs are held at zero." Exact certain answer law: "It retains that value after E3, the completion-publication edge, and becomes zero after E4." Only in that interval, the retained result2 supersedes the general IDLE-zero clause; all other IDLE intervals, reset behavior, arithmetic, acceptance, and state laws remain unchanged.
+
+result1 and result2 are zero in ordinary IDLE intervals except for the amended post-E3/pre-E4 retention interval. They stay zero through E1, publish after E2, remain published through E3, and clear after E4, including when E3 accepts another transaction. done follows its independent E3-to-E4 pulse. Reset immediately clears all three and aborts the transaction.
+
+The verification-visible current_state is a 2-bit signal. Asynchronous reset sets it to 2'd0. With reset low it is 2'd0 in IDLE, 2'd1 in COMPUTE, and 2'd2 in DONE, and it advances on the authorized falling-edge or reset-release event. It pauses in IDLE when start=0 and returns to 2'd0 after DONE. Public result retention does not stop its cadence; reset cancels it, and after terminal public-output phases it continues to obey the same phase law.
+
+The verification-visible next_state is a 2-bit combinational signal. From current_state=2'd0 it is 2'd1 when start=1 and otherwise 2'd0; from 2'd1 it is 2'd2; from 2'd2 or an unsupported value it is 2'd0. It has no independent clock cadence: it continuously reflects current_state and start, including after reset, while public results are retained, and after public outputs clear. Neither verification-visible signal is a public port.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete DATA_WIDTH=16 instance and the pre-edge observation convention above.
+
+### stimulus 0
+| cycle | reset | start | x_in | w_in | b_in | result1 | result2 | done |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 1 | 0 | 1 | 16'h1 | 16'h1 | 16'h1 | 32'h0 | 17'h0 | 0 |
+| 2 | 0 | 0 | 16'h2 | 16'h3 | 16'h4 | 32'h0 | 17'h0 | 0 |
+| 3 | 0 | 0 | 16'h2 | 16'h3 | 16'h4 | 32'h0 | 17'h0 | 0 |
+| 4 | 0 | 0 | 16'h2 | 16'h3 | 16'h4 | 32'h3 | 17'h4 | 0 |
+
+### stimulus 1
+| cycle | reset | start | x_in | w_in | b_in | result1 | result2 | done |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 16'hffff | 16'hffff | 16'hffff | 32'x | 17'x | x |
+| 1 | 1 | 1 | 16'h8000 | 16'h8000 | 16'h8000 | 32'h0 | 17'h0 | 0 |
+| 2 | 0 | 1 | 16'h8000 | 16'h8000 | 16'h8000 | 32'h0 | 17'h0 | 0 |
+| 3 | 0 | 0 | 16'h8000 | 16'h8000 | 16'h8000 | 32'h0 | 17'h0 | 0 |
+| 4 | 0 | 0 | 16'h8000 | 16'h8000 | 16'h8000 | 32'h0 | 17'h0 | 0 |
+
+### stimulus 2
+| cycle | reset | start | x_in | w_in | b_in | result1 | result2 | done |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 1 | 0 | 1 | 16'h1234 | 16'h5678 | 16'h2345 | 32'h0 | 17'h0 | 0 |
+| 2 | 0 | 0 | 16'h1234 | 16'h5678 | 16'h2345 | 32'h0 | 17'h0 | 0 |
+| 3 | 0 | 0 | 16'h1234 | 16'h5678 | 16'h2345 | 32'h0 | 17'h0 | 0 |
+| 4 | 0 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h3130030 | 17'h27d2 | 0 |
+
+### stimulus 3
+| cycle | reset | start | x_in | w_in | b_in | result1 | result2 | done |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 1 | 0 | 1 | 16'hffff | 16'h1 | 16'h1 | 32'h0 | 17'h0 | 0 |
+| 2 | 0 | 0 | 16'h1 | 16'hffff | 16'hffff | 32'h0 | 17'h0 | 0 |
+| 3 | 0 | 0 | 16'h1 | 16'hffff | 16'hffff | 32'h0 | 17'h0 | 0 |
+| 4 | 0 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'hffffffff | 17'h1ffff | 0 |
+
+### stimulus 4
+| cycle | reset | start | x_in | w_in | b_in | result1 | result2 | done |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 1 | 0 | 1 | 16'hffff | 16'h8000 | 16'hffff | 32'h0 | 17'h0 | 0 |
+| 2 | 1 | 0 | 16'h1 | 16'h1 | 16'h1 | 32'h0 | 17'h0 | 0 |
+| 3 | 0 | 1 | 16'h1 | 16'h1 | 16'h1 | 32'h0 | 17'h0 | 0 |
+| 4 | 0 | 0 | 16'h1 | 16'h1 | 16'h1 | 32'h0 | 17'h0 | 0 |
+| 5 | 0 | 0 | 16'h1 | 16'h1 | 16'h1 | 32'h0 | 17'h0 | 0 |
+
+### stimulus 5
+| cycle | reset | start | x_in | w_in | b_in | result1 | result2 | done |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 1 | 0 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 2 | 0 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 3 | 0 | 1 | 16'h0 | 16'hffff | 16'h8000 | 32'h0 | 17'h0 | 0 |
+| 4 | 0 | 0 | 16'h0 | 16'hffff | 16'h8000 | 32'h0 | 17'h0 | 0 |
+| 5 | 0 | 0 | 16'h0 | 16'hffff | 16'h8000 | 32'h0 | 17'h0 | 0 |
+
+### stimulus 6
+| cycle | reset | start | x_in | w_in | b_in | result1 | result2 | done |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 1 | 0 | 1 | 16'h7fff | 16'h7fff | 16'h7fff | 32'h0 | 17'h0 | 0 |
+| 2 | 0 | 1 | 16'h7fff | 16'h7fff | 16'h7fff | 32'h0 | 17'h0 | 0 |
+| 3 | 0 | 1 | 16'h7fff | 16'h7fff | 16'h7fff | 32'h0 | 17'h0 | 0 |
+| 4 | 0 | 1 | 16'h7fff | 16'h7fff | 16'h7fff | 32'h1fff8000 | 17'h9ffe | 0 |
+| 5 | 0 | 1 | 16'h7fff | 16'h7fff | 16'h7fff | 32'h1fff8000 | 17'h9ffe | 1 |
+| 6 | 0 | 1 | 16'h7fff | 16'h7fff | 16'h7fff | 32'h0 | 17'h0 | 0 |
+| 7 | 0 | 1 | 16'h7fff | 16'h7fff | 16'h7fff | 32'h1fff8000 | 17'h9ffe | 0 |
+| 8 | 0 | 1 | 16'h7fff | 16'h7fff | 16'h7fff | 32'h1fff8000 | 17'h9ffe | 1 |
+| 9 | 0 | 1 | 16'h7fff | 16'h7fff | 16'h7fff | 32'h0 | 17'h0 | 0 |
+| 10 | 0 | 1 | 16'h7fff | 16'h7fff | 16'h7fff | 32'h1fff8000 | 17'h9ffe | 0 |
+| 11 | 0 | 1 | 16'h7fff | 16'h7fff | 16'h7fff | 32'h1fff8000 | 17'h9ffe | 1 |
+
+### stimulus 7
+| cycle | reset | start | x_in | w_in | b_in | result1 | result2 | done |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 1 | 0 | 1 | 16'h7 | 16'h9 | 16'hb | 32'h0 | 17'h0 | 0 |
+| 2 | 0 | 0 | 16'h7 | 16'h9 | 16'hb | 32'h0 | 17'h0 | 0 |
+| 3 | 0 | 0 | 16'h7 | 16'h9 | 16'hb | 32'h0 | 17'h0 | 0 |
+| 4 | 0 | 1 | 16'hd | 16'hf | 16'h11 | 32'h1f | 17'hc | 0 |
+| 5 | 0 | 0 | 16'hd | 16'hf | 16'h11 | 32'h1f | 17'hc | 1 |
+| 6 | 0 | 0 | 16'hd | 16'hf | 16'h11 | 32'h0 | 17'h0 | 0 |
+| 7 | 0 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h61 | 17'h14 | 0 |
+
+### stimulus 8
+| cycle | reset | start | x_in | w_in | b_in | result1 | result2 | done |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 1 | 0 | 1 | 16'h8000 | 16'h1 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 2 | 0 | 0 | 16'h8000 | 16'h1 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 3 | 0 | 0 | 16'h8000 | 16'h1 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 4 | 0 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'hffffc000 | 17'h1e000 | 0 |
+
+### stimulus 9
+| cycle | reset | start | x_in | w_in | b_in | result1 | result2 | done |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 17'h0 | 0 |
+| 1 | 0 | 1 | 16'hffff | 16'hffff | 16'hffff | 32'h0 | 17'h0 | 0 |
+| 2 | 0 | 0 | 16'hffff | 16'hffff | 16'hffff | 32'h0 | 17'h0 | 0 |
+| 3 | 0 | 0 | 16'hffff | 16'hffff | 16'hffff | 32'h0 | 17'h0 | 0 |
+| 4 | 0 | 0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 17'h1fffe | 0 |

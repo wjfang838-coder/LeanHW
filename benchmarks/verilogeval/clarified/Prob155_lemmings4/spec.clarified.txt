@@ -1,0 +1,230 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- areset: input 1 bit.
+- bump_left: input 1 bit.
+- bump_right: input 1 bit.
+- ground: input 1 bit.
+- dig: input 1 bit.
+- walk_left: output 1 bit.
+- walk_right: output 1 bit.
+- aaah: output 1 bit.
+- digging: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  WL: default = 0.
+-  WR: default = 1.
+-  FALLL: default = 2.
+-  FALLR: default = 3.
+-  DIGL: default = 4.
+-  DIGR: default = 5.
+-  DEAD: default = 6.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+areset is active high and asynchronous. While areset is asserted, all other inputs are ignored: walk_left is 1, and walk_right, aaah, and digging are 0. Assertion takes effect immediately, including when coincident with a rising edge. Repeated assertion leaves these values unchanged. Releasing areset has no immediate effect; the machine remains walking left until a later rising edge applies the normal transition rules. The elapsed-fall count is semantically irrelevant in left-walking mode and is cleared on the first rising edge after release.
+
+Before reset has ever been asserted and before any clock event establishes a mode, walk_left, walk_right, aaah, and digging are all unknown. The implementation must leave this power-up state uninitialised, with no initial block or declaration initialiser establishing these outputs.
+
+4. Timing
+
+All state transitions occur on the rising edge of clk except asynchronous reset assertion. Each trace row k denotes the observation at full-cycle step k after settling; no 10 ns clock tick is implied. The interface does not assign a numeric step duration or sample offset. Outputs are Moore outputs of the current state, with asynchronous reset overriding them. A row is observed before its rising-edge transition, so an input sampled in that row first affects the following row.
+
+walk_left and walk_right indicate the current walking direction continuously. Each changes one clock cycle after the rising edge that selects a different mode or direction, under the pre-edge trace convention. Neither is a pulse. aaah is continuously 1 throughout falling and 0 in every established non-falling mode. digging is continuously 1 throughout digging and 0 in every established non-digging mode. There are no completion pulses or periodic outputs.
+
+5. Behaviour
+
+After a mode has been established, exactly one of these conditions applies: left-walking, right-walking, falling, digging, or dead. Walking direction is retained while falling or digging.
+
+Only a rising edge of clk advances normal behavior. Low level, high level without an edge, and falling edges have no effect. Repeated rising edges independently apply all rules below. Simultaneous areset assertion overrides the normal update.
+
+In either walking direction, ground low has highest priority and starts falling in the retained direction. With ground high, dig high has next priority and starts digging in the retained direction. Otherwise, bump_left changes left-walking to right-walking, bump_right changes right-walking to left-walking, and the bump on the opposite side has no effect. Thus simultaneous bumps switch the current walking direction. Deasserted bump inputs have no effect, and repeated assertions are evaluated independently on successive rising edges.
+
+While falling, bumps and dig have no effect. Each rising edge sampled with ground low continues the uninterrupted fall and increments its elapsed count. A rising edge sampled with ground high lands in the retained walking direction when the elapsed fall is 20 cycles or fewer. It enters dead permanently when the elapsed fall is more than 20 cycles. Splattering occurs only upon landing, never in mid-air.
+
+While digging, later dig values and all bumps have no effect. Ground high sustains digging. Ground low interrupts digging and starts falling in the retained direction. A dig request while falling, digging, dead, or without ground is ignored. After digging ends through ground loss, digging can restart only after the machine has returned to a walking mode.
+
+In dead mode, all ordinary inputs have no effect and the machine remains dead until areset is asserted.
+
+walk_left is unknown before a mode is established, becomes 1 immediately when areset is asserted, remains 1 after release until a rising edge selects another mode, and thereafter is 1 exactly throughout left-walking and 0 throughout right-walking, falling, digging, and dead; because rows are sampled before the active edge, a row's inputs can first change walk_left in the post-edge observation, with no completion pulse or automatic clear and with later returns to left-walking reasserting it.
+
+walk_right is unknown before a mode is established, becomes 0 immediately when areset is asserted, remains 0 after release until a rising edge selects another mode, and thereafter is 1 exactly throughout right-walking and 0 throughout left-walking, falling, digging, and dead; because rows are sampled before the active edge, a row's inputs can first change walk_right in the post-edge observation, with no completion pulse or automatic clear and with later returns to right-walking reasserting it.
+
+aaah is unknown before a mode is established, becomes 0 immediately when areset is asserted, and thereafter is 1 exactly while falling and 0 while walking, digging, or dead; because rows are sampled before the active edge, ground loss or landing sampled in a row first asserts or clears aaah in the post-edge observation, it holds across successive falling edges, clears upon landing or reset, and can assert again on a later fall unless dead.
+
+digging is unknown before a mode is established, becomes 0 immediately when areset is asserted, and thereafter is 1 exactly while digging and 0 while walking, falling, or dead; because rows are sampled before the active edge, a qualifying dig request first asserts digging in the post-edge observation, it remains asserted across rising edges while ground stays high regardless of later dig values, clears after a sampled ground loss or reset, and can restart only from a later walking mode.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | x | x | x | x |
+| 1 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 1
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 1 | 0 | 0 | 1 | 0 | 0 |
+| 3 | 0 | 1 | 1 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 1 | 1 | 0 | 1 | 0 | 0 |
+| 3 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 1 |
+| 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 8 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 4
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 1 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 0 | 1 | 1 | 0 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 1 | 1 | 0 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 | 1 | 1 | 0 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 8 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 6
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 | 0 | 1 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 11 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 12 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 13 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 14 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 15 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 16 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 17 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 18 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 19 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 20 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 21 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 22 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 23 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 8
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 11 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 12 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 13 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 14 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 15 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 16 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 17 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 18 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 19 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 20 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 21 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 22 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 23 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 24 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 25 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 9
+| cycle | areset | bump_left | bump_right | ground | dig | walk_left | walk_right | aaah | digging |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 0 | 1 | 0 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 7 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 8 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 9 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 10 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 11 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 12 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 13 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 14 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 15 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 16 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 17 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 18 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 19 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 20 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 21 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 22 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 23 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 24 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 25 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 26 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 27 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 28 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 |

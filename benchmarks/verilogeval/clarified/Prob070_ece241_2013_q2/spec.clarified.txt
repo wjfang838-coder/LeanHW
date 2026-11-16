@@ -1,0 +1,89 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- c: input 1 bit.
+- d: input 1 bit.
+- out_sop: output 1 bit.
+- out_pos: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input, reset operation, or stored state. From power-up onward, both outputs are continuously determined by the current inputs according to the behaviour below, except that out_pos is explicitly unknown for the input combination identified there. There is therefore no first reset edge and no post-release step.
+
+Timing
+
+out_sop and out_pos are combinational outputs with zero clock-cycle latency from a, b, c, and d. All simultaneous input changes are evaluated together. There are no pulses, periodic outputs, capture edges, observation edges, hold intervals, or completion events.
+
+The worked-trace rows use the interface timing cadence: after settling, row k denotes k times timing.step_ns, sampled at timing.sample_offset_ns within that row. This observation convention does not imply a 10 ns clock, a circuit period, or a circuit delay law; this circuit has no clock or autonomous periodic behavior.
+
+Behaviour
+
+Each input is interpreted as its one-bit value. Input a has an immediate combinational effect on both output laws. Input b has an immediate combinational effect on both output laws. Input c has an immediate combinational effect on both output laws. Input d has an immediate combinational effect on both output laws. There are no modes, inactive control levels, priorities, interruptions, transaction histories, or repeated-transaction effects.
+
+For every input combination, out_sop = (c & d) | (~a & ~b & c).
+
+For every input combination, define P = c & (~b | d) & (~a | b) and Q = c & (~b | d) & (~a | d). The complete out_pos law is: when P equals Q, out_pos = P, and when P differs from Q, out_pos is unknown. Equivalently, out_pos is unknown for a,b,c,d = 1,0,1,1 and follows P for every other input combination.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | c | d | out_sop | out_pos |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 1
+| cycle | a | b | c | d | out_sop | out_pos |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 1 | 1 |
+| 1 | 0 | 0 | 1 | 1 | 1 | 1 |
+
+### stimulus 2
+| cycle | a | b | c | d | out_sop | out_pos |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | a | b | c | d | out_sop | out_pos |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 1 | 1 | 1 | 1 |
+
+### stimulus 4
+| cycle | a | b | c | d | out_sop | out_pos |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 5
+| cycle | a | b | c | d | out_sop | out_pos |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 1 | 1 | x |
+
+### stimulus 6
+| cycle | a | b | c | d | out_sop | out_pos |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | a | b | c | d | out_sop | out_pos |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 1 | 1 | 1 | 1 |

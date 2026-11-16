@@ -1,0 +1,223 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design RTL for generating 8-bit data continuously in an incremental manner through a Parallel In Serial Out (PISO) shift register. This module has to generate 1-bit during every clock cycle and to complete the generation of a new 8-bit value at the end of every 8 clock cycles. Could you ensure the patterns are generated in MSB to LSB order? For example, the first 8-bit pattern generated will be 8'b0000_0001, in which the first clock has to create '0' and the eighth clock will produce '1' as output. The pattern generation has to be controlled by a clock and asynchronous active LOW reset. The RTL module `piso_8bit` must have the following design consideration and interface.
+
+## Design considerations
+- One-bit serial data has to be generated during every clock cycle based on the value of 8-bit internal register `tmp`
+- The value of `tmp` has to be initialized to a value 0000_0001 when the reset is at active LOW and it gets incremented by 1 after every eight clock cycles when the reset is at HIGH
+- When all the eight bits of `tmp` value 1111_1111 have been transmitted, it gets incremented by 1 to have a value of 0000_0000 and the shifting process continues
+
+## Interface
+
+### Inputs:
+•	`clk (1-bit)` : This is a single-bit input clock. It is required for the operation of a shift register as the data movement is controlled at the positive edge of this clock. The clock normally operates at a 50:50 duty cycle. 
+•	`rst (1-bit)`: This input is a control signal that resets the internal register value to zero and the shift register operation. This is an asynchronous active LOW reset, which when maintaining active LOW, keeps the `serial_out` data at logic LOW.
+
+### Output:
+•	`serial_out (1-bit)`: This signal represents the output of the PISO shift register. When the reset is at logic HIGH, a new value is asserted at this output during every positive edge of the clock cycle. The value at `serial_out` is controlled by the contents of the internal 8-bit register which keeps changing every 8th clock cycle. 
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Named module interface binding
+
+Module: piso_8bit.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- rst: input; 1 bits in the concrete formal instance.
+- serial_out: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly piso_8bit. Its named public boundary consists of clk, a 1-bit input; rst, a 1-bit input; and serial_out, a 1-bit output. These spellings, directions, and widths are normative. The original specifies no public parameters or symbolic port ranges.
+
+The integration answer establishes the named connections clk, rst, and serial_out. Use of those named connections is portable consumer guidance. Positional declaration order is not guaranteed because no RTL declaration was supplied; this lack of evidence is not an RTL restriction, and a caller possessing the actual declaration may instantiate the module positionally in that declaration's order.
+
+3. Reset.
+
+rst has asynchronous active-low assertion. Asserting rst low asynchronously forces serial_out to 1'b0, restores tmp to 8'h01 and the next bit position to 7, abandons partial progress, and dominates a coincident positive edge. While rst remains low, serial_out remains 1'b0, tmp remains 8'h01, and clock activity does not advance transmission. Repeated assertions have the same effect. Raising rst is inactive release: release alone changes neither the held output nor sequence progress and publishes no bit. The first subsequent positive edge publishes 8'h01[7] = 1'b0 and advances the next bit position to 6.
+
+Amendment A1 — Q1, limited to tmp's reset/restart value and serialized results dependent on that value. Exact original clause: "This input is a control signal that resets the internal register value to zero and the shift register operation." Exact certain answer law: "While rst is low, serial_out is 1'b0. After rst is released, each successive transmitted octet is the current 8-bit value N in MSB-to-LSB order, with N starting at 8'h01 after reset and advancing modulo 256 after each complete octet. Thus bit position j within an octet (j=0 for the first transmitted bit and j=7 for the last) is serial_out = N[7-j]; for the reset value N=8'h01 this is 1'b0 at j=0 through j=6 and 1'b1 at j=7. Reset interruption restarts this same 8'h01 sequence. Accordingly, representatives at the final bit of the reset-value octet are 1'b1, while representatives at any of its first seven bit positions are 1'b0." Only within this reset/restart-value scope, 8'h01 supersedes the quoted zero-reset claim for tmp. The amendment does not supersede the reset polarity, asynchronous assertion, reset-held low output, positive-edge operation, MSB-first order, cadence, or modulo-256 continuation.
+
+Implementation choice C1 — initial-state scope only. At hardware power-up before any reset assertion or clock edge, choose tmp = 8'h01, next bit position = 7, and serial_out = 1'b0. The concrete Lean verification instance uses the same initial state. This is a compatible implementation completion, not a source-derived power-up fact. It adds no reset-before-use restriction and does not alter any reset or post-edge obligation. A positive edge with rst high publishes from this concrete state normally; an rst-low assertion instead establishes the reset state described above.
+
+4. Timing.
+
+clk is active on its positive edge. With rst high, every positive edge publishes exactly one bit and advances transmission by one bit; falling edges and clock levels between positive edges do not advance it. serial_out is registered and holds the last published bit between positive edges, except that asynchronous reset assertion immediately forces it low. A falling-edge observation sees the bit published by the immediately preceding positive edge. Reset release is neither a publication event nor an advancement event. There are eight positive-edge publications per octet and no gap between octets.
+
+The source says clk normally operates at 50:50 duty cycle: each period has equal high and low durations, one high half-cycle and one low half-cycle. It supplies no absolute clock period, high/low duration, or propagation delay, so none is added here.
+
+Let E0 be the physical falling transition that asserts rst. Immediately after E0, serial_out is 1'b0 and restart state is established. Holding reset through positive edges causes no progress. After release, let E1 be the first subsequent positive edge. Immediately after E1 through E8, serial_out is respectively 8'h01[7] through 8'h01[0], seven low publications followed by one high publication. E8 completes the eighth interval and the octet. The post-E8 published output is computed from pre-edge tmp = 8'h01 and pre-edge position 0; independently on E8, the next tmp becomes 8'h02 and the next position becomes 7. E9 then publishes 8'h02[7]. Thus same-edge advancement never substitutes the next state for the registered value due from pre-edge operands.
+
+The finite Lean interface has no physical clk input. Each rst-high full-cycle row represents the post-positive-edge publication for one active-edge scenario, although SpecIR calls out before step advances the bookkeeping state for the following represented edge. Each rst-low row represents asynchronous reset settled and held through the observation and transition. A following rst-high row composes prior inactive release with the later positive edge represented by that row; release itself does not advance the sequence. Row k denotes k * step_ns after settling, not an implicit 10 ns clock tick; iface.json specifies no numeric timing.step_ns or timing.sample_offset_ns. This projection does not represent every falling-edge or between-edge reset history and does not narrow the RTL's asynchronous obligations.
+
+5. Behaviour.
+
+After reset release, number successive positive edges E1, E2, and so on. For every k >= 1, let j = (k-1) mod 8 and N = (1+floor((k-1)/8)) mod 256; immediately after Ek, serial_out is N[7-j]. The published value is computed from tmp and the bit position immediately before Ek. On that same edge the next position advances; after position 0 is published, tmp advances modulo 256 and the next position becomes 7. The published bit remains until the next positive edge or asynchronous reset assertion.
+
+Accordingly, E1 through E8 publish 8'h01 from bit 7 through bit 0, and E9 through E16 publish 8'h02. Every possible 8-bit value follows the same law. After all bits of 8'hFF are published, tmp wraps to 8'h00; after all bits of 8'h00, it advances to 8'h01. The first seven publications of 8'h01 are 1'b0 and its eighth is 1'b1. The first publication of any octet N is N[7], so the first publication of 8'h02 is 1'b0.
+
+If reset is asserted during an octet, serial_out becomes 1'b0 immediately, the incomplete octet is abandoned, and progress restarts at 8'h01 position 7. Holding or repeatedly asserting reset publishes nothing. Release publishes nothing. In the required event audit, E0 asynchronously clears output and progress; release changes nothing; the next three active edges E1, E2, and E3 publish 8'h01[7], 8'h01[6], and 8'h01[5]. A coincident positive edge at E0 is suppressed by reset priority.
+
+For the frozen scenario with rst low at cycles 0 and 1 and high from cycle 2 onward, cycle 2 represents E1. Cycle 24 represents E23. E17 through E24 publish 8'h03 MSB first, so E23 publishes 8'h03[1] = 1'b1. This coordinate follows the general law and is not a lookup exception.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete finite instance and its stated observation convention. It does not replace the complete physical event-sensitive requirements above.
+
+### stimulus 0
+| cycle | rst | serial_out |
+|---|---|---|
+| 0 | 1 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+
+### stimulus 1
+| cycle | rst | serial_out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 0 |
+| 5 | 1 | 0 |
+| 6 | 1 | 0 |
+| 7 | 1 | 0 |
+| 8 | 1 | 1 |
+| 9 | 1 | 0 |
+
+### stimulus 2
+| cycle | rst | serial_out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 0 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 0 |
+| 5 | 1 | 0 |
+| 6 | 1 | 0 |
+| 7 | 1 | 0 |
+| 8 | 1 | 0 |
+| 9 | 1 | 1 |
+| 10 | 1 | 0 |
+| 11 | 1 | 0 |
+| 12 | 1 | 0 |
+| 13 | 1 | 0 |
+| 14 | 1 | 0 |
+| 15 | 1 | 0 |
+| 16 | 1 | 1 |
+| 17 | 1 | 0 |
+| 18 | 1 | 0 |
+| 19 | 1 | 0 |
+| 20 | 1 | 0 |
+| 21 | 1 | 0 |
+| 22 | 1 | 0 |
+| 23 | 1 | 0 |
+| 24 | 1 | 1 |
+| 25 | 1 | 1 |
+| 26 | 1 | 0 |
+| 27 | 1 | 0 |
+| 28 | 1 | 0 |
+
+### stimulus 3
+| cycle | rst | serial_out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 0 |
+| 5 | 1 | 0 |
+| 6 | 1 | 0 |
+| 7 | 1 | 0 |
+| 8 | 1 | 1 |
+| 9 | 1 | 0 |
+| 10 | 1 | 0 |
+| 11 | 0 | 0 |
+| 12 | 1 | 0 |
+| 13 | 1 | 0 |
+| 14 | 1 | 0 |
+| 15 | 1 | 0 |
+| 16 | 1 | 0 |
+| 17 | 1 | 0 |
+| 18 | 1 | 0 |
+| 19 | 1 | 1 |
+| 20 | 1 | 0 |
+
+### stimulus 4
+| cycle | rst | serial_out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 0 |
+| 5 | 1 | 0 |
+| 6 | 1 | 0 |
+| 7 | 1 | 0 |
+| 8 | 0 | 0 |
+| 9 | 1 | 0 |
+| 10 | 1 | 0 |
+| 11 | 1 | 0 |
+| 12 | 1 | 0 |
+| 13 | 1 | 0 |
+| 14 | 1 | 0 |
+| 15 | 1 | 0 |
+| 16 | 1 | 1 |
+| 17 | 1 | 0 |
+
+### stimulus 5
+| cycle | rst | serial_out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 0 | 0 |
+| 3 | 0 | 0 |
+| 4 | 1 | 0 |
+| 5 | 1 | 0 |
+| 6 | 1 | 0 |
+
+### stimulus 6
+| cycle | rst | serial_out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 0 | 0 |
+| 2 | 0 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 0 |
+| 5 | 1 | 0 |
+| 6 | 1 | 0 |
+
+### stimulus 7
+| cycle | rst | serial_out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 0 |
+| 5 | 1 | 0 |
+| 6 | 1 | 0 |
+| 7 | 1 | 0 |
+| 8 | 1 | 1 |
+| 9 | 1 | 0 |
+| 10 | 1 | 0 |
+| 11 | 1 | 0 |
+| 12 | 1 | 0 |
+| 13 | 1 | 0 |
+| 14 | 1 | 0 |
+| 15 | 1 | 1 |
+| 16 | 1 | 0 |
+| 17 | 1 | 0 |
+
+## Normative clarification after closure validation
+
+Each positive edge of clk for which rst is high is itself the publication event for exactly one serial bit. Immediately after that edge, serial_out shall equal the bit selected from the pre-edge octet and pre-edge bit position: the first through eighth such edges after reset release publish bits 7 through 0, respectively. On the eighth edge, bit 0 of the current octet is published while the octet and bit position simultaneously advance for the following edge. The advanced state must not replace the bit due on the current edge, and publication must not be delayed to an additional positive edge. Thus the first positive edge after reset release publishes bit 7 of 8'h01, the eighth publishes bit 0 of 8'h01, and the ninth publishes bit 7 of 8'h02.
+
+Asserting rst low asynchronously forces serial_out low and restarts sequence progress; it dominates any coincident positive edge. Holding rst low consumes no publication edges. Raising rst alone neither publishes a bit nor advances progress, so the first subsequent positive edge is the first publication edge of the restarted octet. Between positive edges, serial_out holds the value most recently published, except for the immediate low override on reset assertion.
+
+For the finite full-cycle scenario, each rst-high step represents observation immediately after its represented positive edge; it is not a pre-edge observation and does not insert a separate output-register latency. An rst-low step represents reset asserted and settled through that observation. A transition from an rst-low step to an rst-high step composes inactive reset release with the later positive edge represented by the rst-high step; release itself remains non-publishing.

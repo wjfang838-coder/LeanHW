@@ -1,0 +1,188 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- signed_div_i: input 1 bit.
+- opdata1_i: input [31:0].
+- opdata2_i: input [31:0].
+- start_i: input 1 bit.
+- annul_i: input 1 bit.
+- result_o: output [63:0].
+- ready_o: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is active high and synchronous to the rising edge of clk. At every rising edge for which rst is 1, reset takes priority over start_i and annul_i, aborts any transaction, and sets result_o to 64'h0000000000000000 and ready_o to 1'b0 for the following post-edge interval. Repeated reset-active edges repeat those values. On the first rising edge after reset is released, normal idle behavior applies: an eligible request may be accepted; otherwise both outputs remain zero and the divider remains idle.
+
+Before the first rising edge at which rst is 1, result_o and ready_o are unknown. The implementation must leave both output storage elements uninitialised, with no initial block or declaration initialiser. In particular, an asserted rst does not affect the pre-edge observation until its first rising edge occurs.
+
+4. Timing
+
+All stateful behavior occurs on rising edges of clk. Each trace row is an observation before its active edge: row k denotes k * step_ns after settling, using the interface timing values, and does not imply a 10 ns clock tick. This observation convention is separate from the circuit's edge-count delay laws; the interface does not prescribe a physical clock period.
+
+result_o and ready_o are registered outputs. Both remain zero during an accepted nonzero division until completion. Nonzero-divisor completion occurs on the 34th rising edge after the accepting edge. Divide-by-zero completion occurs on the second rising edge after the accepting edge. On that completion edge, presentation depends on the current start_i as specified below, and the new registered outputs are visible in the following pre-edge observation.
+
+When completion is presented, ready_o stays high for whole clock cycles while start_i remains 1; result_o retains the completed value for the same interval. The edge at which start_i is 0 ends presentation, clears both outputs, and returns the module to idle. Thus ready_o is a retained completion indication rather than a fixed one-cycle pulse.
+
+Holding clk at either level causes all registered outputs and transaction state to retain their current values.
+
+5. Behaviour
+
+All input values are interpreted at their declared port widths.
+
+While idle, start_i=1 accepts a request only when annul_i=0. If start_i and annul_i are both 1, the request is rejected and both outputs remain zero. An idle edge with start_i=0 also clears result_o and ready_o to zero.
+
+For an accepted request whose opdata2_i is nonzero, the 32-bit operands are captured for magnitude division. If signed_div_i is 0, both operands are interpreted as unsigned. If signed_div_i is 1, each operand whose bit 31 is 1 contributes its 32-bit two's-complement magnitude. The magnitude quotient and remainder obey dividendMagnitude = divisorMagnitude * quotientMagnitude + remainderMagnitude, with 0 <= remainderMagnitude < divisorMagnitude.
+
+During a nonzero division, start_i is ignored. If annul_i is 1 at a rising edge during this calculation, the transaction is aborted, ready_o remains zero, and result_o remains zero until a later accepted transaction is presented as complete.
+
+At the final calculation edge, the current signed_div_i and the current bit 31 values of opdata1_i and opdata2_i determine sign correction. If the current signed_div_i is 1, the quotient magnitude is converted to its 32-bit two's-complement negative exactly when the two current operand sign bits differ, and the remainder magnitude is converted to its 32-bit two's-complement negative exactly when the current opdata1_i sign bit is 1. If the current signed_div_i is 0, both magnitudes remain unsigned. Arithmetic is performed in the stated expression widths, each corrected component is truncated to 32 bits, and result_o is the 64-bit concatenation {remainder, quotient}; this concatenation is the documented truncation boundary.
+
+For an accepted request whose opdata2_i is zero, the division follows its two-edge completion path and its eventual result is 64'h0000000000000000. signed_div_i, operand changes, and annul_i have no effect on that path.
+
+At either kind of completion, if the current start_i is 1, result_o is updated to the completed value and ready_o becomes 1. Repeated rising edges with start_i=1 retain both values; signed_div_i, both operand inputs, and annul_i have no effect during this presentation. If start_i is 0 at the completion edge, no result is presented: both outputs are zero and operation returns immediately to idle. If start_i later becomes 0 during retained presentation, that edge clears both outputs and returns to idle; a new request can be accepted only on a later edge after that return.
+
+rst=1 always overrides every case above. The one-bit control inputs have no encodings beyond 0 and 1 at their declared widths.
+
+6. Worked trace
+
+The following evaluated trace is normative for the sampled concrete instance and uses pre-edge observations.
+
+### stimulus 0
+| cycle | rst | signed_div_i | opdata1_i | opdata2_i | start_i | annul_i | result_o | ready_o |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 32'h3 | 32'h2 | 0 | 0 | 64'x | x |
+| 1 | 0 | 0 | 32'h7 | 32'h3 | 0 | 0 | 64'h0 | 0 |
+| 2 | 0 | 0 | 32'h7 | 32'h3 | 1 | 0 | 64'h0 | 0 |
+| 3 | 0 | 0 | 32'h9 | 32'h2 | 0 | 0 | 64'h0 | 0 |
+| 4 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 5 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+
+### stimulus 1
+| cycle | rst | signed_div_i | opdata1_i | opdata2_i | start_i | annul_i | result_o | ready_o |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'x | x |
+| 1 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 2 | 0 | 0 | 32'h0 | 32'h1 | 1 | 0 | 64'h0 | 0 |
+| 3 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 4 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 5 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+
+### stimulus 2
+| cycle | rst | signed_div_i | opdata1_i | opdata2_i | start_i | annul_i | result_o | ready_o |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'x | x |
+| 1 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 2 | 0 | 1 | 32'h1 | 32'hffffffff | 1 | 0 | 64'h0 | 0 |
+| 3 | 0 | 1 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 4 | 0 | 1 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 5 | 0 | 1 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+
+### stimulus 3
+| cycle | rst | signed_div_i | opdata1_i | opdata2_i | start_i | annul_i | result_o | ready_o |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'x | x |
+| 1 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 2 | 0 | 1 | 32'h80000000 | 32'hffffffff | 1 | 0 | 64'h0 | 0 |
+| 3 | 0 | 1 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 4 | 0 | 1 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 5 | 0 | 1 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+
+### stimulus 4
+| cycle | rst | signed_div_i | opdata1_i | opdata2_i | start_i | annul_i | result_o | ready_o |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'x | x |
+| 1 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 2 | 0 | 0 | 32'hffffffff | 32'h1 | 1 | 0 | 64'h0 | 0 |
+| 3 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 4 | 0 | 0 | 32'h0 | 32'h0 | 0 | 1 | 64'h0 | 0 |
+| 5 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 6 | 0 | 0 | 32'h12345678 | 32'h1234 | 1 | 0 | 64'h0 | 0 |
+| 7 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 8 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 9 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+
+### stimulus 5
+| cycle | rst | signed_div_i | opdata1_i | opdata2_i | start_i | annul_i | result_o | ready_o |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'x | x |
+| 1 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 2 | 0 | 0 | 32'h11 | 32'h5 | 1 | 1 | 64'h0 | 0 |
+| 3 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 4 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+
+### stimulus 6
+| cycle | rst | signed_div_i | opdata1_i | opdata2_i | start_i | annul_i | result_o | ready_o |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'x | x |
+| 1 | 1 | 0 | 32'hb | 32'h3 | 1 | 0 | 64'h0 | 0 |
+| 2 | 0 | 0 | 32'hc | 32'h4 | 0 | 0 | 64'h0 | 0 |
+| 3 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 4 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+
+### stimulus 7
+| cycle | rst | signed_div_i | opdata1_i | opdata2_i | start_i | annul_i | result_o | ready_o |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'x | x |
+| 1 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 2 | 0 | 0 | 32'h80000000 | 32'h80000000 | 1 | 0 | 64'h0 | 0 |
+| 3 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 4 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 5 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 6 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 7 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 8 | 0 | 0 | 32'h10 | 32'h4 | 1 | 0 | 64'h0 | 0 |
+| 9 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 10 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 11 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+
+### stimulus 8
+| cycle | rst | signed_div_i | opdata1_i | opdata2_i | start_i | annul_i | result_o | ready_o |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'x | x |
+| 1 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 2 | 0 | 0 | 32'h75bcd15 | 32'h0 | 1 | 0 | 64'h0 | 0 |
+| 3 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 4 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 5 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+
+### stimulus 9
+| cycle | rst | signed_div_i | opdata1_i | opdata2_i | start_i | annul_i | result_o | ready_o |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'x | x |
+| 1 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 2 | 0 | 0 | 32'h8000 | 32'hff | 1 | 0 | 64'h0 | 0 |
+| 3 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 4 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 5 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+
+### stimulus 10
+| cycle | rst | signed_div_i | opdata1_i | opdata2_i | start_i | annul_i | result_o | ready_o |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'x | x |
+| 1 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 2 | 0 | 0 | 32'h1f | 32'h7 | 1 | 0 | 64'h0 | 0 |
+| 3 | 0 | 0 | 32'hffffffff | 32'h80000000 | 0 | 1 | 64'h0 | 0 |
+| 4 | 0 | 0 | 32'h1 | 32'h1 | 1 | 0 | 64'h0 | 0 |
+| 5 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 6 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 7 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+
+### stimulus 11
+| cycle | rst | signed_div_i | opdata1_i | opdata2_i | start_i | annul_i | result_o | ready_o |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 32'h1 | 32'hffffffff | 0 | 0 | 64'x | x |
+| 1 | 1 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |
+| 2 | 0 | 0 | 32'h80000000 | 32'h12345678 | 0 | 0 | 64'h0 | 0 |
+| 3 | 0 | 0 | 32'h0 | 32'h0 | 0 | 0 | 64'h0 | 0 |

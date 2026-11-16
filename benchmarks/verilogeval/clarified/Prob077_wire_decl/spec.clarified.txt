@@ -1,0 +1,123 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- c: input 1 bit.
+- d: input 1 bit.
+- out: output 1 bit.
+- out_n: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+TopModule has no reset input and no reset behavior. It has no state elements. From power-up onward, including before any edge has occurred, both outputs are defined directly by the current inputs: out is (a AND b) OR (c AND d), and out_n is its complement. Neither output is unknown or uninitialised at power-up.
+
+Timing
+
+Both out and out_n are continuously combinational, with zero clock-cycle latency from a, b, c, and d. There is no clock, capture edge, pulse, periodic output, hold interval, or completion state. In the evaluated full-cycle observation convention, each row is sampled from that row's settled inputs before the inert step; this observation convention does not imply a circuit clock period or delay law.
+
+Behaviour
+
+For every combination of the one-bit inputs, out is 1 exactly when (a AND b) OR (c AND d) is 1; otherwise out is 0. At all times, a contributes through a AND b: changing a changes out and oppositely changes out_n exactly when b is 1 and c AND d is 0, while it has no observable effect when b is 0 or c AND d is 1.
+
+At all times, b contributes through a AND b: changing b changes out and oppositely changes out_n exactly when a is 1 and c AND d is 0, while it has no observable effect when a is 0 or c AND d is 1.
+
+At all times, c contributes through c AND d: changing c changes out and oppositely changes out_n exactly when d is 1 and a AND b is 0, while it has no observable effect when d is 0 or a AND b is 1.
+
+At all times, d contributes through c AND d: changing d changes out and oppositely changes out_n exactly when c is 1 and a AND b is 0, while it has no observable effect when c is 0 or a AND b is 1.
+
+Simultaneous, interrupted, or repeated input changes are reflected immediately by this same combinational relation, with no modes or retained transaction state. out is continuously the combinational value (a AND b) OR (c AND d), with no reset, capture edge, latency, hold or clear interval, completion state, or restart behavior. out_n is continuously the complement of ((a AND b) OR (c AND d)), with no reset, capture edge, latency, hold or clear interval, completion state, or restart behavior.
+
+Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance.
+
+### stimulus 0
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | 1 |
+
+### stimulus 2
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 1 | 1 | 0 |
+
+### stimulus 4
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 1 | 0 | 1 |
+
+### stimulus 6
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 0 | 0 | 1 |
+
+### stimulus 7
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 1 | 0 |
+
+### stimulus 8
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 1 |
+
+### stimulus 9
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 1 |
+
+### stimulus 10
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 | 0 | 1 |
+
+### stimulus 11
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 1 | 1 | 0 |
+
+### stimulus 12
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 1 | 0 |
+
+### stimulus 13
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 1 | 1 | 0 |
+
+### stimulus 14
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 1 | 0 |
+
+### stimulus 15
+| cycle | a | b | c | d | out | out_n |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 | 0 |

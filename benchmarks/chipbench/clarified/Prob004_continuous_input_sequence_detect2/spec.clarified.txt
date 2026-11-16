@@ -1,0 +1,152 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- data: input 1 bit.
+- data_valid: input 1 bit.
+- match: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  idle: default = 4'd0.
+-  s1_d0: default = 4'd1.
+-  s2_d01: default = 4'd2.
+-  s3_d011: default = 4'd3.
+-  s4_d0110: default = 4'd4.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Reset is active low and asynchronous. Whenever rst_n is low, match is 0 and all sequence progress is discarded, including when reset is asserted between rising clock edges or coincides with a rising edge. Deasserting rst_n alone does not change the reset state. On the first rising edge after release, data participates only when data_valid is 1; otherwise the reset state is retained. Before reset has ever been asserted, match is 0, the same value as during reset, and recognition begins with no established prefix.
+
+4. Timing.
+
+Recognition advances only on rising edges of clk. A steady clk level and falling edges have no effect. The match output is a Moore output derived from the current recognition state: the rising edge that samples the fourth valid bit of 0110 completes recognition, and match becomes 1 after that edge. It remains high for exactly one clock interval unless asynchronous reset forces it low sooner, and returns low at the next rising edge. Each repeated detection produces one such one-clock-interval pulse.
+
+The evaluated trace uses full-cycle pre-edge rows. Row k denotes the settled sample at k times the interface step duration, at the interface sample offset; it shows outputs before that row's rising-edge transition. This observation convention is separate from the circuit law above and does not impose an additional clock period or propagation delay.
+
+5. Behaviour.
+
+With rst_n high, only each rising edge of clk advances or restarts recognition of 0110 from the then-current data and data_valid values, and match reflects the resulting recognition after that edge; a steady clk level and falling edges have no effect, while rst_n low dominates a simultaneous rising edge, repeated rising edges repeatedly apply the same sampling rule, and asynchronous reset can interrupt at any time.
+
+Whenever rst_n is low, match is asynchronously forced to 1'b0 and all prior sequence progress is discarded; assertion interrupts recognition or an asserted match without waiting for clk, deassertion alone changes nothing, a rising clk while rst_n is low remains reset-dominated, and every repeated reset begins subsequent recognition afresh from the first rising-edge sample taken with rst_n high.
+
+Data affects match only when sampled on a rising clk edge with rst_n and data_valid high: valid samples are compared in order against 0110, a mismatching 0 can immediately serve as the first bit of a new attempt where it is a valid prefix, a mismatching 1 restarts with no retained prefix, and on the edge after a completed match a valid 0 begins the overlapping next attempt while a valid 1 restarts; changes to data with data_valid low, between rising edges, or during reset have no effect.
+
+On rising clk edges with rst_n high, data_valid=1 makes data the next sample for recognizing 0110, whereas data_valid=0 preserves an incomplete one-, two-, or three-bit prefix and has no effect before any prefix; exceptionally, data_valid=0 on the first edge after a completed match clears match and discards completed-sequence overlap, while reset dominates either value and repeated asserted cycles consume one data sample per rising edge.
+
+Match is asynchronously 1'b0 while rst_n is low and stays low on release; using the frozen pre-edge row convention, the fourth valid sample completing 0110 is captured at the edge ending a low row and match is first observed as 1'b1 in the following row, remains high only until the next rising edge unless reset is asserted sooner, then returns low while that next edge either starts a new attempt from a valid 0 or otherwise restarts, so repeated detections each produce a one-clock-interval pulse and incomplete sequences produce none.
+
+Before any sequence progress has been established, including at power-up as exercised by the frozen representatives and after reset, match is 1'b0. After reset, match remains 1'b0 until four rising-edge samples with data_valid asserted have formed 0110, so it is still low immediately before the edge that captures the final 0.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst_n | data | data_valid | match |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 1 | 0 |
+| 2 | 1 | 0 | 1 | 0 |
+| 3 | 1 | 1 | 1 | 0 |
+| 4 | 1 | 1 | 1 | 0 |
+| 5 | 1 | 0 | 1 | 0 |
+| 6 | 1 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | rst_n | data | data_valid | match |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 0 |
+| 2 | 1 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 1 | 0 |
+| 5 | 1 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | rst_n | data | data_valid | match |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 0 | 0 |
+| 5 | 1 | 1 | 1 | 0 |
+| 6 | 1 | 0 | 1 | 0 |
+| 7 | 1 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | rst_n | data | data_valid | match |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 0 |
+| 2 | 1 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 1 | 0 |
+| 5 | 1 | 0 | 1 | 1 |
+| 6 | 1 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 1 | 0 |
+| 9 | 1 | 0 | 0 | 1 |
+
+### stimulus 4
+| cycle | rst_n | data | data_valid | match |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 0 |
+| 2 | 1 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 1 | 0 |
+| 5 | 1 | 0 | 0 | 1 |
+| 6 | 1 | 0 | 1 | 0 |
+| 7 | 1 | 1 | 1 | 0 |
+| 8 | 1 | 1 | 1 | 0 |
+| 9 | 1 | 0 | 1 | 0 |
+| 10 | 1 | 0 | 0 | 1 |
+| 11 | 1 | 0 | 1 | 0 |
+| 12 | 1 | 1 | 1 | 0 |
+| 13 | 1 | 1 | 1 | 0 |
+| 14 | 1 | 0 | 1 | 0 |
+| 15 | 1 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | rst_n | data | data_valid | match |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 0 |
+| 2 | 1 | 1 | 1 | 0 |
+| 3 | 1 | 0 | 1 | 0 |
+| 4 | 1 | 0 | 1 | 0 |
+| 5 | 1 | 1 | 1 | 0 |
+| 6 | 1 | 1 | 1 | 0 |
+| 7 | 1 | 0 | 1 | 0 |
+| 8 | 1 | 0 | 0 | 1 |
+
+### stimulus 6
+| cycle | rst_n | data | data_valid | match |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 0 |
+| 2 | 1 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 1 | 0 |
+| 5 | 1 | 1 | 0 | 1 |
+| 6 | 1 | 0 | 0 | 0 |
+| 7 | 1 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | rst_n | data | data_valid | match |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 0 |
+| 2 | 1 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 1 | 0 |
+| 5 | 1 | 0 | 0 | 1 |

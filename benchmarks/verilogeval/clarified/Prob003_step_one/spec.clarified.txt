@@ -1,0 +1,72 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- one: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. At power-up, before any edge or elapsed observation step, output one is already logic high. It remains logic high on the first step and on every later step. There are no state elements.
+
+4. Timing.
+
+Output one is combinational and continuously logic high. It has zero-cycle latency and does not depend on an input. It is neither a pulse nor a periodic changing signal.
+
+The evaluated trace uses the interface's full-cycle observation convention: row k is the settled sample at k times step_ns, at sample_offset_ns within that observation step. This observation cadence does not imply a physical clock, circuit period, or propagation delay. The circuit has no clock and its functional law specifies no physical period or delay.
+
+5. Behaviour.
+
+For every possible observation and for all elapsed time, one is exactly 1'b1. It has no reset, capture, hold or clear, completion, interruption, restart, transaction, or cycle-count dependency. Repeated observations and elapsed cycles do not change it. There are no inputs and therefore no skipped input encodings or disabled-input cases.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | one |
+|---|---|
+| 0 | 1 |
+
+### stimulus 1
+| cycle | one |
+|---|---|
+| 0 | 1 |
+
+### stimulus 2
+| cycle | one |
+|---|---|
+| 0 | 1 |
+
+### stimulus 3
+| cycle | one |
+|---|---|
+| 0 | 1 |
+
+### stimulus 4
+| cycle | one |
+|---|---|
+| 0 | 1 |
+
+### stimulus 5
+| cycle | one |
+|---|---|
+| 0 | 1 |
+
+### stimulus 6
+| cycle | one |
+|---|---|
+| 0 | 1 |
+
+### stimulus 7
+| cycle | one |
+|---|---|
+| 0 | 1 |

@@ -1,0 +1,342 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+# Glitch-Free Clock Switching (MUX) RTL Design Specification
+
+### Objective:
+Design an RTL module `glitch_free_mux` that switches between two input clock signals (`clk1` and `clk2`) based on a select input signal (`sel`). The output clock (`clkout`) must switch glitch-free. When `sel = 0`, the output clock should be `clk1`; when `sel = 1`, the output clock should be `clk2`. The transition between clocks must happen smoothly without any glitches. `rst_n` is asynchronous active-low reset input signal. When `rst_n` is asserted (`rst_n = 0`), `clkout` should be driven low.
+
+## Requirements
+1. **Glitch-Free Switching**:
+   - The output clock (`clkout`) must switch between `clk1` and `clk2` without any glitches. 
+   - Assume that clk1 and clk2 are synchronous clocks. (Synchronous clocks have a predictable, consistent phase difference.)
+     - The waveform below shows examples of synchronous clocks with a fixed phase difference.
+     - `T` represents the fixed phase difference between `clk1` and `clk2`.
+     - `T` can be any value, as long as the minimum time between launching and capturing edges are greater than the maximum combinational delay between time arcs between `clk1` and `clk2`
+  ---
+   ```wavedrom
+{
+    signal:[
+        {name: "clk1", wave: "010101010101010", node: '.a...c......' },
+        {},
+        {name: "clk2", wave: "0.1.0.1.0.1.0.1",node: '..b...d......' },
+        {},
+        {},
+        {name: "clk1", wave: "0.10101010101010" , node: '..e.f......' },
+        {},
+        {name: "clk2", wave: "010101010101010" , node: '.g.h......'},
+        {},
+        {},
+        {name: "clk1", wave: "0.1.0.1.0.1.0.1.0.1.0.1.0.1.0." , period: 0.5 , node: '..u.......v......'},
+        {},
+        {name: "clk2", wave: "0..1...0...1...0...1...0...1.." , period: 0.5, node: '...k.......l......'},
+        ],
+        edge: [
+    'a~b T', 'c~d T', 'g~e T', 'h~f T', 'u~k T', 'v~l T',
+    ],
+    head: {text:
+  ['tspan',
+    ['tspan', {class:'info h3'}, 'synchronous with fixed phase clocks examples '],
+    
+  ],
+  
+},
+}
+```
+---
+   - The `sel` signal is assumed to be driven by one of the two input clock sources (clk1 or clk2). It is synchronous to one of the input clocks.
+   - For a request selecting clk2 that remains current, clk1 is disabled on its first subsequent positive edge, then clk2 is enabled on its first positive edge strictly after that disable event.
+   - For a request selecting clk1 that remains current, clk2 is disabled on its first subsequent positive edge, then clk1 is enabled on its first positive edge strictly after that disable event. A new sel change supersedes every uncompleted action for the older request: only the latest selection is pending. If selection returns to the still-enabled clock before disable, the pending switch is cancelled. During the all-disabled interval the latest selection determines which clock may next be enabled. Simultaneous disable and target-clock edges perform disable only; enable waits for a later target-clock edge. Reset cancels pending requests and disables both outputs; after release the selected clock is enabled on its first subsequent rising edge.
+   - Glitch-free switching from `clk1` to `clk2` example waveform is shown below
+---   
+```wavedrom
+{
+    signal:[
+        {name: "clk1", wave: "010101010101010" },
+        {name: "clk2", wave: "01.0.1.0.1.0.1."},
+        {name: "sel", wave: "0..1..........."},
+        {name: "clk1_en", wave: "1....0........."},
+        {name: "clk2_en", wave: "0........1....."},
+        {"name":"clkout", "wave" :"01010....1.0.1." },
+        ],
+}
+```
+----
+
+This is a locally revised benchmark prompt (2026-10-01), with explicit errata that supersede conflicting earlier clauses. It is not an unchanged upstream CVDP problem. Implementation choices for behavior still unspecified must be disclosed and must not contradict these requirements.
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Named module interface binding
+
+Module: glitch_free_mux.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk1: input; 1 bits in the concrete formal instance.
+- clk2: input; 1 bits in the concrete formal instance.
+- sel: input; 1 bits in the concrete formal instance.
+- rst_n: input; 1 bits in the concrete formal instance.
+- clkout: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports
+
+The module name is glitch_free_mux. The public inputs are clk1, clk2, sel and rst_n, each one bit. The public output is clkout, one bit. No public parameters are documented. This enumeration is not a normative declaration order: Q9 confirms the names and directions but explicitly leaves positional declaration order unverified. Named wiring is portable consumer guidance. A consumer possessing the actual declaration may instead instantiate positionally in that declaration's order; this document does not guarantee that order.
+
+The retained original requirements remain authoritative, including both waveform illustrations and the locally revised prompt's explicit supersession of conflicting earlier clauses. No supplied submodule definitions exist.
+
+3. Reset
+
+rst_n is asynchronous and active low. Assertion, independently of either clock edge, disables both clock paths, cancels pending switching, and drives clkout low. Assertion dominates simultaneous clock or selection events. Throughout assertion both paths remain disabled and clkout remains zero. Selection during reset does not enable a path. Release alone leaves both disabled and clkout zero; the latest selected clock is enabled on its first subsequent rising edge. Its high level is then visible at clkout after settling. Subsequent falling and rising levels follow that clock until a switching disable or reset assertion.
+
+Implementation choice C1: at power-up before any reset, both clock paths are disabled, with no pending request, and clkout is zero. The first subsequent rising edge of the currently selected clock enables that path. This is a compatible concrete initialization decision, not a source-derived hardware power-up guarantee. No mandatory reset or warm-up is imposed. The finite model starts directly in this chosen state, not in an assumed post-reset setup. Its initial clock-history observation establishes the current levels without inventing an edge. The history fields are observation bookkeeping rather than additional hardware storage obligations.
+
+4. Timing
+
+clkout follows the enabled clock's current level combinationally after settling; when neither path is enabled it is zero. Clock-path changes occur on the rising edges specified below, with no additional publication register or extra physical edge. No absolute clock period, duty-cycle count, propagation delay, or uniform switching latency in cycles is specified: these belong to the supplied input clocks and their phase relationship. The output's ordinary high and low intervals follow those of the enabled input clock. The disabled interval is determined by the disable edge and the later eligible target edge, not a fixed timeout.
+
+For a held request selecting the other clock, E0 is the selection change; E1 is the enabled clock's first rising edge strictly subsequent to E0; E2 is the selected target clock's first rising edge strictly after E1. Before E1 the old clock continues to determine clkout. Immediately after E1 both paths are disabled and clkout is zero. Immediately after E2 the target is enabled and clkout follows it. Simultaneous source-disable and target rising edges perform disable only; the target must wait for a later rising edge. No fixed number of completed cycles is added between E1 and E2.
+
+From reset assertion through release, clkout is zero. Release is not a publication event. A rising edge simultaneous with release does not enable either path: clkout remains zero after that event. At the first strictly subsequent selected rising edge clkout becomes that clock's high level; at its next falling edge it becomes low. With selection held, the second and third selected rising edges similarly publish high levels, and their falling edges publish low levels. A rising edge of the other clock alone does not enable it.
+
+Observation convention: this finite half-cycle model receives explicit clock levels and reset levels. Each row observes the settled output of the pending level/edge transition; the same transition is then committed exactly once. It includes assertion/release observations and does not identify a row with an implicit 10 ns tick. iface.json supplies neither timing.step_ns nor timing.sample_offset_ns; no numerical spacing or sampling offset is asserted here. This observation convention is separate from the circuit's actual period and delay laws. The represented scenario requires observations of each relevant level transition; it does not prove behavior for unobserved physical events. Full asynchronous reset obligations, including pulses between clock edges, remain circuit requirements.
+
+5. Behaviour
+
+While clk1 is enabled, clkout follows clk1 at both levels; a held request for clk2 disables clk1 on its first subsequent rising edge.
+
+While clk2 is enabled, clkout follows clk2 at both levels; a held request for clk1 disables clk2 on its first subsequent rising edge.
+
+Every new sel change supersedes uncompleted actions for the older request; returning to the still-enabled clock before disable cancels the pending switch.
+
+During an already all-disabled interval, the latest selection determines the eligible clock, and its first rising edge after the prior disable or reset release enables it even if selection changes at that edge.
+
+Asynchronous active-low reset cancels pending requests, disables both paths and forces clkout to zero; release alone does not enable a path.
+
+clkout is zero with both paths disabled and otherwise follows the enabled clock, with disable and enable published after their specified rising-edge events without another physical edge.
+
+The input-clock synchronism, fixed predictable phase relationship, phase-separation timing condition, and sel synchronism assumptions in the retained original remain requirements. The two binary selections exhaust the one-bit selector's defined encodings. An unselected clock still supplies a possible future enabling edge, but its levels do not contribute to clkout while its path is disabled. Stable selection permits indefinite clock propagation; completed switches may repeat without reset. Reset can interrupt any switch and establishes a fresh all-disabled state.
+
+When sel changes simultaneously with the currently enabled clock's rising edge, that edge is not subsequent to the new request and does not disable the enabled clock. The latest request supersedes the older pending request, including cancellation if it selects the still-enabled clock. If the latest request continues to select the other clock, disable occurs on the first later rising edge of the enabled clock, and enable occurs on the selected clock's first rising edge strictly after disable. This follows the original subsequent-edge and supersession requirements; it is not an amendment or an answer-derived law. Q2–Q8 remain unclear and supply no certain supplemental laws or hardware unknown authorization.
+
+6. Worked trace
+
+The evaluated trace is normative for the disclosed finite observation scenario and Implementation choice C1.
+
+### stimulus 0
+| half-cycle | clk1 | clk2 | sel | rst_n | clkout |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 | 1 | 1 |
+| 2 | 0 | 1 | 0 | 1 | 0 |
+| 3 | 1 | 1 | 0 | 1 | 1 |
+| 4 | 0 | 0 | 1 | 1 | 0 |
+| 5 | 0 | 1 | 1 | 1 | 0 |
+
+### stimulus 1
+| half-cycle | clk1 | clk2 | sel | rst_n | clkout |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 1 | 0 |
+| 3 | 1 | 0 | 1 | 1 | 0 |
+| 4 | 0 | 1 | 1 | 1 | 1 |
+| 5 | 0 | 0 | 1 | 1 | 0 |
+| 6 | 0 | 1 | 1 | 1 | 1 |
+
+### stimulus 2
+| half-cycle | clk1 | clk2 | sel | rst_n | clkout |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 0 | 1 | 0 |
+| 4 | 1 | 1 | 0 | 1 | 1 |
+| 5 | 1 | 0 | 0 | 1 | 1 |
+| 6 | 0 | 0 | 0 | 1 | 0 |
+| 7 | 0 | 1 | 0 | 1 | 0 |
+| 8 | 1 | 1 | 0 | 1 | 1 |
+| 9 | 1 | 0 | 0 | 1 | 1 |
+| 10 | 0 | 0 | 0 | 1 | 0 |
+| 11 | 0 | 1 | 0 | 1 | 0 |
+| 12 | 1 | 1 | 0 | 1 | 1 |
+| 13 | 1 | 0 | 0 | 1 | 1 |
+| 14 | 0 | 0 | 0 | 1 | 0 |
+| 15 | 0 | 1 | 0 | 1 | 0 |
+| 16 | 1 | 1 | 0 | 1 | 1 |
+| 17 | 1 | 0 | 0 | 1 | 1 |
+| 18 | 0 | 0 | 0 | 1 | 0 |
+| 19 | 0 | 1 | 0 | 1 | 0 |
+| 20 | 1 | 1 | 0 | 1 | 1 |
+| 21 | 1 | 0 | 0 | 1 | 1 |
+| 22 | 0 | 0 | 0 | 1 | 0 |
+| 23 | 0 | 1 | 0 | 1 | 0 |
+| 24 | 1 | 1 | 0 | 1 | 1 |
+| 25 | 1 | 0 | 0 | 1 | 1 |
+
+### stimulus 3
+| half-cycle | clk1 | clk2 | sel | rst_n | clkout |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 | 0 |
+| 1 | 1 | 1 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 1 | 1 | 0 |
+| 3 | 0 | 0 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 1 | 1 | 0 |
+| 5 | 1 | 1 | 1 | 1 | 1 |
+| 6 | 0 | 1 | 1 | 1 | 1 |
+| 7 | 0 | 0 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 1 | 1 | 0 |
+| 9 | 1 | 1 | 1 | 1 | 1 |
+| 10 | 0 | 1 | 1 | 1 | 1 |
+| 11 | 0 | 0 | 1 | 1 | 0 |
+| 12 | 1 | 0 | 1 | 1 | 0 |
+| 13 | 1 | 1 | 1 | 1 | 1 |
+| 14 | 0 | 1 | 1 | 1 | 1 |
+| 15 | 0 | 0 | 1 | 1 | 0 |
+| 16 | 1 | 0 | 1 | 1 | 0 |
+| 17 | 1 | 1 | 1 | 1 | 1 |
+| 18 | 0 | 1 | 1 | 1 | 1 |
+| 19 | 0 | 0 | 1 | 1 | 0 |
+| 20 | 1 | 0 | 1 | 1 | 0 |
+| 21 | 1 | 1 | 1 | 1 | 1 |
+| 22 | 0 | 1 | 1 | 1 | 1 |
+| 23 | 0 | 0 | 1 | 1 | 0 |
+| 24 | 1 | 0 | 1 | 1 | 0 |
+| 25 | 1 | 1 | 1 | 1 | 1 |
+
+### stimulus 4
+| half-cycle | clk1 | clk2 | sel | rst_n | clkout |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 0 | 1 | 0 |
+| 4 | 1 | 1 | 0 | 1 | 1 |
+| 5 | 1 | 0 | 0 | 1 | 1 |
+| 6 | 0 | 0 | 0 | 1 | 0 |
+| 7 | 0 | 1 | 0 | 1 | 0 |
+| 8 | 1 | 1 | 0 | 1 | 1 |
+| 9 | 1 | 0 | 0 | 1 | 1 |
+| 10 | 0 | 0 | 0 | 1 | 0 |
+| 11 | 0 | 1 | 0 | 1 | 0 |
+| 12 | 1 | 1 | 0 | 1 | 1 |
+| 13 | 1 | 0 | 1 | 1 | 1 |
+| 14 | 0 | 0 | 1 | 1 | 0 |
+| 15 | 0 | 1 | 1 | 1 | 0 |
+| 16 | 1 | 1 | 1 | 1 | 0 |
+| 17 | 1 | 0 | 1 | 1 | 0 |
+| 18 | 0 | 0 | 1 | 1 | 0 |
+| 19 | 0 | 1 | 1 | 1 | 1 |
+| 20 | 1 | 1 | 1 | 1 | 1 |
+| 21 | 1 | 0 | 1 | 1 | 0 |
+| 22 | 0 | 0 | 1 | 1 | 0 |
+| 23 | 0 | 1 | 1 | 1 | 1 |
+| 24 | 1 | 1 | 1 | 1 | 1 |
+| 25 | 1 | 0 | 0 | 1 | 0 |
+| 26 | 0 | 0 | 0 | 1 | 0 |
+| 27 | 0 | 1 | 0 | 1 | 0 |
+| 28 | 1 | 1 | 0 | 1 | 1 |
+| 29 | 1 | 0 | 0 | 1 | 1 |
+| 30 | 0 | 0 | 0 | 1 | 0 |
+| 31 | 0 | 1 | 0 | 1 | 0 |
+| 32 | 1 | 1 | 0 | 1 | 1 |
+| 33 | 1 | 0 | 0 | 1 | 1 |
+| 34 | 0 | 0 | 0 | 1 | 0 |
+| 35 | 0 | 1 | 0 | 1 | 0 |
+| 36 | 1 | 1 | 0 | 1 | 1 |
+| 37 | 1 | 0 | 1 | 1 | 1 |
+| 38 | 0 | 0 | 1 | 1 | 0 |
+| 39 | 0 | 1 | 1 | 1 | 0 |
+| 40 | 1 | 1 | 1 | 1 | 0 |
+| 41 | 1 | 0 | 1 | 1 | 0 |
+| 42 | 0 | 0 | 1 | 1 | 0 |
+| 43 | 0 | 1 | 1 | 1 | 1 |
+| 44 | 1 | 1 | 1 | 1 | 1 |
+| 45 | 1 | 0 | 1 | 1 | 0 |
+| 46 | 0 | 0 | 1 | 1 | 0 |
+| 47 | 0 | 1 | 1 | 1 | 1 |
+| 48 | 1 | 1 | 1 | 1 | 1 |
+| 49 | 1 | 0 | 1 | 1 | 0 |
+
+### stimulus 5
+| half-cycle | clk1 | clk2 | sel | rst_n | clkout |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 |
+| 2 | 1 | 1 | 0 | 1 | 1 |
+| 3 | 0 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 | 1 | 0 |
+| 5 | 1 | 1 | 1 | 1 | 0 |
+| 6 | 0 | 0 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 1 | 1 | 1 |
+| 8 | 0 | 0 | 1 | 1 | 0 |
+| 9 | 0 | 0 | 0 | 1 | 0 |
+| 10 | 1 | 1 | 0 | 1 | 0 |
+| 11 | 0 | 0 | 0 | 1 | 0 |
+| 12 | 1 | 1 | 0 | 1 | 1 |
+
+### stimulus 6
+| half-cycle | clk1 | clk2 | sel | rst_n | clkout |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 | 1 | 1 |
+| 3 | 1 | 1 | 1 | 1 | 1 |
+| 4 | 1 | 0 | 0 | 1 | 1 |
+| 5 | 0 | 0 | 0 | 1 | 0 |
+| 6 | 0 | 1 | 1 | 1 | 0 |
+| 7 | 0 | 0 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 1 | 1 | 0 |
+| 9 | 0 | 0 | 1 | 1 | 0 |
+| 10 | 0 | 1 | 1 | 1 | 1 |
+
+### stimulus 7
+| half-cycle | clk1 | clk2 | sel | rst_n | clkout |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 | 1 | 1 |
+| 3 | 0 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 | 1 | 0 |
+| 5 | 1 | 0 | 1 | 1 | 0 |
+| 6 | 0 | 0 | 1 | 1 | 0 |
+| 7 | 0 | 0 | 0 | 1 | 0 |
+| 8 | 0 | 1 | 0 | 1 | 0 |
+| 9 | 0 | 0 | 0 | 1 | 0 |
+| 10 | 1 | 0 | 0 | 1 | 1 |
+| 11 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 8
+| half-cycle | clk1 | clk2 | sel | rst_n | clkout |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 | 1 | 1 |
+| 3 | 0 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 | 1 | 0 |
+| 5 | 1 | 0 | 1 | 1 | 0 |
+| 6 | 1 | 1 | 1 | 0 | 0 |
+| 7 | 0 | 0 | 1 | 0 | 0 |
+| 8 | 0 | 0 | 1 | 1 | 0 |
+| 9 | 1 | 0 | 1 | 1 | 0 |
+| 10 | 0 | 1 | 1 | 1 | 1 |
+| 11 | 0 | 0 | 1 | 1 | 0 |
+| 12 | 0 | 1 | 1 | 1 | 1 |
+
+### stimulus 9
+| half-cycle | clk1 | clk2 | sel | rst_n | clkout |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 | 1 | 1 |
+| 3 | 0 | 0 | 0 | 1 | 0 |
+| 4 | 1 | 0 | 1 | 1 | 1 |
+| 5 | 0 | 0 | 1 | 1 | 0 |
+| 6 | 0 | 1 | 1 | 1 | 0 |
+| 7 | 0 | 0 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 1 | 1 | 0 |
+| 9 | 0 | 0 | 0 | 0 | 0 |
+| 10 | 0 | 0 | 1 | 1 | 0 |
+| 11 | 0 | 1 | 1 | 1 | 1 |

@@ -1,0 +1,156 @@
+Original implementation instruction (verbatim):
+
+Design a circuit in SystemVerilog which takes an input stream 'bit_stream' at every clock cycle and assert an output  'palindrome_detetcted' when there is found palindrome in incoming stream. The length of the palindrome should be 3. Your design should be fully synthesizable.
+## Port list:
+### Parameter:
+- N: Determines the width of the Palindrome. For this particular circuit as we are detecting 3bit palindrome so its value should be 3
+
+Named module interface binding
+
+Module: palindrome_detect.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- reset: input; 1 bits in the concrete formal instance.
+- bit_stream: input; 1 bits in the concrete formal instance.
+- palindrome_detected: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly palindrome_detect. The implementation shall be fully synthesizable SystemVerilog.
+
+The public parameter is N, with default value 3. N determines the palindrome length; for this circuit its value shall be 3. All ports are scalar, so no port-width expression depends on N. Behaviour for N other than 3 is not specified.
+
+The following declaration order is normative because the original module definition supplies it:
+
+input clk: 1 bit.
+input reset: 1 bit.
+input bit_stream: 1 bit.
+output palindrome_detected: 1 bit.
+
+The spellings above are exact. Connections may be made by name. The certain answer Q9 confirms the module name and named scalar bindings, but does not amend the source and does not independently verify positional order, parameters, or symbolic ranges.
+
+3. Reset.
+
+reset is synchronous and active high. Its value affects state only when sampled on a rising edge of clk. A rising edge with reset high ignores bit_stream and establishes the C1 reset state. Repeated rising edges while reset remains high re-establish that state. Merely asserting or releasing reset between rising edges changes neither state nor palindrome_detected.
+
+Implementation choice C1 — reset and incomplete post-reset history: the source and every certain scoped answer leave the reset values of the retained stream history, the accepted-sample count, palindrome_detected during reset, and palindrome_detected before the first complete post-reset window unspecified. This implementation chooses retained history 00, accepted-sample count zero, and palindrome_detected 0 on every rising edge that samples reset high. After release it keeps palindrome_detected at 0 until three post-reset samples have been accepted. This is a compatible implementation decision, not a fact established by the source. Its exact scope is reset establishment and the following incomplete post-reset history; it does not make reset asynchronous, impose reset before use, or alter any complete-window result.
+
+Implementation choice C2 — power-up before any reset edge: the concrete implementation and finite verification model initially use retained history 00, accepted-sample count zero, and palindrome_detected 0. Thus palindrome_detected reads 0 before the first reset edge has been seen. This is a compatible implementation decision, not a source-derived hardware power-up guarantee. Its exact scope is the initial state before ordinary edges establish a complete history or reset establishes C1. It imposes no reset-before-use restriction: without reset, the first three ordinary rising edges are accepted and the third establishes the first result.
+
+On the first rising edge after reset release, the first new bit is accepted and palindrome_detected remains 0 under C1. A later rising edge sampling reset high cancels all prior history; collection resumes with the first non-reset rising edge. No pre-reset bit participates in a post-reset window.
+
+4. Timing.
+
+With reset low, each rising edge of clk accepts exactly one bit_stream value; clk is represented by each full-cycle state transition in the concrete model. There is no enable input, disabled transaction mode, or multi-edge transaction. Reset sampled high is the only cancellation event.
+
+palindrome_detected is registered. The rising edge accepting the third or any later sample stores palindrome_detected as 1 exactly when the oldest and newest bits of that newly completed three-sample window are equal, and otherwise stores 0. The stored result becomes visible after that edge and remains visible for the full interval until the next rising edge stores another result or reset stores 0. Relative to the rising edge accepting the newest bit, this is one state transition of latency. An isolated palindromic window therefore produces a high interval one clock cycle wide; consecutive palindromic windows may keep the level high across multiple cycles. This is a per-window result level, not a separate completion pulse.
+
+The source specifies no physical clock period, propagation delay, or clock duty cycle. In the evaluated full-cycle trace, row k observes the settled output from state s[k] before transition k consumes that row's inputs and produces s[k+1]. Row k denotes k times timing.step_ns after settling, with timing.sample_offset_ns applied; it does not imply a 10 ns clock tick. This trace observation convention is separate from the circuit's actual, unspecified period and delay laws. The present interface does not provide numerical values for step_ns or sample_offset_ns.
+
+5. Behaviour.
+
+At every rising edge with reset low, the scalar value of bit_stream is appended once to the chronological input history, including on repeated values and immediately after reset release. Every overlapping three-sample window is evaluated. For a completed window a, b, c in chronological acceptance order, palindrome_detected is 1 exactly when a equals c and is 0 otherwise; b does not affect the predicate. Therefore 000, 010, 101, and 111 are palindromes, while 001, 011, 100, and 110 are not.
+
+The law applies to the first complete window, every later overlapping window, repeated input values, and consecutive detections. Before a complete history exists, the output is 0 solely under C1 or C2 as applicable. Changes to bit_stream between rising edges do not change the registered output. When reset and an input sample coincide at a rising edge, reset has priority and that input sample is ignored.
+
+The source input domain has scalar binary reset and bit_stream values and rising-edge sampling. There are no additional operation encodings. Q1 through Q8 are unclear answers: they do not amend the source, establish X or don't-care behavior, or authorize their harness-specific two-edge transaction interpretation. Q9 is certain only within the module-header scope and introduces no behavioural amendment. There are therefore no scoped source amendments.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete N=3 model, including Implementation choices C1 and C2 and the pre-transition row convention above.
+
+### stimulus 0
+| cycle | reset | bit_stream | palindrome_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | reset | bit_stream | palindrome_detected |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | reset | bit_stream | palindrome_detected |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 1 |
+
+### stimulus 3
+| cycle | reset | bit_stream | palindrome_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 |
+
+### stimulus 4
+| cycle | reset | bit_stream | palindrome_detected |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 1 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | reset | bit_stream | palindrome_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 |
+| 5 | 0 | 1 | 1 |
+| 6 | 0 | 0 | 1 |
+| 7 | 0 | 1 | 1 |
+
+### stimulus 6
+| cycle | reset | bit_stream | palindrome_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 |
+| 7 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | reset | bit_stream | palindrome_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 |
+| 5 | 0 | 1 | 1 |
+| 6 | 0 | 0 | 1 |
+| 7 | 0 | 1 | 1 |
+| 8 | 0 | 0 | 1 |
+| 9 | 0 | 1 | 1 |
+| 10 | 0 | 0 | 1 |
+| 11 | 0 | 1 | 1 |
+| 12 | 0 | 0 | 1 |
+| 13 | 0 | 1 | 1 |
+| 14 | 0 | 0 | 1 |
+| 15 | 0 | 1 | 1 |
+| 16 | 0 | 0 | 1 |
+| 17 | 0 | 1 | 1 |

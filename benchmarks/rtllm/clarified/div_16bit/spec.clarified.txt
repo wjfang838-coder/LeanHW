@@ -1,0 +1,95 @@
+Module and integration contract
+
+Module: div_16bit.
+Ports below are in exact declaration order:
+- A: input [15:0].
+- B: input [7:0].
+- result: output [15:0].
+- odd: output [15:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input, reset operation, clocked state, or state element. At power-up and at all later times, result and odd are combinational functions of the current A and B inputs after settling. Consequently there is no interval before a first reset edge and neither output has an uninitialised power-up value attributable to reset.
+
+Timing
+
+result is combinational with zero clock-cycle latency from A and B. odd is combinational with zero clock-cycle latency from A and B. Every change of either input immediately recomputes both outputs after combinational settling. There are no pulses, periodic signals, capture edges, completion edges, transaction boundaries, inactive modes, retained results, or restart latency.
+
+The evaluated trace uses the interface's full-cycle observation convention: each row supplies that row's inputs and observes the settled combinational outputs before the schema's transition step. This observation spacing is not a circuit clock period or a propagation-delay law; the circuit has no specified physical period or numeric delay.
+
+Behaviour
+
+A is continuously interpreted as an unsigned 16-bit dividend, and B is continuously interpreted as an unsigned 8-bit divisor.
+
+For every input with B nonzero, result is the 16-bit unsigned quotient floor(A / B), and odd is the zero-extended unsigned remainder A modulo B.
+
+For every input with B equal to zero, result is 16'hffff and odd equals the unsigned 16-bit input A.
+
+Every change of A immediately recomputes result as floor(A / B) and odd as A modulo B when B is nonzero; when B is zero, result remains 16'hffff and odd immediately follows A. There are no inactive levels, modes, event priorities, interruptions, or transaction boundaries.
+
+Every change of B immediately recomputes result as floor(A / B) and odd as A modulo B when the new B is nonzero; when the new B is zero, result becomes 16'hffff and odd becomes A. There are no inactive levels, modes, event priorities, interruptions, or transaction boundaries.
+
+result is a continuously computed combinational output equal to floor(A / B) for nonzero B and 16'hffff for zero B, with no reset, capture edge, completion edge, initialization interval, clearing, retention, or restart latency, so each pre-transition row observes the value for that row's current inputs after combinational settling.
+
+odd is a continuously computed combinational output equal to the zero-extended A modulo B for nonzero B and A for zero B, with no reset, capture edge, completion edge, initialization interval, clearing, retention, or restart latency, so each pre-transition row observes the value for that row's current inputs after combinational settling.
+
+Worked trace
+
+The following evaluated trace is normative for its listed stimuli and observation points.
+
+### stimulus 0
+| cycle | A | B | result | odd |
+|---|---|---|---|---|
+| 0 | 16'h0 | 8'b00000000 | 16'hffff | 16'h0 |
+
+### stimulus 1
+| cycle | A | B | result | odd |
+|---|---|---|---|---|
+| 0 | 16'h0 | 8'b00000001 | 16'h0 | 16'h0 |
+| 1 | 16'h1 | 8'b00000001 | 16'h1 | 16'h0 |
+| 2 | 16'h1 | 8'b00000000 | 16'hffff | 16'h1 |
+
+### stimulus 2
+| cycle | A | B | result | odd |
+|---|---|---|---|---|
+| 0 | 16'hffff | 8'b11111111 | 16'h101 | 16'h0 |
+| 1 | 16'hffff | 8'b00000000 | 16'hffff | 16'hffff |
+
+### stimulus 3
+| cycle | A | B | result | odd |
+|---|---|---|---|---|
+| 0 | 16'h8000 | 8'b10000000 | 16'h100 | 16'h0 |
+| 1 | 16'h8000 | 8'b11111111 | 16'h80 | 16'h80 |
+
+### stimulus 4
+| cycle | A | B | result | odd |
+|---|---|---|---|---|
+| 0 | 16'h5a5a | 8'b01011010 | 16'h101 | 16'h0 |
+| 1 | 16'h5a5a | 8'b00000001 | 16'h5a5a | 16'h0 |
+
+### stimulus 5
+| cycle | A | B | result | odd |
+|---|---|---|---|---|
+| 0 | 16'h100 | 8'b00000001 | 16'h100 | 16'h0 |
+| 1 | 16'hff | 8'b11111111 | 16'h1 | 16'h0 |
+
+### stimulus 6
+| cycle | A | B | result | odd |
+|---|---|---|---|---|
+| 0 | 16'h1ff | 8'b11111111 | 16'h2 | 16'h1 |
+| 1 | 16'h101 | 8'b10000000 | 16'h2 | 16'h1 |
+
+### stimulus 7
+| cycle | A | B | result | odd |
+|---|---|---|---|---|
+| 0 | 16'h1234 | 8'b00110100 | 16'h59 | 16'h20 |
+| 1 | 16'h1234 | 8'b00000000 | 16'hffff | 16'h1234 |

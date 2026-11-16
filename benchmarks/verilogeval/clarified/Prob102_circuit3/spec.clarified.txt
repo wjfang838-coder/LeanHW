@@ -1,0 +1,94 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- c: input 1 bit.
+- d: input 1 bit.
+- q: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+There is no reset input and no reset behavior. The circuit has no stored state. From power-up onward, including before any edge has occurred, q is the definite combinational value (a | b) & (c | d) for the input values currently present; it is never an uninitialised retained value.
+
+4. Timing
+
+q is combinational and continuously reflects a, b, c, and d with zero clock-cycle latency. There is no clock, registered output, pulse, or periodic output.
+
+The evaluated trace uses the SpecIR full-cycle observation convention: row k is the settled observation at k times the interface step interval, and is not an implicit 10 ns clock tick. This observation convention does not introduce a circuit clock, period, edge, or delay law; the circuit itself is purely combinational.
+
+5. Behaviour
+
+For every combination of the one-bit inputs, q continuously equals (a | b) & (c | d).
+
+For a = 0, q equals b & (c | d); for a = 1, q equals c | d. Every change of a, including a change simultaneous with other inputs or a repeated value without an intervening transaction, affects q only through the continuously evaluated relation; there is no inactive mode, interruption behavior, or retained state.
+
+For b = 0, q equals a & (c | d); for b = 1, q equals c | d. Every change of b, including a change simultaneous with other inputs or a repeated value without an intervening transaction, affects q only through the continuously evaluated relation; there is no inactive mode, interruption behavior, or retained state.
+
+For c = 0, q equals (a | b) & d; for c = 1, q equals a | b. Every change of c, including a change simultaneous with other inputs or a repeated value without an intervening transaction, affects q only through the continuously evaluated relation; there is no inactive mode, interruption behavior, or retained state.
+
+For d = 0, q equals (a | b) & c; for d = 1, q equals a | b. Every change of d, including a change simultaneous with other inputs or a repeated value without an intervening transaction, affects q only through the continuously evaluated relation; there is no inactive mode, interruption behavior, or retained state.
+
+q continuously equals (a | b) & (c | d), so a pre-transition row observes the value determined by the inputs present before that transition. There is no reset assertion or release behavior, capture or observation edge, latency, hold or clear interval, completion, restart, interruption, or transaction history.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 1
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 0 |
+| 1 | 0 | 0 | 1 | 1 | 0 |
+
+### stimulus 2
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 1 | 1 |
+
+### stimulus 3
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 0 | 1 |
+| 1 | 0 | 1 | 1 | 1 | 1 |
+
+### stimulus 4
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 1 | 1 |
+
+### stimulus 5
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 | 1 |
+| 1 | 1 | 0 | 1 | 1 | 1 |
+
+### stimulus 6
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 1 | 1 |
+
+### stimulus 7
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 1 |
+| 1 | 1 | 1 | 1 | 1 | 1 |

@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "radix2_div",
+  "toplevel": "radix2_div",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

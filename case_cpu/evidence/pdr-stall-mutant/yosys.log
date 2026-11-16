@@ -1,0 +1,809 @@
+
+-- Executing script file `/home/usr/leansilicon/case_cpu/evidence/pdr-stall-mutant/synthesis.ys' --
+
+1. Executing Verilog-2005 frontend: /home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv
+Parsing formal SystemVerilog input from `/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv' to AST representation.
+Generating RTLIL representation for module `\case_cpu'.
+Successfully finished Verilog frontend.
+
+2. Executing Verilog-2005 frontend: rtl/miter.sv
+Parsing formal SystemVerilog input from `rtl/miter.sv' to AST representation.
+Generating RTLIL representation for module `\miter'.
+Successfully finished Verilog frontend.
+
+3. Executing HIERARCHY pass (managing design hierarchy).
+
+3.1. Analyzing design hierarchy..
+Top module:  \miter
+Used module:     \case_cpu
+
+3.2. Analyzing design hierarchy..
+Top module:  \miter
+Used module:     \case_cpu
+Removed 0 unused modules.
+Module miter directly or indirectly contains formal properties -> setting "keep" attribute.
+Mapping positional arguments of cell miter.dut (case_cpu).
+
+4. Executing PREP pass.
+
+4.1. Executing HIERARCHY pass (managing design hierarchy).
+
+4.1.1. Analyzing design hierarchy..
+Top module:  \miter
+Used module:     \case_cpu
+
+4.1.2. Analyzing design hierarchy..
+Top module:  \miter
+Used module:     \case_cpu
+Removed 0 unused modules.
+Module miter directly or indirectly contains formal properties -> setting "keep" attribute.
+
+4.2. Executing PROC pass (convert processes to netlists).
+
+4.2.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Found and cleaned up 3 empty switches in `\miter.$proc$rtl/miter.sv:28$257'.
+Cleaned up 3 empty switches.
+
+4.2.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+Removed 3 dead cases from process $proc$rtl/isa_reference.svh:0$293 in module miter.
+Marked 14 switch rules as full_case in process $proc$rtl/isa_reference.svh:0$293 in module miter.
+Marked 4 switch rules as full_case in process $proc$rtl/miter.sv:28$257 in module miter.
+Marked 2 switch rules as full_case in process $proc$rtl/miter.sv:23$240 in module miter.
+Marked 1 switch rules as full_case in process $proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225 in module case_cpu.
+Removed 6 dead cases from process $proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19 in module case_cpu.
+Marked 42 switch rules as full_case in process $proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19 in module case_cpu.
+Removed a total of 9 dead cases.
+
+4.2.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+Removed 19 redundant assignments.
+Promoted 64 assignments to connections.
+
+4.2.4. Executing PROC_INIT pass (extract init attributes).
+Found init rule in `\miter.$proc$rtl/miter.sv:15$361'.
+  Set init value: \started = 1'0
+
+4.2.5. Executing PROC_ARST pass (detect async resets in processes).
+
+4.2.6. Executing PROC_ROM pass (convert switches to ROMs).
+Converted 4 switches.
+<suppressed ~60 debug messages>
+
+4.2.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+Creating decoders for process `\miter.$proc$rtl/miter.sv:15$361'.
+Creating decoders for process `\miter.$proc$rtl/isa_reference.svh:0$293'.
+     1/20: $14\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$356
+     2/20: $13\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$349
+     3/20: $12\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$348
+     4/20: $11\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$346
+     5/20: $10\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$343
+     6/20: $9\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$339
+     7/20: $8\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$336
+     8/20: $7\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$333
+     9/20: $6\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$329
+    10/20: $5\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$321
+    11/20: $3\reference_value$func$rtl/miter.sv:20$229.uprod[63:0]$323
+    12/20: $3\reference_value$func$rtl/miter.sv:20$229.prod[63:0]$322
+    13/20: $2\reference_value$func$rtl/miter.sv:20$229.uprod[63:0]$320
+    14/20: $2\reference_value$func$rtl/miter.sv:20$229.prod[63:0]$319
+    15/20: $4\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$318
+    16/20: $3\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$313
+    17/20: $2\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$307
+    18/20: $1\reference_value$func$rtl/miter.sv:20$229.$result[31:0]$303
+    19/20: $1\reference_value$func$rtl/miter.sv:20$229.uprod[63:0]$305
+    20/20: $1\reference_value$func$rtl/miter.sv:20$229.prod[63:0]$304
+Creating decoders for process `\miter.$proc$rtl/miter.sv:28$257'.
+     1/15: $4$lookahead\reference_regs$256[1023:0]$282
+     2/15: $4$bitselwrite$pos$rtl/miter.sv:52$228[31:0]$281
+     3/15: $3$lookahead\reference_regs$256[1023:0]$279
+     4/15: $3$bitselwrite$pos$rtl/miter.sv:52$228[31:0]$278
+     5/15: $2$lookahead\reference_regs$256[1023:0]$265
+     6/15: $2$bitselwrite$pos$rtl/miter.sv:52$228[31:0]$264
+     7/15: $1$lookahead\reference_regs$256[1023:0]$263
+     8/15: $1$bitselwrite$pos$rtl/miter.sv:52$228[31:0]$262
+     9/15: $assert$rtl/miter.sv:49$274_EN
+    10/15: $assert$rtl/miter.sv:48$270_EN
+    11/15: $assert$rtl/miter.sv:47$266_EN
+    12/15: $assume$rtl/miter.sv:30$261_EN
+    13/15: $0\count[2:0]
+    14/15: $0\queue[159:0]
+    15/15: $0\reference_pc[31:0]
+Creating decoders for process `\miter.$proc$rtl/miter.sv:23$240'.
+     1/5: $2\n_count[2:0]
+     2/5: $2\n_queue[159:0]
+     3/5: $1$bitselwrite$pos$rtl/miter.sv:26$227[31:0]$245
+     4/5: $1\n_count[2:0]
+     5/5: $1\n_queue[159:0]
+Creating decoders for process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+     1/19: $0\remaining[5:0]
+     2/19: $0\wpc[31:0]
+     3/19: $0\mpc[31:0]
+     4/19: $0\xpc[31:0]
+     5/19: $0\wval[31:0]
+     6/19: $0\mval[31:0]
+     7/19: $0\xval[31:0]
+     8/19: $0\wi[31:0]
+     9/19: $0\mi[31:0]
+    10/19: $0\xi[31:0]
+    11/19: $0\di[31:0]
+    12/19: $0\fi[31:0]
+    13/19: $0\wv[0:0]
+    14/19: $0\mv[0:0]
+    15/19: $0\xv[0:0]
+    16/19: $0\dv[0:0]
+    17/19: $0\fv[0:0]
+    18/19: $0\pc[31:0]
+    19/19: $0\regs[1023:0]
+Creating decoders for process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+     1/98: $1\n_fi[31:0]
+     2/98: $2\n_fv[0:0]
+     3/98: $11\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.$result[5:0]$216
+     4/98: $10\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.$result[5:0]$214
+     5/98: $9\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.$result[5:0]$212
+     6/98: $8\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.$result[5:0]$210
+     7/98: $7\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.$result[5:0]$209
+     8/98: $6\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.$result[5:0]$205
+     9/98: $5\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.$result[5:0]$201
+    10/98: $4\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.$result[5:0]$200
+    11/98: $3\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.$result[5:0]$198
+    12/98: $2\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.$result[5:0]$197
+    13/98: $1\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.$result[5:0]$195
+    14/98: $1\n_fv[0:0]
+    15/98: $1\n_di[31:0]
+    16/98: $2\n_dv[0:0]
+    17/98: $3\wait_count$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:155$5.$result[5:0]$193
+    18/98: $2\wait_count$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:155$5.$result[5:0]$189
+    19/98: $6\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.$result[31:0]$181
+    20/98: $5\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.$result[31:0]$177
+    21/98: $4\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.$result[31:0]$171
+    22/98: $3\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.$result[31:0]$167
+    23/98: $2\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.$result[31:0]$139
+    24/98: $2\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.prod_u[63:0]$141
+    25/98: $2\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.product[63:0]$140
+    26/98: $3\b[31:0]
+    27/98: $3\a[31:0]
+    28/98: $2\b[31:0]
+    29/98: $2\a[31:0]
+    30/98: $12\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result[5:0]$104
+    31/98: $11\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result[5:0]$102
+    32/98: $10\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result[5:0]$100
+    33/98: $9\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result[5:0]$98
+    34/98: $8\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result[5:0]$97
+    35/98: $7\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result[5:0]$93
+    36/98: $6\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result[5:0]$89
+    37/98: $5\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result[5:0]$88
+    38/98: $4\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result[5:0]$86
+    39/98: $3\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result[5:0]$85
+    40/98: $2\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result[5:0]$83
+    41/98: $3\n_remaining[5:0]
+    42/98: $1\wait_count$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:155$5.$result[5:0]$81
+    43/98: $1\wait_count$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:155$5.op[5:0]$82
+    44/98: $1\n_dv[0:0]
+    45/98: $4\n_xv[0:0]
+    46/98: $1\n_xpc[31:0]
+    47/98: $1\n_xi[31:0]
+    48/98: $1\n_xval[31:0]
+    49/98: $1\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.prod_u[63:0]$80
+    50/98: $1\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.product[63:0]$78
+    51/98: $1\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.$result[31:0]$69
+    52/98: $1\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.ua[63:0]$79
+    53/98: $1\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.ub[63:0]$77
+    54/98: $1\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.sb[63:0]$76
+    55/98: $1\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.sa[63:0]$75
+    56/98: $1\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.pc[31:0]$74
+    57/98: $1\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.im[31:0]$73
+    58/98: $1\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.b[31:0]$72
+    59/98: $1\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.a[31:0]$71
+    60/98: $1\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.op[5:0]$70
+    61/98: $1\immediate$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$3.$result[31:0]$67
+    62/98: $1\immediate$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$3.w[31:0]$68
+    63/98: $1\projected_pc[31:0]
+    64/98: $1\b[31:0]
+    65/98: $1\a[31:0]
+    66/98: $1\op[5:0]
+    67/98: $1\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result[5:0]$65
+    68/98: $1\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.w[31:0]$66
+    69/98: $1\r2[4:0]
+    70/98: $1\r1[4:0]
+    71/98: $3\n_xv[0:0]
+    72/98: $3\n_mpc[31:0]
+    73/98: $3\n_mval[31:0]
+    74/98: $3\n_mi[31:0]
+    75/98: $4\n_mv[0:0]
+    76/98: $2\n_remaining[5:0]
+    77/98: $2\n_mpc[31:0]
+    78/98: $2\n_mval[31:0]
+    79/98: $2\n_mi[31:0]
+    80/98: $3\n_mv[0:0]
+    81/98: $2\n_xv[0:0]
+    82/98: $1\n_remaining[5:0]
+    83/98: $1\n_mpc[31:0]
+    84/98: $1\n_mval[31:0]
+    85/98: $1\n_mi[31:0]
+    86/98: $2\n_mv[0:0]
+    87/98: $1\n_xv[0:0]
+    88/98: $1\n_mv[0:0]
+    89/98: $1\n_wpc[31:0]
+    90/98: $1\n_wval[31:0]
+    91/98: $1\n_wi[31:0]
+    92/98: $2\n_wv[0:0]
+    93/98: $2\n_regs[1023:0]
+    94/98: $2$bitselwrite$pos$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:131$1[31:0]$43
+    95/98: $1\n_wv[0:0]
+    96/98: $1\n_pc[31:0]
+    97/98: $1$bitselwrite$pos$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:131$1[31:0]$41
+    98/98: $1\n_regs[1023:0]
+
+4.2.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+No latch inferred for signal `\miter.\reference_value$func$rtl/miter.sv:20$226.$result' from process `\miter.$proc$rtl/isa_reference.svh:0$293'.
+No latch inferred for signal `\miter.\reference_value$func$rtl/miter.sv:20$229.$result' from process `\miter.$proc$rtl/isa_reference.svh:0$293'.
+No latch inferred for signal `\miter.\reference_value$func$rtl/miter.sv:20$229.w' from process `\miter.$proc$rtl/isa_reference.svh:0$293'.
+No latch inferred for signal `\miter.\reference_value$func$rtl/miter.sv:20$229.a' from process `\miter.$proc$rtl/isa_reference.svh:0$293'.
+No latch inferred for signal `\miter.\reference_value$func$rtl/miter.sv:20$229.b' from process `\miter.$proc$rtl/isa_reference.svh:0$293'.
+No latch inferred for signal `\miter.\reference_value$func$rtl/miter.sv:20$229.at_pc' from process `\miter.$proc$rtl/isa_reference.svh:0$293'.
+No latch inferred for signal `\miter.\reference_value$func$rtl/miter.sv:20$229.imm' from process `\miter.$proc$rtl/isa_reference.svh:0$293'.
+No latch inferred for signal `\miter.\reference_value$func$rtl/miter.sv:20$229.prod' from process `\miter.$proc$rtl/isa_reference.svh:0$293'.
+No latch inferred for signal `\miter.\reference_value$func$rtl/miter.sv:20$229.uprod' from process `\miter.$proc$rtl/isa_reference.svh:0$293'.
+No latch inferred for signal `\miter.\n_queue' from process `\miter.$proc$rtl/miter.sv:23$240'.
+No latch inferred for signal `\miter.\n_count' from process `\miter.$proc$rtl/miter.sv:23$240'.
+No latch inferred for signal `\miter.$bitselwrite$pos$rtl/miter.sv:26$227' from process `\miter.$proc$rtl/miter.sv:23$240'.
+No latch inferred for signal `\case_cpu.\insn_ready' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_regs' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_pc' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_fv' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_dv' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_xv' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_mv' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_wv' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_fi' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_di' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_xi' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_mi' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_wi' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_xval' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_mval' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_wval' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_xpc' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_mpc' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_wpc' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\n_remaining' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\a' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\b' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\projected_pc' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\r1' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\r2' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\op' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.$bitselwrite$pos$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:131$1' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.$result' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:144$2.w' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\immediate$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$3.$result' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\immediate$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$3.w' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.$result' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.op' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.a' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.b' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.im' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.pc' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.sa' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.sb' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.ub' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.product' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.ua' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\alu$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:153$4.prod_u' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\wait_count$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:155$5.$result' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\wait_count$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:155$5.op' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.$result' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+No latch inferred for signal `\case_cpu.\decode_op$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:158$6.w' from process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+
+4.2.9. Executing PROC_DFF pass (convert process syncs to FFs).
+Creating register for signal `\miter.\started' using process `\miter.$proc$rtl/miter.sv:28$257'.
+  created $dff cell `$procdff$1461' with positive edge clock.
+Creating register for signal `\miter.\reference_regs' using process `\miter.$proc$rtl/miter.sv:28$257'.
+  created $dff cell `$procdff$1462' with positive edge clock.
+Creating register for signal `\miter.\reference_pc' using process `\miter.$proc$rtl/miter.sv:28$257'.
+  created $dff cell `$procdff$1463' with positive edge clock.
+Creating register for signal `\miter.\queue' using process `\miter.$proc$rtl/miter.sv:28$257'.
+  created $dff cell `$procdff$1464' with positive edge clock.
+Creating register for signal `\miter.\count' using process `\miter.$proc$rtl/miter.sv:28$257'.
+  created $dff cell `$procdff$1465' with positive edge clock.
+Creating register for signal `\miter.$bitselwrite$pos$rtl/miter.sv:52$228' using process `\miter.$proc$rtl/miter.sv:28$257'.
+  created $dff cell `$procdff$1466' with positive edge clock.
+Creating register for signal `\miter.$lookahead\reference_regs$256' using process `\miter.$proc$rtl/miter.sv:28$257'.
+  created $dff cell `$procdff$1467' with positive edge clock.
+Creating register for signal `\case_cpu.\regs' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1468' with positive edge clock.
+Creating register for signal `\case_cpu.\pc' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1469' with positive edge clock.
+Creating register for signal `\case_cpu.\fv' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1470' with positive edge clock.
+Creating register for signal `\case_cpu.\dv' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1471' with positive edge clock.
+Creating register for signal `\case_cpu.\xv' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1472' with positive edge clock.
+Creating register for signal `\case_cpu.\mv' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1473' with positive edge clock.
+Creating register for signal `\case_cpu.\wv' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1474' with positive edge clock.
+Creating register for signal `\case_cpu.\fi' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1475' with positive edge clock.
+Creating register for signal `\case_cpu.\di' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1476' with positive edge clock.
+Creating register for signal `\case_cpu.\xi' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1477' with positive edge clock.
+Creating register for signal `\case_cpu.\mi' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1478' with positive edge clock.
+Creating register for signal `\case_cpu.\wi' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1479' with positive edge clock.
+Creating register for signal `\case_cpu.\xval' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1480' with positive edge clock.
+Creating register for signal `\case_cpu.\mval' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1481' with positive edge clock.
+Creating register for signal `\case_cpu.\wval' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1482' with positive edge clock.
+Creating register for signal `\case_cpu.\xpc' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1483' with positive edge clock.
+Creating register for signal `\case_cpu.\mpc' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1484' with positive edge clock.
+Creating register for signal `\case_cpu.\wpc' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1485' with positive edge clock.
+Creating register for signal `\case_cpu.\remaining' using process `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+  created $dff cell `$procdff$1486' with positive edge clock.
+
+4.2.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+
+4.2.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Removing empty process `miter.$proc$rtl/miter.sv:15$361'.
+Found and cleaned up 14 empty switches in `\miter.$proc$rtl/isa_reference.svh:0$293'.
+Removing empty process `miter.$proc$rtl/isa_reference.svh:0$293'.
+Found and cleaned up 5 empty switches in `\miter.$proc$rtl/miter.sv:28$257'.
+Removing empty process `miter.$proc$rtl/miter.sv:28$257'.
+Found and cleaned up 2 empty switches in `\miter.$proc$rtl/miter.sv:23$240'.
+Removing empty process `miter.$proc$rtl/miter.sv:23$240'.
+Found and cleaned up 1 empty switch in `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+Removing empty process `case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:162$225'.
+Found and cleaned up 42 empty switches in `\case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+Removing empty process `case_cpu.$proc$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:120$19'.
+Cleaned up 64 empty switches.
+
+4.2.12. Executing OPT_EXPR pass (perform const folding).
+Optimizing module miter.
+<suppressed ~17 debug messages>
+Optimizing module case_cpu.
+<suppressed ~49 debug messages>
+
+4.3. Executing FLATTEN pass (flatten design).
+Deleting now unused module case_cpu.
+<suppressed ~1 debug messages>
+
+4.4. Executing FUTURE pass.
+
+4.5. Executing OPT_EXPR pass (perform const folding).
+Optimizing module miter.
+<suppressed ~7 debug messages>
+
+4.6. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \miter..
+Removed 476 unused cells and 993 unused wires.
+<suppressed ~525 debug messages>
+
+4.7. Executing CHECK pass (checking for obvious problems).
+Checking module miter...
+Found and reported 0 problems.
+
+4.8. Executing OPT pass (performing simple optimizations).
+
+4.8.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module miter.
+
+4.8.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\miter'.
+<suppressed ~120 debug messages>
+Removed a total of 40 cells.
+
+4.8.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \miter..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+      Replacing known input bits on port B of cell $flatten\dut.$procmux$1361: $flatten\dut.$1\n_mv[0:0] -> 1'1
+      Replacing known input bits on port B of cell $flatten\dut.$procmux$922: $flatten\dut.$1\n_dv[0:0] -> 1'1
+  Analyzing evaluation results.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1077.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1079.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1081.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1083.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1092.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1094.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1096.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1106.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1108.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1110.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1125.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1127.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1138.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1141.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1144.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1146.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1148.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1159.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1162.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1164.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1166.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1175.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1178.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1180.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1182.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1193.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1195.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1197.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1206.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1208.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1210.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1220.
+    dead port 2/2 on $mux $flatten\dut.$procmux$1222.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1328.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1330.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1364.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1366.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1372.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1396.
+    dead port 1/2 on $mux $flatten\dut.$procmux$1402.
+    dead port 1/2 on $mux $flatten\dut.$procmux$791.
+    dead port 2/2 on $mux $flatten\dut.$procmux$793.
+    dead port 2/2 on $mux $flatten\dut.$procmux$795.
+    dead port 2/2 on $mux $flatten\dut.$procmux$803.
+    dead port 2/2 on $mux $flatten\dut.$procmux$805.
+    dead port 2/2 on $mux $flatten\dut.$procmux$814.
+    dead port 2/2 on $mux $flatten\dut.$procmux$816.
+    dead port 2/2 on $mux $flatten\dut.$procmux$830.
+    dead port 1/2 on $mux $flatten\dut.$procmux$840.
+    dead port 1/2 on $mux $flatten\dut.$procmux$843.
+    dead port 1/2 on $mux $flatten\dut.$procmux$846.
+    dead port 2/2 on $mux $flatten\dut.$procmux$848.
+    dead port 1/2 on $mux $flatten\dut.$procmux$858.
+    dead port 1/2 on $mux $flatten\dut.$procmux$861.
+    dead port 2/2 on $mux $flatten\dut.$procmux$863.
+    dead port 2/2 on $mux $flatten\dut.$procmux$871.
+    dead port 1/2 on $mux $flatten\dut.$procmux$874.
+    dead port 2/2 on $mux $flatten\dut.$procmux$876.
+    dead port 1/2 on $mux $flatten\dut.$procmux$886.
+    dead port 2/2 on $mux $flatten\dut.$procmux$888.
+    dead port 2/2 on $mux $flatten\dut.$procmux$896.
+    dead port 2/2 on $mux $flatten\dut.$procmux$898.
+    dead port 2/2 on $mux $flatten\dut.$procmux$907.
+    dead port 1/2 on $mux $flatten\dut.$procmux$929.
+    dead port 2/2 on $mux $flatten\dut.$procmux$931.
+    dead port 2/2 on $mux $flatten\dut.$procmux$937.
+Removed 66 multiplexer ports.
+<suppressed ~19 debug messages>
+
+4.8.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \miter.
+Performed a total of 0 changes.
+
+4.8.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\miter'.
+<suppressed ~12 debug messages>
+Removed a total of 4 cells.
+
+4.8.6. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \miter..
+Removed 0 unused cells and 110 unused wires.
+<suppressed ~1 debug messages>
+
+4.8.7. Executing OPT_EXPR pass (perform const folding).
+Optimizing module miter.
+
+4.8.8. Rerunning OPT passes. (Maybe there is more to do..)
+
+4.8.9. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \miter..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~17 debug messages>
+
+4.8.10. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \miter.
+Performed a total of 0 changes.
+
+4.8.11. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\miter'.
+Removed a total of 0 cells.
+
+4.8.12. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \miter..
+
+4.8.13. Executing OPT_EXPR pass (perform const folding).
+Optimizing module miter.
+
+4.8.14. Finished OPT passes. (There is nothing left to do.)
+
+4.9. Executing WREDUCE pass (reducing word size of cells).
+Removed top 29 address bits (of 32) from memory init port miter.$flatten\dut.$auto$mem.cc:328:emit$365 ($flatten\dut.$auto$proc_rom.cc:155:do_switch$363).
+Removed top 29 address bits (of 32) from memory init port miter.$flatten\dut.$auto$mem.cc:328:emit$369 ($flatten\dut.$auto$proc_rom.cc:155:do_switch$367).
+Removed top 29 address bits (of 32) from memory init port miter.$flatten\dut.$auto$mem.cc:328:emit$373 ($flatten\dut.$auto$proc_rom.cc:155:do_switch$371).
+Removed top 29 address bits (of 32) from memory init port miter.$flatten\dut.$auto$mem.cc:328:emit$377 ($flatten\dut.$auto$proc_rom.cc:155:do_switch$375).
+Removed top 1 bits (of 7) from port B of cell miter.$flatten\dut.$procmux$1228_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell miter.$flatten\dut.$procmux$1227_CMP0 ($eq).
+Removed top 1 bits (of 7) from port B of cell miter.$flatten\dut.$procmux$1147_CMP0 ($eq).
+Removed top 1 bits (of 3) from port B of cell miter.$flatten\dut.$procmux$1123_CMP0 ($eq).
+Removed top 1 bits (of 3) from port B of cell miter.$flatten\dut.$procmux$1122_CMP0 ($eq).
+Removed top 2 bits (of 3) from port B of cell miter.$flatten\dut.$procmux$1107_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell miter.$flatten\dut.$procmux$1082_CMP0 ($eq).
+Removed top 4 bits (of 6) from mux cell miter.$flatten\dut.$procmux$926 ($mux).
+Removed top 1 bits (of 7) from port B of cell miter.$flatten\dut.$procmux$912_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell miter.$flatten\dut.$procmux$911_CMP0 ($eq).
+Removed top 1 bits (of 7) from port B of cell miter.$flatten\dut.$procmux$849_CMP0 ($eq).
+Removed top 1 bits (of 3) from port B of cell miter.$flatten\dut.$procmux$828_CMP0 ($eq).
+Removed top 1 bits (of 3) from port B of cell miter.$flatten\dut.$procmux$827_CMP0 ($eq).
+Removed top 2 bits (of 3) from port B of cell miter.$flatten\dut.$procmux$815_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell miter.$flatten\dut.$procmux$796_CMP0 ($eq).
+Removed top 1 bits (of 7) from port B of cell miter.$flatten\dut.$eq$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:35$202 ($eq).
+Removed top 6 bits (of 7) from port B of cell miter.$flatten\dut.$eq$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:25$196 ($eq).
+Removed top 27 bits (of 32) from port B of cell miter.$flatten\dut.$le$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:96$191 ($le).
+Removed top 27 bits (of 32) from port B of cell miter.$flatten\dut.$ge$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:96$190 ($ge).
+Removed top 27 bits (of 32) from port B of cell miter.$flatten\dut.$le$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:95$187 ($le).
+Removed top 27 bits (of 32) from port B of cell miter.$flatten\dut.$ge$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:95$186 ($ge).
+Removed top 1 bits (of 7) from port B of cell miter.$flatten\dut.$eq$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:35$90 ($eq).
+Removed top 6 bits (of 7) from port B of cell miter.$flatten\dut.$eq$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:25$84 ($eq).
+Removed top 31 bits (of 32) from port B of cell miter.$flatten\dut.$sub$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:138$59 ($sub).
+Removed top 26 bits (of 32) from port Y of cell miter.$flatten\dut.$sub$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:138$59 ($sub).
+Removed top 4 bits (of 6) from wire miter.$flatten\dut.$3\wait_count$func$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:155$5.$result[5:0]$193.
+Removed top 26 bits (of 32) from wire miter.$flatten\dut.$sub$/home/usr/leansilicon/case_cpu/evidence/20261020T103813280899Z/ignore_writeback_stall/faulty.sv:138$59_Y.
+
+4.10. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \miter..
+Removed 0 unused cells and 2 unused wires.
+<suppressed ~1 debug messages>
+
+4.11. Executing MEMORY_COLLECT pass (generating $mem cells).
+
+4.12. Executing OPT pass (performing simple optimizations).
+
+4.12.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module miter.
+
+4.12.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\miter'.
+Removed a total of 0 cells.
+
+4.12.3. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \miter..
+
+4.12.4. Finished fast OPT passes.
+
+4.13. Printing statistics.
+
+=== miter ===
+
+   Number of wires:                174
+   Number of wire bits:           3621
+   Number of public wires:          66
+   Number of public wire bits:    3280
+   Number of ports:                  7
+   Number of port bits:           1069
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                132
+     $check                          4
+     $dff                            9
+     $eq                            26
+     $ge                             2
+     $le                             2
+     $logic_and                     14
+     $logic_not                     14
+     $logic_or                       2
+     $mem_v2                         4
+     $mux                           47
+     $ne                             1
+     $pmux                           4
+     $reduce_bool                    1
+     $scopeinfo                      1
+     $sub                            1
+
+4.14. Executing CHECK pass (checking for obvious problems).
+Checking module miter...
+Found and reported 0 problems.
+
+5. Executing ASYNC2SYNC pass.
+
+6. Executing MEMORY_MAP pass (converting memories to logic and flip-flops).
+Mapping memory $flatten\dut.$auto$proc_rom.cc:155:do_switch$363 in module \miter:
+  created 8 $dff cells and 0 static cells of width 6.
+  read interface: 0 $dff and 7 $mux cells.
+  write interface: 0 write mux blocks.
+Mapping memory $flatten\dut.$auto$proc_rom.cc:155:do_switch$367 in module \miter:
+  created 8 $dff cells and 0 static cells of width 6.
+  read interface: 0 $dff and 7 $mux cells.
+  write interface: 0 write mux blocks.
+Mapping memory $flatten\dut.$auto$proc_rom.cc:155:do_switch$371 in module \miter:
+  created 8 $dff cells and 0 static cells of width 6.
+  read interface: 0 $dff and 7 $mux cells.
+  write interface: 0 write mux blocks.
+Mapping memory $flatten\dut.$auto$proc_rom.cc:155:do_switch$375 in module \miter:
+  created 8 $dff cells and 0 static cells of width 6.
+  read interface: 0 $dff and 7 $mux cells.
+  write interface: 0 write mux blocks.
+
+7. Executing OPT pass (performing simple optimizations).
+
+7.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module miter.
+
+7.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\miter'.
+<suppressed ~15 debug messages>
+Removed a total of 5 cells.
+
+7.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \miter..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~17 debug messages>
+
+7.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \miter.
+Performed a total of 0 changes.
+
+7.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\miter'.
+Removed a total of 0 cells.
+
+7.6. Executing OPT_DFF pass (perform DFF optimizations).
+Adding SRST signal on $flatten\dut.$procdff$1486 ($dff) from module miter (D = \dut.n_remaining, Q = \dut.remaining, rval = 6'000000).
+Adding EN signal on $auto$ff.cc:266:slice$1618 ($sdff) from module miter (D = \dut.n_remaining, Q = \dut.remaining).
+Adding SRST signal on $flatten\dut.$procdff$1476 ($dff) from module miter (D = \dut.n_di, Q = \dut.di, rval = 0).
+Adding EN signal on $auto$ff.cc:266:slice$1626 ($sdff) from module miter (D = \dut.fi, Q = \dut.di).
+Adding SRST signal on $flatten\dut.$procdff$1475 ($dff) from module miter (D = \dut.n_fi, Q = \dut.fi, rval = 0).
+Adding EN signal on $auto$ff.cc:266:slice$1628 ($sdff) from module miter (D = \insn, Q = \dut.fi).
+Adding SRST signal on $flatten\dut.$procdff$1474 ($dff) from module miter (D = \dut.n_wv, Q = \dut.wv, rval = 1'0).
+Adding SRST signal on $flatten\dut.$procdff$1473 ($dff) from module miter (D = \dut.n_mv, Q = \dut.mv, rval = 1'0).
+Adding SRST signal on $flatten\dut.$procdff$1472 ($dff) from module miter (D = \dut.n_xv, Q = \dut.xv, rval = 1'0).
+Adding SRST signal on $flatten\dut.$procdff$1471 ($dff) from module miter (D = \dut.n_dv, Q = \dut.dv, rval = 1'0).
+Adding SRST signal on $flatten\dut.$procdff$1470 ($dff) from module miter (D = \dut.n_fv, Q = \dut.fv, rval = 1'0).
+Adding SRST signal on $auto$async2sync.cc:104:execute$1504 ($dff) from module miter (D = $procmux$666_Y, Q = $auto$async2sync.cc:101:execute$1502, rval = 1'0).
+Setting constant 1-bit at position 0 on $auto$async2sync.cc:112:execute$1501 ($dff) from module miter.
+
+7.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \miter..
+Removed 19 unused cells and 58 unused wires.
+<suppressed ~22 debug messages>
+
+7.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module miter.
+<suppressed ~1 debug messages>
+
+7.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+7.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \miter..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~15 debug messages>
+
+7.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \miter.
+Performed a total of 0 changes.
+
+7.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\miter'.
+Removed a total of 0 cells.
+
+7.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+7.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \miter..
+
+7.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module miter.
+
+7.16. Finished OPT passes. (There is nothing left to do.)
+
+8. Executing DFFUNMAP pass (unmap clock enable and synchronous reset from FFs).
+
+9. Executing TECHMAP pass (map to technology primitives).
+
+9.1. Executing Verilog-2005 frontend: /usr/local/bin/../share/yosys/techmap.v
+Parsing Verilog input from `/usr/local/bin/../share/yosys/techmap.v' to AST representation.
+Generating RTLIL representation for module `\_90_simplemap_bool_ops'.
+Generating RTLIL representation for module `\_90_simplemap_reduce_ops'.
+Generating RTLIL representation for module `\_90_simplemap_logic_ops'.
+Generating RTLIL representation for module `\_90_simplemap_compare_ops'.
+Generating RTLIL representation for module `\_90_simplemap_various'.
+Generating RTLIL representation for module `\_90_simplemap_registers'.
+Generating RTLIL representation for module `\_90_shift_ops_shr_shl_sshl_sshr'.
+Generating RTLIL representation for module `\_90_shift_shiftx'.
+Generating RTLIL representation for module `\_90_fa'.
+Generating RTLIL representation for module `\_90_lcu_brent_kung'.
+Generating RTLIL representation for module `\_90_alu'.
+Generating RTLIL representation for module `\_90_macc'.
+Generating RTLIL representation for module `\_90_alumacc'.
+Generating RTLIL representation for module `\$__div_mod_u'.
+Generating RTLIL representation for module `\$__div_mod_trunc'.
+Generating RTLIL representation for module `\_90_div'.
+Generating RTLIL representation for module `\_90_mod'.
+Generating RTLIL representation for module `\$__div_mod_floor'.
+Generating RTLIL representation for module `\_90_divfloor'.
+Generating RTLIL representation for module `\_90_modfloor'.
+Generating RTLIL representation for module `\_90_pow'.
+Generating RTLIL representation for module `\_90_pmux'.
+Generating RTLIL representation for module `\_90_demux'.
+Generating RTLIL representation for module `\_90_lut'.
+Successfully finished Verilog frontend.
+
+9.2. Continuing TECHMAP pass.
+Using extmapper simplemap for cells of type $reduce_and.
+Using extmapper simplemap for cells of type $logic_not.
+Using extmapper simplemap for cells of type $logic_or.
+Using extmapper simplemap for cells of type $mux.
+Using extmapper simplemap for cells of type $dff.
+Using extmapper simplemap for cells of type $ne.
+Using extmapper simplemap for cells of type $reduce_bool.
+Using extmapper simplemap for cells of type $eq.
+Using template $paramod$557868859b4d6e8412a0571501a88b49a6f91fd7\_90_pmux for cells of type $pmux.
+Using template $paramod$f3115659d5e2977ebd2cb01ff3557fc5f6187689\_90_pmux for cells of type $pmux.
+Using extmapper simplemap for cells of type $logic_and.
+Running "alumacc" on wrapper $extern:wrap:$le:A_SIGNED=0:A_WIDTH=6:B_SIGNED=0:B_WIDTH=5:Y_WIDTH=1:394426c56d1a028ba8fdd5469b163e04011def47.
+Using template $extern:wrap:$le:A_SIGNED=0:A_WIDTH=6:B_SIGNED=0:B_WIDTH=5:Y_WIDTH=1:394426c56d1a028ba8fdd5469b163e04011def47 for cells of type $extern:wrap:$le:A_SIGNED=0:A_WIDTH=6:B_SIGNED=0:B_WIDTH=5:Y_WIDTH=1:394426c56d1a028ba8fdd5469b163e04011def47.
+Running "alumacc" on wrapper $extern:wrap:$ge:A_SIGNED=0:A_WIDTH=6:B_SIGNED=0:B_WIDTH=5:Y_WIDTH=1:394426c56d1a028ba8fdd5469b163e04011def47.
+Using template $extern:wrap:$ge:A_SIGNED=0:A_WIDTH=6:B_SIGNED=0:B_WIDTH=5:Y_WIDTH=1:394426c56d1a028ba8fdd5469b163e04011def47 for cells of type $extern:wrap:$ge:A_SIGNED=0:A_WIDTH=6:B_SIGNED=0:B_WIDTH=5:Y_WIDTH=1:394426c56d1a028ba8fdd5469b163e04011def47.
+Running "alumacc" on wrapper $extern:wrap:$sub:A_SIGNED=0:A_WIDTH=6:B_SIGNED=0:B_WIDTH=1:Y_WIDTH=6:394426c56d1a028ba8fdd5469b163e04011def47.
+Using template $extern:wrap:$sub:A_SIGNED=0:A_WIDTH=6:B_SIGNED=0:B_WIDTH=1:Y_WIDTH=6:394426c56d1a028ba8fdd5469b163e04011def47 for cells of type $extern:wrap:$sub:A_SIGNED=0:A_WIDTH=6:B_SIGNED=0:B_WIDTH=1:Y_WIDTH=6:394426c56d1a028ba8fdd5469b163e04011def47.
+Using extmapper simplemap for cells of type $reduce_or.
+Using extmapper simplemap for cells of type $and.
+Using template $paramod$a04dd9d4d8b430140c4ff94b50470fb380fda2a0\_90_alu for cells of type $alu.
+Using template $paramod$a40b3a69ab2154dca9743e30e1e84efb03b892b4\_90_alu for cells of type $alu.
+Using extmapper simplemap for cells of type $not.
+Using extmapper simplemap for cells of type $or.
+Using extmapper simplemap for cells of type $pos.
+Using template $paramod\_90_lcu_brent_kung\WIDTH=32'00000000000000000000000000000110 for cells of type $lcu.
+Using extmapper simplemap for cells of type $xor.
+No more expansions possible.
+<suppressed ~662 debug messages>
+
+10. Executing ABC pass (technology mapping using ABC).
+
+10.1. Extracting gate netlist of module `\miter' to `<abc-temp-dir>/input.blif'..
+Replacing 30 occurrences of constant undef bits with constant zero bits
+Extracted 1351 gates and 1469 wires to a netlist network with 115 inputs and 79 outputs.
+
+10.1.1. Executing ABC.
+Running ABC command: "<yosys-exe-dir>/yosys-abc" -s -f <abc-temp-dir>/abc.script 2>&1
+ABC: ABC command line: "source <abc-temp-dir>/abc.script".
+ABC: 
+ABC: + read_blif <abc-temp-dir>/input.blif 
+ABC: + read_library <abc-temp-dir>/stdcells.genlib 
+ABC: + strash 
+ABC: + dretime 
+ABC: + map 
+ABC: + write_blif <abc-temp-dir>/output.blif 
+
+10.1.2. Re-integrating ABC results.
+ABC RESULTS:               AND cells:      699
+ABC RESULTS:               NOT cells:      518
+ABC RESULTS:        internal signals:     1275
+ABC RESULTS:           input signals:      115
+ABC RESULTS:          output signals:       79
+Removing temp directory.
+
+11. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \miter..
+Removed 240 unused cells and 1031 unused wires.
+<suppressed ~251 debug messages>
+
+12. Executing AIGMAP pass (map logic to AIG).
+Module miter: replaced 0 cells with 0 new cells, skipped 1063 cells.
+  not replaced 6 cell types:
+       3 $assert
+       1 $assume
+       1 $scopeinfo
+     428 $_NOT_
+     579 $_AND_
+      51 $_DFF_P_
+
+13. Executing AIGER backend.

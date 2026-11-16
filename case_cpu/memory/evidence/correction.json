@@ -1,0 +1,16 @@
+{
+  "bug": "Trap retirement leaked decoded destination register",
+  "clause": "spec/revised.txt R10",
+  "before": "assign retire_rd = writeback_fire ? writeback_packet.destination : 5'b0;",
+  "after": "assign retire_rd = (writeback_fire && writeback_packet.fault == 0) ? writeback_packet.destination : 5'b0;",
+  "reference_revision": "model.py uses committed effect.rd, including zero on precise faults",
+  "detection": {
+    "name": "trap_rd_leak",
+    "status": "detected",
+    "cycle": 12972,
+    "mutant_sha256": "958a2aff40a023fe87568edafe1e10b1768160ca5b65df6d2eb45f50d8bc2d08",
+    "witness": "evidence/mutations/trap_rd_leak/witness.json"
+  },
+  "correction_rtl_sha256": "f5d0c13323902abe8d4077f214249e7fb6ef8f5753e7f7657959ab52a3fbe0c0",
+  "proof": "CaseCPUMem.Source.trap_rd_zero"
+}

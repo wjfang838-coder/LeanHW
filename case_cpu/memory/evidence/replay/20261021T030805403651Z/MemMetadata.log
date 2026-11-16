@@ -1,0 +1,19 @@
+/home/usr/leansilicon/case_cpu/memory/lean/MemMetadata.lean:26:37: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+/home/usr/leansilicon/case_cpu/memory/lean/MemMetadata.lean:26:37: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+/home/usr/leansilicon/case_cpu/memory/lean/MemMetadata.lean:26:37: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+/home/usr/leansilicon/case_cpu/memory/lean/MemMetadata.lean:26:37: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+/home/usr/leansilicon/case_cpu/memory/lean/MemMetadata.lean:26:37: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+/home/usr/leansilicon/case_cpu/memory/lean/MemMetadata.lean:26:37: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+'CaseCPUMem.Raw.metadata_run' depends on axioms: [propext, Classical.choice, Quot.sound]

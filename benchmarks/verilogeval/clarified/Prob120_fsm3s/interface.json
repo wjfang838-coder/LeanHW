@@ -1,0 +1,6 @@
+{
+  "benchmark": "verilogeval",
+  "design": "Prob120_fsm3s",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

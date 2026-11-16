@@ -1,0 +1,213 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- gray_out: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+2. Reset
+
+rst_n is an asynchronous, active-low reset. As soon as rst_n is asserted low, gray_out is 4'b0000; it remains 4'b0000 while rst_n stays low, regardless of clock edges. Reset has priority if its assertion coincides with a rising edge of clk. Deasserting rst_n alone does not change gray_out. The first rising edge after release retains 4'b0000 and establishes the initial post-reset sequence position; subsequent updates follow the behaviour below.
+
+Before rst_n has ever been asserted low, gray_out is unknown and remains unknown despite clock activity. The implementation must leave that power-up state uninitialised: it must not use an initial block or declaration initialiser to give gray_out a defined value. The sequence position and the indication that reset has been observed are likewise unknown in this interval; assertion of rst_n establishes both at their reset state.
+
+3. Timing
+
+gray_out is registered. While rst_n is high, it changes only as a consequence of a rising edge of clk and holds its value at steady clock levels and on falling edges. With pre-edge sampling, a row associated with a rising edge shows the retained value from before that edge; the result of the edge is visible in the following settled observation. The first rising edge after reset release produces no change from 4'b0000. Thereafter gray_out advances once every two rising edges, so each Gray-code value is held for exactly two clock cycles. A reset assertion changes gray_out asynchronously, without waiting for a clock edge.
+
+The evaluated full-cycle trace uses the interface observation interval: row k is the settled pre-edge observation for full cycle k, followed by that cycle's rising-edge transition. No nanosecond duration is implied by a row because the supplied interface gives neither timing.step_ns nor timing.sample_offset_ns. This observation convention is separate from the circuit law that updates are driven by rising edges and that each sequence value lasts two clock cycles.
+
+4. Behaviour
+
+While rst_n is high, only each rising edge of clk updates gray_out through the modulo-16 reflected-Gray progression (with the first rising edge after reset retaining 4'b0000), whereas a steady clk level and falling edges have no effect; repeated rising edges continue the progression, and a simultaneous low-reset event overrides the clock update and clears gray_out.
+
+rst_n is an asynchronous active-low reset: asserting it immediately clears gray_out to 4'b0000, keeping it low holds that value despite clock edges, deasserting it alone does not change the output, the first subsequent rising edge retains 4'b0000, and any later assertion interrupts and restarts the sequence with reset taking priority over a simultaneous rising edge.
+
+With pre-edge row sampling, a row at a rising edge still shows the previously retained gray_out and the edge's result is observable only afterward: asynchronous reset assertion yields 4'b0000 immediately, reset release retains zero, the first post-release rising edge still produces zero, later rising edges produce the cyclic reflected-Gray sequence for modulo-16 counts, and gray_out holds between edges until reset or the next rising-edge update.
+
+For sequence index n, gray_out = G(n) = n ^ (n >> 1), with n interpreted as an unsigned 4-bit value and advanced modulo 16. The complete cyclic sequence is 0000, 0001, 0011, 0010, 0110, 0111, 0101, 0100, 1100, 1101, 1111, 1110, 1010, 1011, 1001, 1000, then 0000 again. Thus the value after the Gray code for binary count 15, 4'b1000, is the Gray code for count 0, 4'b0000. Each listed value is retained for two rising-edge clock cycles, including the initial zero after reset.
+
+If reset is asserted during counting, any pending cadence phase and sequence progress are cancelled immediately. Release starts again from 0000 under the first-edge-retains-zero rule. There are no transaction-start or disabled-operation inputs other than reset, no completion pulse, and no separate result-valid output. Once reset has established a defined value, gray_out retains its last defined result between effective updates.
+
+5. Worked trace
+
+The following evaluated trace is normative. Rows use the observation convention stated in the Timing section.
+
+### stimulus 0
+| cycle | rst_n | gray_out |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 1 | 4'x |
+| 2 | 1 | 4'x |
+
+### stimulus 1
+| cycle | rst_n | gray_out |
+|---|---|---|
+| 0 | 0 | 4'b0000 |
+| 1 | 1 | 4'b0000 |
+| 2 | 1 | 4'b0000 |
+| 3 | 1 | 4'b0001 |
+| 4 | 1 | 4'b0001 |
+
+### stimulus 2
+| cycle | rst_n | gray_out |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 0 | 4'b0000 |
+| 2 | 1 | 4'b0000 |
+| 3 | 1 | 4'b0000 |
+| 4 | 1 | 4'b0001 |
+
+### stimulus 3
+| cycle | rst_n | gray_out |
+|---|---|---|
+| 0 | 0 | 4'b0000 |
+| 1 | 0 | 4'b0000 |
+| 2 | 1 | 4'b0000 |
+| 3 | 1 | 4'b0000 |
+| 4 | 1 | 4'b0001 |
+| 5 | 1 | 4'b0001 |
+
+### stimulus 4
+| cycle | rst_n | gray_out |
+|---|---|---|
+| 0 | 0 | 4'b0000 |
+| 1 | 1 | 4'b0000 |
+| 2 | 0 | 4'b0000 |
+| 3 | 1 | 4'b0000 |
+| 4 | 1 | 4'b0000 |
+
+### stimulus 5
+| cycle | rst_n | gray_out |
+|---|---|---|
+| 0 | 0 | 4'b0000 |
+| 1 | 1 | 4'b0000 |
+| 2 | 1 | 4'b0000 |
+| 3 | 0 | 4'b0000 |
+| 4 | 1 | 4'b0000 |
+| 5 | 1 | 4'b0000 |
+
+### stimulus 6
+| cycle | rst_n | gray_out |
+|---|---|---|
+| 0 | 0 | 4'b0000 |
+| 1 | 0 | 4'b0000 |
+| 2 | 1 | 4'b0000 |
+| 3 | 1 | 4'b0000 |
+| 4 | 1 | 4'b0001 |
+| 5 | 1 | 4'b0001 |
+| 6 | 1 | 4'b0011 |
+| 7 | 1 | 4'b0011 |
+| 8 | 1 | 4'b0010 |
+| 9 | 1 | 4'b0010 |
+| 10 | 1 | 4'b0110 |
+| 11 | 1 | 4'b0110 |
+| 12 | 1 | 4'b0111 |
+| 13 | 1 | 4'b0111 |
+| 14 | 1 | 4'b0101 |
+| 15 | 1 | 4'b0101 |
+| 16 | 1 | 4'b0100 |
+| 17 | 1 | 4'b0100 |
+| 18 | 1 | 4'b1100 |
+| 19 | 1 | 4'b1100 |
+| 20 | 1 | 4'b1101 |
+| 21 | 1 | 4'b1101 |
+| 22 | 1 | 4'b1111 |
+| 23 | 1 | 4'b1111 |
+| 24 | 1 | 4'b1110 |
+| 25 | 1 | 4'b1110 |
+| 26 | 1 | 4'b1010 |
+| 27 | 1 | 4'b1010 |
+| 28 | 1 | 4'b1011 |
+| 29 | 1 | 4'b1011 |
+| 30 | 1 | 4'b1001 |
+| 31 | 1 | 4'b1001 |
+| 32 | 1 | 4'b1000 |
+| 33 | 1 | 4'b1000 |
+| 34 | 1 | 4'b0000 |
+| 35 | 1 | 4'b0000 |
+| 36 | 1 | 4'b0001 |
+| 37 | 1 | 4'b0001 |
+| 38 | 1 | 4'b0011 |
+| 39 | 1 | 4'b0011 |
+| 40 | 1 | 4'b0010 |
+| 41 | 1 | 4'b0010 |
+| 42 | 1 | 4'b0110 |
+| 43 | 1 | 4'b0110 |
+| 44 | 1 | 4'b0111 |
+| 45 | 1 | 4'b0111 |
+| 46 | 1 | 4'b0101 |
+| 47 | 1 | 4'b0101 |
+| 48 | 1 | 4'b0100 |
+| 49 | 1 | 4'b0100 |
+| 50 | 1 | 4'b1100 |
+| 51 | 1 | 4'b1100 |
+| 52 | 1 | 4'b1101 |
+| 53 | 1 | 4'b1101 |
+| 54 | 1 | 4'b1111 |
+| 55 | 1 | 4'b1111 |
+| 56 | 1 | 4'b1110 |
+| 57 | 1 | 4'b1110 |
+| 58 | 1 | 4'b1010 |
+| 59 | 1 | 4'b1010 |
+| 60 | 1 | 4'b1011 |
+| 61 | 1 | 4'b1011 |
+| 62 | 1 | 4'b1001 |
+| 63 | 1 | 4'b1001 |
+| 64 | 1 | 4'b1000 |
+| 65 | 1 | 4'b1000 |
+| 66 | 1 | 4'b0000 |
+| 67 | 1 | 4'b0000 |
+| 68 | 1 | 4'b0001 |
+| 69 | 1 | 4'b0001 |
+| 70 | 1 | 4'b0011 |
+| 71 | 1 | 4'b0011 |
+| 72 | 1 | 4'b0010 |
+| 73 | 1 | 4'b0010 |
+| 74 | 1 | 4'b0110 |
+| 75 | 1 | 4'b0110 |
+| 76 | 1 | 4'b0111 |
+| 77 | 1 | 4'b0111 |
+| 78 | 1 | 4'b0101 |
+| 79 | 1 | 4'b0101 |
+| 80 | 1 | 4'b0100 |
+| 81 | 1 | 4'b0100 |
+| 82 | 1 | 4'b1100 |
+| 83 | 1 | 4'b1100 |
+| 84 | 1 | 4'b1101 |
+| 85 | 1 | 4'b1101 |
+| 86 | 1 | 4'b1111 |
+| 87 | 1 | 4'b1111 |
+| 88 | 1 | 4'b1110 |
+| 89 | 1 | 4'b1110 |
+| 90 | 1 | 4'b1010 |
+| 91 | 1 | 4'b1010 |
+| 92 | 1 | 4'b1011 |
+| 93 | 1 | 4'b1011 |
+| 94 | 1 | 4'b1001 |
+| 95 | 1 | 4'b1001 |
+| 96 | 1 | 4'b1000 |
+| 97 | 1 | 4'b1000 |
+| 98 | 1 | 4'b0000 |
+| 99 | 1 | 4'b0000 |
+
+### stimulus 7
+| cycle | rst_n | gray_out |
+|---|---|---|
+| 0 | 0 | 4'b0000 |
+| 1 | 1 | 4'b0000 |
+| 2 | 1 | 4'b0000 |
+| 3 | 1 | 4'b0001 |
+| 4 | 1 | 4'b0001 |
+| 5 | 1 | 4'b0011 |
+| 6 | 1 | 4'b0011 |

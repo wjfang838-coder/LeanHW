@@ -1,0 +1,96 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- c: input 1 bit.
+- d: input 1 bit.
+- q: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. The design has no state elements. At power-up, before any hypothetical reset edge, q already has its ordinary combinational value b OR c; it is not an uninitialised or unknown output. Because no reset edge exists, there is no distinct first step after reset release.
+
+4. Timing.
+
+q is combinational from the current b and c inputs with zero registered clock-cycle latency. Changes to a or d do not affect q. There are no pulses, periodic outputs, physical clock period, or circuit delay laws specified.
+
+For the evaluated trace, row k denotes the settled observation at k times the interface's step_ns, using the interface's sample_offset_ns convention. This observation cadence is separate from circuit timing and does not imply a 10 ns clock tick, a physical period, or a propagation-delay law. Each row reports q from the inputs of that same row.
+
+5. Behaviour.
+
+q continuously equals the Boolean OR of the current b and c inputs, without capture, hold, clear, completion, restart, or clock-edge behavior.
+
+For every input combination, q equals b OR c: b equal to 1 makes q equal to 1, and b equal to 0 leaves q equal to c.
+
+For every input combination, q equals b OR c: c equal to 1 makes q equal to 1, and c equal to 0 leaves q equal to b.
+
+Equivalently, q is 0 exactly when b is 0 and c is 0; q is 1 for the other three combinations of b and c.
+
+Input a has no effect on q for either logic value, including simultaneous or repeated changes of any inputs.
+
+Input d has no effect on q for either logic value, including simultaneous or repeated changes of any inputs.
+
+Simultaneous and repeated input changes take effect according to the resulting current values. There are no disabled modes, transactions, cancellations, first-result cases, repeated starts, retained data, or terminal states.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 1
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 1 |
+| 1 | 0 | 0 | 1 | 1 | 1 |
+
+### stimulus 2
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 1 |
+| 1 | 0 | 1 | 0 | 1 | 1 |
+
+### stimulus 3
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 0 | 1 |
+| 1 | 0 | 1 | 1 | 1 | 1 |
+
+### stimulus 4
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 | 1 |
+| 1 | 1 | 0 | 1 | 1 | 1 |
+
+### stimulus 6
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 1 |
+| 1 | 1 | 1 | 0 | 1 | 1 |
+
+### stimulus 7
+| cycle | a | b | c | d | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 1 |
+| 1 | 1 | 1 | 1 | 1 | 1 |

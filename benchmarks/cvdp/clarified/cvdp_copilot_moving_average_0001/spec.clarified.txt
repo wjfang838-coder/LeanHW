@@ -1,0 +1,184 @@
+Original implementation instruction (verbatim):
+
+Design a Verilog module that computes the **moving average** of an incoming **12-bit data stream**. The module should output the integer average of the last 8 input unsigned value samples. It continuously receives 12-bit input samples, stores them in a memory buffer, and outputs the average of the most recent 8 samples, updated on every clock cycle.
+
+Named module interface binding
+
+Module: moving_average.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- reset: input; 1 bits in the concrete formal instance.
+- data_in: input; 12 bits in the concrete formal instance.
+- data_out: output; 12 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is moving_average.
+
+The confirmed named boundary consists of input clk, 1 bit; input reset, 1 bit; input data_in, 12 bits; and output data_out, 12 bits. These spellings are exact. Connections must be made by name. Positional declaration order is unverified and therefore is not normative. No public parameters, default parameter values, or symbolic port-width expressions are established by the authorized source.
+
+3. Reset.
+
+Reset is synchronous and active high. It has an effect only when sampled on a rising edge of clk. On such an edge, reset has priority over data_in, clears data_out to zero, and clears the entire memory buffer so that no earlier sample contributes. Each repeated rising edge with reset high preserves that cleared condition. Assertion or release between rising edges has no independently specified effect.
+
+On the first rising edge after reset is released, the current unsigned data_in is accepted as the first sample of a fresh calculation. The value established after that edge is integer-truncated data_in divided by eight.
+
+Before the first rising edge that samples reset high, the hardware power-up value of data_out and the memory-buffer contents are not specified by the original requirements. This omission is not permission to drive X, is not a zero guarantee, and does not forbid a reset-low rising edge from performing the normal update. The documented synchronous reset sequence establishes the specified known fresh state when it occurs; the source does not impose or describe a reset-before-use input restriction.
+
+For the finite worked-trace/model scope only, every stimulus block starts from the state reached after a rising edge sampled reset high: data_out is zero and the complete prior-sample contribution is cleared. This verification setup makes the first displayed row deterministic. It is separate from the RTL contract and adds neither a hardware power-up guarantee nor a value for uninitialized physical storage.
+
+4. Timing.
+
+All specified transactions occur on rising edges of clk. data_out is registered. A reset-low rising edge accepts data_in and establishes the corresponding result immediately after that edge; with the pre-edge table convention, that result appears in the following row. Between rising edges, data_out retains the last established value. A reset sampled in row k makes zero visible in row k+1 and repeated reset edges keep it zero. There is no completion pulse, periodic output, or terminal state.
+
+The evaluated object uses full-cycle observations: row k is the settled output before active edge k, and that edge computes the state observed in row k+1. iface.json provides neither timing.step_ns nor timing.sample_offset_ns, so no nanosecond spacing is implied. Separately, the circuit law identifies rising edges but specifies neither a physical clock period nor a propagation delay.
+
+5. Behaviour.
+
+Each rising edge of clk performs one transaction. When reset is asserted it clears the observable moving-average history and result with priority over data_in; otherwise it samples data_in and produces the sum of the newest sample and up to seven preceding samples divided by eight using integer truncation. Repeated rising edges repeat this operation; steady clock levels and falling edges have no specified effect, and no additional mode or interruption behavior is established.
+
+Reset is active high and, when sampled asserted on a rising clk edge, takes priority over data_in and clears data_out and all prior-sample contribution so repeated asserted edges keep data_out at zero; when reset is low normal sampling resumes fresh, while assertion or release away from a rising edge has no independently established effect.
+
+On every rising clk edge with reset low, the 12-bit data_in value is accepted as the newest sample and the resulting value is the integer-truncated sum of that sample and up to the seven previously accepted samples divided by eight, with samples older than eight discarded; data_in is ignored when reset is sampled high and changes between sampling edges have no specified effect.
+
+The divisor is always eight. If fewer than eight samples have been accepted since the last effective reset, unavailable positions contribute zero: data_out is the unsigned sum of all available post-reset samples divided by eight with integer truncation.
+
+The sum preserves the complete unsigned range of eight 12-bit operands through every addition. Division by eight occurs in that full-width unsigned expression context. Only the quotient is confined to the 12-bit data_out boundary; no addition, division-equivalent shift, or other intermediate expression is first truncated to 12 bits.
+
+Because each tabular row is sampled before its active edge, data_out in row k retains the result of the preceding rising edge, a reset asserted in row k makes zero observable in row k+1 and keeps it zero across repeated reset edges, and after release each reset-low rising edge captures a sample whose new fixed-eight-sample, integer-truncated average becomes observable in the following row and is retained until the next rising-edge result or reset clear; operation has no completion state and restarts fresh after reset.
+
+Valid unsigned input is continuously available and accepted on every reset-low rising edge. There is no start, valid, ready, enable, cancellation, disable, completion, restart handshake, or terminal mode. The single reset rule covers simultaneous reset and data input by ignoring data_in. Public-output updates and history advancement follow the separate edge conditions above.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete finite verification instance and uses the reset-established initial setup and pre-edge observation convention stated above.
+
+### stimulus 0
+| cycle | reset | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 12'h0 | 12'h0 |
+| 1 | 1 | 12'hfff | 12'h0 |
+| 2 | 0 | 12'h1 | 12'h0 |
+| 3 | 0 | 12'h800 | 12'h0 |
+| 4 | 0 | 12'h5a3 | 12'h100 |
+| 5 | 0 | 12'hfff | 12'h1b4 |
+| 6 | 0 | 12'h0 | 12'h3b4 |
+| 7 | 0 | 12'h1 | 12'h3b4 |
+| 8 | 0 | 12'h800 | 12'h3b4 |
+| 9 | 0 | 12'hfff | 12'h4b4 |
+| 10 | 0 | 12'h0 | 12'h6b4 |
+
+### stimulus 1
+| cycle | reset | data_in | data_out |
+|---|---|---|---|
+| 0 | 0 | 12'hfff | 12'h0 |
+| 1 | 0 | 12'h1 | 12'h1ff |
+| 2 | 1 | 12'h800 | 12'h200 |
+| 3 | 0 | 12'h5a3 | 12'h0 |
+| 4 | 0 | 12'h0 | 12'hb4 |
+| 5 | 0 | 12'hfff | 12'hb4 |
+
+### stimulus 2
+| cycle | reset | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 12'hfff | 12'h0 |
+| 1 | 0 | 12'hfff | 12'h0 |
+| 2 | 0 | 12'hfff | 12'h1ff |
+| 3 | 0 | 12'hfff | 12'h3ff |
+| 4 | 0 | 12'hfff | 12'h5ff |
+| 5 | 0 | 12'hfff | 12'h7ff |
+| 6 | 0 | 12'hfff | 12'h9ff |
+| 7 | 0 | 12'hfff | 12'hbff |
+| 8 | 0 | 12'hfff | 12'hdff |
+| 9 | 0 | 12'hfff | 12'hfff |
+| 10 | 0 | 12'hfff | 12'hfff |
+| 11 | 0 | 12'hfff | 12'hfff |
+
+### stimulus 3
+| cycle | reset | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 12'h0 | 12'h0 |
+| 1 | 0 | 12'h1 | 12'h0 |
+| 2 | 0 | 12'h0 | 12'h0 |
+| 3 | 0 | 12'h1 | 12'h0 |
+| 4 | 0 | 12'h0 | 12'h0 |
+| 5 | 0 | 12'h1 | 12'h0 |
+| 6 | 0 | 12'h0 | 12'h0 |
+| 7 | 0 | 12'h1 | 12'h0 |
+| 8 | 0 | 12'h0 | 12'h0 |
+| 9 | 0 | 12'h1 | 12'h0 |
+| 10 | 0 | 12'h0 | 12'h0 |
+| 11 | 0 | 12'h1 | 12'h0 |
+| 12 | 0 | 12'h0 | 12'h0 |
+
+### stimulus 4
+| cycle | reset | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 12'h0 | 12'h0 |
+| 1 | 1 | 12'h2ab | 12'h0 |
+| 2 | 0 | 12'h556 | 12'h0 |
+| 3 | 0 | 12'h801 | 12'haa |
+| 4 | 0 | 12'haac | 12'h1aa |
+| 5 | 0 | 12'hd57 | 12'h300 |
+| 6 | 0 | 12'h2 | 12'h4ab |
+| 7 | 0 | 12'h2ad | 12'h4ab |
+| 8 | 0 | 12'h558 | 12'h501 |
+| 9 | 0 | 12'h803 | 12'h5ac |
+| 10 | 0 | 12'haae | 12'h6ac |
+| 11 | 0 | 12'hd59 | 12'h757 |
+| 12 | 0 | 12'h4 | 12'h802 |
+| 13 | 0 | 12'h2af | 12'h6ad |
+
+### stimulus 5
+| cycle | reset | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 12'h800 | 12'h0 |
+| 1 | 0 | 12'h800 | 12'h0 |
+| 2 | 0 | 12'h0 | 12'h100 |
+| 3 | 0 | 12'h0 | 12'h100 |
+| 4 | 0 | 12'h0 | 12'h100 |
+| 5 | 0 | 12'h0 | 12'h100 |
+| 6 | 0 | 12'h0 | 12'h100 |
+| 7 | 0 | 12'h0 | 12'h100 |
+| 8 | 0 | 12'h0 | 12'h100 |
+| 9 | 0 | 12'h0 | 12'h100 |
+
+### stimulus 6
+| cycle | reset | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 12'h0 | 12'h0 |
+| 1 | 0 | 12'hfff | 12'h0 |
+| 2 | 0 | 12'hfff | 12'h1ff |
+| 3 | 0 | 12'hfff | 12'h3ff |
+| 4 | 0 | 12'hfff | 12'h5ff |
+| 5 | 1 | 12'h1 | 12'h7ff |
+| 6 | 0 | 12'h1 | 12'h0 |
+| 7 | 0 | 12'h1 | 12'h0 |
+| 8 | 0 | 12'h1 | 12'h0 |
+| 9 | 0 | 12'h1 | 12'h0 |
+
+### stimulus 7
+| cycle | reset | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 12'h1 | 12'h0 |
+| 1 | 0 | 12'h5a4 | 12'h0 |
+| 2 | 0 | 12'hb47 | 12'hb4 |
+| 3 | 0 | 12'hea | 12'h21d |
+| 4 | 0 | 12'h68d | 12'h23a |
+| 5 | 0 | 12'hc30 | 12'h30c |
+| 6 | 0 | 12'h1d3 | 12'h492 |
+| 7 | 0 | 12'h776 | 12'h4cc |
+| 8 | 0 | 12'hd19 | 12'h5bb |
+| 9 | 0 | 12'h2bc | 12'h75e |
+| 10 | 0 | 12'h85f | 12'h701 |
+| 11 | 1 | 12'he02 | 12'h6a4 |
+| 12 | 0 | 12'h3a5 | 12'h0 |
+| 13 | 0 | 12'h948 | 12'h74 |
+| 14 | 0 | 12'heeb | 12'h19d |
+| 15 | 0 | 12'h48e | 12'h37b |
+| 16 | 0 | 12'ha31 | 12'h40c |
+| 17 | 0 | 12'hfd4 | 12'h552 |
+| 18 | 0 | 12'h577 | 12'h74d |
+| 19 | 0 | 12'hb1a | 12'h7fc |

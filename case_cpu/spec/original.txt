@@ -1,0 +1,57 @@
+Streaming RV32 Arithmetic CPU: Draft Requirements
+
+[O01] Build a 32-bit RISC-V integer execution CPU with 32 integer registers,
+a 32-bit byte-addressed PC, and five in-order stages: IF, ID, EX, MEM, WB.
+MEM is a holding stage; there is no instruction RAM, data RAM, cache, load,
+store, branch, jump, privileged state, CSR, exception, or interrupt mechanism.
+This is a computation-only RV32I/M subset rather than a compliant full RV32IM
+processor. Instructions enter through a 32-bit ready/valid stream.
+
+[O02] Support ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND;
+ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI;
+LUI, AUIPC; MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU.
+Use standard RV32 encodings, including all funct7 restrictions. Reject every
+other encoding by leaving ready low. NOP is the encoding ADDI x0,x0,0.
+
+[O03] Arithmetic wraps modulo 2^32. SLT and SLTI compare two's-complement
+signed operands; their unsigned counterparts compare unsigned operands.
+Shift counts use the low five bits. Right shift is logical for SRL/SRLI and
+arithmetic for SRA/SRAI. Sign-extend I-type immediates. U-type immediates occupy
+bits 31:12. LUI returns that immediate and AUIPC adds it to the instruction PC.
+MUL returns the low product word. MULH, MULHSU and MULHU return the high word
+of signed/signed, signed/unsigned and unsigned/unsigned multiplication.
+Signed division truncates toward zero. REM has the dividend's sign. Signed
+minimum divided by -1 returns the signed minimum, with remainder zero.
+
+[O04] Expose independent external stall inputs for fetch, decode, execute,
+memory and writeback. When a stage is stalled, the pipeline should wait and
+the instruction must not be lost. Slots have valid bits; an empty slot is a
+bubble. Never duplicate an accepted instruction, and retire in program order.
+
+[O05] Resolve data dependencies without waiting for older instructions to
+retire: use the forwarded result from a matching in-flight writer. On EX
+entry, capture operands and the computed result; retain that result until
+the next stage takes it. Retire at most one instruction per rising edge.
+
+[O06] Multiplication takes three execute cycles and division takes thirty-four
+execute cycles. Other operations take one execute cycle. External execute
+stall pauses execution. All instructions use the same in-order pipeline;
+younger instructions may occupy IF/ID during a long arithmetic operation.
+
+[O07] Synchronous active-high reset clears PC and pipeline validity and loads
+the register file from the 1024-bit reg_init input, in little register order:
+bits 32*r+31:32*r initialize register r. Reset aborts all in-flight work, and
+no instruction retires on a reset edge. The input seed has no effect outside
+reset. Pipeline state and architectural registers may be observed for tests.
+
+[O08] Whenever WB contains a valid instruction and writeback stall is low,
+that instruction retires on the rising edge, including an edge with reset.
+Retirement writes the destination, advances PC by four, and reports the
+instruction word, instruction PC, destination number and computed value.
+
+[O09] Stall inputs and input valid may change arbitrarily on every cycle.
+In particular, the environment is allowed to hold writeback stall forever.
+
+[O10] Every accepted instruction is guaranteed to retire within forty clock
+cycles, regardless of the stall inputs. The CPU must continue to implement
+the sequential RISC-V arithmetic semantics end to end.

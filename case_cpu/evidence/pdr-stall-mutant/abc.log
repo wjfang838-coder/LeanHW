@@ -1,0 +1,24 @@
+ABC command line: "read_aiger /home/usr/leansilicon/case_cpu/evidence/pdr-stall-mutant/design.aig; fold; strash; orpos; pdr -v -T 30; write_cex -a /home/usr/leansilicon/case_cpu/evidence/pdr-stall-mutant/counterexample.aiw".
+
+Warning: The last output is interpreted as a constraint.
+VarMax = 300. FrameMax = 10000. QueMax = 0. TimeMax = 30. MonoCNF = no. SkipGen = no. SolveAll = no.
+Frame Clauses                                                     Max Queue Flops Time
+  1 : 0 1                                                                 1     1      0.00 sec
+  2 : 0 2 4                                                               2     9      0.01 sec
+  3 : 0 2 5 13                                                            6    15      0.01 sec
+  4 : 0 2 1 2 11                                                          0    15      0.01 sec
+  5 : 0 2 1 2 1 10                                                        0    15      0.02 sec
+  6 : 0 2 1 2 1 1 9                                                       0    15      0.02 sec
+  7 : 0 2 1 5 4 1 1 11                                                   11    21      0.02 sec
+Block =    5  Oblig =    64  Clause =    29  Call =   238 (sat=55.5%)  Cex =   0  Start =   0
+SAT solving =     0.01 sec ( 23.85 %)
+  unsat     =     0.00 sec (  1.01 %)
+  sat       =     0.01 sec ( 22.84 %)
+Generalize  =     0.01 sec ( 19.72 %)
+Push clause =     0.00 sec (  6.22 %)
+Ternary sim =     0.00 sec (  2.29 %)
+Containment =     0.00 sec (  0.03 %)
+CNF compute =     0.00 sec (  2.83 %)
+Refinement  =     0.00 sec (  0.52 %)
+TOTAL       =     0.04 sec (100.00 %)
+Output 0 of miter "/home/usr/leansilicon/case_cpu/evidence/pdr-stall-mutant/design" was asserted in frame 7.  Time =     0.04 sec

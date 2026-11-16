@@ -1,0 +1,192 @@
+Module and integration contract
+
+Module: freq_divbyfrac.
+Ports below are in exact declaration order:
+- rst_n: input 1 bit.
+- clk: input 1 bit.
+- clk_div: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  MUL2_DIV_CLK: default = 7.
+
+Event convention: each table row drives the explicitly named clock levels and data, then observes settled outputs. The model must apply the edge described by those levels exactly once; it must not insert a second pipeline delay.
+
+1. Module and ports
+
+
+
+2. Reset
+
+Reset is active low and asynchronous. Whenever rst_n is 0, clk_div is forced to 0 immediately, independently of clk, and all waveform progress is discarded. Repeated or continued reset assertion keeps clk_div at 0. On release of reset, clk_div remains 0 until the next rising edge of clk; that edge restarts the waveform at its initial high interval. If reset assertion coincides with a clock transition, reset has priority.
+
+Before reset has ever been asserted and before the first rising edge of clk has started the waveform, clk_div is unknown. The implementation must leave that state uninitialised: it must not use an initial block or declaration initialiser to give clk_div a definite power-up value. Once reset has been asserted, its reset value is 0.
+
+3. Timing
+
+clk_div is a stateful periodic output whose transitions may occur at either edge of clk. With MUL2_DIV_CLK equal to its default value 7, one complete output period is seven input-clock cycles. Each high interval lasts three half-cycles, or 1.5 input-clock cycles, and each low interval lasts four half-cycles, or two input-clock cycles.
+
+After reset release, the first rising edge of clk starts a high interval. clk_div falls on the second following falling edge, rises on the falling edge two input-clock cycles after that fall, falls on the rising edge 1.5 input-clock cycles later, and rises on the rising edge two input-clock cycles after that fall. This seven-cycle schedule then repeats. Thus consecutive rising transitions alternate between a rising edge of clk and a falling edge of clk three input-clock cycles later.
+
+The evaluated trace uses half-cycle rows. Each row denotes the next settled half-cycle sample; it reports outputs before committing the clock transition represented by that row, so an edge-caused update first appears in the following row. This observation convention is separate from the circuit law above: the circuit output period is seven input-clock cycles, its high time is 1.5 cycles, and its low time is two cycles.
+
+4. Behaviour
+
+When rst_n is 0, clk_div is 0 for every value and transition of clk. A falling transition of rst_n clears clk_div immediately and cancels the current waveform position. While rst_n remains 0, clock edges cannot advance the waveform. When rst_n returns to 1, clk_div stays low until the next rising edge of clk and then restarts from the first high interval described in section 3.
+
+While rst_n is 1, successive rising and falling edges of clk advance the repeating fractional-divider waveform. Holding clk continuously at either 0 or 1 causes no progress. There is no transaction handshake: repeated edges continue the pattern indefinitely until reset is asserted.
+
+For MUL2_DIV_CLK = 7, clk_div rises on the first rising edge after reset release, falls 1.5 input-clock cycles later, rises after a further two input-clock cycles, falls after a further 1.5 input-clock cycles, rises after a further two input-clock cycles, and repeats that seven-input-cycle pattern. This law applies after every reset interruption or repeated reset sequence. The behavioral waveform for nondefault values of MUL2_DIV_CLK is not specified by the source contract.
+
+5. Worked trace
+
+The following evaluated trace is normative for the concrete MUL2_DIV_CLK = 7 instance and uses the observation convention stated in section 3.
+
+### stimulus 0
+| half-cycle | rst_n | clk | clk_div |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 1 |
+| 5 | 1 | 1 | 1 |
+
+### stimulus 1
+| half-cycle | rst_n | clk | clk_div |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 1 | 1 | x |
+| 2 | 1 | 0 | 1 |
+| 3 | 1 | 1 | 1 |
+
+### stimulus 2
+| half-cycle | rst_n | clk | clk_div |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 0 | 1 |
+| 3 | 1 | 1 | 1 |
+
+### stimulus 3
+| half-cycle | rst_n | clk | clk_div |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 0 | 1 |
+
+### stimulus 4
+| half-cycle | rst_n | clk | clk_div |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 1 |
+| 5 | 1 | 1 | 1 |
+| 6 | 1 | 0 | 1 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 0 |
+| 10 | 1 | 0 | 0 |
+| 11 | 1 | 1 | 1 |
+| 12 | 1 | 0 | 1 |
+| 13 | 1 | 1 | 1 |
+| 14 | 1 | 0 | 0 |
+| 15 | 1 | 1 | 0 |
+| 16 | 1 | 0 | 0 |
+| 17 | 1 | 1 | 0 |
+| 18 | 1 | 0 | 1 |
+| 19 | 1 | 1 | 1 |
+| 20 | 1 | 0 | 1 |
+| 21 | 1 | 1 | 0 |
+| 22 | 1 | 0 | 0 |
+| 23 | 1 | 1 | 0 |
+| 24 | 1 | 0 | 0 |
+| 25 | 1 | 1 | 1 |
+| 26 | 1 | 0 | 1 |
+| 27 | 1 | 1 | 1 |
+| 28 | 1 | 0 | 0 |
+| 29 | 1 | 1 | 0 |
+| 30 | 1 | 0 | 0 |
+| 31 | 1 | 1 | 0 |
+| 32 | 1 | 0 | 1 |
+| 33 | 1 | 1 | 1 |
+| 34 | 1 | 0 | 1 |
+| 35 | 1 | 1 | 0 |
+| 36 | 1 | 0 | 0 |
+| 37 | 1 | 1 | 0 |
+| 38 | 1 | 0 | 0 |
+| 39 | 1 | 1 | 1 |
+| 40 | 1 | 0 | 1 |
+| 41 | 1 | 1 | 1 |
+| 42 | 1 | 0 | 0 |
+| 43 | 1 | 1 | 0 |
+| 44 | 1 | 0 | 0 |
+| 45 | 1 | 1 | 0 |
+
+### stimulus 5
+| half-cycle | rst_n | clk | clk_div |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 1 | 1 | x |
+| 2 | 1 | 0 | 1 |
+| 3 | 1 | 1 | 1 |
+| 4 | 1 | 0 | 1 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 1 |
+| 10 | 1 | 0 | 1 |
+| 11 | 1 | 1 | 1 |
+| 12 | 0 | 0 | 0 |
+| 13 | 0 | 1 | 0 |
+| 14 | 1 | 0 | 0 |
+| 15 | 1 | 1 | 0 |
+| 16 | 1 | 0 | 1 |
+| 17 | 1 | 1 | 1 |
+| 18 | 1 | 0 | 1 |
+| 19 | 1 | 1 | 0 |
+| 20 | 1 | 0 | 0 |
+| 21 | 1 | 1 | 0 |
+| 22 | 1 | 0 | 0 |
+| 23 | 1 | 1 | 1 |
+| 24 | 1 | 0 | 1 |
+| 25 | 1 | 1 | 1 |
+| 26 | 1 | 0 | 0 |
+| 27 | 1 | 1 | 0 |
+| 28 | 1 | 0 | 0 |
+| 29 | 1 | 1 | 0 |
+
+### stimulus 6
+| half-cycle | rst_n | clk | clk_div |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 1 |
+| 5 | 1 | 1 | 1 |
+| 6 | 1 | 0 | 1 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 0 |
+| 10 | 1 | 0 | 0 |
+| 11 | 1 | 1 | 1 |
+| 12 | 1 | 0 | 1 |
+| 13 | 1 | 1 | 1 |
+| 14 | 1 | 0 | 0 |
+| 15 | 1 | 1 | 0 |
+| 16 | 1 | 0 | 0 |
+| 17 | 1 | 1 | 0 |
+
+### stimulus 7
+| half-cycle | rst_n | clk | clk_div |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 0 |

@@ -1,0 +1,217 @@
+Module and integration contract
+
+Module: multi_booth_8bit.
+Ports below are in exact declaration order:
+- p: output [15:0].
+- rdy: output 1 bit.
+- clk: input 1 bit.
+- reset: input 1 bit.
+- a: input [7:0].
+- b: input [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+Reset is active high and asynchronous. While reset is asserted, p is 16'h0000 and rdy is 1'b0. Reset captures the current a and b values as signed two's-complement operands, cancels any transaction already in progress, and establishes the start of a new transaction. Reset takes priority if its assertion coincides with a rising edge of clk and continuously dominates for as long as it remains high; repeated transactions require another reset assertion.
+
+Before reset has ever been asserted, p and rdy are unknown. The implementation must leave both stored outputs uninitialized: no initial block or declaration initializer may define them. On reset release, before the first subsequent rising edge, p remains 16'h0000 and rdy remains 1'b0. The first rising edge after release performs the first accumulation step; it does not assert rdy.
+
+Timing
+
+p is registered. Following reset release, each of the next 16 rising edges of clk updates p to the corresponding partial sum, visible at the next pre-edge observation. The sixteenth accumulation edge produces the final product. Thereafter p retains that value until reset is asserted again.
+
+rdy is registered. It remains low throughout all 16 accumulation edges and in the pre-edge observation immediately after the sixteenth accumulation edge. The next rising edge asserts rdy. Once asserted, rdy remains high until reset; it is therefore a retained completion level, not a fixed-width pulse.
+
+The executable object uses a full-cycle observation timebase: row k is the pre-edge sample after k complete active-edge steps from the settled initial row. No 10 ns clock period is implied. The circuit law is advancement on rising edges of clk; the specification supplies no numerical clock period or propagation delay.
+
+Behavior
+
+Input a is interpreted as an 8-bit signed two's-complement number and is captured whenever reset is asserted. Input b is interpreted identically and is captured whenever reset is asserted. Changes to either input while reset is low, whether during accumulation or after completion, do not affect the current transaction.
+
+Let A16 and B16 be the 16-bit sign extensions of the captured a and b values. After n completed accumulation edges, for 0 <= n <= 16, the pre-edge value of p is the low 16 bits of the sum over i from 0 through n-1 of bit i of A16 multiplied by B16 shifted left by i. Each shift is evaluated in the wider expression context; it is not first truncated to the width of its left operand. The sum is truncated to 16 bits only when committed to p. Equivalently, after the sixteenth accumulation edge, p is the low 16 bits of the signed two's-complement product of the captured operands.
+
+While reset is low, only a rising edge of clk advances an active transaction. Clock steady levels and falling edges have no effect. The first 16 rising edges after reset release perform the 16 accumulation steps. On the next and every later rising edge, completion is asserted and retained without changing p. A new reset assertion at any point cancels the prior transaction, clears both public outputs, captures the then-current operands, and causes a fresh 16-step transaction to begin at the first rising edge after release.
+
+Public output p is unknown before reset, is asynchronously zero during reset, advances through the 16 partial sums after release, and then retains the completed product. Public output rdy is unknown before reset, is asynchronously zero during reset, stays zero through the observation after the sixteenth accumulation step, becomes one because of the following rising edge, and remains one until reset.
+
+Worked trace
+
+The following evaluated trace is normative for the concrete 8-bit instance and uses pre-transition sampling.
+
+### stimulus 0
+| cycle | reset | a | b | p | rdy |
+|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 8'b00000000 | 16'x | x |
+| 1 | 0 | 8'b00000001 | 8'b00000001 | 16'x | x |
+
+### stimulus 1
+| cycle | reset | a | b | p | rdy |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000000 | 8'b11111111 | 16'h0 | 0 |
+| 1 | 1 | 8'b00000001 | 8'b10000000 | 16'h0 | 0 |
+| 2 | 0 | 8'b00000001 | 8'b10000000 | 16'h0 | 0 |
+| 3 | 0 | 8'b00000010 | 8'b01111111 | 16'hff80 | 0 |
+| 4 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 5 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 6 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 7 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 8 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 9 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 10 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 11 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 12 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 13 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 14 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 15 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 16 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 17 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 18 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 0 |
+| 19 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 1 |
+| 20 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 1 |
+| 21 | 0 | 8'b01010101 | 8'b00101010 | 16'hff80 | 1 |
+
+### stimulus 2
+| cycle | reset | a | b | p | rdy |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b11111111 | 8'b00000001 | 16'h0 | 0 |
+| 1 | 0 | 8'b11111111 | 8'b00000001 | 16'h0 | 0 |
+| 2 | 0 | 8'b10000000 | 8'b00000001 | 16'h1 | 0 |
+| 3 | 0 | 8'b01111111 | 8'b00000001 | 16'h3 | 0 |
+| 4 | 0 | 8'b00101010 | 8'b00000001 | 16'h7 | 0 |
+| 5 | 0 | 8'b00101010 | 8'b00000001 | 16'hf | 0 |
+| 6 | 0 | 8'b00101010 | 8'b00000001 | 16'h1f | 0 |
+| 7 | 0 | 8'b00101010 | 8'b00000001 | 16'h3f | 0 |
+| 8 | 0 | 8'b00101010 | 8'b00000001 | 16'h7f | 0 |
+| 9 | 0 | 8'b00101010 | 8'b00000001 | 16'hff | 0 |
+| 10 | 0 | 8'b00101010 | 8'b00000001 | 16'h1ff | 0 |
+| 11 | 0 | 8'b00101010 | 8'b00000001 | 16'h3ff | 0 |
+| 12 | 0 | 8'b00101010 | 8'b00000001 | 16'h7ff | 0 |
+| 13 | 0 | 8'b00101010 | 8'b00000001 | 16'hfff | 0 |
+| 14 | 0 | 8'b00101010 | 8'b00000001 | 16'h1fff | 0 |
+| 15 | 0 | 8'b00101010 | 8'b00000001 | 16'h3fff | 0 |
+| 16 | 0 | 8'b00101010 | 8'b00000001 | 16'h7fff | 0 |
+| 17 | 0 | 8'b00101010 | 8'b00000001 | 16'hffff | 0 |
+| 18 | 0 | 8'b00101010 | 8'b00000001 | 16'hffff | 1 |
+
+### stimulus 3
+| cycle | reset | a | b | p | rdy |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b10000000 | 8'b10000000 | 16'h0 | 0 |
+| 1 | 0 | 8'b10000000 | 8'b10000000 | 16'h0 | 0 |
+| 2 | 0 | 8'b10000000 | 8'b10000000 | 16'h0 | 0 |
+| 3 | 0 | 8'b10000000 | 8'b10000000 | 16'h0 | 0 |
+| 4 | 0 | 8'b10000000 | 8'b10000000 | 16'h0 | 0 |
+| 5 | 0 | 8'b10000000 | 8'b10000000 | 16'h0 | 0 |
+| 6 | 0 | 8'b10000000 | 8'b10000000 | 16'h0 | 0 |
+| 7 | 0 | 8'b10000000 | 8'b10000000 | 16'h0 | 0 |
+| 8 | 0 | 8'b10000000 | 8'b10000000 | 16'h0 | 0 |
+| 9 | 0 | 8'b10000000 | 8'b10000000 | 16'hc000 | 0 |
+| 10 | 0 | 8'b10000000 | 8'b10000000 | 16'h4000 | 0 |
+| 11 | 0 | 8'b10000000 | 8'b10000000 | 16'h4000 | 0 |
+| 12 | 0 | 8'b10000000 | 8'b10000000 | 16'h4000 | 0 |
+| 13 | 0 | 8'b10000000 | 8'b10000000 | 16'h4000 | 0 |
+| 14 | 0 | 8'b10000000 | 8'b10000000 | 16'h4000 | 0 |
+| 15 | 0 | 8'b10000000 | 8'b10000000 | 16'h4000 | 0 |
+| 16 | 0 | 8'b10000000 | 8'b10000000 | 16'h4000 | 0 |
+| 17 | 0 | 8'b10000000 | 8'b10000000 | 16'h4000 | 0 |
+| 18 | 0 | 8'b10000000 | 8'b10000000 | 16'h4000 | 1 |
+
+### stimulus 4
+| cycle | reset | a | b | p | rdy |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b01010101 | 8'b00101010 | 16'h0 | 0 |
+| 1 | 0 | 8'b01010101 | 8'b00101010 | 16'h0 | 0 |
+| 2 | 0 | 8'b01010101 | 8'b00101010 | 16'h2a | 0 |
+| 3 | 0 | 8'b01010101 | 8'b00101010 | 16'h2a | 0 |
+| 4 | 1 | 8'b00101010 | 8'b01010101 | 16'h0 | 0 |
+| 5 | 0 | 8'b00101010 | 8'b01010101 | 16'h0 | 0 |
+| 6 | 0 | 8'b00101010 | 8'b01010101 | 16'h0 | 0 |
+| 7 | 0 | 8'b00101010 | 8'b01010101 | 16'haa | 0 |
+| 8 | 0 | 8'b00101010 | 8'b01010101 | 16'haa | 0 |
+
+### stimulus 5
+| cycle | reset | a | b | p | rdy |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000001 | 8'b11111111 | 16'h0 | 0 |
+| 1 | 0 | 8'b00000001 | 8'b11111111 | 16'h0 | 0 |
+| 2 | 0 | 8'b00000000 | 8'b00000000 | 16'hffff | 0 |
+| 3 | 0 | 8'b11111111 | 8'b11111111 | 16'hffff | 0 |
+| 4 | 0 | 8'b00000001 | 8'b10000000 | 16'hffff | 0 |
+| 5 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 6 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 7 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 8 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 9 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 10 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 11 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 12 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 13 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 14 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 15 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 16 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 17 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 0 |
+| 18 | 0 | 8'b01000000 | 8'b00100000 | 16'hffff | 1 |
+
+### stimulus 6
+| cycle | reset | a | b | p | rdy |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 1 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 2 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 3 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 4 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 5 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 6 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 7 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 8 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 9 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 10 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 11 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 12 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 13 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 14 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 15 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 16 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 17 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 0 |
+| 18 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 1 |
+| 19 | 0 | 8'b00000000 | 8'b00000000 | 16'h0 | 1 |
+
+### stimulus 7
+| cycle | reset | a | b | p | rdy |
+|---|---|---|---|---|---|
+| 0 | 1 | 8'b01111111 | 8'b01111111 | 16'h0 | 0 |
+| 1 | 0 | 8'b01111111 | 8'b01111111 | 16'h0 | 0 |
+| 2 | 0 | 8'b01111111 | 8'b01111111 | 16'h7f | 0 |
+| 3 | 0 | 8'b01111111 | 8'b01111111 | 16'h17d | 0 |
+| 4 | 0 | 8'b01111111 | 8'b01111111 | 16'h379 | 0 |
+| 5 | 0 | 8'b01111111 | 8'b01111111 | 16'h771 | 0 |
+| 6 | 0 | 8'b01111111 | 8'b01111111 | 16'hf61 | 0 |
+| 7 | 0 | 8'b01111111 | 8'b01111111 | 16'h1f41 | 0 |
+| 8 | 0 | 8'b01111111 | 8'b01111111 | 16'h3f01 | 0 |
+| 9 | 0 | 8'b01111111 | 8'b01111111 | 16'h3f01 | 0 |
+| 10 | 0 | 8'b01111111 | 8'b01111111 | 16'h3f01 | 0 |
+| 11 | 0 | 8'b01111111 | 8'b01111111 | 16'h3f01 | 0 |
+| 12 | 0 | 8'b01111111 | 8'b01111111 | 16'h3f01 | 0 |
+| 13 | 0 | 8'b01111111 | 8'b01111111 | 16'h3f01 | 0 |
+| 14 | 0 | 8'b01111111 | 8'b01111111 | 16'h3f01 | 0 |
+| 15 | 0 | 8'b01111111 | 8'b01111111 | 16'h3f01 | 0 |
+| 16 | 0 | 8'b01111111 | 8'b01111111 | 16'h3f01 | 0 |
+| 17 | 0 | 8'b01111111 | 8'b01111111 | 16'h3f01 | 0 |
+| 18 | 0 | 8'b01111111 | 8'b01111111 | 16'h3f01 | 1 |
+| 19 | 0 | 8'b01111111 | 8'b01111111 | 16'h3f01 | 1 |
+
+## Normative clarification after closure validation
+
+Power-up does not constitute a reset or an implicit transaction.  Until reset has been asserted at least once, p and rdy shall remain unknown through every rising edge, falling edge, and steady level of clk; changes on a or b during this interval shall have no effect.  In particular, no clock edge before the first reset assertion may initialize p, begin accumulation, or establish a definite completion state.
+
+Reset is active high and asynchronous.  Its assertion immediately makes p zero and rdy low, captures the then-current signed a and b, cancels any preceding transaction, and establishes the reset history required for subsequent operation.  While reset remains high it continuously dominates all clock activity; if reset and a rising edge coincide, reset behavior alone applies.  Deassertion has no state-changing effect by itself.
+
+With reset low after such an assertion, only rising edges of clk advance the transaction.  Outputs are sampled before each rising edge; effects of that edge are observable only in the following pre-edge sample.  The first 16 rising edges after reset release perform, in order, the 16 specified accumulation steps.  The sixteenth such edge commits the final p, while rdy remains low in the following pre-edge sample.  The seventeenth rising edge sets rdy high without changing p.  Thereafter both the final p and asserted rdy are retained until another reset assertion; falling edges, steady clock levels, and changes on a or b do not alter them.

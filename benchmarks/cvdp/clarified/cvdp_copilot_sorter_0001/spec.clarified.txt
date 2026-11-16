@@ -1,0 +1,279 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design an RTL module named `sorting_engine` in SystemVerilog that receives an array of unsigned integers as input, sorts them using the bubble sort algorithm, and then provides the sorted array as output. The module should be driven by a clock, have a reset mechanism, and provide a control signal to indicate when sorting is complete. Sorting should arrange the elements of the array in ascending order, such that the smallest element is at index 0 and the largest element is at index N−1.
+
+Bubble sort is a straightforward sorting algorithm that works by repeatedly comparing adjacent elements in an array and swapping them if they are out of order. Through multiple passes over the array, larger values "bubble" up toward the end of the array, while smaller values move toward the beginning. Eventually, after enough passes, the entire array becomes sorted. For this implementation perform (N)*(N-1) passes to sort the array of N elements. 
+
+**Parameters**
+- `N`  (Default is 8, Greater than 0): Number of elements to sort
+- `WIDTH`(Default is 8, Greater than 0): Bit-width of each input element
+
+**Port List**
+| Port Name               | Direction | Width          | Description                                                                                                                                                                                                                                                              |
+|-------------------------|-----------|----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `clk`                   | input     | 1 bit          | Main clock input. All operations occur on the rising edge of this signal.                                                                                                                                                                                                |
+| `rst`                   | input     | 1 bit          | Active high, asynchronous reset. When asserted, resets the internal state machine and registers to their initial states.                                                                                                                                                 |
+| `start`                 | input     | 1 bit          | Active high, pulse start signal to indicate that the input data is valid and that sorting should begin on the next clock cycle.                                                                                                                                          |
+| `[N*WIDTH-1:0] in_data` | input     | N * WIDTH bits | Input data bus containing the entire unsorted array. Each element has WIDTH bits, and there are N elements.                                                                                                                                                              |
+| `done`                  | output    | 1 bit          | Active high pulse, asserted for 1 clock cycle when the sorting is complete, indicating that `out_data` is now valid and stable. It will be set to 0 in case of a reset.                                                                                                  |
+| `[N*WIDTH-1:0] out_data`| output    | N * WIDTH bits | Output data bus containing the sorted array. This is to be left uninitialized at reset and updated only when sorting a valid input is complete. Valid once `done` is asserted, and maintains previous values until the update from the next sorting operation completes. |
+
+Create the design using a state machine with `IDLE`, `SORTING`, and `DONE` states. The FSM transitions from `IDLE` to `SORTING` when the start signal is asserted, cycles through the comparisons and swaps, and eventually moves to `DONE` when sorting is complete.
+
+- **Latency and Timing**: Each comparison and potential swap will take one clock cycle. Bubble sort in hardware will, by default, consume multiple cycles, as it effectively simulates the step-by-step iterative nature of the algorithm. Ensure that the design handles the expected cycle counts. The done signal should be asserted only after the last pass is complete. Latency should be equal to (N)*(N-1)+2 for an array with `N` elements.
+  
+- **Output**: Once the sorting finishes, present the sorted array at the output port. This involves placing the sorted values back onto an output bus.
+
+- Assume that all the numbers will be non negative integers.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design an RTL module named `sorting_engine` in SystemVerilog that receives an array of unsigned integers as input, sorts them using the bubble sort algorithm, and then provides the sorted array as output. The module should be driven by a clock, have a reset mechanism, and provide a control signal to indicate when sorting is complete. Sorting should arrange the elements of the array in ascending order, such that the smallest element is at index 0 and the largest element is at index N−1.
+
+Module and integration contract
+
+Module: sorting_engine.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- start: input 1 bit.
+- in_data: input [N*WIDTH-1:0].
+- done: output 1 bit.
+- out_data: output [N*WIDTH-1:0].
+
+Public parameters:
+- integer N: default = 8.
+- integer WIDTH: default = 8.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+`rst` is active high and asynchronous. Its assertion immediately abandons any transaction, puts the FSM in IDLE, clears all comparison progress, and makes `done` 0. Reset has priority over a coincident rising `clk` edge. While `rst` remains high, every rising edge preserves those reset conditions and `start` has no effect. Deassertion makes no immediate port or state change. At the first later rising edge, the engine is receptive and accepts a transaction exactly when `start` is high; otherwise it remains in IDLE. Reset does not sample `in_data`.
+
+At hardware power-up before either reset assertion or a rising edge has defined it, `done` is uninitialized. A rising edge with `rst` low defines `done` as 0 even if no reset has occurred. Before the first published result, `out_data` is uninitialized, including while reset is asserted. Reset does not initialize or clear `out_data`. After a result has been published, reset retains that complete result. The accepted input and comparison progress are discarded by reset; no partial transaction resumes after release.
+
+Amendment A1 (Q5, limited to `out_data` during reset after a result has previously been published). The exact original clause is: "This is to be left uninitialized at reset and updated only when sorting a valid input is complete." The certain answer law states: "Asserting or holding rst does not alter out_data. It retains the most recently published sorted result; if no result has yet been published, it remains uninitialized and x." Under only the condition that a completed result was published before reset assertion, that corrected retention law supersedes the original clause's implication that reset makes `out_data` uninitialized. Before any publication, the original uninitialized requirement remains in force. This amendment changes no sorting, acceptance, completion, or non-reset behavior.
+
+The concrete Lean instance begins with `done` and `out_data` invalid, directly representing the source-and-answer power-up rules rather than asserting a hardware initializer. Its other initial bookkeeping values are observationally irrelevant until a normal rising edge or reset establishes the corresponding state; they do not create a hardware power-up guarantee or a reset-before-use restriction.
+
+4. Timing
+
+All state changes occur on rising edges of `clk`, except that assertion of `rst` has the immediate asynchronous effects stated above. Falling edges and steady clock levels do not advance sorting. `done` and `out_data` are registered outputs. `done` is a one-clock-cycle pulse. `out_data` retains its complete prior published value until another publication edge.
+
+For a request accepted at rising edge E0, the input is captured at E0 and `done` is 0 after E0. The 56 edges E1 through E56 are the `N*(N-1)` comparison-and-possible-swap edges for the default concrete instance N=8; after E56, including immediately after the last comparison, `done` remains 0 and the old `out_data` remains. E57 is the distinct result-publication edge: its post-edge outputs are the result computed from the operand captured before E0's update completed, with `done` set to 1 and `out_data` replaced simultaneously. E58 clears `done` to 0 and either accepts a replacement request on that same edge when `start` is high or returns to receptive IDLE when it is low. Thus the source latency is `N*(N-1)+2` clock cycles from E0 through completion clearing at E58, while publication occurs after the 56 completed comparison intervals at E57. A pre-edge observation at E57 still shows the old result and `done=0`; a pre-edge observation at E58 shows the newly published result and `done=1`.
+
+For general legal N and WIDTH, replace 56 by `N*(N-1)` in that timeline. The active edge and latency do not depend on WIDTH. No periodic output is present.
+
+The finite model has no physical `clk` input because each `.fullCycle` step denotes one rising active edge. Row k samples settled outputs before that row's step; the step produces the state observed in row k+1. The model's scenarios include reset asserted and held at sampled active edges, and its combinational output override represents immediate `done=0` while reset is high. It does not enumerate every between-edge assertion or release event, so the trace does not restrict legal reset pulse timing or weaken the asynchronous RTL obligation. Row k denotes `k * timing.step_ns` after settling, with sampling at `timing.sample_offset_ns`; this observation convention is separate from the circuit's clock period and delay laws and is not an implicit 10 ns clock.
+
+5. Behaviour
+
+The legal parameter domain is N>0 and WIDTH>0. Every element is an unsigned WIDTH-bit value. Element i of an accepted input is `in_data[i*WIDTH +: WIDTH]`, so element 0 is the least-significant slice. At an acceptance edge the entire input bus is sampled once. Subsequent changes of `in_data` have no effect on that transaction.
+
+The required function is ascending unsigned bubble sort. Each of the `N*(N-1)` comparison edges compares the next adjacent pair and swaps it exactly when the lower-index element is greater than the higher-index element. Equal elements retain equal values. After all comparisons, result element i is the i-th element in nondecreasing unsigned order and occupies `out_data[i*WIDTH +: WIDTH]`; the smallest element is in the least-significant WIDTH bits and the largest is in the most-significant WIDTH bits. Arithmetic comparisons are unsigned at WIDTH bits. Packing shifts occur in the full N*WIDTH-bit bus context, and each element is truncated only at its WIDTH-bit slice boundary; no wider shifted packed expression is implicitly truncated to WIDTH bits.
+
+For N=8 and WIDTH=8, accepting `64'h0801060207030504` therefore publishes `64'h0807060504030201` at E57. This is an application of the general slice-and-sort law, not a stimulus lookup.
+
+In IDLE, `start=1` is accepted on that rising edge and captures `in_data`; `start=0` leaves the engine receptive. During all comparison edges and the publication edge, `start` is ignored: it cannot interrupt, restart, postpone, or replace the active transaction. During the one-cycle DONE interval, the published result is stable and `done=1`. On the completion-clearing edge, `start=1` simultaneously accepts the next input and begins its transaction while `done` becomes 0; `start=0` returns to receptive IDLE. Consequently a continuously asserted `start` produces repeated transactions. Asynchronous reset overrides every one of these cases, abandons the current transaction, clears `done`, and preserves the previously published `out_data` if one exists.
+
+The public publication equations are simultaneous: after E57, `out_data` is the sorted value derived from the accepted pre-transaction operand, and `done=1`; comparison progress has already completed before that edge. After E58, `done=0` and `out_data` still equals that published value, independently of whether a replacement operand is accepted at E58. No current `start` or `in_data` value qualifies or alters a pending publication.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete N=8, WIDTH=8 decided instance and the listed active-edge stimuli. Before interpreting it, apply the reset and observation limitations stated above.
+
+### stimulus 0
+| cycle | rst | start | in_data | done | out_data |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 64'h0 | x | 64'x |
+| 1 | 1 | 0 | 64'h1 | 0 | 64'x |
+| 2 | 0 | 0 | 64'hffffffffffffffff | 0 | 64'x |
+| 3 | 0 | 1 | 64'h807060504030201 | 0 | 64'x |
+| 4 | 0 | 0 | 64'h102030405060708 | 0 | 64'x |
+
+### stimulus 1
+| cycle | rst | start | in_data | done | out_data |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 64'h8040201008040201 | 0 | 64'x |
+| 1 | 0 | 1 | 64'h8040201008040201 | 0 | 64'x |
+| 2 | 0 | 0 | 64'h0 | 0 | 64'x |
+
+### stimulus 2
+| cycle | rst | start | in_data | done | out_data |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 64'h801060207030504 | x | 64'x |
+| 1 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 2 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 3 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 4 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 5 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 6 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 7 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 8 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 9 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 10 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 11 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 12 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 13 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 14 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 15 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 16 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 17 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 18 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 19 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 20 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 21 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 22 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 23 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 24 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 25 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 26 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 27 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 28 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 29 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 30 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 31 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 32 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 33 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 34 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 35 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 36 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 37 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 38 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 39 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 40 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 41 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 42 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 43 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 44 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 45 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 46 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 47 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 48 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 49 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 50 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 51 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 52 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 53 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 54 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 55 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 56 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 57 | 0 | 0 | 64'h801060207030504 | 0 | 64'x |
+| 58 | 0 | 0 | 64'h801060207030504 | 1 | 64'h807060504030201 |
+| 59 | 0 | 0 | 64'h801060207030504 | 0 | 64'h807060504030201 |
+| 60 | 0 | 0 | 64'h801060207030504 | 0 | 64'h807060504030201 |
+
+### stimulus 3
+| cycle | rst | start | in_data | done | out_data |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 64'h0 | 0 | 64'x |
+| 1 | 0 | 1 | 64'hffffffffffffffff | 0 | 64'x |
+| 2 | 0 | 0 | 64'h1 | 0 | 64'x |
+| 3 | 1 | 0 | 64'h8000000000000000 | 0 | 64'x |
+| 4 | 0 | 1 | 64'h101010101010101 | 0 | 64'x |
+
+### stimulus 4
+| cycle | rst | start | in_data | done | out_data |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 64'h807060504030201 | x | 64'x |
+| 1 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 2 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 3 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 4 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 5 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 6 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 7 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 8 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 9 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 10 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 11 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 12 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 13 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 14 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 15 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 16 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 17 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 18 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 19 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 20 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 21 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 22 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 23 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 24 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 25 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 26 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 27 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 28 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 29 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 30 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 31 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 32 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 33 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 34 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 35 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 36 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 37 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 38 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 39 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 40 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 41 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 42 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 43 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 44 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 45 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 46 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 47 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 48 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 49 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 50 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 51 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 52 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 53 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 54 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 55 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 56 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 57 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 58 | 0 | 0 | 64'h807060504030201 | 1 | 64'h807060504030201 |
+| 59 | 0 | 0 | 64'h807060504030201 | 0 | 64'h807060504030201 |
+| 60 | 0 | 1 | 64'h102030405060708 | 0 | 64'h807060504030201 |
+| 61 | 0 | 0 | 64'h102030405060708 | 0 | 64'h807060504030201 |
+| 62 | 0 | 0 | 64'h102030405060708 | 0 | 64'h807060504030201 |
+| 63 | 0 | 0 | 64'h102030405060708 | 0 | 64'h807060504030201 |
+
+### stimulus 5
+| cycle | rst | start | in_data | done | out_data |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 64'h807060504030201 | x | 64'x |
+| 1 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 2 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 3 | 0 | 0 | 64'h807060504030201 | 0 | 64'x |
+| 4 | 0 | 1 | 64'h1122334455667788 | 0 | 64'x |
+| 5 | 0 | 0 | 64'h1122334455667788 | 0 | 64'x |
+| 6 | 0 | 0 | 64'h1122334455667788 | 0 | 64'x |
+| 7 | 0 | 0 | 64'h1122334455667788 | 0 | 64'x |
+| 8 | 0 | 0 | 64'h1122334455667788 | 0 | 64'x |
+| 9 | 0 | 0 | 64'h1122334455667788 | 0 | 64'x |
+
+### stimulus 6
+| cycle | rst | start | in_data | done | out_data |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 64'h0 | 0 | 64'x |
+| 1 | 0 | 1 | 64'h1 | 0 | 64'x |
+| 2 | 0 | 0 | 64'h8000000000000000 | 0 | 64'x |
+| 3 | 0 | 0 | 64'hffffffff | 0 | 64'x |
+
+### stimulus 7
+| cycle | rst | start | in_data | done | out_data |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 64'h201020102010201 | x | 64'x |
+| 1 | 0 | 1 | 64'h102010201020102 | 0 | 64'x |
+| 2 | 0 | 0 | 64'hffff000080000001 | 0 | 64'x |

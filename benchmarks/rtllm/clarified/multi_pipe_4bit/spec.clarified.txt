@@ -1,0 +1,140 @@
+Module and integration contract
+
+Module: multi_pipe_4bit.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- mul_a: input [size-1:0].
+- mul_b: input [size-1:0].
+- mul_out: output [size*2-1:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  size: default = 4.
+-  N: default = 2 * size.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+rst_n is an active-low asynchronous reset. Whenever rst_n is low, mul_out is 0 regardless of clk, mul_a, or mul_b. Reset has priority over a simultaneous rising edge, clears both pipeline stages, cancels every pending product, and keeps both stages and mul_out at 0 while asserted. Repeated reset assertions have the same clearing effect.
+
+Before reset has ever been asserted, mul_out is unknown until enough rising edges have produced a result. The implementation must leave this power-up state uninitialised: it must not use an initial block or declaration initialiser to give mul_out or either stored stage a defined power-up value.
+
+Releasing rst_n causes no immediate state transition. The reset value of 0 remains visible on mul_out until pipeline advancement replaces it. At the first rising edge after release, the current operand pair is captured into the first stage while the cleared first-stage value advances to the second stage, so mul_out remains 0. At the next rising edge, that first post-release product advances to mul_out and is visible in the following pre-edge sample row.
+
+4. Timing.
+
+mul_out is registered. Inputs mul_a and mul_b are sampled together on each rising edge for which rst_n is high. The corresponding unsigned product becomes observable after the following rising edge: under the normative pre-edge observation convention, operands shown in row k are captured at that row's edge and their product appears in row k+2. Successive rising edges accept successive operand pairs without gaps and produce successive products without gaps.
+
+Falling edges and steady clock levels do not advance the pipeline. Asserting rst_n low changes mul_out to 0 asynchronously; releasing it does not itself advance the pipeline.
+
+The executable object's timebase is one full cycle per row. Row k denotes k times the interface's step_ns after settling, sampled at the interface's sample_offset_ns within that step; this observation convention is separate from the circuit law that state advances only on rising clk edges. The supplied interface does not assign numeric values to step_ns or sample_offset_ns, so this specification introduces no implicit 10 ns clock period or delay.
+
+5. Behaviour.
+
+mul_a and mul_b are unsigned. On every rising clk edge with rst_n high, the complete current operand values are sampled as one pair. Their mathematical unsigned product, with width 2*size bits, enters the pipeline. Changes to either operand away from a rising edge have no effect unless the changed value is still present at a later rising edge. Neither operand affects state or output while rst_n is low.
+
+For every possible size-bit encoding of mul_a and mul_b, the resulting value is:
+
+mul_out = unsigned(mul_a) * unsigned(mul_b)
+
+The multiplication is evaluated in the 2*size-bit result context. Both operands are unsigned, and the complete 2*size-bit product is retained; there is no truncation to an operand's size-bit width. Equivalently, the partial-product shifts occur in the widened 2*size-bit context, so a left shift is not implicitly truncated to the width of mul_a.
+
+Each accepted pair advances independently in order. Repeated rising edges continuously accept new pairs, including identical pairs. A new reset assertion immediately forces mul_out to 0 and discards all products that have not yet become observable. After a product becomes observable, it remains on mul_out until the next product advances or reset is asserted.
+
+Public-output update and pipeline advancement have no separate enable beyond rst_n being high at a rising edge. There is no completion pulse or periodic output signal.
+
+6. Worked trace.
+
+The following evaluated trace is normative. Each row samples outputs before that row's active edge.
+
+### stimulus 0
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 4'b0000 | 8'b00000000 |
+| 1 | 0 | 4'b0001 | 4'b1111 | 8'b00000000 |
+| 2 | 1 | 4'b1000 | 4'b0001 | 8'b00000000 |
+| 3 | 1 | 4'b0111 | 4'b1001 | 8'b00000000 |
+| 4 | 1 | 4'b1111 | 4'b1111 | 8'b00001000 |
+
+### stimulus 1
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 8'x |
+| 1 | 1 | 4'b0001 | 4'b0001 | 8'b00000000 |
+| 2 | 1 | 4'b1111 | 4'b1111 | 8'b00000000 |
+| 3 | 1 | 4'b1000 | 4'b1000 | 8'b00000001 |
+| 4 | 1 | 4'b0110 | 4'b1010 | 8'b11100001 |
+
+### stimulus 2
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 1 | 4'b1111 | 4'b0001 | 8'x |
+| 1 | 1 | 4'b1000 | 4'b0111 | 8'b00000000 |
+| 2 | 1 | 4'b0001 | 4'b1111 | 8'b00001111 |
+| 3 | 1 | 4'b0101 | 4'b1000 | 8'b00111000 |
+| 4 | 1 | 4'b1001 | 4'b0110 | 8'b00001111 |
+| 5 | 1 | 4'b0000 | 4'b0000 | 8'b00101000 |
+
+### stimulus 3
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b1111 | 4'b1111 | 8'b00000000 |
+| 1 | 1 | 4'b0010 | 4'b0011 | 8'b00000000 |
+| 2 | 1 | 4'b0100 | 4'b0101 | 8'b00000000 |
+| 3 | 0 | 4'b0111 | 4'b1001 | 8'b00000000 |
+| 4 | 1 | 4'b1010 | 4'b1011 | 8'b00000000 |
+| 5 | 1 | 4'b1100 | 4'b1101 | 8'b00000000 |
+| 6 | 1 | 4'b0001 | 4'b0001 | 8'b01101110 |
+
+### stimulus 4
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 4'b0000 | 8'b00000000 |
+| 1 | 1 | 4'b0011 | 4'b0101 | 8'b00000000 |
+| 2 | 1 | 4'b0011 | 4'b0101 | 8'b00000000 |
+| 3 | 1 | 4'b0011 | 4'b0101 | 8'b00001111 |
+| 4 | 1 | 4'b0011 | 4'b0101 | 8'b00001111 |
+| 5 | 1 | 4'b0011 | 4'b0101 | 8'b00001111 |
+
+### stimulus 5
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0001 | 4'b0001 | 8'b00000000 |
+| 1 | 1 | 4'b1111 | 4'b0000 | 8'b00000000 |
+| 2 | 1 | 4'b0000 | 4'b1111 | 8'b00000000 |
+| 3 | 1 | 4'b1000 | 4'b0010 | 8'b00000000 |
+| 4 | 1 | 4'b0010 | 4'b1000 | 8'b00000000 |
+| 5 | 1 | 4'b1111 | 4'b1111 | 8'b00010000 |
+
+### stimulus 6
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 1 | 4'b0111 | 4'b0111 | 8'x |
+| 1 | 0 | 4'b1000 | 4'b1000 | 8'b00000000 |
+| 2 | 1 | 4'b1001 | 4'b1001 | 8'b00000000 |
+| 3 | 1 | 4'b1010 | 4'b1010 | 8'b00000000 |
+| 4 | 1 | 4'b1011 | 4'b1011 | 8'b01010001 |
+
+### stimulus 7
+| cycle | rst_n | mul_a | mul_b | mul_out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 4'b0000 | 8'b00000000 |
+| 1 | 1 | 4'b0100 | 4'b0110 | 8'b00000000 |
+| 2 | 1 | 4'b0111 | 4'b0011 | 8'b00000000 |
+| 3 | 1 | 4'b1100 | 4'b0101 | 8'b00011000 |
+| 4 | 1 | 4'b1110 | 4'b0010 | 8'b00010101 |
+| 5 | 1 | 4'b1101 | 4'b1011 | 8'b00111100 |
+| 6 | 1 | 4'b0000 | 4'b0001 | 8'b00011100 |
+
+## Normative clarification after closure validation
+
+At power-up, if rst_n has never been asserted low, mul_out is unknown only until the first rising edge of clk. If rst_n is high at that first rising edge, the pre-transition value of mul_out is unknown, the current mul_a and mul_b pair is accepted, and the post-transition value of mul_out becomes the definite value zero. This startup zero is required; it is not an unknown value and is not the product accepted at that edge.
+
+Thereafter, each rising edge with rst_n high simultaneously accepts the current unsigned operand pair and advances previously accepted pairs in order. All advancement uses pre-transition history: the product accepted at a rising edge cannot affect that edge's post-transition mul_out and becomes observable only after one further rising edge, equivalently in the second pre-edge sample after acceptance. Until replaced by such an advancing product, mul_out retains its last definite value. No falling edge, steady clock level, or change of operands alone advances this sequence.
+
+Assertion of rst_n low asynchronously makes mul_out zero and cancels all accepted products, including when assertion coincides with a rising edge. While rst_n is low, mul_out remains zero and no operands are accepted. Deassertion has no immediate effect; on the first subsequent rising edge mul_out remains zero, and the first post-reset accepted product becomes observable only after the next rising edge. A later reset assertion re-establishes the same history independently of power-up history.

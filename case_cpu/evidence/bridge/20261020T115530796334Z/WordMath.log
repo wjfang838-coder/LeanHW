@@ -1,0 +1,11 @@
+/home/usr/leansilicon/case_cpu/bridge/WordMath.lean:28:4: warning: exponent 1024 exceeds the threshold 256, exponentiation operation was not evaluated, use `set_option exponentiation.threshold <num>` to set a new threshold
+'CaseCPU.Bridge.read_writeRF' depends on axioms: [propext, Classical.choice, Quot.sound]
+'CaseCPU.Bridge.read_resetRF' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ read_resetRF._native.bv_decide.ax_1_5]
+'CaseCPU.Bridge.high_ss' depends on axioms: [propext, Classical.choice, Quot.sound]
+'CaseCPU.Bridge.high_su' depends on axioms: [propext, Classical.choice, Quot.sound]
+'CaseCPU.Bridge.high_uu' depends on axioms: [propext, Quot.sound]
+'CaseCPU.Bridge.signed_div_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+'CaseCPU.Bridge.signed_rem_eq' depends on axioms: [propext, Classical.choice, Quot.sound]

@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob010_integer_multiple_data_bit_width_conversion_8to16",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

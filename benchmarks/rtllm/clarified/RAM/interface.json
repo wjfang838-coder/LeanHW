@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "RAM",
+  "toplevel": "RAM",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_gf_multiplier_0001",
+  "toplevel": "gf_multiplier",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

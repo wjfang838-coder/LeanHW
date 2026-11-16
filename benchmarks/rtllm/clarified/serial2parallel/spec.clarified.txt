@@ -1,0 +1,216 @@
+Module and integration contract
+
+Module: serial2parallel.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- din_serial: input 1 bit.
+- din_valid: input 1 bit.
+- dout_parallel: output [7:0].
+- dout_valid: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is active low, asynchronous, and has priority over a coincident rising clock edge. As soon as rst_n is low, dout_parallel is 8'b00000000 and dout_valid is 1'b0, independent of clk, din_serial, and din_valid. Reset cancels any partially captured transaction, clears all captured data and progress, and clears any completion indication. While rst_n remains low, no input is captured.
+
+After rst_n returns high, dout_parallel remains 8'b00000000 and dout_valid remains 1'b0 until the behavior below changes them. The first rising edge after release is eligible to be the first capture edge when din_valid is high; when din_valid is low it leaves the outputs at their reset values and no transaction is in progress.
+
+Before rst_n has ever been asserted low, dout_parallel is unknown and must remain uninitialized: no initial block or declaration initializer may give it a defined power-up value. Before either the first reset assertion or the first rising clock edge, dout_valid is likewise unknown and must remain uninitialized. If a rising edge occurs first, a non-completion edge makes dout_valid 1'b0; this does not define dout_parallel, which remains unknown until reset is asserted.
+
+4. Timing
+
+All captures and ordinary state changes occur on rising edges of clk. Steady clock levels and falling edges have no effect. The exception is assertion of rst_n, whose reset effects are asynchronous.
+
+dout_parallel is registered. After eight qualifying capture edges, the row before the next rising edge still contains its prior value; that next rising edge is a separate completion edge, and dout_parallel contains the newly assembled word for the clock interval following it. It retains that word until another completion edge or reset.
+
+dout_valid is registered. It is 1'b1 for exactly one clock interval following each completion edge and returns to 1'b0 on the next rising edge. It is 1'b0 following every other rising edge after its power-up unknown interval.
+
+The evaluated trace uses full-cycle, pre-edge sampling: row k is the settled observation for the kth rising-edge step, sampled before that step's transition. Row k denotes k times the interface step interval after settling, with the interface sample offset; it does not imply a 10 ns clock. This observation convention is separate from the circuit law that captures and completion occur only on rising clk edges.
+
+5. Behaviour
+
+With rst_n high and no completion pending, a rising edge with din_valid high accepts the one-bit value of din_serial. Eight consecutive accepting rising edges place the accepted values in arrival order into dout_parallel bits 7, 6, 5, 4, 3, 2, 1, and 0 respectively.
+
+After all eight bits have been accepted, the following rising edge is the completion edge. On that edge dout_parallel becomes the assembled eight-bit sequence and dout_valid becomes 1'b1. Completion occurs regardless of din_valid on that edge. din_serial has no effect on the completion edge, and even if din_valid is high that edge does not capture the first bit of another word.
+
+With rst_n high, din_valid low on a rising edge before all eight bits have been accepted aborts the partial transaction. The next rising edge with din_valid high starts a new sequence at output bit 7. Thus din_valid does not pause an incomplete transaction. A low din_valid edge when no partial transaction exists simply leaves no transaction in progress.
+
+After a completion edge, the next rising edge begins the next transaction if din_valid is high, or leaves no transaction in progress if din_valid is low. Every word therefore requires eight consecutive accepting rising edges and one distinct completion rising edge. Repeated starts cannot overlap, and a completion edge never counts toward the following word.
+
+din_serial has no effect while rst_n is low, on a rising edge where din_valid is low, on falling edges or steady clock levels, or on a completion edge.
+
+Assertion of rst_n low makes dout_parallel 8'b00000000 asynchronously and it remains zero through release until completion; under pre-edge row sampling, eight consecutive rising edges with rst_n and din_valid high capture bits in arrival order from bit 7 to bit 0, the row before the next rising edge still shows the prior value, and the row after that completion edge shows the assembled word, which is retained through all non-completion edges until a later completion or reset, with the next transaction starting only after the completion edge.
+
+Assertion of rst_n low makes dout_valid 1'b0 asynchronously and it remains low after release and throughout the eight capture edges; under pre-edge row sampling the row before the following completion edge is still low, the row after that edge is high for one clock interval, and the next rising edge returns it low, so each uninterrupted eight-bit transaction produces one such pulse while interruption before eight captures produces none.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance of this specification.
+
+### stimulus 0
+| cycle | rst_n | din_serial | din_valid | dout_parallel | dout_valid |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 2 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 0 | 0 | 8'b00000000 | 0 |
+
+### stimulus 1
+| cycle | rst_n | din_serial | din_valid | dout_parallel | dout_valid |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 0 | 0 | 8'b00000000 | 0 |
+| 2 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 6 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 8 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 9 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 10 | 1 | 0 | 0 | 8'b00000000 | 0 |
+
+### stimulus 2
+| cycle | rst_n | din_serial | din_valid | dout_parallel | dout_valid |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 2 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 4 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 6 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 8 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 9 | 1 | 0 | 0 | 8'b00000000 | 0 |
+| 10 | 1 | 1 | 0 | 8'b11111111 | 1 |
+
+### stimulus 3
+| cycle | rst_n | din_serial | din_valid | dout_parallel | dout_valid |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 2 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 0 | 8'b00000000 | 0 |
+| 4 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 5 | 0 | 1 | 1 | 8'b00000000 | 0 |
+| 6 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 8 | 1 | 0 | 0 | 8'b00000000 | 0 |
+
+### stimulus 4
+| cycle | rst_n | din_serial | din_valid | dout_parallel | dout_valid |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 6 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 8 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 9 | 1 | 0 | 0 | 8'b00000000 | 0 |
+
+### stimulus 5
+| cycle | rst_n | din_serial | din_valid | dout_parallel | dout_valid |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 0 | 8'b00000000 | 0 |
+| 2 | 1 | 0 | 0 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 0 | 8'b00000000 | 0 |
+| 4 | 1 | 0 | 0 | 8'b00000000 | 0 |
+
+### stimulus 6
+| cycle | rst_n | din_serial | din_valid | dout_parallel | dout_valid |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 2 | 1 | 0 | 0 | 8'b00000000 | 0 |
+| 3 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 1 | 0 | 0 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 6 | 1 | 0 | 0 | 8'b00000000 | 0 |
+| 7 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 8 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 9 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 10 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 11 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 12 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 13 | 1 | 0 | 0 | 8'b00000000 | 0 |
+
+### stimulus 7
+| cycle | rst_n | din_serial | din_valid | dout_parallel | dout_valid |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 2 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 4 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 0 | 0 | 0 | 8'b00000000 | 0 |
+| 6 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 8 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 9 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 10 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 11 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 12 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 13 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 14 | 1 | 0 | 0 | 8'b00000000 | 0 |
+
+### stimulus 8
+| cycle | rst_n | din_serial | din_valid | dout_parallel | dout_valid |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 2 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 4 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 6 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 1 | 8'b00000000 | 0 |
+| 8 | 1 | 0 | 1 | 8'b00000000 | 0 |
+| 9 | 1 | 1 | 0 | 8'b00000000 | 0 |
+| 10 | 1 | 0 | 1 | 8'b10101010 | 1 |
+| 11 | 1 | 1 | 1 | 8'b10101010 | 0 |
+| 12 | 1 | 0 | 1 | 8'b10101010 | 0 |
+| 13 | 1 | 1 | 1 | 8'b10101010 | 0 |
+| 14 | 1 | 0 | 1 | 8'b10101010 | 0 |
+| 15 | 1 | 1 | 1 | 8'b10101010 | 0 |
+| 16 | 1 | 0 | 1 | 8'b10101010 | 0 |
+| 17 | 1 | 1 | 1 | 8'b10101010 | 0 |
+| 18 | 1 | 0 | 1 | 8'b10101010 | 0 |
+| 19 | 1 | 1 | 0 | 8'b01010101 | 1 |
+| 20 | 1 | 0 | 1 | 8'b01010101 | 0 |
+| 21 | 1 | 1 | 1 | 8'b01010101 | 0 |
+| 22 | 1 | 0 | 1 | 8'b01010101 | 0 |
+| 23 | 1 | 1 | 1 | 8'b01010101 | 0 |
+| 24 | 1 | 0 | 1 | 8'b01010101 | 0 |
+| 25 | 1 | 1 | 1 | 8'b01010101 | 0 |
+| 26 | 1 | 0 | 1 | 8'b01010101 | 0 |
+| 27 | 1 | 1 | 1 | 8'b01010101 | 0 |
+| 28 | 1 | 0 | 1 | 8'b01010101 | 0 |
+| 29 | 1 | 1 | 0 | 8'b01010101 | 1 |
+
+### stimulus 9
+| cycle | rst_n | din_serial | din_valid | dout_parallel | dout_valid |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'x | x |
+| 1 | 1 | 1 | 1 | 8'x | 0 |
+| 2 | 1 | 0 | 1 | 8'x | 0 |
+| 3 | 1 | 1 | 1 | 8'x | 0 |
+| 4 | 1 | 0 | 1 | 8'x | 0 |
+| 5 | 1 | 1 | 1 | 8'x | 0 |
+| 6 | 1 | 0 | 1 | 8'x | 0 |
+| 7 | 1 | 1 | 1 | 8'x | 0 |
+| 8 | 1 | 0 | 1 | 8'x | 0 |
+| 9 | 1 | 0 | 0 | 8'x | 0 |

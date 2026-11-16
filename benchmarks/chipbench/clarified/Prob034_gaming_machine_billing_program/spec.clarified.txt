@@ -1,0 +1,160 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- rst_n: input 1 bit.
+- clk: input 1 bit.
+- money: input [9:0].
+- set: input 1 bit.
+- boost: input 1 bit.
+- remain: output [9:0].
+- yellow: output 1 bit.
+- red: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+rst_n is an active-low asynchronous reset with priority over the clock and all other inputs. Whenever rst_n is low, remain, yellow, and red are all zero immediately and remain zero despite rising clock edges. Deasserting rst_n causes no immediate change; all three outputs retain their reset values until the first subsequent rising edge, when the normal update laws apply.
+
+At power-up before reset has ever been asserted, remain, yellow, and red are all zero, the same values they have during reset. All three stored state elements therefore have zero as their power-up and reset value.
+
+Timing
+
+All three outputs are registered. With rst_n high, only a rising edge of clk updates them. Inputs are sampled at that edge, and the updated outputs are visible immediately after it and retained until the next rising edge or asynchronous reset assertion. Each output therefore has one edge-to-observation latency in the normative pre-edge trace convention: a row shows the result of the preceding rising edge, and the update performed at that row's edge first appears in the next row. There is no busy interval; every rising edge can perform another update. Steady clock levels and falling edges have no effect.
+
+remain is updated from the pre-edge remain, money, set, and boost values. yellow is updated from the pre-edge remain value. red is updated from the pre-edge remain and sampled boost values. These are continuous registered levels, not completion pulses or periodic signals.
+
+The evaluated full-cycle trace uses abstract cycle observations: row k denotes k times the interface step duration after settling, sampled at the interface sample offset, and not an implicit 10 ns clock tick. This observation convention does not impose a physical clock period or propagation delay; neither is specified by this contract.
+
+Behaviour
+
+All arithmetic operands are unsigned. remain and money are 10-bit values. Addition is evaluated with enough width to retain the carry and is then truncated at the documented remain assignment boundary to its low 10 bits, equivalently modulo 1024. No other operation implicitly changes that truncation boundary.
+
+With rst_n high, set sampled high on a rising edge gives charging priority: remain becomes the low 10 bits of pre-edge remain plus sampled money, regardless of boost. set sampled low selects billing. When boost is low, remain decreases by 1 if its pre-edge value is at least 1 and otherwise holds. When boost is high, remain decreases by 2 if its pre-edge value is at least 2 and otherwise holds. money has no effect when set is low. Every rising edge samples all controls anew, so repeated charging, billing, and mode changes occur without cancellation or a completion state.
+
+yellow becomes 1 after a rising edge exactly when the pre-edge remain value is from 1 through 9 inclusive; otherwise it becomes 0. boost, set, and money do not alter this test of the pre-edge balance.
+
+red becomes 1 after a rising edge exactly when the pre-edge remain is below the threshold selected by boost sampled at that edge: 2 when boost is high and 1 when boost is low. Otherwise red becomes 0. Charging priority for remain does not change the fact that red tests the pre-edge balance on that same edge.
+
+With rst_n high, only a rising clk edge updates remain, yellow, and red from the values sampled at that edge; a steady clk level and falling edges have no effect, every rising edge independently performs another update without a busy interval, and reset assertion overrides clock timing while a simultaneous rising edge with rst_n low produces reset values.
+
+Asserting rst_n low asynchronously and with priority sets remain, yellow, and red to zero, continued low holds those reset values despite clock edges and other inputs, and releasing rst_n high causes no immediate change so normal repeated updates resume only on subsequent rising clk edges.
+
+With rst_n high, money affects remain only when sampled on a rising clk edge while set is high, adding modulo 1024 regardless of boost; it has no effect while set is low, between rising edges, or during reset, and a new sampled money value is used independently on every qualifying edge.
+
+With rst_n high, set sampled high on a rising clk edge makes remain add money modulo 1024 with priority over either boost-selected decrement, while set sampled low selects the guarded decrement or hold; changes between edges and all values during reset have no effect, and each edge independently samples set anew.
+
+With rst_n high, boost sampled on each rising clk edge selects a decrement and red threshold of 2 when high or 1 when low, while set high makes the remain addition independent of boost; boost does not affect yellow, changes between edges have no effect, reset dominates it, and every edge independently samples the current mode.
+
+remain becomes zero immediately when rst_n is asserted low, stays zero during reset, holds on reset release until a rising clk edge, and after each such edge with rst_n high immediately presents the add-modulo-1024, guarded-decrement, or hold result from the pre-edge balance and sampled controls until reset or the next rising edge; therefore a row sampled before an active edge shows the preceding edge's result and the newly captured result first appears after that edge, with no completion gap before another update.
+
+yellow becomes zero immediately when rst_n is asserted low, stays zero during reset, holds on reset release until a rising clk edge, and after each such edge with rst_n high immediately presents whether the pre-edge balance was in 1 through 9 until reset or the next rising edge; therefore a row sampled before an active edge shows the preceding edge's result and the new test result first appears after that edge, with uninterrupted repeated evaluations.
+
+red becomes zero immediately when rst_n is asserted low, stays zero during reset, holds on reset release until a rising clk edge, and after each such edge with rst_n high immediately presents whether the pre-edge balance is below the threshold selected by the sampled boost value, 2 when high and 1 when low, until reset or the next rising edge; therefore a row sampled before an active edge shows the preceding edge's result and the new test result first appears after that edge, with uninterrupted repeated evaluations.
+
+Worked trace
+
+The following evaluated trace is normative. Each row observes the settled outputs before that row's active transition; the transition computes the state observed by the next row.
+
+### stimulus 0
+| cycle | rst_n | money | set | boost | remain | yellow | red |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 10'h0 | 0 | 0 | 10'h0 | 0 | 0 |
+| 1 | 1 | 10'h1 | 1 | 0 | 10'h0 | 0 | 0 |
+| 2 | 1 | 10'h0 | 0 | 0 | 10'h1 | 0 | 1 |
+| 3 | 1 | 10'h0 | 0 | 1 | 10'h0 | 1 | 0 |
+
+### stimulus 1
+| cycle | rst_n | money | set | boost | remain | yellow | red |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 10'h3ff | 1 | 1 | 10'h0 | 0 | 0 |
+| 1 | 1 | 10'h3ff | 1 | 1 | 10'h0 | 0 | 0 |
+| 2 | 1 | 10'h0 | 0 | 1 | 10'h3ff | 0 | 1 |
+| 3 | 1 | 10'h0 | 0 | 0 | 10'h3fd | 0 | 0 |
+
+### stimulus 2
+| cycle | rst_n | money | set | boost | remain | yellow | red |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 10'h0 | 0 | 0 | 10'h0 | 0 | 0 |
+| 1 | 1 | 10'h200 | 1 | 0 | 10'h0 | 0 | 0 |
+| 2 | 1 | 10'h200 | 1 | 0 | 10'h200 | 0 | 1 |
+| 3 | 1 | 10'h0 | 0 | 0 | 10'h0 | 0 | 0 |
+| 4 | 1 | 10'h0 | 0 | 0 | 10'h0 | 0 | 1 |
+
+### stimulus 3
+| cycle | rst_n | money | set | boost | remain | yellow | red |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 10'h0 | 0 | 0 | 10'h0 | 0 | 0 |
+| 1 | 1 | 10'h155 | 1 | 0 | 10'h0 | 0 | 0 |
+| 2 | 1 | 10'h0 | 0 | 1 | 10'h155 | 0 | 1 |
+| 3 | 1 | 10'h0 | 0 | 1 | 10'h153 | 0 | 0 |
+| 4 | 1 | 10'h0 | 0 | 1 | 10'h151 | 0 | 0 |
+
+### stimulus 4
+| cycle | rst_n | money | set | boost | remain | yellow | red |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 10'h0 | 0 | 0 | 10'h0 | 0 | 0 |
+| 1 | 1 | 10'h1 | 1 | 0 | 10'h0 | 0 | 0 |
+| 2 | 1 | 10'h1 | 1 | 1 | 10'h1 | 0 | 1 |
+| 3 | 1 | 10'h0 | 0 | 1 | 10'h2 | 1 | 1 |
+| 4 | 1 | 10'h0 | 0 | 0 | 10'h0 | 1 | 0 |
+
+### stimulus 5
+| cycle | rst_n | money | set | boost | remain | yellow | red |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 10'h0 | 0 | 0 | 10'h0 | 0 | 0 |
+| 1 | 1 | 10'hf | 1 | 0 | 10'h0 | 0 | 0 |
+| 2 | 1 | 10'h0 | 0 | 0 | 10'hf | 0 | 1 |
+| 3 | 0 | 10'h7 | 1 | 1 | 10'h0 | 0 | 0 |
+| 4 | 1 | 10'h7 | 1 | 0 | 10'h0 | 0 | 0 |
+| 5 | 1 | 10'h0 | 0 | 0 | 10'h7 | 0 | 1 |
+
+### stimulus 6
+| cycle | rst_n | money | set | boost | remain | yellow | red |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 10'h0 | 0 | 0 | 10'h0 | 0 | 0 |
+| 1 | 1 | 10'h4 | 1 | 0 | 10'h0 | 0 | 0 |
+| 2 | 1 | 10'h0 | 0 | 0 | 10'h4 | 0 | 1 |
+| 3 | 1 | 10'h0 | 0 | 0 | 10'h3 | 1 | 0 |
+| 4 | 1 | 10'ha | 1 | 0 | 10'h2 | 1 | 0 |
+| 5 | 1 | 10'h0 | 0 | 0 | 10'hc | 1 | 0 |
+| 6 | 1 | 10'h0 | 0 | 0 | 10'hb | 0 | 0 |
+
+### stimulus 7
+| cycle | rst_n | money | set | boost | remain | yellow | red |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 10'h0 | 0 | 0 | 10'h0 | 0 | 0 |
+| 1 | 1 | 10'h6 | 1 | 1 | 10'h0 | 0 | 0 |
+| 2 | 1 | 10'h0 | 0 | 1 | 10'h6 | 0 | 1 |
+| 3 | 1 | 10'h0 | 0 | 1 | 10'h4 | 1 | 0 |
+| 4 | 1 | 10'h0 | 0 | 1 | 10'h2 | 1 | 0 |
+| 5 | 1 | 10'h6 | 1 | 1 | 10'h0 | 1 | 0 |
+| 6 | 1 | 10'h0 | 0 | 1 | 10'h6 | 0 | 1 |
+
+### stimulus 8
+| cycle | rst_n | money | set | boost | remain | yellow | red |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 10'h0 | 0 | 0 | 10'h0 | 0 | 0 |
+| 1 | 1 | 10'h9 | 1 | 0 | 10'h0 | 0 | 0 |
+| 2 | 1 | 10'h0 | 0 | 0 | 10'h9 | 0 | 1 |
+| 3 | 1 | 10'h0 | 0 | 1 | 10'h8 | 1 | 0 |
+| 4 | 1 | 10'h0 | 0 | 0 | 10'h6 | 1 | 0 |
+| 5 | 1 | 10'h0 | 0 | 1 | 10'h5 | 1 | 0 |
+| 6 | 1 | 10'h0 | 0 | 0 | 10'h3 | 1 | 0 |
+
+### stimulus 9
+| cycle | rst_n | money | set | boost | remain | yellow | red |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 10'h0 | 0 | 0 | 10'h0 | 0 | 0 |
+| 1 | 1 | 10'h3ff | 1 | 0 | 10'h0 | 0 | 0 |
+| 2 | 1 | 10'h1 | 1 | 0 | 10'h3ff | 0 | 1 |
+| 3 | 1 | 10'h0 | 0 | 1 | 10'h0 | 0 | 0 |
+| 4 | 1 | 10'h0 | 0 | 1 | 10'h0 | 0 | 1 |

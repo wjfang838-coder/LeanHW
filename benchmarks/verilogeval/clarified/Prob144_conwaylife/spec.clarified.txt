@@ -1,0 +1,111 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- load: input 1 bit.
+- data: input [255:0].
+- q: output [255:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset. At power-up, before any rising edge has sampled load as 1, q is unknown. Rising edges with load 0 do not establish a defined state, so q remains unknown until the first rising edge that samples load as 1. The implementation must leave q's stored state uninitialised: no initial block or declaration initialiser may give it a defined value. The first rising edge that samples load as 1 establishes q as the data sampled on that edge.
+
+Timing
+
+q is a 256-bit registered output. Only a rising transition of clk changes it. On each rising edge, load and data are sampled; the resulting q is observable immediately after that edge and is retained between rising edges. Thus, in the evaluated full-cycle trace, whose rows sample the output before applying the row's active edge, a loaded word or evolved generation first appears in the following row: row k denotes k configured full-cycle steps after settling, not an implicit 10 ns clock tick. The interface specifies no numeric physical clock period, step duration, sample offset, or propagation delay, so this document imposes none.
+
+There are no pulse or periodic output signals other than state changes driven by clk, and there is no completion or clear interval.
+
+Behaviour
+
+The 256 bits of q represent a 16-by-16 grid. Bits q[15:0] are row 0, q[31:16] are row 1, and in general bit 16r+c is the cell at row r, column c, for r and c from 0 through 15. A bit value of 1 denotes a live cell and 0 a dead cell.
+
+The grid is toroidal. For every cell, the eight neighbours are the cells at all combinations of the preceding, same, and following row and column, excluding the cell itself, with row and column indices reduced modulo 16. Consequently, edges wrap to the opposite edge and corners wrap in both dimensions.
+
+At every rising edge of clk, load 1 causes all 256 bits of q to take the simultaneously sampled data. This load interrupts and overrides generation advancement. Consecutive rising edges with load 1 perform independent loads from each edge's sampled data, and every load restarts evolution from that newly loaded grid.
+
+At every rising edge of clk with load 0, data is irrelevant and q advances by exactly one toroidal Conway generation, provided q has previously been established by a loaded edge. For each cell independently, let N be its count of live cells among the eight neighbours. Its next value is 1 exactly when N is 3, or when N is 2 and its current value is 1; for N equal to 0, 1, or any value from 4 through 8, its next value is 0. If q has never been established by a loaded edge, a rising edge with load 0 leaves it unknown.
+
+Steady clk, falling transitions, and changes to load or data between rising transitions have no effect. Each repeated rising transition applies the rule anew. q retains the last loaded or generated result between rising edges, and every rising edge with load 0 after establishment immediately produces the next generation without a completion or clear interval.
+
+Worked trace
+
+The following evaluated trace is normative for the sampled concrete instance and uses the pre-edge row convention stated above.
+
+### stimulus 0
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 0 | 256'h0 | 256'x |
+| 1 | 1 | 256'h1 | 256'x |
+| 2 | 0 | 256'h0 | 256'h1 |
+| 3 | 0 | 256'h0 | 256'h0 |
+
+### stimulus 1
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 256'h0 | 256'x |
+| 1 | 0 | 256'h1 | 256'h0 |
+| 2 | 0 | 256'h2 | 256'h0 |
+| 3 | 0 | 256'h3 | 256'h0 |
+
+### stimulus 2
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 256'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff | 256'x |
+| 1 | 0 | 256'h0 | 256'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff |
+| 2 | 0 | 256'h0 | 256'h0 |
+| 3 | 0 | 256'h0 | 256'h0 |
+
+### stimulus 3
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 256'h8000000000000000000000000000000000000000000000000000000000000000 | 256'x |
+| 1 | 0 | 256'h0 | 256'h8000000000000000000000000000000000000000000000000000000000000000 |
+| 2 | 0 | 256'h0 | 256'h0 |
+
+### stimulus 4
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 256'h12345678 | 256'x |
+| 1 | 0 | 256'h0 | 256'h12345678 |
+| 2 | 0 | 256'h0 | 256'h3000000000000000000000000000000000000000000000000000002e402e48 |
+
+### stimulus 5
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 256'h7 | 256'x |
+| 1 | 0 | 256'h0 | 256'h7 |
+| 2 | 1 | 256'h700 | 256'h2000000000000000000000000000000000000000000000000000000020002 |
+| 3 | 0 | 256'h0 | 256'h700 |
+| 4 | 0 | 256'h0 | 256'h200000000000000000000000000000000000000000000000000000002000200 |
+
+### stimulus 6
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 256'h10001 | 256'x |
+| 1 | 1 | 256'h8000000000000001 | 256'h10001 |
+| 2 | 0 | 256'h0 | 256'h8000000000000001 |
+| 3 | 1 | 256'h0 | 256'h0 |
+| 4 | 0 | 256'h0 | 256'h0 |
+
+### stimulus 7
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 256'hffffffffffffffffffffffffffffffff | 256'x |
+| 1 | 0 | 256'h0 | 256'hffffffffffffffffffffffffffffffff |
+| 2 | 0 | 256'h0 | 256'hffff000000000000000000000000ffff00000000000000000000000000000000 |
+| 3 | 0 | 256'h0 | 256'hffffffff0000000000000000ffffffffffff000000000000000000000000ffff |
+| 4 | 0 | 256'h0 | 256'hffff00000000ffff000000000000ffff0000000000000000ffff0000 |
+| 5 | 0 | 256'h0 | 256'hffffffffffffffffffffffff0000ffffffffffff00000000ffffffffffff |
+| 6 | 0 | 256'h0 | 256'hffffffff000000000000 |
+| 7 | 0 | 256'h0 | 256'hffff00000000ffff00000000 |

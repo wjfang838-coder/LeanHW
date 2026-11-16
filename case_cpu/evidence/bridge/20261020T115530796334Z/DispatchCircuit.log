@@ -1,0 +1,11 @@
+'CaseCPU.Bridge.dispatch_state' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ circuit_immediate._native.bv_decide.ax_1_8,
+ circuit_w137._native.bv_decide.ax_1_58,
+ code_I._native.bv_decide.ax_1_5,
+ code_U._native.bv_decide.ax_1_5,
+ code_table._native.native_decide.ax_1_1,
+ forward_a._native.bv_decide.ax_1_20,
+ forward_b._native.bv_decide.ax_1_20,
+ projected_pc._native.bv_decide.ax_1_9]

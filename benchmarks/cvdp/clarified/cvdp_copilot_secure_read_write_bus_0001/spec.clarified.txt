@@ -1,0 +1,139 @@
+Original implementation instruction (verbatim):
+
+Design a **parameterized read/write bus** in Verilog that ensures secure access through an **8-bit configurable key**. This module named `secure_read_write_bus_interface` will support both read and write operations, with authorization based on a comparison between the input key and an internal parameterized key.
+
+Named module interface binding
+
+Module: secure_read_write_bus_interface.
+Connect ports by name. The enumeration below does not establish positional order.
+- i_addr: input; 8 bits in the concrete formal instance.
+- i_data_in: input; 8 bits in the concrete formal instance.
+- i_key_in: input; 8 bits in the concrete formal instance.
+- i_read_write_enable: input; 1 bits in the concrete formal instance.
+- i_capture_pulse: input; 1 bits in the concrete formal instance.
+- i_reset_bar: input; 1 bits in the concrete formal instance.
+- o_data_out: output; 8 bits in the concrete formal instance.
+- o_error: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is secure_read_write_bus_interface.
+
+The public parameters are p_configurable_key, an 8-bit key with default 8'hAA; p_data_width, with default 8; and p_addr_width, with default 8. The parameterized widths are normative and are not replaced by the concrete 8-bit Lean instance.
+
+The certain integration answer establishes named connection, not positional declaration order. The requirements therefore do not fix a normative HDL declaration order; the module must be instantiated by name. In the source's descriptive order, which is not a positional constraint, the ports are:
+
+- i_addr: input, p_addr_width bits.
+- i_data_in: input, p_data_width bits.
+- i_key_in: input, 8 bits.
+- i_read_write_enable: input, 1 bit.
+- i_capture_pulse: input, 1 bit.
+- i_reset_bar: input, 1 bit.
+- o_data_out: output, p_data_width bits.
+- o_error: output, 1 bit.
+
+3. Reset.
+
+i_reset_bar is an asynchronous active-low reset. While it is low, every internal state element, including all stored address contents, and both outputs are zero. Assertion takes effect without a rising edge of i_capture_pulse and has priority when coincident with such an edge. On release, the reset values remain until the first subsequent rising edge of i_capture_pulse; that edge performs an ordinary transaction under the laws below.
+
+The source does not establish the value of either output or stored data at hardware power-up before reset has ever been asserted. This absence is not a requirement to drive X, does not prohibit a captured transaction from establishing an output, and imposes no reset-before-use input restriction. Before reset or an authorized write establishes an addressed stored value, an authorized read of that address has source-undetermined data, while o_error is zero as required for an authorized read. Unauthorized transactions establish o_data_out as zero and o_error as one.
+
+Table/model scope: the finite Lean verification instance begins in the state reached after the documented asynchronous reset has been asserted: all modeled storage, o_data_out, and o_error are zero. This reset-derived setup is separate from the RTL power-up contract, adds no hardware power-up guarantee or reset-before-use restriction, and does not rely on either unclear power-up answer.
+
+4. Timing.
+
+i_capture_pulse is the transaction clock, and all inputs are assumed synchronous to it. With i_reset_bar high, i_addr, i_data_in, i_key_in, and i_read_write_enable are captured on every rising edge of i_capture_pulse. o_data_out and o_error are registered results: the applicable result is established immediately after that edge and retained until the next rising edge or asynchronous reset. Thus each output has one capture-edge-to-following-pre-edge-observation latency. There are no pulse outputs and no periodic outputs specified by the source.
+
+For the evaluated full-cycle table only, row k observes out(s[k], i[k]) before the transition at k * timing.step_ns after settling and at timing.sample_offset_ns within that step. The supplied interface does not assign numeric values to those two timing fields. This observation convention does not imply a 10 ns tick, specify the circuit period, or add a pipeline stage; the actual circuit event is the rising edge of i_capture_pulse.
+
+5. Behaviour.
+
+On every rising edge of i_capture_pulse while i_reset_bar is high, all eight bits of i_key_in are compared with the 8-bit p_configurable_key. Equality authorizes the transaction and every unequal 8-bit value is unauthorized. Changes between capture edges have no effect on stored data or registered outputs.
+
+i_addr selects the location for each captured authorized read or write, using all p_addr_width bits. It has no effect on storage during reset or an unauthorized transaction. Repeated and consecutive accesses are evaluated independently.
+
+i_data_in supplies all p_data_width bits stored by a captured authorized write. It has no storage effect during a read, reset, between capture edges, or an unauthorized transaction. In particular, an unauthorized attempted write does not replace a value stored by an earlier authorized write.
+
+i_read_write_enable=0 selects a write and i_read_write_enable=1 selects a read. These exhaust its one-bit domain. The selection is acted upon only at a rising capture edge while reset is released.
+
+For an authorized write, store i_data_in at the location selected by i_addr and set o_error to zero. Except for the scoped amendment below, the source does not specify the value placed on o_data_out by an authorized write.
+
+Amendment Q1 — scoped authorized-write observation. The exact original clause is: "`o_data_out` (`p_data_width` bit): Data output during a read operation, valid only if the input key matches the internal key." The exact certain answer law is: "At the pre-edge observation row following any captured write with i_key_in equal to 8'hAA, o_data_out is 8'h00, including consecutive authorized writes to different or repeated addresses." Only when p_data_width=8, p_configurable_key=8'hAA, and a captured write supplies i_key_in=8'hAA does the corrected law supersede the original clause for the pre-edge observation row following that write, including consecutive writes to different or repeated addresses. It does not define authorized-write o_data_out for other data widths or configurable-key values.
+
+For an authorized read, storage is unchanged, o_data_out becomes the p_data_width-bit value stored at the location selected by i_addr, and o_error becomes zero.
+
+For every unauthorized read or write, independently of i_addr and i_data_in, storage is unchanged, o_data_out becomes zero, and o_error becomes one. Every unequal key value is covered. A later authorized transaction replaces both registered results according to its applicable law.
+
+Every rising capture edge performs exactly one complete transaction. Consecutive, repeated, and restarted transactions follow the same laws. Between rising edges, all stored data and registered results are retained. Asynchronous reset immediately cancels any retained result, clears all storage and outputs, and holds them cleared; after release, transaction processing resumes at the next rising edge.
+
+The concrete Lean instance has p_configurable_key=8'hAA, p_data_width=8, and p_addr_width=8. It applies the Q1 law after every authorized write in that instance. It also covers disabled/inactive intervals by state retention, repeated starts as independent edge transactions, unauthorized transaction cancellation of writes, the first post-reset result, and retained read data according to the laws above.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete default-parameter verification instance under the reset-derived table/model setup and pre-transition observation convention stated above.
+
+### stimulus 0
+| cycle | i_addr | i_data_in | i_key_in | i_read_write_enable | i_reset_bar | o_data_out | o_error |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 8'b00000001 | 8'b00000001 | 8'b10101010 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 8'b00000001 | 8'b00000000 | 8'b10101010 | 1 | 1 | 8'b00000000 | 0 |
+| 3 | 8'b00000001 | 8'b00000000 | 8'b10101010 | 1 | 1 | 8'b00000001 | 0 |
+
+### stimulus 1
+| cycle | i_addr | i_data_in | i_key_in | i_read_write_enable | i_reset_bar | o_data_out | o_error |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b10000000 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 8'b10000000 | 8'b10000000 | 8'b10101010 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 8'b10000000 | 8'b00000000 | 8'b10101010 | 1 | 1 | 8'b00000000 | 0 |
+| 3 | 8'b10000000 | 8'b00000000 | 8'b01010101 | 1 | 1 | 8'b10000000 | 0 |
+
+### stimulus 2
+| cycle | i_addr | i_data_in | i_key_in | i_read_write_enable | i_reset_bar | o_data_out | o_error |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 8'b11111111 | 8'b11111111 | 8'b10101010 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 8'b11111111 | 8'b00000000 | 8'b10101010 | 1 | 1 | 8'b00000000 | 0 |
+| 3 | 8'b11111111 | 8'b00110101 | 8'b10101010 | 0 | 1 | 8'b11111111 | 0 |
+| 4 | 8'b11111111 | 8'b00000000 | 8'b10101010 | 1 | 1 | 8'b00000000 | 0 |
+
+### stimulus 3
+| cycle | i_addr | i_data_in | i_key_in | i_read_write_enable | i_reset_bar | o_data_out | o_error |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 8'b00110101 | 8'b00110101 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 8'b00110101 | 8'b00000000 | 8'b10101010 | 1 | 1 | 8'b00000000 | 1 |
+
+### stimulus 4
+| cycle | i_addr | i_data_in | i_key_in | i_read_write_enable | i_reset_bar | o_data_out | o_error |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 8'b00000010 | 8'b00000001 | 8'b10101010 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 8'b00000010 | 8'b11111111 | 8'b10101011 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 8'b00000010 | 8'b00000000 | 8'b10101010 | 1 | 1 | 8'b00000000 | 1 |
+
+### stimulus 5
+| cycle | i_addr | i_data_in | i_key_in | i_read_write_enable | i_reset_bar | o_data_out | o_error |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 |
+| 1 | 8'b00000011 | 8'b00110101 | 8'b10101010 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 8'b00000011 | 8'b11111111 | 8'b10101010 | 1 | 0 | 8'b00000000 | 0 |
+| 3 | 8'b00000011 | 8'b00000000 | 8'b10101010 | 1 | 1 | 8'b00000000 | 0 |
+| 4 | 8'b00000011 | 8'b00000000 | 8'b10101010 | 1 | 1 | 8'b00000000 | 0 |
+
+### stimulus 6
+| cycle | i_addr | i_data_in | i_key_in | i_read_write_enable | i_reset_bar | o_data_out | o_error |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 8'b10101010 | 1 | 1 | 8'b00000000 | 0 |
+| 1 | 8'b00000000 | 8'b00000001 | 8'b10101010 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 8'b00000000 | 8'b00000000 | 8'b10101010 | 1 | 1 | 8'b00000000 | 0 |
+
+### stimulus 7
+| cycle | i_addr | i_data_in | i_key_in | i_read_write_enable | i_reset_bar | o_data_out | o_error |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b11111111 | 8'b10000000 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 8'b11111111 | 8'b00000000 | 8'b11111111 | 1 | 1 | 8'b00000000 | 1 |
+| 2 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 |
+| 3 | 8'b11111111 | 8'b00000000 | 8'b10101010 | 1 | 1 | 8'b00000000 | 0 |

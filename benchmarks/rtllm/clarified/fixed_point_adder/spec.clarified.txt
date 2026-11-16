@@ -1,0 +1,95 @@
+Module and integration contract
+
+Module: fixed_point_adder.
+Ports below are in exact declaration order:
+- a: input [N-1:0].
+- b: input [N-1:0].
+- c: output [N-1:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  Q: default = 15.
+-  N: default = 32.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+2. Reset
+
+The module has no reset input and no reset behavior. It has no state elements. From power-up onward, including before any edge has occurred, c is the defined combinational result of the current a and b; there is no uninitialized interval and no first-reset or reset-release step.
+
+3. Timing
+
+c is continuously combinational from the current a and b. After combinational settling it has zero clock-cycle capture latency from either input. There is no clock, active edge, pulse, periodic signal, completion event, result-valid interval, or retained result.
+
+The evaluated trace uses the interface timing observation convention: row k denotes k * timing.step_ns after settling, with the configured timing.sample_offset_ns applied. This observation cadence is not a circuit clock period or a circuit delay law; the circuit itself has no clock or specified numeric propagation delay.
+
+4. Behaviour
+
+Interpret each N-bit input as sign-magnitude: bit N-1 is its sign and bits N-2 through 0 are its unsigned magnitude. Q is the number of fractional bits and does not alter the bit-level addition law because a, b, and c use the same fixed-point precision.
+
+At all times a participates combinationally as a sign-magnitude operand: with b of the same sign its magnitude is added to b's modulo 2^(N-1) and that common sign is used, while with b of the opposite sign the smaller magnitude is subtracted from the larger, the larger-magnitude operand supplies the sign, and equality produces positive zero; there are no inactive levels, controls, transaction boundaries, interruptions, or retained effects, so every change of a recomputes c after combinational settling even when b changes simultaneously or changes repeat.
+
+At all times b participates combinationally as a sign-magnitude operand: with a of the same sign its magnitude is added to a's modulo 2^(N-1) and that common sign is used, while with a of the opposite sign the smaller magnitude is subtracted from the larger, the larger-magnitude operand supplies the sign, and equality produces positive zero; there are no inactive levels, controls, transaction boundaries, interruptions, or retained effects, so every change of b recomputes c after combinational settling even when a changes simultaneously or changes repeat.
+
+c is a continuously combinational result of the current a and b, with no reset, capture edge, completion event, hold or clear interval, or restart protocol; under pre-edge row sampling, each row observes the result of that row's inputs once combinational settling has occurred, with zero edge-to-edge capture latency and no retained result from any earlier row.
+
+For all input encodings, let sign(a) and sign(b) be their most significant bits and let mag(a) and mag(b) be their lower N-1 bits interpreted as unsigned integers. If the signs are equal, sign(c) is their common sign and mag(c) = (mag(a) + mag(b)) modulo 2^(N-1). This applies whether or not the untruncated magnitude sum fits in N-1 bits.
+
+If the signs differ and mag(a) is greater than mag(b), c has the sign of a and magnitude mag(a) - mag(b). If the signs differ and mag(b) is greater than mag(a), c has the sign of b and magnitude mag(b) - mag(a). If the signs differ and the magnitudes are equal, c is positive zero: every bit of c is zero, regardless of which operand carries the sign bit.
+
+There are no disabled inputs, transactions, cancellations, starts, terminal states, or retained data. Every input pair immediately selects exactly one of the laws above after combinational settling.
+
+5. Worked trace
+
+The following evaluated trace is normative for the concrete sampled N=32 instance.
+
+### stimulus 0
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 32'h0 |
+| 1 | 32'h1 | 32'h0 | 32'h1 |
+
+### stimulus 1
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h0 | 32'h1 | 32'h1 |
+| 1 | 32'h12345678 | 32'h1020304 | 32'h1336597c |
+
+### stimulus 2
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'hffffffff | 32'h0 | 32'hffffffff |
+| 1 | 32'h0 | 32'hffffffff | 32'hffffffff |
+
+### stimulus 3
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h80000000 | 32'h0 | 32'h0 |
+| 1 | 32'h0 | 32'h80000000 | 32'h0 |
+
+### stimulus 4
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h7fffffff | 32'h1 | 32'h0 |
+| 1 | 32'h40000000 | 32'h40000000 | 32'h0 |
+
+### stimulus 5
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h80000001 | 32'h80000002 | 32'h80000003 |
+| 1 | 32'hffffffff | 32'h80000001 | 32'h80000000 |
+
+### stimulus 6
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h5 | 32'h80000003 | 32'h2 |
+| 1 | 32'h3 | 32'h80000005 | 32'h80000002 |
+
+### stimulus 7
+| cycle | a | b | c |
+|---|---|---|---|
+| 0 | 32'h5 | 32'h80000005 | 32'h0 |
+| 1 | 32'h80000005 | 32'h5 | 32'h0 |

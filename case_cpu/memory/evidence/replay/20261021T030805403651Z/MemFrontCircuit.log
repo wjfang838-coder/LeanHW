@@ -1,0 +1,8 @@
+'CaseCPUMem.Source.net_running' depends on axioms: [propext, Classical.choice, Quot.sound]
+'CaseCPUMem.Source.accept_state' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CaseCPU.Bridge.code_table._native.native_decide.ax_1_1,
+ accept_state._native.bv_decide.ax_1_10,
+ accept_state._native.bv_decide.ax_1_15,
+ decoder_w384._native.bv_decide.ax_1_88]

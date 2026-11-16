@@ -1,0 +1,336 @@
+Module and integration contract
+
+Module: signal_generator.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- wave: output [4:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Reset is active low and asynchronous. Whenever rst_n is low, wave is 5'b00000 immediately, including when reset assertion coincides with a rising edge, and every state element is reset to the ascending direction with the stored waveform value zero. Rising edges while reset remains asserted retain those reset values.
+
+Before reset has ever been asserted, wave is unknown. The implementation must leave its stored waveform state uninitialised, with no initial block or declaration initialiser that gives wave a defined power-up value.
+
+Deasserting rst_n has no immediate effect. Wave remains 5'b00000 until the first rising edge after release; that edge changes wave to 5'b00001 and leaves the direction ascending. Any later reset assertion immediately clears and restarts the same sequence.
+
+4. Timing.
+
+Wave is a registered output updated only by rising edges of clk, except that asynchronous reset assertion forces it immediately to zero. With reset inactive, falling edges and steady clk levels have no effect. From deassertion of rst_n, wave has a one-rising-edge latency to the first nonzero value: the first rising edge produces wave = 1, which remains visible until the next rising edge.
+
+The periodic sequence, counted in rising-edge intervals after reset release, is 0, 1, ..., 31, 31, 30, ..., 0, 0, 1, .... Its period is 64 rising-edge intervals: 32 intervals in the nondecreasing portion from the first 0 through the held 31, and 32 intervals in the nonincreasing portion from 30 through the held 0. Each endpoint is present for two consecutive pre-edge observations.
+
+The evaluated trace uses full-cycle rows. Each row samples the settled output before its pending rising-edge transition, then advances the state once. Thus row k is observation k under the interface's full-cycle cadence; this observation convention is separate from the circuit law that only rising clk edges advance the waveform. The interface defines no numeric step_ns or sample_offset_ns values, so no physical nanosecond period or sampling offset is specified.
+
+5. Behaviour.
+
+While rst_n is high, only each rising edge of clk advances wave by one in its current direction or holds an endpoint for the edge that reverses direction, whereas falling edges and steady clk levels have no effect; while rst_n is low every rising edge retains wave at zero, simultaneous reset assertion takes priority, reset interruption restarts the progression, and repeated rising edges continue the endpoint-inclusive up/down sequence indefinitely.
+
+Asserting rst_n low asynchronously forces wave to 5'b00000 in every phase and overrides a simultaneous rising clock edge, keeping wave zero through repeated rising edges while low; deasserting rst_n has no immediate effect, the next rising edge begins a fresh ascent to 5'b00001, and every later reset interruption or repeated assertion restarts or retains this reset condition.
+
+Wave is unknown before any reset, becomes 5'b00000 immediately when rst_n is asserted, remains zero while reset is held and upon release until the first active rising edge, then is observed after successive rising edges as 1 through 31, holds 31 for the turn edge, falls through 30 to 0, holds 0 for the turn edge, and repeats without a completion interval; because each row is sampled before its active edge, a row reports the value produced by the preceding edge, and any reset assertion immediately clears and restarts this timing.
+
+Equivalently, in the ascending direction a rising edge changes wave from any value 0 through 30 to wave + 1. At 31, the next rising edge leaves wave at 31 and changes the direction to descending. In the descending direction a rising edge changes wave from any value 31 through 1 to wave - 1. At 0, the next rising edge leaves wave at 0 and changes the direction to ascending. These laws cover every possible five-bit wave value in either direction.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst_n | wave |
+|---|---|---|
+| 0 | 1 | 5'x |
+
+### stimulus 1
+| cycle | rst_n | wave |
+|---|---|---|
+| 0 | 0 | 5'b00000 |
+| 1 | 1 | 5'b00000 |
+| 2 | 1 | 5'b00001 |
+
+### stimulus 2
+| cycle | rst_n | wave |
+|---|---|---|
+| 0 | 0 | 5'b00000 |
+| 1 | 0 | 5'b00000 |
+| 2 | 1 | 5'b00000 |
+| 3 | 1 | 5'b00001 |
+
+### stimulus 3
+| cycle | rst_n | wave |
+|---|---|---|
+| 0 | 0 | 5'b00000 |
+| 1 | 1 | 5'b00000 |
+| 2 | 1 | 5'b00001 |
+| 3 | 1 | 5'b00010 |
+| 4 | 1 | 5'b00011 |
+| 5 | 1 | 5'b00100 |
+| 6 | 1 | 5'b00101 |
+| 7 | 1 | 5'b00110 |
+| 8 | 1 | 5'b00111 |
+| 9 | 1 | 5'b01000 |
+| 10 | 1 | 5'b01001 |
+| 11 | 1 | 5'b01010 |
+| 12 | 1 | 5'b01011 |
+| 13 | 1 | 5'b01100 |
+| 14 | 1 | 5'b01101 |
+| 15 | 1 | 5'b01110 |
+| 16 | 1 | 5'b01111 |
+| 17 | 1 | 5'b10000 |
+| 18 | 1 | 5'b10001 |
+| 19 | 1 | 5'b10010 |
+| 20 | 1 | 5'b10011 |
+| 21 | 1 | 5'b10100 |
+| 22 | 1 | 5'b10101 |
+| 23 | 1 | 5'b10110 |
+| 24 | 1 | 5'b10111 |
+| 25 | 1 | 5'b11000 |
+| 26 | 1 | 5'b11001 |
+| 27 | 1 | 5'b11010 |
+| 28 | 1 | 5'b11011 |
+| 29 | 1 | 5'b11100 |
+| 30 | 1 | 5'b11101 |
+| 31 | 1 | 5'b11110 |
+| 32 | 1 | 5'b11111 |
+| 33 | 1 | 5'b11111 |
+| 34 | 1 | 5'b11110 |
+| 35 | 1 | 5'b11101 |
+| 36 | 1 | 5'b11100 |
+| 37 | 1 | 5'b11011 |
+| 38 | 1 | 5'b11010 |
+| 39 | 1 | 5'b11001 |
+| 40 | 1 | 5'b11000 |
+| 41 | 1 | 5'b10111 |
+| 42 | 1 | 5'b10110 |
+| 43 | 1 | 5'b10101 |
+| 44 | 1 | 5'b10100 |
+| 45 | 1 | 5'b10011 |
+| 46 | 1 | 5'b10010 |
+| 47 | 1 | 5'b10001 |
+| 48 | 1 | 5'b10000 |
+| 49 | 1 | 5'b01111 |
+| 50 | 1 | 5'b01110 |
+| 51 | 1 | 5'b01101 |
+| 52 | 1 | 5'b01100 |
+| 53 | 1 | 5'b01011 |
+| 54 | 1 | 5'b01010 |
+| 55 | 1 | 5'b01001 |
+| 56 | 1 | 5'b01000 |
+| 57 | 1 | 5'b00111 |
+| 58 | 1 | 5'b00110 |
+| 59 | 1 | 5'b00101 |
+| 60 | 1 | 5'b00100 |
+| 61 | 1 | 5'b00011 |
+| 62 | 1 | 5'b00010 |
+| 63 | 1 | 5'b00001 |
+| 64 | 1 | 5'b00000 |
+| 65 | 1 | 5'b00000 |
+| 66 | 1 | 5'b00001 |
+| 67 | 1 | 5'b00010 |
+| 68 | 1 | 5'b00011 |
+| 69 | 1 | 5'b00100 |
+| 70 | 1 | 5'b00101 |
+| 71 | 1 | 5'b00110 |
+| 72 | 1 | 5'b00111 |
+| 73 | 1 | 5'b01000 |
+| 74 | 1 | 5'b01001 |
+| 75 | 1 | 5'b01010 |
+| 76 | 1 | 5'b01011 |
+| 77 | 1 | 5'b01100 |
+| 78 | 1 | 5'b01101 |
+| 79 | 1 | 5'b01110 |
+| 80 | 1 | 5'b01111 |
+| 81 | 1 | 5'b10000 |
+| 82 | 1 | 5'b10001 |
+| 83 | 1 | 5'b10010 |
+| 84 | 1 | 5'b10011 |
+| 85 | 1 | 5'b10100 |
+| 86 | 1 | 5'b10101 |
+| 87 | 1 | 5'b10110 |
+| 88 | 1 | 5'b10111 |
+| 89 | 1 | 5'b11000 |
+| 90 | 1 | 5'b11001 |
+| 91 | 1 | 5'b11010 |
+| 92 | 1 | 5'b11011 |
+| 93 | 1 | 5'b11100 |
+| 94 | 1 | 5'b11101 |
+| 95 | 1 | 5'b11110 |
+| 96 | 1 | 5'b11111 |
+| 97 | 1 | 5'b11111 |
+| 98 | 1 | 5'b11110 |
+| 99 | 1 | 5'b11101 |
+| 100 | 1 | 5'b11100 |
+| 101 | 1 | 5'b11011 |
+| 102 | 1 | 5'b11010 |
+| 103 | 1 | 5'b11001 |
+| 104 | 1 | 5'b11000 |
+| 105 | 1 | 5'b10111 |
+| 106 | 1 | 5'b10110 |
+| 107 | 1 | 5'b10101 |
+| 108 | 1 | 5'b10100 |
+| 109 | 1 | 5'b10011 |
+| 110 | 1 | 5'b10010 |
+| 111 | 1 | 5'b10001 |
+| 112 | 1 | 5'b10000 |
+| 113 | 1 | 5'b01111 |
+| 114 | 1 | 5'b01110 |
+| 115 | 1 | 5'b01101 |
+| 116 | 1 | 5'b01100 |
+| 117 | 1 | 5'b01011 |
+| 118 | 1 | 5'b01010 |
+| 119 | 1 | 5'b01001 |
+| 120 | 1 | 5'b01000 |
+| 121 | 1 | 5'b00111 |
+| 122 | 1 | 5'b00110 |
+| 123 | 1 | 5'b00101 |
+| 124 | 1 | 5'b00100 |
+| 125 | 1 | 5'b00011 |
+| 126 | 1 | 5'b00010 |
+| 127 | 1 | 5'b00001 |
+| 128 | 1 | 5'b00000 |
+| 129 | 1 | 5'b00000 |
+| 130 | 1 | 5'b00001 |
+| 131 | 1 | 5'b00010 |
+| 132 | 1 | 5'b00011 |
+| 133 | 1 | 5'b00100 |
+| 134 | 1 | 5'b00101 |
+| 135 | 1 | 5'b00110 |
+| 136 | 1 | 5'b00111 |
+| 137 | 1 | 5'b01000 |
+| 138 | 1 | 5'b01001 |
+| 139 | 1 | 5'b01010 |
+| 140 | 1 | 5'b01011 |
+| 141 | 1 | 5'b01100 |
+| 142 | 1 | 5'b01101 |
+| 143 | 1 | 5'b01110 |
+| 144 | 1 | 5'b01111 |
+| 145 | 1 | 5'b10000 |
+| 146 | 1 | 5'b10001 |
+| 147 | 1 | 5'b10010 |
+| 148 | 1 | 5'b10011 |
+| 149 | 1 | 5'b10100 |
+| 150 | 1 | 5'b10101 |
+| 151 | 1 | 5'b10110 |
+| 152 | 1 | 5'b10111 |
+| 153 | 1 | 5'b11000 |
+| 154 | 1 | 5'b11001 |
+| 155 | 1 | 5'b11010 |
+| 156 | 1 | 5'b11011 |
+| 157 | 1 | 5'b11100 |
+| 158 | 1 | 5'b11101 |
+| 159 | 1 | 5'b11110 |
+| 160 | 1 | 5'b11111 |
+| 161 | 1 | 5'b11111 |
+| 162 | 1 | 5'b11110 |
+| 163 | 1 | 5'b11101 |
+| 164 | 1 | 5'b11100 |
+| 165 | 1 | 5'b11011 |
+| 166 | 1 | 5'b11010 |
+| 167 | 1 | 5'b11001 |
+| 168 | 1 | 5'b11000 |
+| 169 | 1 | 5'b10111 |
+| 170 | 1 | 5'b10110 |
+| 171 | 1 | 5'b10101 |
+| 172 | 1 | 5'b10100 |
+| 173 | 1 | 5'b10011 |
+| 174 | 1 | 5'b10010 |
+| 175 | 1 | 5'b10001 |
+| 176 | 1 | 5'b10000 |
+| 177 | 1 | 5'b01111 |
+| 178 | 1 | 5'b01110 |
+| 179 | 1 | 5'b01101 |
+| 180 | 1 | 5'b01100 |
+| 181 | 1 | 5'b01011 |
+| 182 | 1 | 5'b01010 |
+| 183 | 1 | 5'b01001 |
+| 184 | 1 | 5'b01000 |
+| 185 | 1 | 5'b00111 |
+| 186 | 1 | 5'b00110 |
+| 187 | 1 | 5'b00101 |
+| 188 | 1 | 5'b00100 |
+| 189 | 1 | 5'b00011 |
+| 190 | 1 | 5'b00010 |
+
+### stimulus 4
+| cycle | rst_n | wave |
+|---|---|---|
+| 0 | 0 | 5'b00000 |
+| 1 | 1 | 5'b00000 |
+| 2 | 1 | 5'b00001 |
+| 3 | 1 | 5'b00010 |
+| 4 | 1 | 5'b00011 |
+| 5 | 1 | 5'b00100 |
+| 6 | 1 | 5'b00101 |
+| 7 | 1 | 5'b00110 |
+| 8 | 1 | 5'b00111 |
+| 9 | 0 | 5'b00000 |
+| 10 | 1 | 5'b00000 |
+| 11 | 1 | 5'b00001 |
+
+### stimulus 5
+| cycle | rst_n | wave |
+|---|---|---|
+| 0 | 0 | 5'b00000 |
+| 1 | 1 | 5'b00000 |
+| 2 | 1 | 5'b00001 |
+| 3 | 1 | 5'b00010 |
+| 4 | 1 | 5'b00011 |
+| 5 | 1 | 5'b00100 |
+| 6 | 1 | 5'b00101 |
+| 7 | 1 | 5'b00110 |
+| 8 | 1 | 5'b00111 |
+| 9 | 1 | 5'b01000 |
+| 10 | 1 | 5'b01001 |
+| 11 | 1 | 5'b01010 |
+| 12 | 1 | 5'b01011 |
+| 13 | 1 | 5'b01100 |
+| 14 | 1 | 5'b01101 |
+| 15 | 1 | 5'b01110 |
+| 16 | 1 | 5'b01111 |
+| 17 | 1 | 5'b10000 |
+| 18 | 1 | 5'b10001 |
+| 19 | 1 | 5'b10010 |
+| 20 | 1 | 5'b10011 |
+| 21 | 1 | 5'b10100 |
+| 22 | 1 | 5'b10101 |
+| 23 | 1 | 5'b10110 |
+| 24 | 1 | 5'b10111 |
+| 25 | 1 | 5'b11000 |
+| 26 | 1 | 5'b11001 |
+| 27 | 1 | 5'b11010 |
+| 28 | 1 | 5'b11011 |
+| 29 | 1 | 5'b11100 |
+| 30 | 1 | 5'b11101 |
+| 31 | 1 | 5'b11110 |
+| 32 | 1 | 5'b11111 |
+| 33 | 1 | 5'b11111 |
+| 34 | 1 | 5'b11110 |
+| 35 | 0 | 5'b00000 |
+| 36 | 1 | 5'b00000 |
+
+### stimulus 6
+| cycle | rst_n | wave |
+|---|---|---|
+| 0 | 0 | 5'b00000 |
+| 1 | 1 | 5'b00000 |
+| 2 | 0 | 5'b00000 |
+| 3 | 1 | 5'b00000 |
+| 4 | 1 | 5'b00001 |
+
+### stimulus 7
+| cycle | rst_n | wave |
+|---|---|---|
+| 0 | 0 | 5'b00000 |
+| 1 | 1 | 5'b00000 |
+| 2 | 1 | 5'b00001 |
+| 3 | 1 | 5'b00010 |
+| 4 | 0 | 5'b00000 |

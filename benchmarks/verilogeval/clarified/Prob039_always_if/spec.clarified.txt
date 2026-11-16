@@ -1,0 +1,89 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- sel_b1: input 1 bit.
+- sel_b2: input 1 bit.
+- out_assign: output 1 bit.
+- out_always: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. The module has no state elements. From power-up, including before any edge has occurred, out_assign and out_always are both defined by the current inputs according to the Behaviour section; neither output has an uninitialised interval.
+
+4. Timing.
+
+out_assign is combinational with zero clock-cycle latency from a, b, sel_b1, and sel_b2. out_always is combinational with zero clock-cycle latency from the same four inputs. Neither output is a pulse or periodic signal, and the circuit has no clock, period, edge-triggered delay, transaction, completion event, or retained result.
+
+For the evaluated trace, each row samples the settled combinational outputs from that row's current inputs before the trace step. The full-cycle observation convention would place row k at k times timing.step_ns after settling when that quantity is supplied; it does not imply a 10 ns clock tick. This observation convention does not create a circuit period or delay, and this interface supplies no numeric timing.step_ns or timing.sample_offset_ns.
+
+5. Behaviour.
+
+For every input combination, both outputs have the same value: out_assign = out_always = b when sel_b1 and sel_b2 are both 1; otherwise out_assign = out_always = a.
+
+When sel_b1 and sel_b2 are not both 1, a continuously and combinationally determines both outputs; when they are both 1, a has no effect. This applies immediately to simultaneous changes, interruptions, and repeated changes, with no transaction state or retention.
+
+When sel_b1 and sel_b2 are both 1, b continuously and combinationally determines both outputs; otherwise b has no effect. This applies immediately to simultaneous changes, interruptions, and repeated changes, with no transaction state or retention.
+
+With sel_b2 equal to 1, sel_b1 equal to 1 selects b and sel_b1 equal to 0 selects a for both outputs; with sel_b2 equal to 0, sel_b1 has no effect and both outputs select a. All changes, including simultaneous, interrupted, and repeated changes, take effect combinationally without state or retention.
+
+With sel_b1 equal to 1, sel_b2 equal to 1 selects b and sel_b2 equal to 0 selects a for both outputs; with sel_b1 equal to 0, sel_b2 has no effect and both outputs select a. All changes, including simultaneous, interrupted, and repeated changes, take effect combinationally without state or retention.
+
+out_assign continuously equals b when sel_b1 and sel_b2 are both 1 and otherwise equals a. It has no reset behavior, capture or completion edge, latency, hold or clear interval, or restart protocol; under pre-edge row semantics it reflects that row's current inputs rather than a value captured on an edge.
+
+out_always continuously equals b when sel_b1 and sel_b2 are both 1 and otherwise equals a. It has no reset behavior, capture or completion edge, latency, hold or clear interval, or restart protocol; under pre-edge row semantics it reflects that row's current inputs rather than a value captured on an edge.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | sel_b1 | sel_b2 | out_assign | out_always |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | a | b | sel_b1 | sel_b2 | out_assign | out_always |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | a | b | sel_b1 | sel_b2 | out_assign | out_always |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 0 | 0 | 0 |
+
+### stimulus 3
+| cycle | a | b | sel_b1 | sel_b2 | out_assign | out_always |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 1 | 1 |
+
+### stimulus 4
+| cycle | a | b | sel_b1 | sel_b2 | out_assign | out_always |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 1 | 1 |
+
+### stimulus 5
+| cycle | a | b | sel_b1 | sel_b2 | out_assign | out_always |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 1 | 1 |
+
+### stimulus 6
+| cycle | a | b | sel_b1 | sel_b2 | out_assign | out_always |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 | 1 | 1 |
+
+### stimulus 7
+| cycle | a | b | sel_b1 | sel_b2 | out_assign | out_always |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 1 | 0 | 0 |

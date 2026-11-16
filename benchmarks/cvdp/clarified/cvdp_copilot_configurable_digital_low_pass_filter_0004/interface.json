@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_configurable_digital_low_pass_filter_0004",
+  "toplevel": "advanced_decimator_with_adaptive_peak_detection",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

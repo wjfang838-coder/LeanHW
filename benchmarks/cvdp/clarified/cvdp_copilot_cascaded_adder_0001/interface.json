@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_cascaded_adder_0001",
+  "toplevel": "cascaded_adder",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

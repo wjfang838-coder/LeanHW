@@ -1,0 +1,215 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a combinational RTL (using SystemVerilog) module to implement a QAM16 demapper with error detection based on interpolated values. **QAM16** (16-Quadrature Amplitude Modulation) is a modulation scheme that represents data as combinations of four amplitude levels and four phase states, resulting in 16 unique symbols mapped in a 2D I/Q plane. The module converts QAM16 I/Q samples back into bit streams, checks the interpolated values for potential noise or errors, and sets an error flag if any discrepancies are detected.
+
+## Module Name
+`qam16_demapper_interpolated`
+
+## Parameters
+
+| Parameter   | Description                                    | Default | Constraints                                     |
+|-------------|------------------------------------------------|---------|-------------------------------------------------|
+| `N`         | Number of original input symbols               | 4       | ≥ 2 and a multiple of 2 (e.g., 2, 4, 6, 8, etc.)|
+| `OUT_WIDTH` | Bit width of each output symbol (fixed)        | 4       | Fixed at 4                                      |
+| `IN_WIDTH`  | Bit width of I/Q components (fixed)            | 3       | Fixed at 3                                      |
+
+## Inputs and Outputs
+
+### Inputs
+
+| Name | Width                | Description                                                                                     |
+|------|----------------------|-------------------------------------------------------------------------------------------------|
+| `I`  | `(N + N/2)*IN_WIDTH` | Packed input vector containing real (I) components of QAM16 symbols. The samples are organized in a repeating pattern: **mapped sample**, **interpolated sample**, **mapped sample**. Each `IN_WIDTH` segment represents a signed integer. |
+| `Q`  | `(N + N/2)*IN_WIDTH` | Packed input vector containing imaginary (Q) components of QAM16 symbols. The organization follows the same pattern as `I`: **mapped sample**, **interpolated sample**, **mapped sample**. Each `IN_WIDTH` segment represents a signed integer. |
+
+### Outputs
+
+| Name        | Width         | Description                                                                                  |
+|-------------|---------------|----------------------------------------------------------------------------------------------|
+| `bits`      | `N*OUT_WIDTH` | Packed output vector representing the original bit stream decoded from the input I/Q values. |
+| `error_flag`| 1             | Global flag indicating whether any errors were detected in the interpolated values.          |
+
+---
+
+## Example Inputs and Outputs for \( N = 4 \)
+### Inputs
+
+1. **Real (I) Input Vector**:
+   - Width: \((N + N/2) * IN\_WIDTH = (4 + 2) * 3 = 18\) bits
+   - Example:
+     ```text
+     I = [Mapped 1, Interpolated 1, Mapped 2, Mapped 3, Interpolated 2, Mapped 4]
+     I = [-3, 0, 1, 1, -1, 3]
+     ```
+     Each value is a 3-bit signed integer.
+
+2. **Imaginary (Q) Input Vector**:
+   - Width: \((N + N/2) * IN\_WIDTH = 18\) bits
+   - Example:
+     ```text
+     Q = [Mapped 1, Interpolated 1, Mapped 2, Mapped 3, Interpolated 2, Mapped 4]
+     Q = [-1, 2, 1, 3, -3, -3]
+     ```
+     Each value is a 3-bit signed integer.
+
+### Outputs
+
+1. **Bits Vector**:
+   - Width: \(N * OUT\_WIDTH = 4 * 4 = 16\) bits
+   - Example Mapping:
+     ```text
+     bits = [MSB_1|LSB_1, MSB_2|LSB_2, MSB_3|LSB_3, MSB_4|LSB_4]
+     bits = [10|01, 01|10, 10|11, 11|00]
+     ```
+     Each 4-bit segment represents the demapped symbol, combining 2 bits from the real (`I`) component and 2 bits from the imaginary (`Q`) component.
+
+2. **Error Flag**:
+   - Width: \(1\) bit
+   - Example:
+     ```text
+     error_flag = 1
+     ```
+     Indicates that at least one interpolated value deviated beyond the acceptable threshold.
+
+---
+
+
+## Behavioral Definitions
+
+### Input Parsing
+The input vectors consist of alternating **mapped** and **interpolated** values, structured in a repeating pattern. For every group of input symbols, the sequence includes the first mapped value, the interpolated value between the first and second mapped values, and the second mapped value. This pattern repeats across the entire input, ensuring that the real (`I`) and imaginary (`Q`) components follow the same structure.
+
+### Error Detection
+
+The expected interpolated values for both `I` and `Q` mapped components are calculated as the average of two mapped values that surround the interpolated position. This is done by summing the two mapped values and dividing the result by 2. To ensure precision and prevent overflow, the calculation uses a signal size of `IN_WIDTH + 1` bits, as the addition of two signed values can produce a result with an extra bit due to carry.
+
+The difference between the interpolated values and the expected values is calculated to measure deviations. This subtraction operation also requires a signal size of `IN_WIDTH + 1` bits to represent all possible outcomes. The absolute value of the difference is then computed to quantify the magnitude of deviation, ensuring the sign is irrelevant. The error flag is set to `1` if the absolute difference exceeds a predefined threshold (e.g., `ERROR_THRESHOLD`).
+
+### Mapping I/Q Components to Bits
+Each I/Q component is converted back into a 4-bit representation. The most significant 2 bits (MSBs) are derived from the `I` (real) component, where the normalized amplitude levels of the QAM16 constellation points (`-3`, `-1`, `1`, `3`) map to binary values as follows:
+- `-3`: `00`
+- `-1`: `01`
+- `1`: `10`
+- `3`: `11`
+
+Similarly, the least significant 2 bits (LSBs) are derived from the `Q` (imaginary) component using the same mapping.
+
+### Output Arrangement
+The output `bits` vector contains the demapped bit stream for all mapped symbols in the input. Each segment of `OUT_WIDTH` bits represents a mapped output derived from the corresponding mapped `I` and `Q` components of the input.
+
+---
+
+## Timing and Synchronization
+The module operates combinationally, with no clock or reset signals. Outputs are updated immediately based on the current input values.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a combinational RTL (using SystemVerilog) module to implement a QAM16 demapper with error detection based on interpolated values. **QAM16** (16-Quadrature Amplitude Modulation) is a modulation scheme that represents data as combinations of four amplitude levels and four phase states, resulting in 16 unique symbols mapped in a 2D I/Q plane. The module converts QAM16 I/Q samples back into bit streams, checks the interpolated values for potential noise or errors, and sets an error flag if any discrepancies are detected.
+
+Named module interface binding
+
+Module: qam16_demapper_interpolated.
+Connect ports by name. The enumeration below does not establish positional order.
+- I: input; 18 bits in the concrete formal instance.
+- Q: input; 18 bits in the concrete formal instance.
+- bits: output; 16 bits in the concrete formal instance.
+- error_flag: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+- Verification-visible parameter `ERROR_THRESHOLD` (not an additional port): The harness reads ERROR_THRESHOLD as the strict error-comparison threshold; its declaration type, default, and range are unverified.
+- Verification-visible parameter `IN_WIDTH` (not an additional port): The harness reads IN_WIDTH to determine each signed packed segment width; the original source gives default 3 and fixes the intended component width at 3.
+- Verification-visible parameter `N` (not an additional port): The harness reads and overrides N as the mapped-symbol count; the original source gives default 4 and requires an even value of at least 2.
+
+1. Module and ports.
+
+The module name is qam16_demapper_interpolated. The public parameters are N, default 4, constrained to an even integer at least 2; OUT_WIDTH, default 4 and fixed at 4; IN_WIDTH, default 3 and fixed at 3; and the harness-visible ERROR_THRESHOLD, completed by Implementation choice C2 as an integer-like parameter with default 0. The source and integration evidence do not establish ERROR_THRESHOLD's declaration type, default, or range; its stated type and default are a compatible completion, not a source fact.
+
+The canonical named connections are: input I, width (N + N/2)*IN_WIDTH; input Q, width (N + N/2)*IN_WIDTH; output bits, width N*OUT_WIDTH; and output error_flag, width 1. These names and directions are normative. The integration answer verifies named binding but not positional declaration order. Therefore this document guarantees the named wiring I=>I, Q=>Q, bits=>bits, and error_flag=>error_flag as portable consumer guidance. A caller possessing the actual module declaration may instantiate positionally in that declaration's order; this document makes no positional-order guarantee.
+
+2. Reset.
+
+There is no clock, reset input, stored state, reset assertion, reset edge, or reset release. At power-up before any reset event, and at all later times, both outputs are the combinational functions of the current settled inputs and parameter values stated below. There is consequently no uninitialized interval, reset value, or first step after release.
+
+3. Timing.
+
+bits is combinational and has no reset, capture, completion, hold, clear, or restart edge. error_flag is combinational and has no reset, capture, completion, hold, clear, or restart edge. There is no acceptance/state-entry edge E0 and no cycle latency, pulse, transaction, timeout, serialized temporal output, or periodic signal. After any I, Q, or ERROR_THRESHOLD change at time T, each affected output changes only by combinational propagation to the function of the current inputs and remains there while those values remain unchanged.
+
+The finite Lean trace uses full-cycle rows solely as an observation grid: row k denotes k * 1 ns after settling and is sampled with an offset of 0.001 ns. The interface has no physical clock input, so a row is not an implicit clock tick, does not accept a transaction, and does not advance state. The trace has no reset assertion or active-edge scenario and does not impose timing restrictions on the combinational RTL.
+
+4. Behaviour.
+
+Let M = N + N/2. Number the signed IN_WIDTH-bit sequence elements from 1 through M. Element k is the slice [M*IN_WIDTH-(k-1)*IN_WIDTH-1 -: IN_WIDTH] of I, and identically of Q, so element 1 is at the most-significant end and increasing k proceeds toward the least-significant end.
+
+For every k from 0 through N/2-1, elements 3k+1, 3k+2, and 3k+3 are one independent triple: mapped symbol 2k+1, interpolated sample k+1, and mapped symbol 2k+2. The boundary between triples therefore contains two adjacent mapped elements. bits decodes only the first and third elements of each triple. error_flag checks only the middle element against the two mapped neighbors in that same triple.
+
+For every mapped I or Q component, -3 maps to 00, -1 maps to 01, 1 maps to 10, and 3 maps to 11. Each output symbol is I_code|Q_code. Symbols appear in mapped-element order, with symbol 1 in the most-significant OUT_WIDTH bits and successive symbols proceeding toward the least-significant end. Any change to I is reflected combinationally after propagation delay, with no acceptance event or transaction state. Any change to Q is reflected combinationally after propagation delay, with no acceptance event or transaction state.
+
+For each component of each triple, the expected interpolation is the exact arithmetic mean (mapped_a + mapped_b)/2, retaining a half-unit for an odd signed sum. The subtraction and magnitude comparison preserve that exact value; there is no integer truncation of the mean. error_flag is 1 exactly if at least one absolute difference between an interpolated middle component and its corresponding exact mean is strictly greater than ERROR_THRESHOLD; otherwise it is 0. Changes to either input or ERROR_THRESHOLD are evaluated continuously and independently of any edge.
+
+Amendment A1 (question Q9). The original example clause is exactly: "bits = [10|01, 01|10, 10|11, 11|00]". The certain answer law states exactly: "The stated per-component amplitude table is normative for the exact example: map -3,-1,1,3 to 00,01,10,11 independently, concatenate I_code before Q_code for mapped positions 1, 3, 4, and 6, and preserve that symbol order from most-significant to least-significant. The four example symbols are therefore 00|01, 10|10, 10|11, and 11|00, giving 16'h1abc. The published 10|01 and 01|10 entries for its first two symbols are incorrect." Only for the exact N=4 example vectors identified in Q9, that corrected example law supersedes the quoted original example clause. The amplitude table and all ordinary behavior remain unchanged.
+
+Amendment A2 (question Q10). The original clause is exactly: "The input vectors consist of alternating **mapped** and **interpolated** values, structured in a repeating pattern." The certain answer law states exactly: "For every k from 0 through N/2-1, serialized elements 3k+1, 3k+2, and 3k+3 form one independent [mapped symbol 2k+1, interpolated sample k+1, mapped symbol 2k+2] triple in both I and Q. Thus element 3k+3 is immediately followed by mapped element 3(k+1)+1 at a triple boundary; the complete vector does not strictly alternate mapped and interpolated elements. bits decodes the first and third elements of each triple, and error_flag checks only the middle element against the two mapped neighbors in that same triple." For supported even N greater than 2, at and across triple boundaries, this corrected grouping law supersedes only the quoted strict-alternation implication. The original mapped/interpolated/mapped triple requirement remains normative.
+
+Implementation choice C1. Only when a mapped component is outside {-3, -1, 1, 3}, assign that component code 00 so the fixed-width bits output is determined; the concrete N=4 Lean verification instance makes the same choice. No source or certain answer fixes such an encoding, and Q1/Q2 remain epistemically unresolved; this is a compatible implementation completion, not a source fact and not hardware X. It does not alter any listed amplitude or the public widths, packing, and combinational laws.
+
+Implementation choice C2. Expose ERROR_THRESHOLD as an integer-like public parameter with default 0, and bind the concrete N=4 Lean verification instance to that default because its concrete input interface has no threshold field. This is a compatible interface completion, not a source-established default or type. Apply the strict comparison for whatever value the public parameter is bound to; this choice imposes no additional range restriction.
+
+For N=4 and IN_WIDTH=3 specifically, sequence elements occupy [17:15], [14:12], [11:9], [8:6], [5:3], and [2:0]. The mapped elements are 1, 3, 4, and 6. In the source example I = [-3, 0, 1, 1, -1, 3] and Q = [-1, 2, 1, 3, -3, -3], the normative result is [00|01, 10|10, 10|11, 11|00], which is 16'h1abc. The interpolated values participate only in error_flag.
+
+5. Worked trace.
+
+The evaluated trace below is normative for the concrete N=4, OUT_WIDTH=4, IN_WIDTH=3 verification instance with Implementation choices C1 and C2 and the stated 1 ns observation grid.
+
+### stimulus 0
+| cycle | I | Q | bits | error_flag |
+|---|---|---|---|---|
+| 0 | 18'h2db6d | 18'h2db6d | 16'h0 | 0 |
+
+### stimulus 1
+| cycle | I | Q | bits | error_flag |
+|---|---|---|---|---|
+| 0 | 18'h1b6db | 18'h1b6db | 16'hffff | 0 |
+
+### stimulus 2
+| cycle | I | Q | bits | error_flag |
+|---|---|---|---|---|
+| 0 | 18'h2db6d | 18'h1b6db | 16'h3333 | 0 |
+
+### stimulus 3
+| cycle | I | Q | bits | error_flag |
+|---|---|---|---|---|
+| 0 | 18'h0 | 18'h0 | 16'h0 | 0 |
+
+### stimulus 4
+| cycle | I | Q | bits | error_flag |
+|---|---|---|---|---|
+| 0 | 18'h1 | 18'h1 | 16'ha | 1 |
+
+### stimulus 5
+| cycle | I | Q | bits | error_flag |
+|---|---|---|---|---|
+| 0 | 18'h3ffff | 18'h3ffff | 16'h5555 | 0 |
+
+### stimulus 6
+| cycle | I | Q | bits | error_flag |
+|---|---|---|---|---|
+| 0 | 18'h20000 | 18'h20000 | 16'h0 | 1 |
+
+### stimulus 7
+| cycle | I | Q | bits | error_flag |
+|---|---|---|---|---|
+| 0 | 18'h15c5c | 18'h3151d | 16'h80 | 1 |
+
+### stimulus 8
+| cycle | I | Q | bits | error_flag |
+|---|---|---|---|---|
+| 0 | 18'h2827b | 18'h3a2ed | 16'h1abc | 1 |
+
+### stimulus 9
+| cycle | I | Q | bits | error_flag |
+|---|---|---|---|---|
+| 0 | 18'h29779 | 18'h1fa6b | 16'h3c2b | 1 |

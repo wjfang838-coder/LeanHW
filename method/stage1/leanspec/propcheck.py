@@ -1,0 +1,352 @@
+#!/usr/bin/env python3
+"""Property checking — the guarantees the prose states, against the behaviour it defines.
+
+Stage 3 asks what the specification's *definitions* leave open.  This stage asks about the
+sentences that are not definitions at all: "valid is never high for more than one cycle",
+"exactly one output is asserted", "ack follows req within two cycles".  Such a clause introduces
+no fork and no hole -- there is nothing to choose and nothing to fill in -- so all four queries
+walk straight past it, and it can still be wrong in two ways that matter:
+
+  * it can **contradict the definitions** while both halves remain individually satisfiable, so
+    `queryDeadness` finds nothing (every context admits something) and `queryDifference` finds
+    nothing (there is only one reading), and the specification is nonetheless unimplementable;
+  * it can be **about nothing** -- an antecedent no legal context reaches -- in which case it
+    passes every check, constrains no design, and reads in the report as a satisfied guarantee.
+
+Both are findings, and neither is reachable from `Core.lean`.
+
+## What is checked, and in what frame
+
+Exactly the frame stage 3 uses: the enumerated `ctxUniverse`, the enumerated `obsUniverse`, the
+same `legal`.  A property is a `Property Ctx Obs` -- an antecedent and a requirement -- and every
+question below closes by `decide` over a finite domain, with a kernel-checked certificate, on the
+same terms as every other finding this pipeline reports.
+
+That restriction is the design, not a shortcut.  The alternative -- a temporal logic and a model
+checker -- would introduce a second notion of what a trace is, a second thing to trust, and a
+class of finding that no certificate covers.  Temporality already lives inside `Ctx`, which is a
+driven trace, so "within two cycles" is an ordinary predicate over a context.
+
+A clause that does not fit the frame is recorded as **inexpressible**, with its reason, and is
+never approximated.  An approximated guarantee that passes is worse than no guarantee: the report
+says checked, and what was checked was a different claim.
+
+## The four questions
+
+    entailment      does every admitted observation satisfy it, at every legal context?
+    vacuity         is its antecedent reachable at all?  is anything admitted where it fires?
+    pinning         does it eliminate readings of an open fork?
+    independence    do all readings satisfy it -- so it restates the definitions?
+
+`pinning` is why this stage runs *before* witness synthesis rather than after.  If exactly one
+reading of a fork satisfies a guarantee the prose itself states, then the prose has answered its
+own question, and asking the designer would invite an answer that contradicts the specification.
+Nothing downstream would catch that: the query would come back `decided`, the decision would name
+the chosen reading, and the property would quietly be violated by the decided spec.  So a fork a
+property pins is retired here, with the property's clause as its basis, and never reaches stage 5.
+
+`independence` is the cheap opposite: a property every reading satisfies tells the designer
+nothing and is dropped from the question set rather than carried as a finding.
+
+## Where the certificate is stated
+
+Same two-pass shape as `diagnose`.  The first file *searches* -- it prints, per property, whether
+it is entailed and at which context it is not.  The second file states one theorem per finding,
+about the context term the search returned, so the counterexample reported and the counterexample
+proved are the same term by construction rather than by care.
+"""
+from __future__ import annotations
+
+import json
+import os
+
+from . import cases, diagnose, leanrun, schema
+
+CERT_S = 1800
+
+
+def _props(ext: dict) -> list[dict]:
+    return [p for p in ext.get("properties", []) if p.get("expressible")]
+
+
+def _cands(ext: dict) -> list[str]:
+    """The candidate space a property is checked against, as Lean pairs.
+
+    Labelled `"<choice>:<tag>"` -- the same tag vocabulary stage 4 predicts in and stage 5 scores
+    in -- so a `pinning` result names a fork and a reading without a second naming scheme to keep
+    in step.
+
+    Every reading of every open fork, flat.  Not the cross-product: a property that pins reading
+    `sync` of the reset fork pins it whatever the counter fork is doing, and enumerating the
+    combinations would cost exponentially to report the same pin N times.  The price is that a
+    property only two readings *jointly* violate is not detected here -- it surfaces at stage 6
+    instead, as a decided spec that fails `decided_properties`, which is the correct place for a
+    finding about a combination that only exists once both forks are closed.
+    """
+    return [f'("{k["name"]}:{c["tag"]}", admits cfg_{k["name"]}_{c["tag"]})'
+            for k in ext["choices"] for c in k["candidates"]]
+
+
+HEADER = """\
+-- GENERATED by leanspec/propcheck.py -- do not edit.
+-- Source of truth: extraction.json (which properties exist) and Partial.lean (what they mean).
+import Partial
+open LeanSpec
+
+set_option maxRecDepth 100000
+set_option maxHeartbeats 4000000
+"""
+
+
+def gen_propcheck(ext: dict) -> str:
+    props = _props(ext)
+    L = [HEADER, ""]
+    L += diagnose._cfg_defs(ext) + [""]
+    cands = _cands(ext)
+    for p in props:
+        n = p["name"]
+        L.append(f"-- property `{n}`: {p['statement'][:100]}")
+        L.append(f'#eval emitProperty case "default" prop_{n} (admits defaultCfg)')
+        L.append(f'#eval emitPropertyVacuity case "default" prop_{n} (admits defaultCfg)')
+        if cands:
+            L.append(f"#eval emitPropertyPin case prop_{n} [{', '.join(cands)}]")
+        L.append("")
+    return "\n".join(L) + "\n"
+
+
+def gen_certificates(ext: dict, findings: list[dict], kernel: bool = False) -> tuple[str, dict]:
+    """One theorem per property finding, about the term the search returned."""
+    L = [HEADER, ""]
+    L += diagnose._cfg_defs(ext) + [""]
+    owner: dict[str, dict] = {}
+    dec = "decide +kernel" if kernel else "decide"
+    ent = {f["property"]: f for f in findings if f.get("query") == "property"}
+    vac = {f["property"]: f for f in findings if f.get("query") == "property_vacuity"}
+    pin = {f["property"]: f for f in findings if f.get("query") == "property_pin"}
+
+    def add(thm: str, stmt: str, f: dict) -> None:
+        L.append(f"theorem {thm} :\n    {stmt} := by {dec}")
+        L.append(f"#print axioms {thm}")
+        owner[thm] = f
+
+    for p in _props(ext):
+        n = p["name"]
+        e = ent.get(n)
+        if e is not None and not e.get("entailed"):
+            # The strongest finding this pipeline produces: the definitions permit an
+            # observation the stated guarantee forbids, at a context both call legal.  Three
+            # theorems, because the claim is a conjunction and a reader has to be able to see
+            # which part is being trusted -- the context is legal, the definitions admit that
+            # observation there, and the property rejects it.
+            c = f"({e['ctx_lean']})"
+            add(f"prop_legal_{n}", f"legal {c} = true", e)
+            add(f"prop_violated_{n}",
+                f"entails (admits defaultCfg) prop_{n} obsUniverse ctxUniverse legal\n"
+                f"      = false", e)
+            add(f"prop_witness_{n}",
+                f"(violationAt (admits defaultCfg) prop_{n} obsUniverse {c}).isSome = true", e)
+        elif e is not None:
+            add(f"prop_entailed_{n}",
+                f"entails (admits defaultCfg) prop_{n} obsUniverse ctxUniverse legal = true", e)
+        v = vac.get(n)
+        if v is not None and v.get("vacuous"):
+            add(f"prop_vacuous_{n}", f"vacuous prop_{n} ctxUniverse legal = true", v)
+        elif v is not None and v.get("inert"):
+            add(f"prop_inert_{n}",
+                f"inert (admits defaultCfg) prop_{n} obsUniverse ctxUniverse legal = true", v)
+        k = pin.get(n)
+        if k is not None and k.get("status") in ("pinning", "narrowing"):
+            # `survivors` returns the labels, in `cands` order, so the certificate states the
+            # exact set rather than its size.  A theorem about the length would be satisfied by
+            # the wrong survivor, which is precisely the mistake that would retire a fork onto a
+            # reading the property does not actually single out.
+            lst = ", ".join(f'"{s}"' for s in k["survivors"])
+            add(f"prop_pin_{n}",
+                f"survivors [{', '.join(_cands(ext))}] prop_{n}\n"
+                f"      obsUniverse ctxUniverse legal = [{lst}]", k)
+    return "\n".join(L) + "\n", owner
+
+
+def check(case: cases.Case) -> dict:
+    """Run property checking for one case and write `properties.json`."""
+    with open(case.path("extraction.json")) as f:
+        ext = json.load(f)
+    props = _props(ext)
+    inexpressible = [{"name": p["name"], "statement": p["statement"],
+                      "why": p.get("why_inexpressible", ""), "basis": p["basis"]}
+                     for p in ext.get("properties", []) if not p.get("expressible")]
+
+    if not props:
+        # Not a pass.  A specification from which no property was extracted is either a
+        # specification that states no guarantees -- rare, and worth seeing -- or a stage-1
+        # extraction that did not look for any.  Reporting an empty check as "all entailed"
+        # would make the two indistinguishable, so the count is what is reported.
+        out = {"case": case.name, "stage": "properties", "ok": True, "n_properties": 0,
+               "inexpressible": inexpressible, "findings": [], "properties": [],
+               "pins": [], "certified": {}, "uncertified": {},
+               "counts": {"stated": 0, "expressible": 0, "inexpressible": len(inexpressible),
+                          "violated": 0, "vacuous": 0, "inert": 0, "pinning": 0,
+                          "narrowing": 0, "independent": 0},
+               "note": ("no expressible property was extracted, so nothing was checked -- this "
+                        "is a fact about the extraction, not a clean result")}
+        with open(case.path("properties.json"), "w") as f:
+            json.dump(out, f, indent=1)
+        cases.log(case, "properties", **out["counts"])
+        return out
+
+    src = open(case.path("sandbox", "Partial.lean"), errors="replace").read()
+    missing = [e for e in schema.check_partial(src, ext) if "prop" in e or "properties" in e]
+    if missing:
+        return {"case": case.name, "stage": "properties", "ok": False,
+                "structural_errors": missing}
+
+    # `Partial.olean` is rebuilt by stage 3 immediately before this, but this stage is allowed to
+    # run on its own, so it rebuilds too rather than depending on the order it happened to be
+    # called in.
+    pres = leanrun.run(case.path("sandbox", "Partial.lean"), emit_olean=True)
+    if not pres["ok"]:
+        return {"case": case.name, "stage": "properties", "ok": False,
+                "lean": leanrun.summarize(pres), "errors": pres["errors"][:20]}
+
+    ppath = case.path("sandbox", "PropCheck.lean")
+    with open(ppath, "w") as f:
+        f.write(gen_propcheck(ext))
+    res = leanrun.run(ppath)
+    log = res["log"]
+    if not res["ok"]:
+        with open(case.path("properties.log"), "w") as f:
+            f.write(log)
+        return {"case": case.name, "stage": "properties", "ok": False,
+                "lean": leanrun.summarize(res), "errors": res["errors"][:20]}
+
+    findings = res["findings"]
+    cpath = case.path("sandbox", "PropCertificates.lean")
+    csrc, owner = gen_certificates(ext, findings)
+    with open(cpath, "w") as f:
+        f.write(csrc)
+    cres = leanrun.run(cpath, timeout=CERT_S)
+    # The same escalation stage 3 documents, for the same three reasons: the elaborator's
+    # evaluator recurses on the C stack, counts heartbeats, and is slow, and a property scanning
+    # the whole `ctxUniverse × obsUniverse` frame is exactly the shape that hits all three.
+    if not cres["ok"] and (not cres["axioms"]
+                           or any("sorryAx" in a for a in cres["axioms"].values())
+                           or cres["exit"] == 124):
+        csrc, owner = gen_certificates(ext, findings, kernel=True)
+        with open(cpath, "w") as f:
+            f.write(csrc)
+        cres = leanrun.run(cpath, timeout=diagnose.CERT_KERNEL_S)
+        cases.log(case, "property_certificates_kernel_retry", certified=len(cres["axioms"]))
+    log += "\n" + cres["log"]
+    with open(case.path("properties.log"), "w") as f:
+        f.write(log)
+
+    certified, uncertified = {}, {}
+    for thm in owner:
+        ax = cres["axioms"].get(thm)
+        if ax is None:
+            uncertified[thm] = "no `#print axioms` line -- the declaration never elaborated"
+        elif "sorryAx" in ax:
+            uncertified[thm] = "admitted: the tactic errored and the claim rests on sorryAx"
+        else:
+            certified[thm] = ax
+
+    ent = {f["property"]: f for f in findings if f.get("query") == "property"}
+    vac = {f["property"]: f for f in findings if f.get("query") == "property_vacuity"}
+    pin = {f["property"]: f for f in findings if f.get("query") == "property_pin"}
+
+    rows, pins = [], []
+    for p in props:
+        n = p["name"]
+        e, v, k = ent.get(n, {}), vac.get(n, {}), pin.get(n, {})
+        row = {"name": n, "statement": p["statement"], "kind": p["kind"], "basis": p["basis"],
+               "entailed": e.get("entailed"),
+               "vacuous": v.get("vacuous"), "inert": v.get("inert"),
+               "status": k.get("status"),
+               "survivors": k.get("survivors", []),
+               "n_candidates": k.get("n_candidates", 0),
+               "certificate": {
+                   "entailment": (f"prop_entailed_{n}" in certified
+                                  or f"prop_violated_{n}" in certified),
+                   "witness": f"prop_witness_{n}" in certified,
+                   "vacuity": (f"prop_vacuous_{n}" in certified
+                               or f"prop_inert_{n}" in certified),
+                   "pinning": f"prop_pin_{n}" in certified}}
+        if e.get("entailed") is False:
+            # The counterexample travels with the finding in both renderings, because the
+            # designer is shown the stimulus and the certificate is stated about the term.
+            row["counterexample"] = {"ctx": e.get("ctx"), "ctx_lean": e.get("ctx_lean"),
+                                     "observation": e.get("observation"),
+                                     "admits": e.get("admits", []), "cost": e.get("cost")}
+        rows.append(row)
+
+        # A fork the property answers.  Only when the certificate closed: an uncertified pin is
+        # a search result, and retiring a question on a search result is exactly the shortcut
+        # this framework refuses everywhere else.  Only when every survivor names the same fork,
+        # too -- survivors spanning two forks say "this combination is out", which narrows
+        # nothing about either fork on its own.
+        if k.get("status") == "pinning" and f"prop_pin_{n}" in certified:
+            surv = k["survivors"][0]
+            choice, tag = surv.split(":", 1)
+            others = [c for c in k["candidates"] if c.startswith(choice + ":")]
+            if len(others) > 1:
+                pins.append({"kind": "choice", "name": choice, "resolved_to": tag,
+                             "property": n, "basis": p["basis"],
+                             "evidence": f"prop_pin_{n}",
+                             "eliminated": [c.split(":", 1)[1] for c in others if c != surv],
+                             "why": (f"the specification's own guarantee -- {p['statement']} -- "
+                                     f"is satisfied by exactly one reading of `{choice}`, so the "
+                                     f"prose answers this question and the designer is not "
+                                     f"asked")})
+
+    counts = {"stated": len(ext.get("properties", [])), "expressible": len(props),
+              "inexpressible": len(inexpressible),
+              "violated": sum(1 for r in rows if r["entailed"] is False),
+              "vacuous": sum(1 for r in rows if r["vacuous"]),
+              "inert": sum(1 for r in rows if r["inert"] and not r["vacuous"]),
+              "pinning": sum(1 for r in rows if r["status"] == "pinning"),
+              "narrowing": sum(1 for r in rows if r["status"] == "narrowing"),
+              "independent": sum(1 for r in rows if r["status"] == "independent")}
+    out = {"case": case.name, "stage": "properties",
+           "ok": not uncertified and cres["exit"] == 0,
+           "n_properties": len(props), "properties": rows, "findings": findings,
+           "inexpressible": inexpressible, "pins": pins,
+           "certified": certified, "uncertified": uncertified, "counts": counts,
+           "lean": {"propcheck": leanrun.summarize(res),
+                    "certificates": leanrun.summarize(cres)}}
+    with open(case.path("properties.json"), "w") as f:
+        json.dump(out, f, indent=1)
+    cases.log(case, "properties", ok=out["ok"], **counts, retired=len(pins))
+    return out
+
+
+def retired(case: cases.Case) -> dict:
+    """Forks a certified property already answered, as `{choice: resolved_to}`.
+
+    Read by stage 4 so a question the prose settles never becomes a witness.  An absent or
+    unreadable `properties.json` yields `{}` -- property checking is an independent stage and a
+    case run without it loses this pruning, not its correctness.
+    """
+    p = case.path("properties.json")
+    if not os.path.isfile(p):
+        return {}
+    try:
+        with open(p) as f:
+            doc = json.load(f)
+    except ValueError:
+        return {}
+    return {d["name"]: d for d in doc.get("pins", [])}
+
+
+def violations(case: cases.Case) -> list[dict]:
+    """Properties the definitions contradict, with their certified counterexamples.
+
+    A blocking result, and the only finding in this pipeline that no choice of reading can
+    repair: one of the two clauses is wrong, and which one is a question for the designer with
+    the violating trace in hand -- not a fork, because there is no reading under which both hold.
+    """
+    p = case.path("properties.json")
+    if not os.path.isfile(p):
+        return []
+    with open(p) as f:
+        doc = json.load(f)
+    return [r for r in doc.get("properties", []) if r.get("entailed") is False]

@@ -1,0 +1,78 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- A: input [1:0].
+- B: input [1:0].
+- z: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input, reset event, or stored state. At power-up, including before any edge has occurred, z is already the defined combinational comparison of the current inputs: it is 1 when the current two-bit A and B values are equal and 0 otherwise. There is therefore no first reset edge or first step after reset release, and no output or state element has a reset value or an uninitialised interval.
+
+Timing
+
+z is combinational, with zero clock-cycle latency from the current A and B inputs. There is no clock, capture edge, pulse, or periodic signal. Each normative trace row observes the output after the row's inputs have settled and before the model's no-op step; row numbering does not imply a 10 ns clock tick. The interface specifies no physical step duration or sampling offset, and the circuit has no actual period or delay law.
+
+Behaviour
+
+At all times, A participates combinationally in the equality comparison, so z is 1'b1 exactly when the current 2-bit A equals the current 2-bit B and is 1'b0 otherwise; there are no inactive levels, modes, transactions, interruptions, or event priorities, and every change or simultaneous change of A and B is reflected without an intervening capture edge.
+
+At all times, B participates combinationally in the equality comparison, so z is 1'b1 exactly when the current 2-bit B equals the current 2-bit A and is 1'b0 otherwise; there are no inactive levels, modes, transactions, interruptions, or event priorities, and every change or simultaneous change of A and B is reflected without an intervening capture edge.
+
+z is continuously 1'b1 exactly while the current 2-bit values of A and B are equal and is otherwise 1'b0, with no reset, capture edge, observation latency, initialization interval, hold or clear interval, completion phase, or restart protocol; therefore a row sampled before any edge observes the comparison of the input values present at that pre-edge sampling time.
+
+This law covers all four encodings of each two-bit input and every pairing of them. Equality produces 1; inequality produces 0. There are no disabled inputs, transactions to cancel, first-result special cases, repeated-start cases, or retained data.
+
+Worked trace
+
+The evaluated trace below is normative.
+
+### stimulus 0
+| cycle | A | B | z |
+|---|---|---|---|
+| 0 | 2'b00 | 2'b00 | 1 |
+
+### stimulus 1
+| cycle | A | B | z |
+|---|---|---|---|
+| 0 | 2'b01 | 2'b01 | 1 |
+
+### stimulus 2
+| cycle | A | B | z |
+|---|---|---|---|
+| 0 | 2'b10 | 2'b10 | 1 |
+
+### stimulus 3
+| cycle | A | B | z |
+|---|---|---|---|
+| 0 | 2'b11 | 2'b11 | 1 |
+
+### stimulus 4
+| cycle | A | B | z |
+|---|---|---|---|
+| 0 | 2'b00 | 2'b01 | 0 |
+
+### stimulus 5
+| cycle | A | B | z |
+|---|---|---|---|
+| 0 | 2'b01 | 2'b11 | 0 |
+
+### stimulus 6
+| cycle | A | B | z |
+|---|---|---|---|
+| 0 | 2'b10 | 2'b00 | 0 |
+
+### stimulus 7
+| cycle | A | B | z |
+|---|---|---|---|
+| 0 | 2'b11 | 2'b10 | 0 |

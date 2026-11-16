@@ -1,0 +1,38 @@
+{
+  "cycle": 70,
+  "expected": [
+    0,
+    1,
+    2097587,
+    16,
+    9,
+    3,
+    16,
+    1625266134,
+    16
+  ],
+  "actual": [
+    0,
+    1,
+    2097587,
+    16,
+    4294967287,
+    3,
+    16,
+    1625266134,
+    16
+  ],
+  "stimulus": "evidence/20261020T104208402433Z/stimulus.txt",
+  "replay_prefix_rows": 71,
+  "columns": [
+    "accepted",
+    "retired",
+    "instruction",
+    "retire_pc",
+    "value",
+    "rd",
+    "pc",
+    "debug",
+    "occupancy"
+  ]
+}

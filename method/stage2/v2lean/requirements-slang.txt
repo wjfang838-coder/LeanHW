@@ -1,0 +1,2 @@
+# Optional independent SystemVerilog AST frontend; version and native hash recorded per case.
+pyslang==11.0.0

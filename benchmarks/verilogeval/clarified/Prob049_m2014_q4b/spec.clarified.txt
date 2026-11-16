@@ -1,0 +1,110 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- d: input 1 bit.
+- ar: input 1 bit.
+- q: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+The reset input ar is active high and asynchronous. Before any rising edge of clk or ar has occurred after power-up, q is unknown when ar is low. The implementation must leave that power-up state uninitialised: it must not give q a definite power-up value through an initial block or a declaration initialiser.
+
+A rising edge of ar sets q and the stored one-bit state to 0 immediately, without waiting for clk. While ar remains high, q is 0 and every rising edge of clk leaves the stored one-bit state at 0. The reset action also establishes that the stored value is valid. A falling edge of ar has no direct effect: immediately after release, q remains 0. On the first rising edge of clk after release, the stored state captures d, and q observed after that edge is the captured value.
+
+4. Timing
+
+q is a registered output with a latency of one clock cycle from d in the pre-edge row convention: d is sampled at a rising edge of clk, q takes that sampled value immediately after the edge, and the captured value appears in the following row. The row containing that edge still displays the value produced by the preceding active edge. q holds between active edges. There are no pulse or periodic output ports.
+
+The evaluated trace uses the interface observation schedule: row k denotes k * step_ns after settling, sampled at the interface's sample_offset_ns. This observation convention is separate from the circuit law. The circuit is positive-edge triggered, but the supplied interface does not specify a numeric physical clock period or propagation delay; one full-cycle step represents one rising edge of clk.
+
+5. Behaviour
+
+Only a rising edge of clk affects q: it makes q equal d when ar is low or 1'b0 when ar is high (including a simultaneous rising edge of ar, which has priority); falling edges and steady clk levels have no effect, and every repeated rising edge performs this rule anew regardless of any prior transaction.
+
+A rising edge of ar immediately makes q 1'b0, including when simultaneous with a rising edge of clk; while ar is high each rising clk edge keeps q at 1'b0, while a falling edge or steady low level of ar has no direct effect, so release retains q until a later rising clk edge and repeated assertions clear q each time.
+
+d affects q only through its value sampled on a rising edge of clk while ar is low; changes at all other times have no immediate effect, ar high prevents capture in favor of q=1'b0, and successive eligible rising edges independently capture the then-current d value.
+
+Before any active edge q is unknown; an ar rising edge makes q observable as 1'b0 immediately after that edge, a clk rising edge makes q observable immediately after the edge as 1'b0 when ar is high or as the d sampled at that edge when ar is low, each pre-edge row therefore still shows the value from the preceding active edge, ar release does not change q, and q holds until the next active edge, with every later edge applying the same rule anew.
+
+All three inputs and q are one bit, so there are no additional multi-bit or reserved encodings. For every combination at a rising edge, ar=1 produces q=0 and ar=0 produces q=d. Between rising clock edges, d and a low or falling ar do not change q; assertion of ar changes q to 0 asynchronously.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance and its stated pre-edge observation convention.
+
+### stimulus 0
+| cycle | d | ar | q |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | d | ar | q |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 1 |
+| 3 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | d | ar | q |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | d | ar | q |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 1 |
+
+### stimulus 4
+| cycle | d | ar | q |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 1 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | d | ar | q |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+
+### stimulus 6
+| cycle | d | ar | q |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 0 | 1 |
+| 3 | 1 | 0 | 1 |
+
+### stimulus 7
+| cycle | d | ar | q |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 1 |
+| 3 | 1 | 1 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 |

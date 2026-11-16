@@ -1,0 +1,508 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a **`apb_dsp_unit`** module in Verilog that serves as an APB interface for configuring internal registers. These registers specify which memory addresses are used for arithmetic operations (addition or multiplication). The computed result is then made available through a designated register.
+
+---
+
+## Register Descriptions
+
+1. **`r_operand_1`**  
+   - **Address:** 0x0  
+   - **Function:** Holds the memory address of the first operand.
+
+2. **`r_operand_2`**  
+   - **Address:** 0x1  
+   - **Function:** Holds the memory address of the second operand.
+
+3. **`r_Enable`**  
+   - **Address:** 0x2  
+   - **Values:**  
+     - `0`: DSP disabled  
+     - `1`: Addition mode  
+     - `2`: Multiplication mode  
+     - `3`: Data Writing mode  
+
+4. **`r_write_address`**  
+   - **Address:** 0x3  
+   - **Function:** Specifies the address in memory where data will be written.  
+   - **Default Value:** 0x00000000  
+   - **Usage:** If `r_Enable` = 3, the data in the `r_write_data` register is written to the address specified by this register.
+
+5. **`r_write_data`**  
+   - **Address:** 0x4  
+   - **Function:** Specifies the data to be written into memory.  
+   - **Default Value:** 0x00000000  
+   - **Usage:** If `r_Enable` = 3, the data in this register is written to the address specified by `r_write_address`.
+
+---
+
+## APB Interface: 
+### Clock & Reset Signals
+- `pclk`: APB clock input for synchronous operations.  
+- `presetn`: Active-low asynchronous reset signal for system initialization.
+
+### APB Signals
+- `paddr` (input, 10 bits): Address bus for accessing internal CSR registers and Memory.  
+- `pselx` (input): APB select signal, indicating CSR and Memory selection.  
+- `penable` (input): APB enable signal, marking transaction progression.  
+- `pwrite` (input): Write-enable signal, distinguishing read from write operations, high for write and low for read operation.
+- `pwdata` (input, 8 bits): Write data bus for sending data to CSR registers and Memory.  
+- `pready` (output, reg): Ready signal, indicating the completion of a transaction.  
+- `prdata` (output, reg, 8 bits): Read data bus for retrieving data.  
+- `pslverr` (output, reg): Error signal for invalid addresses or unsupported operations.
+
+## SRAM Interface:
+- `sram_valid`: At positive edge of this signal, data in `r_write_data` is latched to address in `r_write_address`.
+
+---
+
+## APB Protocol
+
+1. **Read Operations**  
+   - In the **READ_STATE**, drive `prdata` with the register value corresponding to `paddr`.
+   - After operation, return to **IDLE**.
+
+2. **Write Operations**  
+   - In the **WRITE_STATE**, update the register selected by `paddr` with `pwdata`.  
+   - After updating the register, return to **IDLE**.
+
+3. **Reset Behavior**  
+   - When presetn is asserted LOW, asynchronously reset all outputs and internal registers to their default values:
+     - Set `pready` and `pslverr` to 0.  
+     - Clear `prdata`.  
+     - Initialize `r_operand_1`, `r_operand_2`, `r_Enable`, `r_write_address`, and `r_write_data` to 0.
+
+---
+
+## Functional Behavior
+
+1. **APB Interface Control**  
+   - Memory is accessed via the APB interface.  
+   - The operational mode is controlled by **`r_Enable`**:
+     - **Default (0x0):** DSP is disabled.  
+     - **Write Mode (0x3):** Data can be written to memory.  
+     - **Addition Mode (0x1):** Values at the addresses specified by **`r_operand_1`** and **`r_operand_2`** are added. The result is stored at address **0x5**.  
+     - **Multiplication Mode (0x2):** Values at the addresses specified by **`r_operand_1`** and **`r_operand_2`** are multiplied. The result is stored at address **0x5**.  
+   - To read computed data directly via APB, use address **0x5** and retrieve it through **`PRDATA`**.
+
+2. **Error Handling**  
+   - Addresses 0 through 5 select CSR registers; addresses 6 through 1023 select byte-addressed SRAM. SRAM reads are valid in every mode. Direct APB SRAM writes are valid only in mode 3. Writes to the read-only result register or unsupported operations assert PSLVERR for that access; no representable 10-bit address is outside the combined CSR/SRAM map.
+
+3. **Wait States**  
+   - This design does not support wait states. All APB read/write operations complete in two clock cycles. PREADY is high during normal operation with presetn=1 and low during reset with presetn=0; the normal ready law does not override reset.
+
+4. **Memory Interface**  
+   - A 1 KB SRAM module serves as the memory.
+
+**Note:** Addresses from **0x00** to **0x05** are reserved for configuration registers.
+
+Local experimental completion of otherwise unspecified APB laws (these are declared benchmark choices, not recovered designer intent):
+- At the beginning of the experiment, and on asynchronous active-low reset, all five 8-bit CSRs, the 8-bit result register, the 1024 SRAM bytes, prdata and pslverr are zero. Reset overrides every simultaneous event. PREADY equals presetn, including immediately on reset release.
+- An APB transfer is accepted at each rising pclk edge with presetn=1, pselx=1 and penable=1. Setup (penable=0), deselection and falling pclk edges do not update CSRs or read data. The current address, direction and byte data are sampled at the accepting edge. Stable setup/access is the ordinary two-cycle transaction; an interrupted setup has no effect. A held access is accepted at each rising edge.
+- Addresses 0,1,2,3,4 read their corresponding 8-bit CSRs; address 5 reads the 8-bit result. Addresses 6..1023 read the corresponding SRAM byte. Successful reads publish prdata immediately after the accepting edge, and prdata retains its last value during writes, idle and setup. Writes to addresses 0,1,3,4 replace the whole byte. A write to address 2 replaces r_Enable only for data 0,1,2,3; any other mode write is rejected. A write to address 5 is rejected. Direct writes to SRAM addresses 6..1023 replace their byte only if the pre-edge r_Enable is 3; otherwise they are rejected. Rejection preserves every register, SRAM byte and prdata.
+- PSLVERR is registered: every rising pclk edge sets it to zero by default, or to one for a rejected access accepted on that edge. It retains this registered value between edges. No arithmetic overflow sets PSLVERR.
+- At each rising pclk edge, if the pre-edge r_Enable is 1 or 2, compute respectively the unsigned sum or product of the two SRAM bytes selected by the pre-edge 8-bit operand-address CSRs (zero extended to 10 bits); update the result with its low 8 bits immediately after that edge. Mode 0 or 3 retains the result. A same-edge read observes the pre-edge result. Same-edge configuration or SRAM writes affect arithmetic beginning at the following clock edge.
+- At each rising edge of sram_valid with presetn=1 and the current r_Enable=3, write the current r_write_data byte to the zero-extended r_write_address. No write occurs on its falling edge, while held high, or in other modes. A simultaneous sram_valid rise and pclk rise uses the pre-event configuration for both operations; the SRAM-edge write has priority over a same-address direct APB write, and clocked reads/arithmetic observe pre-event memory. Reset cancels both operations.
+- Public signal widths and names remain unchanged. Configured operand and SRAM-write addresses are 8-bit CSRs; direct APB memory accesses use the full 10-bit paddr. Numeric byte bit i maps to public data bit i. These explicit operational rules supersede earlier unspecified FSM details; READ_STATE and WRITE_STATE denote accepted read and write operations, and do not add a hidden latency or an idle bubble.
+
+
+This is a locally revised benchmark prompt (2026-10-01), with explicit errata that supersede conflicting earlier clauses. It is not an unchanged upstream CVDP problem. Implementation choices for behavior still unspecified must be disclosed and must not contradict these requirements.
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a **`apb_dsp_unit`** module in Verilog that serves as an APB interface for configuring internal registers. These registers specify which memory addresses are used for arithmetic operations (addition or multiplication). The computed result is then made available through a designated register.
+
+Named module interface binding
+
+Module: apb_dsp_unit.
+Connect ports by name. The enumeration below does not establish positional order.
+- pclk: input; 1 bits in the concrete formal instance.
+- presetn: input; 1 bits in the concrete formal instance.
+- paddr: input; 10 bits in the concrete formal instance.
+- pselx: input; 1 bits in the concrete formal instance.
+- penable: input; 1 bits in the concrete formal instance.
+- pwrite: input; 1 bits in the concrete formal instance.
+- pwdata: input; 8 bits in the concrete formal instance.
+- sram_valid: input; 1 bits in the concrete formal instance.
+- pready: output; 1 bits in the concrete formal instance.
+- prdata: output; 8 bits in the concrete formal instance.
+- pslverr: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports
+
+The module name is apb_dsp_unit. There are no documented public parameters or parameter-dependent widths.
+
+The public ports are listed below in interface enumeration order. Positional declaration order is unverified; this document does not fix a normative positional order. Named wiring is portable consumer guidance. A consumer with the actual module declaration may instantiate positionally in that declaration's order.
+
+pclk: input, 1 bit.
+presetn: input, 1 bit.
+paddr: input, 10 bits, bits 9 through 0.
+pselx: input, 1 bit.
+penable: input, 1 bit.
+pwrite: input, 1 bit.
+pwdata: input, 8 bits, bits 7 through 0.
+pready: output, 1 bit.
+prdata: output, 8 bits, bits 7 through 0.
+pslverr: output, 1 bit.
+sram_valid: input, 1 bit, externally driven SRAM event control.
+
+The certain integration answer Q12 establishes the named interface and scalar input interpretation of sram_valid. It does not establish declaration order. Uppercase references to public APB signals in the retained source refer to the exact lowercase port spellings above.
+
+3. Reset
+
+presetn is an active-low asynchronous reset; assertion immediately clears all five configuration bytes, the result byte, all 1024 SRAM bytes, prdata and pslverr to zero, and overrides every simultaneous event.
+
+While reset remains asserted, those values remain zero and pready is zero. The source's experimental completion explicitly establishes the same zero data and error values at the beginning of the experiment, before any reset edge. With presetn initially high, pready is one. This initialization includes SRAM and is an explicit source requirement of this locally revised benchmark, rather than an inferred hardware power-up guarantee or a new implementation choice.
+
+Reset release immediately raises pready and does not itself accept an APB transfer, compute arithmetic or perform an SRAM write. prdata and pslverr remain zero until an event specified below changes them. Configuration, result and memory retain their reset values on release. At the first subsequent rising pclk edge, an enabled APB transfer is accepted; arithmetic uses the pre-edge mode, which remains zero unless already changed by a preceding accepted write. An SRAM event after release follows its independent mode qualification. An event occurring during reset is canceled and is not replayed on release merely because its signal remains high.
+
+4. Timing
+
+pready equals presetn continuously, including reset assertion and release, independently of transaction activity.
+
+prdata is registered and a successful read publishes the pre-edge addressed value immediately after its accepting rising pclk edge, retaining that value during writes, idle and setup.
+
+pslverr is registered: each rising pclk edge publishes one for a rejected accepted write and zero otherwise, and its value is retained between rising edges unless reset clears it.
+
+There are no wait states. The exact source deadline is: "All APB read/write operations complete in two clock cycles." In the ordinary stable setup/access sequence, the setup edge has penable=0; E0 is the following rising access edge with pselx=1 and penable=1. Publication and the accepted write occur immediately after E0, with zero completed subsequent clock intervals required. There is no later action edge, hidden state-entry latency or idle bubble. Setup alone does not accept a transaction. Held access accepts another transfer at each rising edge, including the edge one completed interval after E0. No restriction to isolated requests is imposed.
+
+A pclk rising edge accepts APB transfers, clears or sets the error indication, and computes arithmetic from pre-edge state; falling edges and unchanged clock levels perform none of these operations.
+
+sram_valid performs a write only on its rising edge with presetn=1 and current mode 3; its falling edge and held-high level perform no write.
+
+The result is registered: arithmetic mode produces the low eight bits of the unsigned sum or product immediately after each rising pclk edge. If mode is changed to arithmetic at E0, arithmetic at E0 still uses the old mode. The first computation in the new mode is at the following rising edge E1, after one completed clock interval. A read at E1 obtains the pre-E1 result; a read at E2 obtains the result published at E1. There is no completion pulse or periodic generated output. Consecutive rejected writes may keep pslverr high across multiple intervals; an isolated rejection followed by a nonrejecting rising edge is high for one clock interval.
+
+The finite Lean instance represents explicit pclk and sram_valid levels using half-cycle observations. Each row supplies new levels and other inputs; its outputs are observed after the pending edge/reset transition has settled, and step commits that same transition once. The stored pre-transition state supplies every read snapshot and arithmetic operand. The scenario starts with previous clock and SRAM-control levels low. A row with unchanged levels cannot create another edge. Reset assertion is represented even without a pclk edge, and release does not erase the reset state. Unrepresented intervening events are not proved by the finite trace; the circuit still obeys the full asynchronous reset contract. No step_ns or sample_offset_ns is specified by this interface, and no physical clock period or propagation delay is inferred from row numbers or the answer's harness clock.
+
+5. Behaviour
+
+The retained original prose, including its explicit local experimental completion, is authoritative. No new source amendment, example erratum or implementation choice is introduced here. Unclear answers provide no authority to replace defined behavior with X or to weaken these operational laws.
+
+paddr selects configuration bytes at addresses 0 through 4, the read-only result byte at address 5, and byte-addressed SRAM at addresses 6 through 1023; every representable address belongs to this combined map.
+
+Address 0 holds the first operand address, address 1 the second operand address, address 2 the mode, address 3 the SRAM write destination, and address 4 the SRAM write byte. All are eight-bit values. Configuration addresses used for arithmetic and SRAM-event writes are zero-extended to ten bits, so they can address SRAM bytes 0 through 255, including bytes hidden by CSR selection in the direct APB map. SRAM has 1024 bytes. A direct APB address uses the full ten bits.
+
+pselx=0 prevents APB acceptance but does not prevent clocked arithmetic, error clearing or independently qualified sram_valid writes.
+
+penable=0 prevents APB acceptance, including interrupted setup, but does not prevent clocked arithmetic, error clearing or independently qualified sram_valid writes.
+
+At each accepting edge, pwrite selects a read when zero and a write when one, using that edge's current address and data rather than setup-time values.
+
+For a successful write, pwdata replaces the entire selected byte; mode writes accept only bytes 0, 1, 2 and 3, and other mode values are rejected without changing the mode.
+
+Writes to addresses 0, 1, 3 and 4 succeed in every mode. Writes to address 5 are always rejected. Direct APB writes to addresses 6 through 1023 succeed only when the pre-edge mode is 3. Reads succeed for every address in every mode. pwdata has no read effect and no effect on unaccepted transfers. A rejected APB operation does not change its selected configuration or SRAM data or prdata. Independent source-required arithmetic and independently qualified SRAM events still occur; rejection is not a global stall.
+
+Mode 0 disables arithmetic and retains the result. Mode 1 computes unsigned addition; mode 2 computes unsigned multiplication; mode 3 permits memory writes and retains the result. Arithmetic reads the two pre-edge SRAM bytes selected by the pre-edge operand-address bytes. Sum values range from 0 through 510 and product values from 0 through 65025; both are evaluated as unsigned integers and truncated only at result storage to their low eight bits, modulo 256. Numeric bit i maps to public data bit i. Overflow never raises pslverr. No shift operation is defined.
+
+At a simultaneous pclk rise and sram_valid rise, both operations use pre-event configuration; clocked reads and arithmetic use pre-event memory, and the SRAM-event write overrides a same-address direct APB write.
+
+In particular, a simultaneous configuration change does not affect the SRAM-event destination, byte or mode qualification. Distinct-address writes both persist. A same-edge APB SRAM read returns old memory even when the SRAM event writes that address. A same-edge result read returns the old result even when arithmetic publishes a new result. Same-edge CSR writes become arithmetic inputs at the next pclk rise. Reset suppresses every simultaneous operation. The public read value after an edge is the selected pre-edge snapshot, independently of the configuration, memory and result changes published at that edge.
+
+From reset assertion through release and the next three rising pclk edges: assertion establishes zeros immediately; release changes only pready; each of those three edges separately applies acceptance, error publication and arithmetic using its own pre-edge state. A write enabling arithmetic on the first edge makes the second edge the first arithmetic computation and the third edge the first read edge able to publish that computation. A held access is processed on all three edges; a one-edge access pulse is processed only at its accepting edge. A mode change or deassertion of selection never cancels an already published result or read value. No autonomous terminal state stops later qualified events.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete input histories and settled half-cycle observation convention described above. Every stimulus block begins independently in the explicitly source-defined experimental initial state, without requiring a reset sequence. It does not impose a reset-before-use restriction or limit legal circuit event histories.
+
+### stimulus 0
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | sram_valid | pready | prdata | pslverr |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 1 | 0 | 10'h4 | 1 | 1 | 1 | 8'b11111111 | 1 | 0 | 8'b00000000 | 0 |
+| 3 | 0 | 0 | 10'h0 | 0 | 0 | 0 | 8'b10000000 | 0 | 0 | 8'b00000000 | 0 |
+| 4 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 10'h0 | 0 | 0 | 0 | 8'b01001001 | 0 | 1 | 8'b00000000 | 0 |
+| 6 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+
+### stimulus 1
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | sram_valid | pready | prdata | pslverr |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000010 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000010 | 0 | 1 | 8'b00000000 | 0 |
+| 6 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 8 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000100 | 0 | 1 | 8'b00000000 | 0 |
+| 9 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000100 | 0 | 1 | 8'b00000000 | 1 |
+| 10 | 0 | 1 | 10'h2 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 1 |
+| 11 | 1 | 1 | 10'h2 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000011 | 0 |
+| 12 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000011 | 0 |
+| 13 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000011 | 1 |
+| 14 | 0 | 1 | 10'h2 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000011 | 1 |
+| 15 | 1 | 1 | 10'h2 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000011 | 0 |
+| 16 | 0 | 1 | 10'h5 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000011 | 0 |
+| 17 | 1 | 1 | 10'h5 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000011 | 1 |
+| 18 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000011 | 1 |
+| 19 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+
+### stimulus 2
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | sram_valid | pready | prdata | pslverr |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 0 | 1 | 10'h6 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 10'h6 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 0 | 1 | 10'h7 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 10'h7 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 6 | 0 | 1 | 10'h8 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 10'h8 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 8 | 0 | 1 | 10'h9 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b00000000 | 0 |
+| 9 | 1 | 1 | 10'h9 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b00000000 | 0 |
+| 10 | 0 | 1 | 10'h3ff | 1 | 1 | 1 | 8'b01001001 | 0 | 1 | 8'b00000000 | 0 |
+| 11 | 1 | 1 | 10'h3ff | 1 | 1 | 1 | 8'b01001001 | 0 | 1 | 8'b00000000 | 0 |
+| 12 | 0 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 13 | 1 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 14 | 0 | 1 | 10'h7 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 15 | 1 | 1 | 10'h7 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000001 | 0 |
+| 16 | 0 | 1 | 10'h8 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000001 | 0 |
+| 17 | 1 | 1 | 10'h8 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 18 | 0 | 1 | 10'h9 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 19 | 1 | 1 | 10'h9 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 20 | 0 | 1 | 10'h3ff | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 21 | 1 | 1 | 10'h3ff | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+
+### stimulus 3
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | sram_valid | pready | prdata | pslverr |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 10'h0 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 10'h0 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 0 | 1 | 10'h0 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 10'h0 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 0 | 1 | 10'h0 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 10'h0 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 6 | 0 | 1 | 10'h0 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 10'h0 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000001 | 0 |
+| 8 | 0 | 1 | 10'h0 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000001 | 0 |
+| 9 | 1 | 1 | 10'h0 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000001 | 0 |
+| 10 | 0 | 1 | 10'h0 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000001 | 0 |
+| 11 | 1 | 1 | 10'h0 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 12 | 0 | 1 | 10'h0 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b11111111 | 0 |
+| 13 | 1 | 1 | 10'h0 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b11111111 | 0 |
+| 14 | 0 | 1 | 10'h0 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 15 | 1 | 1 | 10'h0 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 16 | 0 | 1 | 10'h0 | 1 | 1 | 1 | 8'b01001001 | 0 | 1 | 8'b10000000 | 0 |
+| 17 | 1 | 1 | 10'h0 | 1 | 1 | 1 | 8'b01001001 | 0 | 1 | 8'b10000000 | 0 |
+| 18 | 0 | 1 | 10'h0 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 19 | 1 | 1 | 10'h0 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+
+### stimulus 4
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | sram_valid | pready | prdata | pslverr |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 10'h1 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 10'h1 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 0 | 1 | 10'h1 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 10'h1 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 0 | 1 | 10'h1 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 10'h1 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 6 | 0 | 1 | 10'h1 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 10'h1 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 8 | 0 | 1 | 10'h1 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b11111111 | 0 |
+| 9 | 1 | 1 | 10'h1 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b11111111 | 0 |
+| 10 | 0 | 1 | 10'h1 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 11 | 1 | 1 | 10'h1 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 12 | 0 | 1 | 10'h1 | 1 | 1 | 1 | 8'b01001001 | 0 | 1 | 8'b10000000 | 0 |
+| 13 | 1 | 1 | 10'h1 | 1 | 1 | 1 | 8'b01001001 | 0 | 1 | 8'b10000000 | 0 |
+| 14 | 0 | 1 | 10'h1 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 15 | 1 | 1 | 10'h1 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 16 | 0 | 1 | 10'h3 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b01001001 | 0 |
+| 17 | 1 | 1 | 10'h3 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b01001001 | 0 |
+| 18 | 0 | 1 | 10'h3 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 19 | 1 | 1 | 10'h3 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 20 | 0 | 1 | 10'h4 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b11111111 | 0 |
+| 21 | 1 | 1 | 10'h4 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b11111111 | 0 |
+| 22 | 0 | 1 | 10'h4 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 23 | 1 | 1 | 10'h4 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+
+### stimulus 5
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | sram_valid | pready | prdata | pslverr |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 0 | 1 | 10'h6 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 10'h6 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 0 | 1 | 10'h7 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 10'h7 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 6 | 0 | 1 | 10'h0 | 1 | 1 | 1 | 8'b00000110 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 10'h0 | 1 | 1 | 1 | 8'b00000110 | 0 | 1 | 8'b00000000 | 0 |
+| 8 | 0 | 1 | 10'h1 | 1 | 1 | 1 | 8'b00000111 | 0 | 1 | 8'b00000000 | 0 |
+| 9 | 1 | 1 | 10'h1 | 1 | 1 | 1 | 8'b00000111 | 0 | 1 | 8'b00000000 | 0 |
+| 10 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 11 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 12 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 13 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 14 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 15 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 16 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000010 | 0 | 1 | 8'b00000000 | 0 |
+| 17 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000010 | 0 | 1 | 8'b00000000 | 0 |
+| 18 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 19 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 20 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 21 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 22 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 23 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 24 | 0 | 1 | 10'h6 | 1 | 1 | 1 | 8'b01001001 | 0 | 1 | 8'b11111111 | 0 |
+| 25 | 1 | 1 | 10'h6 | 1 | 1 | 1 | 8'b01001001 | 0 | 1 | 8'b11111111 | 1 |
+| 26 | 0 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 1 |
+| 27 | 1 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 28 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+| 29 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+
+### stimulus 6
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | sram_valid | pready | prdata | pslverr |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 0 | 1 | 10'h80 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 10'h80 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 0 | 1 | 10'hff | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 10'hff | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 6 | 0 | 1 | 10'h0 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 10'h0 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b00000000 | 0 |
+| 8 | 0 | 1 | 10'h1 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 9 | 1 | 1 | 10'h1 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 10 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000010 | 0 | 1 | 8'b00000000 | 0 |
+| 11 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000010 | 0 | 1 | 8'b00000000 | 0 |
+| 12 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 13 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 14 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 15 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 16 | 0 | 1 | 10'h1 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b10000000 | 0 |
+| 17 | 1 | 1 | 10'h1 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b10000000 | 0 |
+| 18 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 19 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 20 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 21 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 22 | 0 | 1 | 10'h1 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 23 | 1 | 1 | 10'h1 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 24 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 25 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 26 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 27 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+
+### stimulus 7
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | sram_valid | pready | prdata | pslverr |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 10'h4 | 1 | 0 | 1 | 8'b01001001 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 10'h4 | 1 | 0 | 1 | 8'b01001001 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 0 | 1 | 10'h4 | 0 | 0 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 10'h4 | 0 | 0 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 0 | 1 | 10'h4 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 10'h4 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 6 | 0 | 1 | 10'h4 | 1 | 0 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 10'h4 | 1 | 0 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 8 | 0 | 1 | 10'h4 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b00000000 | 0 |
+| 9 | 1 | 1 | 10'h4 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b00000000 | 0 |
+| 10 | 0 | 1 | 10'h4 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 11 | 1 | 1 | 10'h4 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 12 | 0 | 1 | 10'h4 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 13 | 1 | 1 | 10'h4 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 14 | 0 | 1 | 10'h4 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b10000000 | 0 |
+| 15 | 1 | 1 | 10'h4 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b10000000 | 0 |
+| 16 | 0 | 1 | 10'h4 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b10000000 | 0 |
+| 17 | 1 | 1 | 10'h4 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b10000000 | 0 |
+| 18 | 0 | 1 | 10'h4 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 19 | 1 | 1 | 10'h4 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b11111111 | 0 |
+
+### stimulus 8
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | sram_valid | pready | prdata | pslverr |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 0 | 1 | 10'h3 | 1 | 1 | 1 | 8'b00000110 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 10'h3 | 1 | 1 | 1 | 8'b00000110 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 0 | 1 | 10'h4 | 1 | 1 | 1 | 8'b01001001 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 10'h4 | 1 | 1 | 1 | 8'b01001001 | 0 | 1 | 8'b00000000 | 0 |
+| 6 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b00000000 | 0 |
+| 8 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b00000000 | 0 |
+| 9 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 10 | 0 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 11 | 1 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 12 | 0 | 1 | 10'h4 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b01001001 | 0 |
+| 13 | 1 | 1 | 10'h4 | 1 | 1 | 1 | 8'b10000000 | 0 | 1 | 8'b01001001 | 0 |
+| 14 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 15 | 1 | 1 | 10'h6 | 1 | 1 | 1 | 8'b11111111 | 1 | 1 | 8'b01001001 | 0 |
+| 16 | 0 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 17 | 1 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+
+### stimulus 9
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | sram_valid | pready | prdata | pslverr |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 10'h3 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 10'h3 | 1 | 1 | 1 | 8'b11111111 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 0 | 1 | 10'h4 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 10'h4 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b00000000 | 0 |
+| 6 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 0 | 1 | 10'hff | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 8 | 1 | 1 | 10'hff | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 9 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 10 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 11 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 12 | 1 | 1 | 10'h4 | 1 | 1 | 1 | 8'b10000000 | 1 | 1 | 8'b00000000 | 0 |
+| 13 | 0 | 1 | 10'h0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 14 | 0 | 1 | 10'hff | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 15 | 1 | 1 | 10'hff | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000001 | 0 |
+| 16 | 0 | 1 | 10'h4 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000001 | 0 |
+| 17 | 1 | 1 | 10'h4 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 18 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 19 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 20 | 0 | 1 | 10'hff | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10000000 | 0 |
+| 21 | 1 | 1 | 10'hff | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000001 | 0 |
+
+### stimulus 10
+| half-cycle | pclk | presetn | paddr | pselx | penable | pwrite | pwdata | sram_valid | pready | prdata | pslverr |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000011 | 0 | 1 | 8'b00000000 | 0 |
+| 2 | 0 | 1 | 10'h6 | 1 | 1 | 1 | 8'b01001001 | 0 | 1 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 10'h6 | 1 | 1 | 1 | 8'b01001001 | 0 | 1 | 8'b00000000 | 0 |
+| 4 | 0 | 1 | 10'h0 | 1 | 1 | 1 | 8'b00000110 | 0 | 1 | 8'b00000000 | 0 |
+| 5 | 1 | 1 | 10'h0 | 1 | 1 | 1 | 8'b00000110 | 0 | 1 | 8'b00000000 | 0 |
+| 6 | 0 | 1 | 10'h1 | 1 | 1 | 1 | 8'b00000110 | 0 | 1 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 10'h1 | 1 | 1 | 1 | 8'b00000110 | 0 | 1 | 8'b00000000 | 0 |
+| 8 | 0 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 9 | 1 | 1 | 10'h2 | 1 | 1 | 1 | 8'b00000001 | 0 | 1 | 8'b00000000 | 0 |
+| 10 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 11 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 12 | 0 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 | 0 |
+| 13 | 1 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 14 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 15 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |
+| 16 | 0 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |
+| 17 | 1 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 18 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 19 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |
+| 20 | 0 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |
+| 21 | 1 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 22 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 23 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |
+| 24 | 0 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |
+| 25 | 1 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 26 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 27 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |
+| 28 | 0 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |
+| 29 | 1 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 30 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 31 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |
+| 32 | 0 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |
+| 33 | 1 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 34 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 35 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |
+| 36 | 0 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |
+| 37 | 1 | 1 | 10'h6 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 38 | 0 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b01001001 | 0 |
+| 39 | 1 | 1 | 10'h5 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'b10010010 | 0 |

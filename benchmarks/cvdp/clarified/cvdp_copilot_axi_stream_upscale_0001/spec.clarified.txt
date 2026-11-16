@@ -1,0 +1,141 @@
+Module and integration contract
+
+Module: axis_upscale.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- resetn: input 1 bit.
+- dfmt_enable: input 1 bit.
+- dfmt_type: input 1 bit.
+- dfmt_se: input 1 bit.
+- s_axis_valid: input 1 bit.
+- s_axis_data: input [23:0].
+- s_axis_ready: output 1 bit.
+- m_axis_valid: output 1 bit.
+- m_axis_data: output [31:0].
+- m_axis_ready: input 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+- Verification-visible signal `clk`: This harness-visible name binds to the public 1-bit input clk.
+- Verification-visible signal `dfmt_enable`: This harness-visible name binds to the public 1-bit input dfmt_enable.
+- Verification-visible signal `dfmt_se`: This harness-visible name binds to the public 1-bit input dfmt_se.
+- Verification-visible signal `dfmt_type`: This harness-visible name binds to the public 1-bit input dfmt_type.
+- Verification-visible signal `m_axis_data`: This harness-visible name binds to the public 32-bit output m_axis_data.
+- Verification-visible signal `m_axis_ready`: This harness-visible name binds to the public 1-bit input m_axis_ready.
+- Verification-visible signal `m_axis_valid`: This harness-visible name binds to the public 1-bit output m_axis_valid.
+- Verification-visible signal `resetn`: This harness-visible name binds to the public 1-bit input resetn.
+- Verification-visible signal `s_axis_data`: This harness-visible name binds to the public 24-bit input s_axis_data.
+- Verification-visible signal `s_axis_ready`: This harness-visible name binds to the public 1-bit output s_axis_ready.
+- Verification-visible signal `s_axis_valid`: This harness-visible name binds to the public 1-bit input s_axis_valid.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+`resetn` is an active-low synchronous reset, sampled only on each rising edge of `clk`. A rising edge that samples `resetn` as 0 has priority over every simultaneous input and sets `s_axis_ready` to 0, `m_axis_valid` to 0, and `m_axis_data` to 32'h00000000. Repeated rising edges while `resetn` is 0 retain those values. Assertion or release between rising edges has no immediate effect.
+
+At the first rising edge after `resetn` is released to 1, ordinary sampling resumes: `s_axis_ready` captures `m_axis_ready`, `m_axis_valid` captures `s_axis_valid`, and `m_axis_data` captures the formatted `s_axis_data`, with all inputs taken immediately before that edge.
+
+The source does not specify the value of any output or state element at hardware power-up before the first reset edge. Those pre-reset values are therefore not guaranteed. This absence of a power-up guarantee does not require X to be driven and does not prevent an ordinary rising edge with `resetn` equal to 1 from establishing all three registered outputs under the normal laws below. For the finite worked-trace model only, every stimulus begins in the state reached after a rising edge sampled `resetn` equal to 0: all three modeled registers are valid and zero. That verification setup is separate from the RTL contract, adds no reset-before-use restriction, and makes no hardware power-up guarantee.
+
+4. Timing.
+
+Only a rising edge of `clk` changes an output. A steady clock level or a falling edge has no effect. All three outputs occupy the single pipeline register stage and remain constant between rising edges. An input sampled at a rising edge is reflected by its corresponding registered output after that edge: `s_axis_ready` reflects that edge's `m_axis_ready`, `m_axis_valid` reflects that edge's `s_axis_valid`, and `m_axis_data` reflects that edge's `dfmt_enable`, `dfmt_type`, `dfmt_se`, and `s_axis_data`. Thus each path has one register-stage latency. Every rising edge performs a fresh capture, including consecutive cycles and uninterrupted or repeated transactions. No output is specified as a pulse or as a periodic signal.
+
+The worked trace uses full-cycle, pre-edge observations: row k applies and settles input i[k], observes the outputs from state s[k], and only then applies the rising edge that produces s[k+1]. Consequently, a value captured from row k first appears in row k+1. The interface specifies no `step_ns` or `sample_offset_ns`, so rows have no stated physical duration and must not be interpreted as implicit 10 ns ticks. This observation convention is separate from the circuit's rising-edge and single-stage latency laws.
+
+5. Behaviour.
+
+`s_axis_valid` equal to 1 indicates that the slave is driving a valid transfer. `m_axis_ready` equal to 1 indicates that the slave can accept a transfer in the current cycle. `s_axis_ready` indicates that the slave can accept a transfer in the current cycle. `m_axis_valid` indicates that the master is driving a valid transfer. `m_axis_data` is the primary payload data to the AXI master.
+
+Let D be the unsigned 24-bit value of `s_axis_data` and B be D[23]. On every rising edge with `resetn` equal to 1, `m_axis_data` unconditionally captures the value selected by the formatting controls from the pre-edge D, regardless of `s_axis_valid`, `s_axis_ready`, `m_axis_ready`, or `m_axis_valid`. The captured value remains observable until the next rising edge updates or resets it.
+
+Amendment — disabled-format width correction. The exact original clause is: "if `dfmt_enable` is disabled output data will be concatenation of 24 times zero and input `s_axis_data` data." Question Q7 (`rule@input.dfmt_enable`) certainly answers: "On each rising clk edge with resetn equal to 1'b1, dfmt_enable equal to 1'b0 makes m_axis_data capture {8'b0,s_axis_data}, while dfmt_enable equal to 1'b1 enables dfmt_type-controlled bit 23 and dfmt_se-controlled extension into bits 31:24; it has no effect during reset or between rising edges and is resampled independently on every edge." This corrected law supersedes the quoted original clause only when `resetn` is 1 and a rising edge samples `dfmt_enable` equal to 0, and only for resolving the disabled-format value to the declared 32-bit `m_axis_data`; `dfmt_type` and `dfmt_se` then have no effect. D remains an unsigned 24-bit operand, the concatenation is exactly 32 bits, and capture into the 32-bit output register is the documented truncation boundary. No other source requirement is amended.
+
+When `dfmt_enable` is 1, `dfmt_type` equal to 0 selects B and `dfmt_type` equal to 1 selects the complement of B. The selected bit becomes `m_axis_data[23]`, while D[22:0] is copied unchanged to `m_axis_data[22:0]`. When `dfmt_se` is 0, `m_axis_data[31:24]` is eight zeros. When `dfmt_se` is 1, `m_axis_data[31:24]` is eight copies of the selected bit. These are fixed-width unsigned bit-selection and concatenation laws; no signed arithmetic, widening expression context, or shift is involved. Because each formatting control is a one-bit port, these cases cover every encoding.
+
+On every rising edge with `resetn` equal to 1, `m_axis_valid` captures `s_axis_valid` regardless of either ready signal. Sampling 0 clears it and sampling 1 asserts it for the following inter-edge interval. Consecutive asserted samples are accepted on consecutive edges. There is no completion clear, cancellation, or restart delay beyond a later sampled `s_axis_valid` value.
+
+On every rising edge with `resetn` equal to 1, `s_axis_ready` captures `m_axis_ready` regardless of `s_axis_valid` and `m_axis_valid`. Sampling 0 clears it and sampling 1 asserts it for the following inter-edge interval. `m_axis_ready` does not gate `m_axis_valid` or `m_axis_data`; therefore a low ready value does not cancel or pause their unconditional sampled updates. There is no terminal state, and retained output data is overwritten at every later non-reset rising edge.
+
+The verification-visible input signals `clk`, `resetn`, `dfmt_enable`, `dfmt_type`, `dfmt_se`, `s_axis_valid`, `s_axis_data`, and `m_axis_ready` each continuously bind to the correspondingly named public input. Each binding is enabled unconditionally, reset does not alter it, it has no stored cadence to pause or resume, and it remains visible after every public-output condition because the module has no terminal state.
+
+The verification-visible output signals `s_axis_ready`, `m_axis_valid`, and `m_axis_data` each continuously bind to the correspondingly named public registered output. Each output binding advances only under its separate rising-edge law, assumes its stated reset value after a rising edge sampling `resetn` low, pauses between rising edges, and resumes with a fresh update on the next rising edge. Each remains visible and continues to expose later updates after every earlier public-output condition because the module has no terminal state.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete sampled instance and uses the pre-transition row convention stated above.
+
+### stimulus 0
+| cycle | resetn | dfmt_enable | dfmt_type | dfmt_se | s_axis_valid | s_axis_data | m_axis_ready | s_axis_ready | m_axis_valid | m_axis_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 24'h0 | 0 | 0 | 0 | 32'h0 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 24'h1 | 0 | 0 | 0 | 32'h0 |
+| 2 | 1 | 0 | 0 | 0 | 1 | 24'h800000 | 1 | 0 | 0 | 32'h0 |
+| 3 | 1 | 0 | 0 | 0 | 1 | 24'hffffff | 1 | 1 | 1 | 32'h800000 |
+| 4 | 1 | 0 | 0 | 0 | 0 | 24'h456789 | 0 | 1 | 1 | 32'hffffff |
+
+### stimulus 1
+| cycle | resetn | dfmt_enable | dfmt_type | dfmt_se | s_axis_valid | s_axis_data | m_axis_ready | s_axis_ready | m_axis_valid | m_axis_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 1 | 24'h1 | 1 | 0 | 0 | 32'h0 |
+| 1 | 1 | 0 | 1 | 1 | 1 | 24'h654321 | 1 | 1 | 1 | 32'h1 |
+
+### stimulus 2
+| cycle | resetn | dfmt_enable | dfmt_type | dfmt_se | s_axis_valid | s_axis_data | m_axis_ready | s_axis_ready | m_axis_valid | m_axis_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 1 | 24'h800000 | 1 | 0 | 0 | 32'h0 |
+| 1 | 1 | 1 | 0 | 1 | 1 | 24'h800000 | 1 | 1 | 1 | 32'h800000 |
+
+### stimulus 3
+| cycle | resetn | dfmt_enable | dfmt_type | dfmt_se | s_axis_valid | s_axis_data | m_axis_ready | s_axis_ready | m_axis_valid | m_axis_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 1 | 24'h456789 | 1 | 0 | 0 | 32'h0 |
+| 1 | 1 | 1 | 1 | 1 | 1 | 24'h456789 | 1 | 1 | 1 | 32'hc56789 |
+
+### stimulus 4
+| cycle | resetn | dfmt_enable | dfmt_type | dfmt_se | s_axis_valid | s_axis_data | m_axis_ready | s_axis_ready | m_axis_valid | m_axis_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 1 | 24'hffffff | 1 | 0 | 0 | 32'h0 |
+
+### stimulus 5
+| cycle | resetn | dfmt_enable | dfmt_type | dfmt_se | s_axis_valid | s_axis_data | m_axis_ready | s_axis_ready | m_axis_valid | m_axis_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 1 | 24'h123456 | 0 | 0 | 0 | 32'h0 |
+| 1 | 1 | 0 | 0 | 0 | 1 | 24'h234567 | 1 | 0 | 1 | 32'h123456 |
+| 2 | 1 | 0 | 0 | 0 | 0 | 24'h345678 | 0 | 1 | 1 | 32'h234567 |
+
+### stimulus 6
+| cycle | resetn | dfmt_enable | dfmt_type | dfmt_se | s_axis_valid | s_axis_data | m_axis_ready | s_axis_ready | m_axis_valid | m_axis_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 24'h0 | 1 | 0 | 0 | 32'h0 |
+| 1 | 1 | 0 | 0 | 0 | 1 | 24'h1 | 1 | 1 | 0 | 32'h0 |
+| 2 | 1 | 0 | 0 | 0 | 1 | 24'hffffff | 1 | 1 | 1 | 32'h1 |
+| 3 | 1 | 0 | 0 | 0 | 0 | 24'h800000 | 1 | 1 | 1 | 32'hffffff |
+
+### stimulus 7
+| cycle | resetn | dfmt_enable | dfmt_type | dfmt_se | s_axis_valid | s_axis_data | m_axis_ready | s_axis_ready | m_axis_valid | m_axis_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 1 | 24'h111111 | 1 | 0 | 0 | 32'h0 |
+| 1 | 1 | 0 | 0 | 0 | 1 | 24'h222222 | 1 | 1 | 1 | 32'h111111 |
+| 2 | 1 | 0 | 0 | 0 | 1 | 24'h333333 | 1 | 1 | 1 | 32'h222222 |
+| 3 | 1 | 0 | 0 | 0 | 1 | 24'h444444 | 1 | 1 | 1 | 32'h333333 |
+
+### stimulus 8
+| cycle | resetn | dfmt_enable | dfmt_type | dfmt_se | s_axis_valid | s_axis_data | m_axis_ready | s_axis_ready | m_axis_valid | m_axis_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 1 | 24'habcdef | 0 | 0 | 0 | 32'h0 |
+| 1 | 0 | 0 | 0 | 0 | 1 | 24'h123456 | 1 | 0 | 1 | 32'habcdef |
+| 2 | 1 | 0 | 0 | 0 | 1 | 24'h654321 | 1 | 0 | 0 | 32'h0 |
+| 3 | 1 | 0 | 0 | 0 | 1 | 24'h1 | 1 | 1 | 1 | 32'h654321 |
+
+### stimulus 9
+| cycle | resetn | dfmt_enable | dfmt_type | dfmt_se | s_axis_valid | s_axis_data | m_axis_ready | s_axis_ready | m_axis_valid | m_axis_data |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 1 | 24'hffffff | 1 | 0 | 0 | 32'h0 |
+| 1 | 1 | 1 | 1 | 1 | 1 | 24'h0 | 1 | 0 | 0 | 32'h0 |
+| 2 | 1 | 0 | 0 | 0 | 1 | 24'h7fffff | 1 | 1 | 1 | 32'hff800000 |

@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_configurable_digital_low_pass_filter_0014",
+  "toplevel": "fsm_linear_reg",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_nbit_swizzling_0001",
+  "toplevel": "nbit_swizzling",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

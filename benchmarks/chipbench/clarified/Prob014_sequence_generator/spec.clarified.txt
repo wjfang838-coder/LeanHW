@@ -1,0 +1,168 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- data: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+3. Reset.
+
+rst_n is an active-low reset. Its assertion is asynchronous: data becomes 0 immediately, the six-bit sequence state is restored to 001011, and data remains 0 for the entire time rst_n is low. Reset has priority when its assertion coincides with a rising edge of clk. Deasserting rst_n has no immediate effect. On the first rising edge after release, the sequence state advances once; data is 0 before that edge and remains 0 for the following cycle.
+
+At power-up, before rst_n has ever been asserted, the six-bit sequence state is uninitialised and data is unknown. Rising edges of clk do not make either one known before reset. The implementation must leave this state and data uninitialised, with no initial block or declaration initialiser supplying a value.
+
+4. Timing.
+
+clk acts on its rising edge. Except for the immediate reset override, data is registered: it changes only just after rising edges and holds throughout the low level, high level, and falling edge of clk. It has a latency of one rising-edge clock cycle from each sequence-state rotation to the corresponding observed bit. There is no completion pulse or separate completion interval.
+
+After reset release, data is periodic with a period of six rising-edge clock cycles. In every period it is low for three cycles and high for three cycles, in the ordered pattern 0, 0, 1, 0, 1, 1.
+
+The evaluated trace uses the interface's full-cycle observation cadence. Row k is the settled observation at k times the interface step duration and at its specified sample offset; it samples data before that row's active edge, after which the transition produces the state observed on the next row. This observation convention is separate from the circuit law that clk advances the sequence only on rising edges and that the output pattern repeats every six such edges.
+
+5. Behaviour.
+
+While rst_n is high, each rising clk edge advances the six-bit value by a width-preserving left rotation: the previous bit 5 becomes bit 0, bits 4 through 0 become bits 5 through 1, and the result is truncated to six bits. The registered data value is bit 5 of that six-bit value. Starting from reset, the resulting repeating observed sequence is 0, 0, 1, 0, 1, 1. After the last 1, the next value is the first 0 with no intervening idle cycle.
+
+While rst_n is high, each rising clk edge advances data through the repeating post-reset edge sequence 1'b0, 1'b0, 1'b1, 1'b0, 1'b1, 1'b1, with data retaining its value during clk's low level, high level, and falling edge; while rst_n is low, every rising edge leaves data at 1'b0, so reset dominates a simultaneous rising edge, an assertion of reset interrupts the sequence, and release followed by repeated rising edges restarts it from its first element.
+
+Asserting rst_n low sets data to 1'b0 immediately and keeps it 1'b0 across rising clk edges; deasserting rst_n high has no immediate effect, after which rising clk edges produce the repeating sequence 1'b0, 1'b0, 1'b1, 1'b0, 1'b1, 1'b1, and every later assertion interrupts and restarts that behavior with reset taking priority over a simultaneous rising edge.
+
+data becomes 1'b0 immediately when rst_n is asserted low, remains 1'b0 while reset is active, and after release changes only just after rising clk edges to the repeating values 1'b0, 1'b0, 1'b1, 1'b0, 1'b1, 1'b1; because each row is sampled before its active edge, that row shows the value produced by the preceding reset or rising edge, the first post-release row still shows the reset value and its edge produces the first listed value for the following observation, data holds between such events, and the six-edge pattern repeats without a separate completion interval.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst_n | data |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 1 | x |
+| 2 | 1 | x |
+
+### stimulus 1
+| cycle | rst_n | data |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 1 |
+| 4 | 1 | 0 |
+| 5 | 1 | 1 |
+| 6 | 1 | 1 |
+| 7 | 1 | 0 |
+| 8 | 1 | 0 |
+
+### stimulus 2
+| cycle | rst_n | data |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 0 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 1 |
+| 5 | 1 | 0 |
+| 6 | 1 | 1 |
+| 7 | 1 | 1 |
+
+### stimulus 3
+| cycle | rst_n | data |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 0 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 0 |
+| 5 | 1 | 1 |
+| 6 | 1 | 0 |
+
+### stimulus 4
+| cycle | rst_n | data |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 1 |
+| 4 | 1 | 0 |
+| 5 | 0 | 0 |
+| 6 | 1 | 0 |
+| 7 | 1 | 0 |
+| 8 | 1 | 1 |
+
+### stimulus 5
+| cycle | rst_n | data |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 1 |
+| 4 | 1 | 0 |
+| 5 | 1 | 1 |
+| 6 | 1 | 1 |
+| 7 | 0 | 0 |
+| 8 | 1 | 0 |
+| 9 | 1 | 0 |
+
+### stimulus 6
+| cycle | rst_n | data |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 1 |
+| 4 | 1 | 0 |
+| 5 | 1 | 1 |
+| 6 | 1 | 1 |
+| 7 | 1 | 0 |
+| 8 | 1 | 0 |
+| 9 | 1 | 1 |
+| 10 | 1 | 0 |
+| 11 | 1 | 1 |
+| 12 | 1 | 1 |
+| 13 | 1 | 0 |
+| 14 | 1 | 0 |
+| 15 | 1 | 1 |
+| 16 | 1 | 0 |
+| 17 | 1 | 1 |
+| 18 | 1 | 1 |
+| 19 | 1 | 0 |
+
+### stimulus 7
+| cycle | rst_n | data |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 1 |
+| 4 | 1 | 0 |
+| 5 | 1 | 1 |
+| 6 | 1 | 1 |
+| 7 | 1 | 0 |
+| 8 | 1 | 0 |
+| 9 | 1 | 1 |
+| 10 | 1 | 0 |
+| 11 | 1 | 1 |
+| 12 | 1 | 1 |
+| 13 | 1 | 0 |
+| 14 | 1 | 0 |
+| 15 | 1 | 1 |
+| 16 | 1 | 0 |
+| 17 | 1 | 1 |
+| 18 | 1 | 1 |
+| 19 | 1 | 0 |
+| 20 | 1 | 0 |
+| 21 | 1 | 1 |
+| 22 | 1 | 0 |
+| 23 | 1 | 1 |
+| 24 | 1 | 1 |
+| 25 | 1 | 0 |
+| 26 | 1 | 0 |

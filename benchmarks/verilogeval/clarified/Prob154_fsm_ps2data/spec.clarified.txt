@@ -1,0 +1,145 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- in: input [7:0].
+- reset: input 1 bit.
+- out_bytes: output [23:0].
+- done: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  BYTE1: default = 0.
+-  BYTE2: default = 1.
+-  BYTE3: default = 2.
+-  DONE: default = 3.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Reset is active high and synchronous to the rising edge of clk. Merely asserting reset does not change any state or output before a rising edge. Every rising edge that samples reset high restarts transaction recognition, captures the complete current in byte as the newest captured byte, and drives done to 0 for the following cycle. Such an edge does not initialize or clear the captured-byte history. Holding reset high repeats this restart and capture on every rising edge.
+
+After each reset edge, the recognition-progress state is the waiting condition. The newest captured-byte position contains the in value sampled on that reset edge; the other two captured-byte positions retain their preceding contents and validity. At power-up, before any reset edge, recognition is outside its operational phases and all three captured-byte positions are uninitialized. The fact that unreset rising edges capture and shift bytes does not make either public output known or enable an observable completion.
+
+Before any rising edge has sampled reset high, both done and out_bytes are unknown, even if reset is already asserted. They remain unknown across any number of rising edges that sample reset low. The implementation must leave both outputs' power-up state uninitialized, with no initial block or declaration initializer that gives either output a definite value.
+
+On the first rising edge after reset is released, ordinary recognition resumes from the waiting condition. That edge captures in. If in[3] is 1, it captures the first byte and begins a transaction; otherwise recognition remains waiting. done is 0 after that edge, and out_bytes is unknown.
+
+4. Timing.
+
+Only rising edges of clk change recognition progress or capture in. Falling edges, steady-low intervals, and steady-high intervals without an edge have no effect. Changes to in between rising edges have no effect.
+
+done and out_bytes are registered observations of state after a rising edge. With observation rows sampled before the active edge, done becomes 1 immediately after the rising edge that captures a recognized transaction's third byte. It remains 1 for exactly one clock cycle and returns to 0 at the next rising edge. out_bytes becomes valid at the same time as done and remains valid for exactly that one clock cycle; it is unknown at all other initialized times.
+
+The object uses a full-cycle timebase: row k is the settled observation before transition k, at k full clock steps after the initial settling point. No 10 ns clock period or other physical period is implied. The interface supplies no numeric step_ns or sample_offset_ns. This observation convention is separate from the circuit law that state changes only on rising clk edges.
+
+5. Behaviour.
+
+After reset has been sampled high, recognition waits until a rising edge captures a byte whose bit 3 is 1. That complete byte is the first byte of a transaction. The next rising edge captures the second byte, and the following rising edge captures the third byte. During those two following capture phases, bit 3 has no effect on progress.
+
+At every rising clk edge, the complete in byte becomes the newest of the last three captured bytes, including during reset, waiting, completion, and all transaction phases. A reset edge gives reset priority over in[3] for recognition progress while still capturing the byte. Recognition history is not cleared by reset.
+
+Immediately after the edge that captures the third byte, done is 1 and out_bytes is the ordered concatenation of the recognized transaction's bytes: out_bytes[23:16] is its first byte, out_bytes[15:8] is its second byte, and out_bytes[7:0] is its third byte.
+
+On the next rising edge, done returns to 0 and out_bytes returns to unknown. That same edge captures in and performs immediate restart: if in[3] is 1, the captured byte is the first byte of the next transaction; otherwise recognition returns to waiting. No idle edge is inserted, and repeated transactions follow the same rule.
+
+For every possible 8-bit value of in, only bit 3 controls starting or immediate restarting recognition; all eight bits are captured as byte data. Values of reset are interpreted by their one-bit port value. Before reset has ever been sampled high, recognition cannot produce an observable completion: done and out_bytes remain unknown for all in values.
+
+6. Worked trace.
+
+The following evaluated trace is normative. Each row is sampled before its row's active-edge transition.
+
+### stimulus 0
+| cycle | in | reset | out_bytes | done |
+|---|---|---|---|---|
+| 0 | 8'b00000000 | 1 | 24'x | x |
+| 1 | 8'b00000001 | 0 | 24'x | 0 |
+| 2 | 8'b00001000 | 0 | 24'x | 0 |
+| 3 | 8'b11111111 | 0 | 24'x | 0 |
+| 4 | 8'b10000000 | 0 | 24'x | 0 |
+| 5 | 8'b01010101 | 0 | 24'h8ff80 | 1 |
+
+### stimulus 1
+| cycle | in | reset | out_bytes | done |
+|---|---|---|---|---|
+| 0 | 8'b11111111 | 1 | 24'x | x |
+| 1 | 8'b00101100 | 0 | 24'x | 0 |
+| 2 | 8'b10000001 | 0 | 24'x | 0 |
+| 3 | 8'b00001001 | 0 | 24'x | 0 |
+| 4 | 8'b01101011 | 0 | 24'h2c8109 | 1 |
+| 5 | 8'b00001101 | 0 | 24'x | 0 |
+| 6 | 8'b10001101 | 0 | 24'x | 0 |
+| 7 | 8'b00000000 | 0 | 24'h6b0d8d | 1 |
+
+### stimulus 2
+| cycle | in | reset | out_bytes | done |
+|---|---|---|---|---|
+| 0 | 8'b00000000 | 1 | 24'x | x |
+| 1 | 8'b00001000 | 0 | 24'x | 0 |
+| 2 | 8'b00000000 | 0 | 24'x | 0 |
+| 3 | 8'b00000001 | 0 | 24'x | 0 |
+| 4 | 8'b00000000 | 0 | 24'h80001 | 1 |
+| 5 | 8'b00001000 | 0 | 24'x | 0 |
+| 6 | 8'b10000000 | 0 | 24'x | 0 |
+| 7 | 8'b11111111 | 0 | 24'x | 0 |
+| 8 | 8'b00000000 | 0 | 24'h880ff | 1 |
+
+### stimulus 3
+| cycle | in | reset | out_bytes | done |
+|---|---|---|---|---|
+| 0 | 8'b00000000 | 1 | 24'x | x |
+| 1 | 8'b00001000 | 0 | 24'x | 0 |
+| 2 | 8'b01010101 | 0 | 24'x | 0 |
+| 3 | 8'b11111111 | 1 | 24'x | 0 |
+| 4 | 8'b00011000 | 0 | 24'x | 0 |
+| 5 | 8'b00000001 | 0 | 24'x | 0 |
+| 6 | 8'b10000000 | 0 | 24'x | 0 |
+| 7 | 8'b00000000 | 0 | 24'h180180 | 1 |
+
+### stimulus 4
+| cycle | in | reset | out_bytes | done |
+|---|---|---|---|---|
+| 0 | 8'b00001000 | 0 | 24'x | x |
+| 1 | 8'b00000001 | 0 | 24'x | x |
+| 2 | 8'b11111111 | 0 | 24'x | x |
+| 3 | 8'b01010101 | 0 | 24'x | x |
+
+### stimulus 5
+| cycle | in | reset | out_bytes | done |
+|---|---|---|---|---|
+| 0 | 8'b00001000 | 1 | 24'x | x |
+| 1 | 8'b11111111 | 1 | 24'x | 0 |
+| 2 | 8'b00001000 | 0 | 24'x | 0 |
+| 3 | 8'b00000001 | 0 | 24'x | 0 |
+| 4 | 8'b00000000 | 0 | 24'x | 0 |
+| 5 | 8'b00000000 | 0 | 24'h80100 | 1 |
+
+### stimulus 6
+| cycle | in | reset | out_bytes | done |
+|---|---|---|---|---|
+| 0 | 8'b00000000 | 1 | 24'x | x |
+| 1 | 8'b00000111 | 0 | 24'x | 0 |
+| 2 | 8'b00010000 | 0 | 24'x | 0 |
+| 3 | 8'b10000000 | 0 | 24'x | 0 |
+| 4 | 8'b00001000 | 0 | 24'x | 0 |
+| 5 | 8'b11111111 | 0 | 24'x | 0 |
+| 6 | 8'b01010101 | 0 | 24'x | 0 |
+| 7 | 8'b00000000 | 0 | 24'h8ff55 | 1 |
+
+### stimulus 7
+| cycle | in | reset | out_bytes | done |
+|---|---|---|---|---|
+| 0 | 8'b00000000 | 1 | 24'x | x |
+| 1 | 8'b00001000 | 0 | 24'x | 0 |
+| 2 | 8'b00000001 | 0 | 24'x | 0 |
+| 3 | 8'b11111111 | 0 | 24'x | 0 |
+| 4 | 8'b00001000 | 1 | 24'h801ff | 1 |
+| 5 | 8'b00011000 | 0 | 24'x | 0 |
+| 6 | 8'b10000000 | 0 | 24'x | 0 |
+| 7 | 8'b01010101 | 0 | 24'x | 0 |
+| 8 | 8'b00000000 | 0 | 24'h188055 | 1 |

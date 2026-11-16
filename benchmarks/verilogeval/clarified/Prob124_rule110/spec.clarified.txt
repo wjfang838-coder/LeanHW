@@ -1,0 +1,112 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- load: input 1 bit.
+- data: input [511:0].
+- q: output [511:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset operation, synchronous or asynchronous. The only state element is the 512-bit value exposed as q together with whether that value has yet been established by a load. At power-up, q is unknown. It remains unknown through every rising edge that samples load low, because applying Rule 110 to an unknown preceding state does not establish a defined state. On the first rising edge that samples load high, q becomes the simultaneously sampled data value and is defined from that edge onward. There is therefore no “first step after reset release.” The implementation must leave q uninitialised before the first loaded edge: it must have no initial block or declaration initialiser that gives q a defined power-up value.
+
+Timing
+
+q is a registered output triggered only by the rising edge of clk and holds its value between rising edges. A steady clk level and a falling edge have no effect. Each rising edge samples load and data and completes exactly one selected operation. The result of the operation selected at a rising edge is visible immediately after that edge and is the q value sampled in the next full-cycle trace row; equivalently, the trace has one row of latency from the row's sampled inputs to the row showing their effect. Consecutive rising edges independently complete consecutive operations, with no mandatory idle cycle and no completion pulse.
+
+The evaluated trace uses the object's full-cycle observation convention: row k samples q before transition k, and then transition k processes that row's inputs. The interface defines no numeric step_ns or sample_offset_ns, so this document does not assign an implicit 10 ns interval to rows. This observation convention is separate from the circuit law, which advances on every rising edge of clk and imposes no numerical clock period or propagation delay.
+
+Behaviour
+
+Only a rising edge of clk changes q: that edge samples load and data and either loads data when load is high or performs one Rule-110 update when load is low; a steady clk level and falling edges have no effect, and every rising edge independently performs the selected operation, including consecutive edges and an edge that changes the selected operation.
+
+At each rising clk edge, load has priority: when high it replaces q with the simultaneously sampled data value, interrupting Rule-110 evolution, and when low it causes exactly one Rule-110 update from the preceding q; load changes away from a rising edge have no effect, consecutive high samples perform consecutive independent loads, and evolution restarts from the most recently loaded value on the first edge sampling load low.
+
+data affects q only when sampled on a rising clk edge with load high, in which case all 512 sampled bits become q; when load is low, data has no effect, and each consecutive loaded edge captures that edge's data independently.
+
+There is no reset input or defined power-up value for q; after each rising clk edge q becomes the sampled data if load was high, otherwise each bit q[i] becomes NOT((L AND C AND R) OR ((NOT L) AND (NOT C) AND (NOT R)) OR (L AND (NOT C) AND (NOT R))), where L, C, and R are the preceding q[i+1], q[i], and q[i-1] with out-of-range neighbors q[512] and q[-1] equal to zero; because each table row is sampled before its active edge, the operation selected by row k is first observed in row k+1, q holds between rising edges, every rising edge completes one operation, and the next rising edge may immediately load again or perform the next update.
+
+Thus the complete defined-state Rule 110 mapping for the preceding neighborhood L,C,R is: 111 to 0; 110 to 1; 101 to 1; 100 to 0; 011 to 1; 010 to 1; 001 to 1; and 000 to 0. Bit indices run from 0 through 511. The missing right neighbor of q[0] and the missing left neighbor of q[511] are zero. load and every data bit are one-bit quantities, so these cases cover every input encoding.
+
+Worked trace
+
+The following evaluated trace is normative. Each row observes q before applying that row's rising-edge operation.
+
+### stimulus 0
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 0 | 512'h0 | 512'x |
+| 1 | 1 | 512'h0 | 512'x |
+| 2 | 0 | 512'h1 | 512'h0 |
+| 3 | 0 | 512'h0 | 512'h0 |
+| 4 | 0 | 512'h0 | 512'h0 |
+
+### stimulus 1
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 0 | 512'h1 | 512'x |
+| 1 | 1 | 512'h1 | 512'x |
+| 2 | 0 | 512'h0 | 512'h1 |
+| 3 | 0 | 512'h0 | 512'h3 |
+| 4 | 0 | 512'h0 | 512'h7 |
+
+### stimulus 2
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 512'h0 | 512'x |
+| 1 | 0 | 512'h1 | 512'h0 |
+| 2 | 0 | 512'h0 | 512'h0 |
+| 3 | 0 | 512'h0 | 512'h0 |
+
+### stimulus 3
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 512'h1 | 512'x |
+| 1 | 0 | 512'h0 | 512'h1 |
+| 2 | 0 | 512'h0 | 512'h3 |
+| 3 | 1 | 512'h2 | 512'h7 |
+| 4 | 0 | 512'h0 | 512'h2 |
+| 5 | 0 | 512'h0 | 512'h6 |
+
+### stimulus 4
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 512'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff | 512'x |
+| 1 | 0 | 512'h0 | 512'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff |
+| 2 | 0 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001 |
+| 3 | 0 | 512'h0 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003 |
+
+### stimulus 5
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 | 512'x |
+| 1 | 0 | 512'h0 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 |
+| 2 | 0 | 512'h0 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 |
+| 3 | 0 | 512'h0 | 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 |
+
+### stimulus 6
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 512'h18000000000000000000000000000000000000000000000000000000000000001 | 512'x |
+| 1 | 0 | 512'h0 | 512'h18000000000000000000000000000000000000000000000000000000000000001 |
+| 2 | 0 | 512'h0 | 512'h38000000000000000000000000000000000000000000000000000000000000003 |
+| 3 | 0 | 512'h0 | 512'h68000000000000000000000000000000000000000000000000000000000000007 |
+
+### stimulus 7
+| cycle | load | data | q |
+|---|---|---|---|
+| 0 | 1 | 512'h7 | 512'x |
+| 1 | 1 | 512'h5 | 512'h7 |
+| 2 | 0 | 512'h0 | 512'h5 |
+| 3 | 0 | 512'h0 | 512'hf |
+| 4 | 0 | 512'h0 | 512'h19 |

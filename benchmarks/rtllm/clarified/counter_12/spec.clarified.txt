@@ -1,0 +1,159 @@
+Module and integration contract
+
+Module: counter_12.
+Ports below are in exact declaration order:
+- rst_n: input 1 bit.
+- clk: input 1 bit.
+- valid_count: input 1 bit.
+- out: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+rst_n is an active-low asynchronous reset. Whenever rst_n is low, out is 4'b0000 immediately, independently of clk and valid_count, and the stored count is zero. Reset has priority over a simultaneous rising clk edge. Repeated clock edges and valid_count changes while reset remains asserted have no further effect.
+
+Before rst_n has ever been asserted low, out is unknown. It remains unknown across clock edges regardless of valid_count until reset establishes a known value. The implementation must leave this power-up state uninitialised: no initial block or declaration initialiser may give out a defined value.
+
+Releasing rst_n does not itself change out. On the first rising clk edge after release, valid_count equal to 0 retains 4'b0000; valid_count equal to 1 advances it to 4'b0001. Since observations are taken before each active edge, the pre-edge observation on that first step is still 4'b0000 and the update appears in the following row.
+
+Timing
+
+out is a four-bit registered output whose updates are controlled by rising edges of clk, except that assertion of rst_n clears it asynchronously. With rst_n high, valid_count is sampled on each rising edge. An enabled update is observable immediately after that edge; in the full-cycle evaluated trace it first appears in the following row because each row samples before its active edge. Falling edges, steady clock levels, and changes of valid_count between rising edges do not update out.
+
+The evaluated object uses one full clock cycle per trace step. Row k denotes k times the interface step duration after settling; it does not imply a 10 ns clock. The circuit's clock period and physical propagation delays are not specified.
+
+Behaviour
+
+With rst_n high and a known current out, valid_count equal to 0 holds out unchanged on a rising clk edge. valid_count equal to 1 increments out by one when out is 4'b0000 through 4'b1010. When out is 4'b1011, an enabled rising edge wraps out to 4'b0000. Repeated enabled rising edges repeat this modulo-12 law, including restarting at zero after every wrap. A later low assertion of rst_n interrupts this behavior immediately and forces out to zero.
+
+With rst_n high, only a rising clk edge can update out: it increments or wraps when valid_count is high and holds when valid_count is low; falling edges and steady clk levels have no effect, repeated rising edges repeat that rule, and a simultaneous low reset assertion instead clears out immediately.
+
+With rst_n high, valid_count is sampled on each rising clk edge: 1 increments out except that 4'b1011 wraps to 4'b0000, 0 holds out, changes between rising edges have no effect, repeated asserted edges perform repeated count steps, reset overrides it, and an X or Z value produces the Verilog conditional merge of the enabled next value and the held value, making every bit on which those alternatives differ unknown.
+
+Out is unknown at power-up until rst_n is asserted low, which clears it asynchronously to 4'b0000; release holds that value until a rising clk edge, each such edge with rst_n high makes an enabled increment or 11-to-0 wrap observable immediately after the edge while a disabled edge retains the prior value, repeated enabled edges restart counting from zero after a wrap, and because each stimulus row is sampled before its active edge, an edge's update first appears in the following row.
+
+For the otherwise-unused four-bit encodings, the same arithmetic law applies to the stored numeric value: an enabled rising edge sets out to (out + 1) modulo 12. Consequently, 4'b1100, 4'b1101, 4'b1110, and 4'b1111 advance to 4'b0001, 4'b0010, 4'b0011, and 4'b0100 respectively; a disabled rising edge retains the original encoding. These encodings cannot arise from reset followed only by the specified modulo-12 count sequence, but these cases define behavior if one exists because of an unknown or externally forced prior state.
+
+Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance and its observation timing.
+
+### stimulus 0
+| cycle | rst_n | valid_count | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 |
+| 1 | 1 | 1 | 4'b0000 |
+| 2 | 1 | 0 | 4'b0001 |
+| 3 | 1 | 1 | 4'b0001 |
+
+### stimulus 1
+| cycle | rst_n | valid_count | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 4'b0000 |
+| 1 | 1 | 1 | 4'b0000 |
+| 2 | 1 | 1 | 4'b0001 |
+
+### stimulus 2
+| cycle | rst_n | valid_count | out |
+|---|---|---|---|
+| 0 | 1 | 0 | 4'x |
+| 1 | 1 | 1 | 4'x |
+| 2 | 1 | 0 | 4'x |
+
+### stimulus 3
+| cycle | rst_n | valid_count | out |
+|---|---|---|---|
+| 0 | 1 | 1 | 4'x |
+| 1 | 0 | 1 | 4'b0000 |
+| 2 | 1 | 1 | 4'b0000 |
+
+### stimulus 4
+| cycle | rst_n | valid_count | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 |
+| 1 | 1 | 0 | 4'b0000 |
+| 2 | 1 | 0 | 4'b0000 |
+| 3 | 1 | 1 | 4'b0000 |
+
+### stimulus 5
+| cycle | rst_n | valid_count | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 |
+| 1 | 1 | 0 | 4'b0000 |
+| 2 | 1 | 1 | 4'b0000 |
+
+### stimulus 6
+| cycle | rst_n | valid_count | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 4'b0000 |
+| 1 | 1 | 1 | 4'b0000 |
+| 2 | 1 | 1 | 4'b0001 |
+| 3 | 1 | 1 | 4'b0010 |
+| 4 | 1 | 1 | 4'b0011 |
+| 5 | 1 | 1 | 4'b0100 |
+| 6 | 1 | 1 | 4'b0101 |
+| 7 | 1 | 1 | 4'b0110 |
+| 8 | 1 | 1 | 4'b0111 |
+| 9 | 1 | 1 | 4'b1000 |
+| 10 | 1 | 1 | 4'b1001 |
+| 11 | 1 | 1 | 4'b1010 |
+| 12 | 1 | 1 | 4'b1011 |
+| 13 | 1 | 1 | 4'b0000 |
+| 14 | 1 | 1 | 4'b0001 |
+| 15 | 1 | 1 | 4'b0010 |
+| 16 | 1 | 1 | 4'b0011 |
+| 17 | 1 | 1 | 4'b0100 |
+| 18 | 1 | 1 | 4'b0101 |
+| 19 | 1 | 1 | 4'b0110 |
+| 20 | 1 | 1 | 4'b0111 |
+| 21 | 1 | 1 | 4'b1000 |
+| 22 | 1 | 1 | 4'b1001 |
+| 23 | 1 | 1 | 4'b1010 |
+| 24 | 1 | 1 | 4'b1011 |
+| 25 | 1 | 1 | 4'b0000 |
+| 26 | 1 | 1 | 4'b0001 |
+| 27 | 1 | 1 | 4'b0010 |
+| 28 | 1 | 1 | 4'b0011 |
+| 29 | 1 | 1 | 4'b0100 |
+| 30 | 1 | 1 | 4'b0101 |
+| 31 | 1 | 1 | 4'b0110 |
+| 32 | 1 | 1 | 4'b0111 |
+| 33 | 1 | 1 | 4'b1000 |
+| 34 | 1 | 1 | 4'b1001 |
+| 35 | 1 | 1 | 4'b1010 |
+| 36 | 1 | 1 | 4'b1011 |
+| 37 | 1 | 1 | 4'b0000 |
+| 38 | 1 | 1 | 4'b0001 |
+| 39 | 1 | 1 | 4'b0010 |
+
+### stimulus 7
+| cycle | rst_n | valid_count | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 4'b0000 |
+| 1 | 1 | 1 | 4'b0000 |
+| 2 | 1 | 1 | 4'b0001 |
+| 3 | 1 | 0 | 4'b0010 |
+| 4 | 1 | 1 | 4'b0010 |
+| 5 | 1 | 1 | 4'b0011 |
+| 6 | 1 | 0 | 4'b0100 |
+| 7 | 1 | 1 | 4'b0100 |
+| 8 | 1 | 1 | 4'b0101 |
+| 9 | 1 | 0 | 4'b0110 |
+| 10 | 1 | 1 | 4'b0110 |
+| 11 | 1 | 1 | 4'b0111 |
+| 12 | 1 | 0 | 4'b1000 |
+| 13 | 1 | 1 | 4'b1000 |
+| 14 | 1 | 1 | 4'b1001 |
+| 15 | 1 | 0 | 4'b1010 |
+| 16 | 1 | 1 | 4'b1010 |
+| 17 | 1 | 1 | 4'b1011 |
+| 18 | 1 | 0 | 4'b0000 |
+| 19 | 1 | 1 | 4'b0000 |

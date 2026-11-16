@@ -1,0 +1,141 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- areset: input 1 bit.
+- predict_valid: input 1 bit.
+- predict_taken: input 1 bit.
+- predict_history: output [31:0].
+- train_mispredicted: input 1 bit.
+- train_taken: input 1 bit.
+- train_history: input [31:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+areset is active high and asynchronous. Its assertion makes predict_history equal to 32'h00000000 immediately, independently of clk and all other inputs. Every rising clk edge while areset remains high also sets the stored 32-bit history value to 32'h00000000. Deasserting areset does not itself change the stored value. On the first rising clk edge after release, the normal priority law applies to the inputs present on that edge: training rollback first, prediction second, and retention otherwise.
+
+At power-up, before areset has ever been asserted and before any training rollback has established all bits, predict_history is unknown. The implementation must leave that stored value uninitialised, with no initial block or declaration initialiser. A prediction update made from this unknown value does not establish a known 32-bit result. A training rollback does establish all 32 bits even if reset has never been asserted.
+
+Timing
+
+predict_history is a registered output representing the stored branch history, except that asynchronous assertion of areset forces its visible value to zero immediately. A qualifying rising clk edge updates it with one-clock-cycle edge-to-observation latency under the trace convention: a row samples the settled output before that row's active edge, and the result of the edge appears in the following row. Deasserting reset and changing prediction or training inputs between rising edges have no effect by themselves. predict_history has no completion pulse and no automatic clear.
+
+The evaluated object uses full-cycle rows. Row k denotes the sample at k full-cycle steps after settling; it does not imply a 10 ns clock tick. The interface specifies rising-edge operation but does not specify a numeric physical clock period or propagation delay.
+
+Behaviour
+
+A rising clk edge sets predict_history to zero while areset is high; otherwise it applies train_mispredicted first, then predict_valid, and otherwise retains the value, and every repeated rising edge independently applies this same priority to the inputs then present.
+
+A rising assertion of areset immediately sets predict_history to 32'h00000000 independently of clk and all simultaneous controls; predict_history remains or is set to zero on every rising clk edge while areset is high, and deasserting areset alone has no effect before subsequent rising clk edges resume normal prioritized updates.
+
+At each rising clk edge with areset low and train_mispredicted low, predict_valid high updates predict_history to {the prior predict_history[30:0], predict_taken}, while predict_valid low retains it; areset or train_mispredicted overrides predict_valid, and changes between rising edges have no effect.
+
+predict_taken supplies the new least-significant bit only on a rising clk edge where areset is low, train_mispredicted is low, and predict_valid is high; otherwise it has no effect, and repeated qualifying edges append their contemporaneous values successively.
+
+On each rising clk edge with areset low, train_mispredicted high updates predict_history to {train_history[30:0], train_taken} and overrides prediction inputs, while train_mispredicted low permits the predict_valid update or retention; changes between rising edges have no effect.
+
+train_taken supplies the new least-significant bit only on a rising clk edge with areset low and train_mispredicted high, when predict_history becomes {train_history[30:0], train_taken}; otherwise it has no effect, and repeated qualifying edges use the value present on each edge.
+
+train_history[30:0] supplies predict_history[31:1] only on a rising clk edge with areset low and train_mispredicted high; train_history[31] is discarded, and train_history has no effect otherwise; repeated qualifying edges capture the contemporaneous value independently.
+
+With rows sampled before the active edge, a row shows the value produced by earlier events: areset assertion makes 32'h00000000 observable immediately, and each rising clk edge with areset low makes the prioritized training update {train_history[30:0], train_taken}, else prediction update {prior predict_history[30:0], predict_taken}, else retained value observable only after that edge; reset interrupts either update, release does not itself change the output, and subsequent or repeated edges restart this same rule without any completion pulse or automatic clear.
+
+All one-bit controls are interpreted over their complete one-bit domain: zero is low and one is high. The two 32-bit concatenation laws above define every possible train_history value and every possible prior history value. Inputs that are not enabled by the stated priority conditions do not affect the stored result.
+
+Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance.
+
+### stimulus 0
+| cycle | areset | predict_valid | predict_taken | train_mispredicted | train_taken | train_history | predict_history |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 0 | 0 | 32'h0 | 32'x |
+| 1 | 0 | 1 | 0 | 0 | 0 | 32'h0 | 32'x |
+
+### stimulus 1
+| cycle | areset | predict_valid | predict_taken | train_mispredicted | train_taken | train_history | predict_history |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 32'h0 | 32'h0 |
+| 1 | 0 | 1 | 1 | 0 | 0 | 32'h1 | 32'h0 |
+| 2 | 0 | 1 | 0 | 0 | 0 | 32'hffffffff | 32'h1 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 32'h80000000 | 32'h2 |
+
+### stimulus 2
+| cycle | areset | predict_valid | predict_taken | train_mispredicted | train_taken | train_history | predict_history |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 32'h0 | 32'h0 |
+| 1 | 0 | 1 | 1 | 0 | 0 | 32'h0 | 32'h0 |
+| 2 | 0 | 1 | 1 | 0 | 0 | 32'h0 | 32'h1 |
+| 3 | 0 | 1 | 0 | 0 | 0 | 32'h0 | 32'h3 |
+| 4 | 0 | 0 | 0 | 0 | 0 | 32'h0 | 32'h6 |
+
+### stimulus 3
+| cycle | areset | predict_valid | predict_taken | train_mispredicted | train_taken | train_history | predict_history |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 32'h0 | 32'h0 |
+| 1 | 0 | 0 | 0 | 1 | 0 | 32'h0 | 32'h0 |
+| 2 | 0 | 0 | 0 | 1 | 1 | 32'h1 | 32'h0 |
+| 3 | 0 | 0 | 0 | 1 | 0 | 32'hffffffff | 32'h3 |
+| 4 | 0 | 0 | 0 | 1 | 1 | 32'h80000000 | 32'hfffffffe |
+| 5 | 0 | 0 | 0 | 1 | 0 | 32'h12345678 | 32'h1 |
+
+### stimulus 4
+| cycle | areset | predict_valid | predict_taken | train_mispredicted | train_taken | train_history | predict_history |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 32'h0 | 32'h0 |
+| 1 | 0 | 1 | 0 | 1 | 1 | 32'h12345678 | 32'h0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 32'h0 | 32'h2468acf1 |
+
+### stimulus 5
+| cycle | areset | predict_valid | predict_taken | train_mispredicted | train_taken | train_history | predict_history |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 32'h0 | 32'h0 |
+| 1 | 0 | 1 | 1 | 0 | 0 | 32'h0 | 32'h0 |
+| 2 | 0 | 0 | 0 | 1 | 0 | 32'h80000000 | 32'h1 |
+| 3 | 0 | 1 | 0 | 0 | 0 | 32'h0 | 32'h0 |
+| 4 | 0 | 1 | 1 | 0 | 0 | 32'h0 | 32'h0 |
+| 5 | 0 | 0 | 0 | 0 | 0 | 32'h0 | 32'h1 |
+
+### stimulus 6
+| cycle | areset | predict_valid | predict_taken | train_mispredicted | train_taken | train_history | predict_history |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 | 32'hffffffff | 32'h0 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 32'h0 | 32'h0 |
+| 2 | 0 | 1 | 1 | 0 | 0 | 32'h0 | 32'h0 |
+
+### stimulus 7
+| cycle | areset | predict_valid | predict_taken | train_mispredicted | train_taken | train_history | predict_history |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 32'h0 | 32'h0 |
+| 1 | 0 | 0 | 1 | 0 | 1 | 32'hffffffff | 32'h0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 32'h80000000 | 32'h0 |
+
+### stimulus 8
+| cycle | areset | predict_valid | predict_taken | train_mispredicted | train_taken | train_history | predict_history |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 32'h0 | 32'h0 |
+| 1 | 0 | 1 | 1 | 0 | 0 | 32'h0 | 32'h0 |
+| 2 | 0 | 1 | 0 | 0 | 0 | 32'h0 | 32'h1 |
+| 3 | 0 | 0 | 0 | 1 | 1 | 32'h1 | 32'h2 |
+| 4 | 0 | 1 | 0 | 0 | 0 | 32'h0 | 32'h3 |
+| 5 | 0 | 0 | 0 | 1 | 0 | 32'h12345678 | 32'h6 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 32'h0 | 32'h2468acf0 |
+
+### stimulus 9
+| cycle | areset | predict_valid | predict_taken | train_mispredicted | train_taken | train_history | predict_history |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 32'h0 | 32'h0 |
+| 1 | 0 | 0 | 0 | 1 | 1 | 32'hffffffff | 32'h0 |
+| 2 | 0 | 1 | 1 | 0 | 0 | 32'h0 | 32'hffffffff |
+| 3 | 1 | 1 | 0 | 0 | 0 | 32'h0 | 32'h0 |
+| 4 | 0 | 0 | 0 | 1 | 0 | 32'h12345678 | 32'h0 |

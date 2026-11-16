@@ -1,0 +1,202 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+I need to implement a fixed constraint k=3 and a generator polynomial convolutional encoder in Verilog for a digital communication system. The encoder should have a constraint length k=3 and use two generator polynomials: \( g_1(x) = x^2 + x + 1 \) and \( g_2(x) = x^2 + 1 \). The encoder needs to take a serial input data stream and produce a 2-bit encoded output for each input bit.
+
+The constraint length (K) is fixed at 3, which means the encoder uses the current input bit and the previous 2 bits (held in a 2-bit shift register) to generate the encoded outputs.
+
+The generator polynomial g1 is "111", which corresponds to ( g_1(x) = x^2 + x + 1 ). This polynomial is used to generate the first encoded bit (encoded_bit1). The generator polynomial g2 is "101", which corresponds to ( g_2(x) = x^2 + 1 ). This polynomial is used to generate the second encoded bit (encoded_bit2).
+
+The inputs to the module are:
+
+1. clk: The clock signal used to synchronize the operations of the module.
+2. rst: An asynchronous reset signal, active high. When asserted, it resets the shift register and the encoded output bits.
+3. data_in: A single-bit input signal representing the incoming data stream to be encoded.
+
+The outputs of the module are:
+
+1. encoded_bit1: The first encoded output bit, generated using the generator polynomial g1.
+2. encoded_bit2: The second encoded output bit, generated using the generator polynomial g2.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+I need to implement a fixed constraint k=3 and a generator polynomial convolutional encoder in Verilog for a digital communication system. The encoder should have a constraint length k=3 and use two generator polynomials: \( g_1(x) = x^2 + x + 1 \) and \( g_2(x) = x^2 + 1 \). The encoder needs to take a serial input data stream and produce a 2-bit encoded output for each input bit.
+
+Module and integration contract
+
+Module: convolutional_encoder.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- data_in: input 1 bit.
+- encoded_bit1: output 1 bit.
+- encoded_bit2: output 1 bit.
+
+Public parameters:
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+3. Reset
+rst is an active-high asynchronous reset. Its rising assertion immediately makes both encoded outputs and both stored history bits zero, independently of clk and data_in. Reset has priority over a simultaneous rising clock edge. While rst=1, outputs and history remain zero and input data is ignored. A falling rst edge leaves that state unchanged; release itself neither captures input nor publishes a result. Repeated assertions interrupt the stream and discard every earlier input contribution.
+
+Before the first reset assertion, both stored history bits and both encoded outputs are hardware-unknown, as established by certain answers Q1, Q5, Q12 and Q13. This does not require reset before operation: ordinary captures establish the history. Before any reset, the first two rising-edge captures produce unknown outputs because the earlier history is unknown; the third and all subsequent captures produce known results for known sampled input bits. These unknowns are hardware unknowns, not discretionary values or unresolved questions.
+
+4. Timing
+The active clock event is posedge clk, and every such edge with rst=0 captures one input bit and publishes both encoded outputs.
+Both outputs are registered: the sampled input contributes to the result immediately after its accepting rising edge, with zero additional completed clock intervals and no later publication edge. The next pre-edge observation sees that result. Outputs retain their captured values between rising clock edges, except that reset assertion clears them asynchronously. Clock levels alone, falling clock edges and input changes between rising edges have no effect. There are no completion pulses, bounded transactions, idle intervals or periodic output signals.
+
+Let E0 be the first rising clk edge after reset release and u[n] be data_in sampled at En, with u[-1]=u[-2]=0. Before E0, both outputs remain zero. Immediately after E0, both equal u[0]. Immediately after E1, encoded_bit1 equals u[1] XOR u[0] and encoded_bit2 equals u[1]. Immediately after E2, encoded_bit1 equals u[2] XOR u[1] XOR u[0] and encoded_bit2 equals u[2] XOR u[0]. Capture and publication occur at each named edge, not after an extra interval. Reset assertion through release and these three edges uses the same timeline for every restart.
+
+5. Behaviour
+The fixed constraint length K=3 uses the current sampled bit and the two previous sampled bits. Generator g1 is 111, corresponding to g_1(x)=x^2+x+1; generator g2 is 101, corresponding to g_2(x)=x^2+1.
+Immediately after each rising clk edge with rst=0, encoded_bit1 equals u[n] XOR u[n-1] XOR u[n-2] and retains this result until the next rising clk edge or reset assertion.
+Immediately after each rising clk edge with rst=0, encoded_bit2 equals u[n] XOR u[n-2] and retains this result until the next rising clk edge or reset assertion.
+These expressions use the input sampled at that edge and the history from BEFORE that edge. Simultaneously, the newest history bit becomes u[n] and the older history bit becomes the previously newest history bit. Neither encoded output is computed from the already advanced history.
+With rst=0, data_in affects the outputs only through its value sampled on each rising clk edge; repeated identical bits are sampled on every edge.
+Each sampled bit contributes to encoded_bit1 at its accepting edge and the next two rising edges, and to encoded_bit2 at its accepting edge and the second subsequent rising edge. Contributions combine by XOR. These laws cover both binary input values and every serial sequence, including streams without reset and repeated or interrupted streams. There is no enable, request exclusion, warm-up input restriction or terminal state.
+
+The original source and certain scoped answers are the requirements authority. The answers close the unspecified numerical reset values, initial unknowns, active edge, Boolean encoding and publication timing; no original source clause is amended and no implementation choice is introduced.
+
+6. Worked trace
+The evaluated trace is normative within the following finite observation scope. Each block starts before any reset, with the answer-established unknown history and unknown outputs, rather than from an implicit reset setup. A full-cycle row k samples the outputs before its implicit rising edge Ek, then that edge captures the row's input and advances the state once. Thus a row does not include its own input capture. Reset rows represent asynchronous assertion settled before observation and held through that row's active edge. Reset release before the next observation leaves zero state until the next rising edge. This active-edge projection does not represent reset pulses asserted and released wholly between observations; the circuit must nevertheless obey the full asynchronous assertion law for those pulses. No physical clock period or nanosecond observation offset is specified by the interface, and no 10 ns period is implied.
+### stimulus 0
+| cycle | rst | data_in | encoded_bit1 | encoded_bit2 |
+|---|---|---|---|---|
+| 0 | 0 | 0 | x | x |
+| 1 | 0 | 1 | x | x |
+| 2 | 0 | 0 | x | x |
+| 3 | 0 | 1 | 1 | 0 |
+
+### stimulus 1
+| cycle | rst | data_in | encoded_bit1 | encoded_bit2 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 1 |
+| 3 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 | 1 |
+| 5 | 0 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | rst | data_in | encoded_bit1 | encoded_bit2 |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 |
+| 3 | 0 | 1 | 1 | 1 |
+| 4 | 0 | 1 | 0 | 1 |
+| 5 | 0 | 1 | 1 | 0 |
+
+### stimulus 3
+| cycle | rst | data_in | encoded_bit1 | encoded_bit2 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 | 0 |
+| 8 | 0 | 0 | 0 | 0 |
+| 9 | 0 | 0 | 0 | 0 |
+| 10 | 0 | 0 | 0 | 0 |
+| 11 | 0 | 0 | 0 | 0 |
+
+### stimulus 4
+| cycle | rst | data_in | encoded_bit1 | encoded_bit2 |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 1 | 1 |
+| 3 | 0 | 1 | 0 | 1 |
+| 4 | 0 | 1 | 1 | 0 |
+| 5 | 0 | 1 | 1 | 0 |
+| 6 | 0 | 1 | 1 | 0 |
+| 7 | 0 | 1 | 1 | 0 |
+| 8 | 0 | 1 | 1 | 0 |
+| 9 | 0 | 1 | 1 | 0 |
+| 10 | 0 | 1 | 1 | 0 |
+| 11 | 0 | 1 | 1 | 0 |
+
+### stimulus 5
+| cycle | rst | data_in | encoded_bit1 | encoded_bit2 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 1 |
+| 3 | 0 | 1 | 1 | 0 |
+| 4 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 1 | 0 |
+| 6 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 1 | 0 |
+| 8 | 0 | 0 | 0 | 0 |
+| 9 | 0 | 1 | 1 | 0 |
+| 10 | 0 | 0 | 0 | 0 |
+| 11 | 0 | 1 | 1 | 0 |
+| 12 | 0 | 0 | 0 | 0 |
+| 13 | 0 | 1 | 1 | 0 |
+| 14 | 0 | 0 | 0 | 0 |
+| 15 | 0 | 1 | 1 | 0 |
+
+### stimulus 6
+| cycle | rst | data_in | encoded_bit1 | encoded_bit2 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 1 |
+| 3 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 1 | 1 |
+| 5 | 0 | 0 | 1 | 1 |
+| 6 | 0 | 0 | 1 | 0 |
+| 7 | 0 | 1 | 1 | 1 |
+| 8 | 0 | 0 | 1 | 1 |
+| 9 | 0 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | rst | data_in | encoded_bit1 | encoded_bit2 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 1 | 1 |
+| 3 | 1 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 1 | 1 |
+| 7 | 0 | 0 | 1 | 0 |
+| 8 | 0 | 0 | 1 | 1 |
+
+### stimulus 8
+| cycle | rst | data_in | encoded_bit1 | encoded_bit2 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 0 |
+| 2 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 1 | 1 |
+| 5 | 0 | 1 | 1 | 0 |
+| 6 | 0 | 0 | 0 | 0 |
+
+### stimulus 9
+| cycle | rst | data_in | encoded_bit1 | encoded_bit2 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 |
+| 3 | 0 | 1 | 1 | 1 |
+| 4 | 0 | 0 | 0 | 1 |
+| 5 | 0 | 1 | 0 | 1 |
+| 6 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 1 | 0 |
+| 8 | 0 | 0 | 1 | 1 |
+| 9 | 0 | 1 | 0 | 0 |
+| 10 | 0 | 1 | 1 | 1 |
+| 11 | 0 | 0 | 0 | 1 |
+| 12 | 0 | 0 | 0 | 1 |

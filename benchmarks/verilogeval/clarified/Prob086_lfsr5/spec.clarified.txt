@@ -1,0 +1,212 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- q: output [4:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+reset is active high and synchronous to the rising edge of clk. At every rising edge at which reset is sampled high, q is set to 5'b00001; this reset action has priority over LFSR progression. Consecutive rising edges that sample reset high repeatedly set q to 5'b00001. Changes of reset between rising edges do not affect q. Releasing reset does not itself change q; at the first later rising edge that samples reset low, one progression step is applied to the current value, and that new value is retained until another rising edge.
+
+At power-up, before any rising edge has assigned q, q is unknown. Merely asserting reset without a rising edge does not determine it. The implementation must leave q uninitialised in that interval, with no initial assignment or declaration initialiser. There are no state elements other than the five stored bits represented by q.
+
+4. Timing
+
+q is a registered output updated only on a rising edge of clk. A full-cycle trace row samples q before that row's rising-edge transition; consequently, the effect of a reset or progression edge appears in the following row. q holds its value at low and high clock levels and across falling edges. The interface's full-cycle observation convention means row k denotes k full-cycle steps after settling. No physical clock period in nanoseconds and no propagation delay are specified; those implementation timing quantities are distinct from the trace observation cadence.
+
+reset-to-q latency is one trace row under this pre-edge convention: a reset value sampled at a rising edge is observed as 5'b00001 in the next row. Progression has the same one-row observation latency from its rising edge. q is neither a pulse nor a completion indication. The LFSR sequence has a period of 31 rising-edge progression cycles when reset remains low, and each state is held for one complete cycle; no separate duty-cycle requirement applies to this multi-bit state output.
+
+5. Behaviour
+
+Before the first rising edge assigns q, q is unknown, and merely setting reset without such an edge does not determine it.
+
+On every rising edge, reset has priority. If reset is high, q becomes 5'b00001. If reset is low and q has previously been assigned, q changes from q[4:0] to {q[0], q[4], q[3] ^ q[0], q[2], q[1]}. This law applies to every possible 5-bit value of q, including 5'b00000; zero maps to zero. For the reset-seeded nonzero sequence, the recurrence visits all 31 nonzero 5-bit states before repeating and never reaches zero.
+
+Only a rising edge of clk affects q: at every such edge reset has priority and selects 5'b00001, otherwise the stated recurrence is applied once to the current q; low levels, high levels, and falling edges have no effect, and repeated rising edges repeat this choice without any busy, interruption, or transaction state.
+
+reset is synchronous and active high: its sampled high value at any rising clk edge sets q to 5'b00001 with priority over progression, its low value permits one progression step, changes between rising edges have no effect, consecutive sampled assertions repeatedly set the same value, and release takes effect only when sampled at a later rising edge.
+
+q is initially unknown, is updated only by a rising clk edge, and is observed in a pre-edge row at its value from the preceding rising edge, so a sampled reset assertion becomes visible in the following row as 5'b00001 and the first post-release progression likewise becomes visible one row after its capture edge; q holds between edges and progression then continues on every rising edge with no separate clear, completion, or restart interval.
+
+There are no disabled, busy, completion, cancellation, or transaction modes. Every rising edge independently performs the reset-or-progress choice above. A newly reset value is the first definite result; repeated reset assertions retain that reset value, and repeated low-reset rising edges continue progression without pausing.
+
+6. Worked trace
+
+The following evaluated trace is normative. Each row observes outputs before that row's transition.
+
+### stimulus 0
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 5'x |
+| 1 | 0 | 5'b00001 |
+| 2 | 0 | 5'b10100 |
+| 3 | 0 | 5'b01010 |
+
+### stimulus 1
+| cycle | reset | q |
+|---|---|---|
+| 0 | 0 | 5'x |
+| 1 | 0 | 5'x |
+| 2 | 1 | 5'x |
+| 3 | 0 | 5'b00001 |
+| 4 | 0 | 5'b10100 |
+
+### stimulus 2
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 5'x |
+| 1 | 0 | 5'b00001 |
+| 2 | 1 | 5'b10100 |
+| 3 | 0 | 5'b00001 |
+| 4 | 0 | 5'b10100 |
+
+### stimulus 3
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 5'x |
+| 1 | 1 | 5'b00001 |
+| 2 | 0 | 5'b00001 |
+| 3 | 0 | 5'b10100 |
+
+### stimulus 4
+| cycle | reset | q |
+|---|---|---|
+| 0 | 0 | 5'x |
+| 1 | 1 | 5'x |
+| 2 | 0 | 5'b00001 |
+| 3 | 0 | 5'b10100 |
+| 4 | 0 | 5'b01010 |
+| 5 | 0 | 5'b00101 |
+
+### stimulus 5
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 5'x |
+| 1 | 0 | 5'b00001 |
+| 2 | 0 | 5'b10100 |
+| 3 | 0 | 5'b01010 |
+| 4 | 1 | 5'b00101 |
+| 5 | 0 | 5'b00001 |
+
+### stimulus 6
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 5'x |
+| 1 | 0 | 5'b00001 |
+| 2 | 0 | 5'b10100 |
+| 3 | 0 | 5'b01010 |
+| 4 | 0 | 5'b00101 |
+| 5 | 0 | 5'b10110 |
+| 6 | 0 | 5'b01011 |
+| 7 | 0 | 5'b10001 |
+
+### stimulus 7
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 5'x |
+| 1 | 0 | 5'b00001 |
+| 2 | 0 | 5'b10100 |
+| 3 | 0 | 5'b01010 |
+| 4 | 0 | 5'b00101 |
+| 5 | 0 | 5'b10110 |
+| 6 | 0 | 5'b01011 |
+| 7 | 0 | 5'b10001 |
+| 8 | 0 | 5'b11100 |
+| 9 | 0 | 5'b01110 |
+| 10 | 0 | 5'b00111 |
+| 11 | 0 | 5'b10111 |
+| 12 | 0 | 5'b11111 |
+| 13 | 0 | 5'b11011 |
+| 14 | 0 | 5'b11001 |
+| 15 | 0 | 5'b11000 |
+| 16 | 0 | 5'b01100 |
+| 17 | 0 | 5'b00110 |
+| 18 | 0 | 5'b00011 |
+| 19 | 0 | 5'b10101 |
+| 20 | 0 | 5'b11110 |
+| 21 | 0 | 5'b01111 |
+| 22 | 0 | 5'b10011 |
+| 23 | 0 | 5'b11101 |
+| 24 | 0 | 5'b11010 |
+| 25 | 0 | 5'b01101 |
+| 26 | 0 | 5'b10010 |
+| 27 | 0 | 5'b01001 |
+| 28 | 0 | 5'b10000 |
+| 29 | 0 | 5'b01000 |
+| 30 | 0 | 5'b00100 |
+| 31 | 0 | 5'b00010 |
+| 32 | 0 | 5'b00001 |
+| 33 | 0 | 5'b10100 |
+| 34 | 0 | 5'b01010 |
+| 35 | 0 | 5'b00101 |
+| 36 | 0 | 5'b10110 |
+| 37 | 0 | 5'b01011 |
+| 38 | 0 | 5'b10001 |
+| 39 | 0 | 5'b11100 |
+| 40 | 0 | 5'b01110 |
+| 41 | 0 | 5'b00111 |
+| 42 | 0 | 5'b10111 |
+| 43 | 0 | 5'b11111 |
+| 44 | 0 | 5'b11011 |
+| 45 | 0 | 5'b11001 |
+| 46 | 0 | 5'b11000 |
+| 47 | 0 | 5'b01100 |
+| 48 | 0 | 5'b00110 |
+| 49 | 0 | 5'b00011 |
+| 50 | 0 | 5'b10101 |
+| 51 | 0 | 5'b11110 |
+| 52 | 0 | 5'b01111 |
+| 53 | 0 | 5'b10011 |
+| 54 | 0 | 5'b11101 |
+| 55 | 0 | 5'b11010 |
+| 56 | 0 | 5'b01101 |
+| 57 | 0 | 5'b10010 |
+| 58 | 0 | 5'b01001 |
+| 59 | 0 | 5'b10000 |
+| 60 | 0 | 5'b01000 |
+| 61 | 0 | 5'b00100 |
+| 62 | 0 | 5'b00010 |
+| 63 | 0 | 5'b00001 |
+| 64 | 0 | 5'b10100 |
+| 65 | 0 | 5'b01010 |
+| 66 | 0 | 5'b00101 |
+| 67 | 0 | 5'b10110 |
+| 68 | 0 | 5'b01011 |
+| 69 | 0 | 5'b10001 |
+| 70 | 0 | 5'b11100 |
+| 71 | 0 | 5'b01110 |
+| 72 | 0 | 5'b00111 |
+| 73 | 0 | 5'b10111 |
+| 74 | 0 | 5'b11111 |
+| 75 | 0 | 5'b11011 |
+| 76 | 0 | 5'b11001 |
+| 77 | 0 | 5'b11000 |
+| 78 | 0 | 5'b01100 |
+| 79 | 0 | 5'b00110 |
+| 80 | 0 | 5'b00011 |
+| 81 | 0 | 5'b10101 |
+| 82 | 0 | 5'b11110 |
+| 83 | 0 | 5'b01111 |
+| 84 | 0 | 5'b10011 |
+| 85 | 0 | 5'b11101 |
+| 86 | 0 | 5'b11010 |
+| 87 | 0 | 5'b01101 |
+| 88 | 0 | 5'b10010 |
+| 89 | 0 | 5'b01001 |
+| 90 | 0 | 5'b10000 |
+| 91 | 0 | 5'b01000 |
+| 92 | 0 | 5'b00100 |
+| 93 | 0 | 5'b00010 |
+| 94 | 0 | 5'b00001 |
+| 95 | 0 | 5'b10100 |

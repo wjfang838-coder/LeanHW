@@ -1,0 +1,211 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- in: input 1 bit.
+- reset: input 1 bit.
+- out_byte: output [7:0].
+- done: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  B0: default = 0.
+-  B1: default = 1.
+-  B2: default = 2.
+-  B3: default = 3.
+-  B4: default = 4.
+-  B5: default = 5.
+-  B6: default = 6.
+-  B7: default = 7.
+-  START: default = 8.
+-  STOP: default = 9.
+-  DONE: default = 10.
+-  ERR: default = 11.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is active high and synchronous to the rising edge of clk. Before any rising edge has sampled reset high, out_byte and done are unknown; the implementation must leave both uninitialised, with no initial block or declaration initialiser that gives either a definite power-up value.
+
+At every rising edge at which reset is high, reset has priority and aborts reception, completion, or recovery. In the row after that edge the receiver is ready for a fresh start, done is 0, and out_byte is unknown. Holding reset high repeats that condition at every rising edge. Deasserting reset does not itself change state or outputs; at the first subsequent rising edge, in is handled as a fresh ready-state input. There are no other externally visible state elements.
+
+4. Timing
+
+All input sampling and state changes occur on rising edges of clk. done and out_byte are registered results of accepting a stop bit: the row containing that sampled stop bit still has done=0 and unknown out_byte, and the first row after its accepting edge has done=1 and the received byte. That completion interval lasts exactly one clock cycle. At its ending rising edge, done returns to 0 and out_byte returns to unknown, whether the input returns the receiver to readiness, immediately begins another frame, or reset is sampled.
+
+The normative trace uses pre-edge observation: row k is the settled observation before rising-edge step k, after which the transition produces the state observed in row k+1. Each row interval is one full clock cycle; no physical clock period or propagation delay is specified by this contract.
+
+5. Behaviour
+
+After reset, in=1 leaves the receiver ready. A rising edge sampling in=0 accepts a start bit. The next eight rising edges sample data bits regardless of their values, least significant bit first: the first sampled data bit becomes out_byte[0] and the eighth becomes out_byte[7].
+
+The rising edge after those eight data samples checks the stop bit. If in=1, the frame completes. In the following one-cycle completion interval, done is 1 and out_byte equals the eight sampled data bits in LSB-first serial order. At the next rising edge, in=1 restores readiness, while in=0 immediately starts the next frame; this permits back-to-back transactions with one completion interval between frames.
+
+If the stop-bit edge samples in=0, the frame is rejected and recovery begins. While recovering, each rising edge sampling in=0 retains recovery. A rising edge sampling in=1 restores readiness without completing the rejected frame: done remains 0 and out_byte remains unknown. A subsequent in=0 rising edge is required to start a new frame.
+
+Only a rising clk edge samples reset and in and advances reception or recovery; steady levels and falling edges have no effect, each rising edge performs exactly one step even during reset, interruption, completion, recovery, or back-to-back frames, and simultaneous reset has priority over reception progress.
+
+At each rising edge with reset low, in=1 waits while ready and in=0 starts a frame; the next eight rising edges sample bits from least to most significant regardless of their values; the following edge accepts in=1 as the stop bit and completes the byte or rejects in=0 and enters recovery; in recovery 0 retains recovery and 1 restores readiness without completion; during the completion interval the next edge with in=1 restores readiness while in=0 immediately starts the next frame, enabling repeated transactions.
+
+reset is synchronous and active high: it has no effect until a rising clk edge, where it has priority and aborts any wait, capture, stop, completion, or recovery condition so the following pre-edge row is ready with done=0 and out_byte unknown; holding it high repeats this result, and after release the next rising edge handles in as a fresh ready-state input.
+
+Under pre-edge row sampling, out_byte is unknown initially, remains unknown after reset and throughout readiness, the start edge, all eight data-capture edges, the stop-bit row, and error recovery, becomes the assembled LSB-first byte in the first row after a high stop bit is accepted, remains valid for that single completion interval, and returns to unknown after the next rising edge whether that edge restarts immediately, returns to readiness, or samples reset.
+
+Under pre-edge row sampling, done is unknown initially, is 0 beginning in the first row after an asserted-reset rising edge and throughout readiness, start detection, eight data samples, the stop-bit row, and error recovery, becomes 1 in the first row after a high stop bit is accepted, stays 1 for exactly that completion interval, and returns to 0 after the next rising edge for either readiness, an immediate new start, or reset; each later valid frame produces the same one-interval pulse.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | reset | out_byte | done |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 8'x | x |
+| 1 | 0 | 0 | 8'x | 0 |
+| 2 | 0 | 0 | 8'x | 0 |
+| 3 | 0 | 0 | 8'x | 0 |
+| 4 | 0 | 0 | 8'x | 0 |
+| 5 | 0 | 0 | 8'x | 0 |
+| 6 | 0 | 0 | 8'x | 0 |
+| 7 | 0 | 0 | 8'x | 0 |
+| 8 | 0 | 0 | 8'x | 0 |
+| 9 | 1 | 0 | 8'x | 0 |
+| 10 | 1 | 0 | 8'x | 0 |
+
+### stimulus 1
+| cycle | in | reset | out_byte | done |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 8'x | x |
+| 1 | 1 | 0 | 8'x | 0 |
+| 2 | 0 | 0 | 8'x | 0 |
+| 3 | 1 | 0 | 8'x | 0 |
+| 4 | 0 | 0 | 8'x | 0 |
+| 5 | 0 | 0 | 8'x | 0 |
+| 6 | 0 | 0 | 8'x | 0 |
+| 7 | 0 | 0 | 8'x | 0 |
+| 8 | 0 | 0 | 8'x | 0 |
+| 9 | 0 | 0 | 8'x | 0 |
+| 10 | 0 | 0 | 8'x | 0 |
+| 11 | 1 | 0 | 8'x | 0 |
+| 12 | 1 | 0 | 8'b00000001 | 1 |
+
+### stimulus 2
+| cycle | in | reset | out_byte | done |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 8'x | x |
+| 1 | 0 | 0 | 8'x | 0 |
+| 2 | 1 | 0 | 8'x | 0 |
+| 3 | 1 | 0 | 8'x | 0 |
+| 4 | 1 | 0 | 8'x | 0 |
+| 5 | 1 | 0 | 8'x | 0 |
+| 6 | 1 | 0 | 8'x | 0 |
+| 7 | 1 | 0 | 8'x | 0 |
+| 8 | 1 | 0 | 8'x | 0 |
+| 9 | 1 | 0 | 8'x | 0 |
+| 10 | 1 | 0 | 8'x | 0 |
+
+### stimulus 3
+| cycle | in | reset | out_byte | done |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 8'x | x |
+| 1 | 0 | 0 | 8'x | 0 |
+| 2 | 0 | 0 | 8'x | 0 |
+| 3 | 0 | 0 | 8'x | 0 |
+| 4 | 0 | 0 | 8'x | 0 |
+| 5 | 0 | 0 | 8'x | 0 |
+| 6 | 0 | 0 | 8'x | 0 |
+| 7 | 0 | 0 | 8'x | 0 |
+| 8 | 0 | 0 | 8'x | 0 |
+| 9 | 1 | 0 | 8'x | 0 |
+| 10 | 1 | 0 | 8'x | 0 |
+
+### stimulus 4
+| cycle | in | reset | out_byte | done |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 8'x | x |
+| 1 | 0 | 0 | 8'x | 0 |
+| 2 | 0 | 0 | 8'x | 0 |
+| 3 | 1 | 0 | 8'x | 0 |
+| 4 | 0 | 0 | 8'x | 0 |
+| 5 | 1 | 0 | 8'x | 0 |
+| 6 | 1 | 0 | 8'x | 0 |
+| 7 | 0 | 0 | 8'x | 0 |
+| 8 | 1 | 0 | 8'x | 0 |
+| 9 | 0 | 0 | 8'x | 0 |
+| 10 | 1 | 0 | 8'x | 0 |
+| 11 | 1 | 0 | 8'b01011010 | 1 |
+
+### stimulus 5
+| cycle | in | reset | out_byte | done |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 8'x | x |
+| 1 | 0 | 0 | 8'x | 0 |
+| 2 | 1 | 0 | 8'x | 0 |
+| 3 | 0 | 0 | 8'x | 0 |
+| 4 | 1 | 0 | 8'x | 0 |
+| 5 | 0 | 0 | 8'x | 0 |
+| 6 | 0 | 0 | 8'x | 0 |
+| 7 | 1 | 0 | 8'x | 0 |
+| 8 | 0 | 0 | 8'x | 0 |
+| 9 | 1 | 0 | 8'x | 0 |
+| 10 | 1 | 0 | 8'x | 0 |
+| 11 | 0 | 0 | 8'b10100101 | 1 |
+| 12 | 1 | 0 | 8'x | 0 |
+| 13 | 0 | 0 | 8'x | 0 |
+| 14 | 1 | 0 | 8'x | 0 |
+| 15 | 0 | 0 | 8'x | 0 |
+| 16 | 1 | 0 | 8'x | 0 |
+| 17 | 0 | 0 | 8'x | 0 |
+| 18 | 1 | 0 | 8'x | 0 |
+| 19 | 1 | 0 | 8'x | 0 |
+
+### stimulus 6
+| cycle | in | reset | out_byte | done |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 8'x | x |
+| 1 | 0 | 0 | 8'x | 0 |
+| 2 | 1 | 0 | 8'x | 0 |
+| 3 | 0 | 0 | 8'x | 0 |
+| 4 | 1 | 0 | 8'x | 0 |
+| 5 | 0 | 0 | 8'x | 0 |
+| 6 | 1 | 0 | 8'x | 0 |
+| 7 | 0 | 0 | 8'x | 0 |
+| 8 | 1 | 0 | 8'x | 0 |
+| 9 | 0 | 0 | 8'x | 0 |
+| 10 | 0 | 0 | 8'x | 0 |
+| 11 | 0 | 0 | 8'x | 0 |
+| 12 | 0 | 0 | 8'x | 0 |
+| 13 | 1 | 0 | 8'x | 0 |
+| 14 | 0 | 0 | 8'x | 0 |
+| 15 | 1 | 0 | 8'x | 0 |
+| 16 | 0 | 0 | 8'x | 0 |
+| 17 | 1 | 0 | 8'x | 0 |
+| 18 | 0 | 0 | 8'x | 0 |
+| 19 | 1 | 0 | 8'x | 0 |
+| 20 | 0 | 0 | 8'x | 0 |
+| 21 | 1 | 0 | 8'x | 0 |
+| 22 | 1 | 0 | 8'x | 0 |
+
+### stimulus 7
+| cycle | in | reset | out_byte | done |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 8'x | x |
+| 1 | 0 | 0 | 8'x | x |
+| 2 | 1 | 1 | 8'x | x |
+| 3 | 0 | 1 | 8'x | 0 |
+| 4 | 1 | 0 | 8'x | 0 |
+| 5 | 0 | 0 | 8'x | 0 |
+| 6 | 1 | 0 | 8'x | 0 |
+| 7 | 1 | 0 | 8'x | 0 |
+| 8 | 0 | 0 | 8'x | 0 |
+| 9 | 0 | 0 | 8'x | 0 |
+| 10 | 1 | 0 | 8'x | 0 |
+| 11 | 1 | 0 | 8'x | 0 |
+| 12 | 0 | 0 | 8'x | 0 |
+| 13 | 1 | 0 | 8'x | 0 |
+| 14 | 1 | 0 | 8'x | 0 |

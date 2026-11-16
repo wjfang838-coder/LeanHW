@@ -1,0 +1,99 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- sel: input 1 bit.
+- a: input [7:0].
+- b: input [7:0].
+- out: output [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+TopModule has no reset and no state elements. From power-up onward, including before any sampled step and on the first step, out has the combinational value specified below; it is not an uninitialised or retained value.
+
+4. Timing.
+
+out is combinational with zero clock-cycle latency: it continuously reflects the currently selected input. There is no clock, capture edge, pulse, periodic signal, circuit period, or specified propagation delay.
+
+The evaluated trace uses the interface's full-cycle observation convention: each row samples the settled combinational output for that row's inputs before the model advances to the next row. The interface specifies no `step_ns` or `sample_offset_ns`, so trace-row spacing does not impose a physical clock period or delay law on the circuit.
+
+5. Behaviour.
+
+At all times, sel combinationally selects a when high and b when low, so every change of sel immediately reselects the corresponding current input and there are no modes, transactions, interruptions, priorities, or retained state.
+
+At all times, a combinationally determines out exactly when sel is high and has no effect while sel is low, with simultaneous changes reflected immediately and no transaction or retained state.
+
+At all times, b combinationally determines out exactly when sel is low and has no effect while sel is high, with simultaneous changes reflected immediately and no transaction or retained state.
+
+out continuously and combinationally equals a when sel is high and b when sel is low, with no reset, capture edge, observation latency, hold or clear interval, completion, or restart; therefore a pre-edge row observes the values selected before that edge.
+
+More precisely, when sel is 1, all eight bits of out equal all eight bits of a. When sel is 0, all eight bits of out equal all eight bits of b. Because sel is a one-bit input, these two cases cover every encoding the module can receive.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | sel | a | b | out |
+|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 8'b11111111 | 8'b11111111 |
+| 1 | 1 | 8'b00000000 | 8'b11111111 | 8'b00000000 |
+| 2 | 0 | 8'b00000000 | 8'b11111111 | 8'b11111111 |
+
+### stimulus 1
+| cycle | sel | a | b | out |
+|---|---|---|---|---|
+| 0 | 0 | 8'b00000001 | 8'b00000000 | 8'b00000000 |
+| 1 | 1 | 8'b00000001 | 8'b00000000 | 8'b00000001 |
+| 2 | 0 | 8'b00000001 | 8'b00000000 | 8'b00000000 |
+
+### stimulus 2
+| cycle | sel | a | b | out |
+|---|---|---|---|---|
+| 0 | 0 | 8'b11111111 | 8'b00000001 | 8'b00000001 |
+| 1 | 1 | 8'b11111111 | 8'b00000001 | 8'b11111111 |
+| 2 | 0 | 8'b11111111 | 8'b00000001 | 8'b00000001 |
+
+### stimulus 3
+| cycle | sel | a | b | out |
+|---|---|---|---|---|
+| 0 | 0 | 8'b10000000 | 8'b01010101 | 8'b01010101 |
+| 1 | 1 | 8'b10000000 | 8'b01010101 | 8'b10000000 |
+| 2 | 0 | 8'b10000000 | 8'b01010101 | 8'b01010101 |
+
+### stimulus 4
+| cycle | sel | a | b | out |
+|---|---|---|---|---|
+| 0 | 0 | 8'b01010101 | 8'b10000000 | 8'b10000000 |
+| 1 | 1 | 8'b01010101 | 8'b10000000 | 8'b01010101 |
+| 2 | 0 | 8'b01010101 | 8'b10000000 | 8'b10000000 |
+
+### stimulus 5
+| cycle | sel | a | b | out |
+|---|---|---|---|---|
+| 0 | 0 | 8'b10101010 | 8'b01010101 | 8'b01010101 |
+| 1 | 1 | 8'b10101010 | 8'b01010101 | 8'b10101010 |
+| 2 | 0 | 8'b10101010 | 8'b01010101 | 8'b01010101 |
+
+### stimulus 6
+| cycle | sel | a | b | out |
+|---|---|---|---|---|
+| 0 | 1 | 8'b11111110 | 8'b01111111 | 8'b11111110 |
+| 1 | 0 | 8'b11111110 | 8'b01111111 | 8'b01111111 |
+| 2 | 1 | 8'b11111110 | 8'b01111111 | 8'b11111110 |
+
+### stimulus 7
+| cycle | sel | a | b | out |
+|---|---|---|---|---|
+| 0 | 0 | 8'b00000011 | 8'b00000010 | 8'b00000010 |
+| 1 | 1 | 8'b00000011 | 8'b00000010 | 8'b00000011 |
+| 2 | 0 | 8'b00000011 | 8'b00000010 | 8'b00000010 |

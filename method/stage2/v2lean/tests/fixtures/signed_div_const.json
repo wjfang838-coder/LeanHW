@@ -1,0 +1,7 @@
+{
+  "sources": ["signed_div_const.v"],
+  "top": "signed_div_const",
+  "language": "systemverilog",
+  "semantics": "combinational_two_state",
+  "profile": "corpus"
+}

@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "freq_divbyeven",
+  "toplevel": "freq_divbyeven",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_edge_detector_0001",
+  "toplevel": "sync_pos_neg_edge_detector",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

@@ -1,0 +1,79 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input [3:0].
+- out_both: output [3:0].
+- out_any: output [3:0].
+- out_different: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+The module has no reset input and no state elements. Every output is a continuous combinational function of the current `in` value, including from power-up; no reset edge is required. The two declared boundary don't-cares are unknown from power-up and remain unknown for all inputs and all times. All other specified output bits have their stated combinational values from power-up.
+
+Timing
+
+All three outputs are combinational and have zero clock-cycle latency from `in`. There is no clock, capture edge, pulse, periodic circuit signal, circuit period, or cycle-counted delay. For evaluated-object observation only, row k denotes the settled sample at k * step_ns with the interface's sample_offset_ns convention; this observation spacing is not a circuit clock period or propagation-delay law. The supplied interface does not assign numeric values to step_ns or sample_offset_ns.
+
+Behaviour
+
+For every four-bit value of `in`, `out_both[i] = in[i] & in[i+1]` for i = 0, 1, and 2. `out_both[3]`, whose corresponding input bit has no higher-index neighbour, is a genuine don't-care and is unknown for every value of `in`.
+
+For every four-bit value of `in`, `out_any[i] = in[i] | in[i-1]` for i = 1, 2, and 3. `out_any[0]`, whose corresponding input bit has no lower-index neighbour, is a genuine don't-care and is unknown for every value of `in`.
+
+For every four-bit value of `in`, `out_different[i] = in[i] ^ in[i+1]` for i = 0, 1, and 2, and `out_different[3] = in[3] ^ in[0]`. Thus this neighbour relation wraps only for bit 3 as stated.
+
+These laws apply continuously. There are no modes, disabled levels, transactions, interruptions, captures, first-result intervals, retained results, completion conditions, or history-dependent effects. A sampled row observes the outputs for the input present at that row.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | out_both | out_any | out_different |
+|---|---|---|---|---|
+| 0 | 4'b0000 | 4'x | 4'x | 4'b0000 |
+
+### stimulus 1
+| cycle | in | out_both | out_any | out_different |
+|---|---|---|---|---|
+| 0 | 4'b0001 | 4'x | 4'x | 4'b1001 |
+
+### stimulus 2
+| cycle | in | out_both | out_any | out_different |
+|---|---|---|---|---|
+| 0 | 4'b0010 | 4'x | 4'x | 4'b0011 |
+
+### stimulus 3
+| cycle | in | out_both | out_any | out_different |
+|---|---|---|---|---|
+| 0 | 4'b0100 | 4'x | 4'x | 4'b0110 |
+
+### stimulus 4
+| cycle | in | out_both | out_any | out_different |
+|---|---|---|---|---|
+| 0 | 4'b1000 | 4'x | 4'x | 4'b1100 |
+
+### stimulus 5
+| cycle | in | out_both | out_any | out_different |
+|---|---|---|---|---|
+| 0 | 4'b1111 | 4'x | 4'x | 4'b0000 |
+
+### stimulus 6
+| cycle | in | out_both | out_any | out_different |
+|---|---|---|---|---|
+| 0 | 4'b0101 | 4'x | 4'x | 4'b1111 |
+
+### stimulus 7
+| cycle | in | out_both | out_any | out_different |
+|---|---|---|---|---|
+| 0 | 4'b1010 | 4'x | 4'x | 4'b1111 |

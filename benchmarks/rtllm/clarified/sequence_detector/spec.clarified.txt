@@ -1,0 +1,136 @@
+Module and integration contract
+
+Module: sequence_detector.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- data_in: input 1 bit.
+- sequence_detected: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  IDLE: default = 5'b00001.
+-  S1: default = 5'b00010.
+-  S2: default = 5'b00100.
+-  S3: default = 5'b01000.
+-  S4: default = 5'b10000.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports.
+
+
+
+Reset.
+
+reset_n is an active-low asynchronous reset. Whenever reset_n is low, recognition history is empty and sequence_detected is 0. Reset assertion takes priority over a coincident rising clk edge and immediately cancels any partial match or completed detection pulse. Repeated assertion has the same effect.
+
+At power-up, before reset_n has ever been asserted low, the recognition state and sequence_detected are unknown. sequence_detected must remain uninitialised: no initial block or declaration initialiser may give it a defined power-up value. Asserting reset_n low initializes the recognition history and forces sequence_detected to 0 without waiting for a clock edge. Raising reset_n has no immediate effect. On the first rising clk edge after release, data_in is sampled from an empty recognition history; sequence_detected remains 0 unless and until a later edge completes 1001.
+
+Timing.
+
+data_in is sampled only on rising clk edges while reset_n is high. Falling edges and changes of data_in between rising edges have no effect. sequence_detected is a registered result of recognition: the rising edge that samples the final 1 of 1001 makes sequence_detected become 1 just after that edge. It remains high for exactly one clock cycle and clears just after the following rising edge while recognition continues for overlaps. Asynchronous reset may force it low before that following edge.
+
+The evaluated object uses full-cycle observations. Each trace row samples outputs before that row's active rising edge, and then applies the state transition. Thus the row carrying the fourth sampled bit still displays the preceding output; the following row displays the detection pulse. More generally, row k denotes k * step_ns after settling, with the interface's sample_offset_ns convention; this observation cadence is separate from the circuit law that transitions occur on rising clk edges. The supplied interface does not assign numeric values to step_ns or sample_offset_ns, so this document does not invent them.
+
+Behaviour.
+
+While reset_n is high, every rising clk edge samples data_in and advances recognition of overlapping occurrences of the bit sequence 1001. A sampled 1 from empty history starts the prefix 1. A sampled 1 after prefix 1 retains prefix 1. A sampled 0 after prefix 1 extends it to 10. A sampled 0 after prefix 10 extends it to 100. A sampled 1 after prefix 100 completes 1001. For every other sampled continuation, recognition retains the longest suffix of the sampled history that is also a prefix of 1001: 0 after empty history remains empty, 0 after 100 returns to empty, 1 after a completion retains prefix 1, and 0 after a completion retains prefix 10.
+
+sequence_detected is 1 exactly during the one-clock interval immediately following a rising edge that sampled the completing 1 of an uninterrupted 1001 occurrence. It is 0 for every initialized history that does not currently represent that completion, including while reset_n is low. Every later overlapping or non-overlapping completion produces the same one-clock-high pulse. Reset assertion interrupts recognition and discards accumulated history; reset release resumes from empty history on later rising clk edges. Before initialization by reset, sequence_detected is unknown as specified above.
+
+Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst_n | data_in | sequence_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | rst_n | data_in | sequence_detected |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | rst_n | data_in | sequence_detected |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 1 | 0 |
+
+### stimulus 3
+| cycle | rst_n | data_in | sequence_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 0 |
+| 9 | 0 | 0 | 0 |
+
+### stimulus 4
+| cycle | rst_n | data_in | sequence_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | rst_n | data_in | sequence_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 |
+
+### stimulus 6
+| cycle | rst_n | data_in | sequence_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | rst_n | data_in | sequence_detected |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 0 |
+| 9 | 0 | 1 | 0 |
+| 10 | 0 | 0 | 0 |
+| 11 | 0 | 0 | 0 |
+| 12 | 0 | 1 | 0 |
+| 13 | 0 | 0 | 0 |

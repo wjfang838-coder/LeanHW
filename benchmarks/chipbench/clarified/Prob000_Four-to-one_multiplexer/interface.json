@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob000_Four-to-one_multiplexer",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

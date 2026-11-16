@@ -1,0 +1,252 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design an **8-bit Serial In Parallel Out (SIPO) shift register** that captures one bit of serial data on each rising edge of the clock signal and shifts this data into an 8-bit parallel output register. The design specification for the **8-bit SIPO shift register** is outlined below:
+
+## Design Specification:
+
+A **Serial In Parallel Out (SIPO) Shift Register** is a digital circuit that accepts a serial bitstream as input and outputs the data in parallel form after a series of clock cycles. It is often used in communication systems to convert data from a serial format (bit-by-bit) into a parallel format (multiple bits at once), which is useful for interfacing with parallel buses, memory systems, or storing data in registers.
+
+### Module Name:
+`serial_in_parallel_out_8bit`
+
+### Edge Cases:
+- **Initial State**: The initial content of the `parallel_out` register can be all x (unknown logic level), assuming no serial data has been shifted in yet. The system should handle this cleanly and shift in new data from the serial input as soon as clock pulses are received.
+- **Continuous Data Stream**: After the initial 8 clock cycles, new data from the serial input will continue to overwrite the oldest bits in the `parallel_out` register. The most significant bit (MSB) will be shifted out, and new data will shift in from the LSB.
+
+### Example Operations:
+
+#### Example 1: Serial Input Sequence (First 8 Bits)
+- **Serial Input Sequence**: `1, 0, 1, 1, 0, 0, 1, 0`
+- **Initial `parallel_out`**: `00000000`
+- **Clock Cycles**:
+  - After the first clock cycle: `parallel_out = 8'b00000001` (serial_in = 1)
+  - After the second clock cycle: `parallel_out = 8'b00000010` (serial_in = 0)
+  - After the third clock cycle: `parallel_out = 8'b00000101` (serial_in = 1)
+  - After the fourth clock cycle: `parallel_out = 8'b00001011` (serial_in = 1)
+  - After the fifth clock cycle: `parallel_out = 8'b00010110` (serial_in = 0)
+  - After the sixth clock cycle: `parallel_out = 8'b00101100` (serial_in = 0)
+  - After the seventh clock cycle: `parallel_out = 8'b01011001` (serial_in = 1)
+  - After the eighth clock cycle: `parallel_out = 8'b10110010` (serial_in = 0)
+
+At the end of this 8-bit sequence, the `parallel_out` register will hold the value `10110010`.
+
+----- input.context: docs/Documentation.md -----
+
+# 8-bit Shift-Left Register with Positive-Edge Clock, Serial In, and Parallel Out #
+
+This document describes the design and functionality of an 8-bit shift-left register implemented in Verilog. The module takes a serial input and provides a parallel output, shifting its contents left on each positive edge of the clock signal.
+
+## SIPO (Serial In, and Parallel Out) Specification ##
+
+Inputs
+- **clock**: The clock signal that triggers the shift operation on its positive edge.
+- **serial_in**: The serial input bit to be shifted into the register.
+
+Output
+- **parallel_out [7:0]**: An 8-bit parallel output representing the current state of the register.
+
+## Signals Table for 8-bit Shift-Left Register ##
+
+| **Signal Name** | **Direction** | **Width** | **Description**                         |
+|-----------------|---------------|-----------|-----------------------------------------|
+| clock           | Input         | 1 bit     | Clock signal that triggers the shift operation on its positive edge. |
+| serial_in       | Input         | 1 bit     | Serial input bit to be shifted into the register. |
+| parallel_out    | Output        | 8 bits    | 8-bit parallel output representing the current state of the register. |
+
+## SIPO (Serial In, and Parallel Out) Specification Description ##
+- **Clock Signal (`clock`)**: The register shifts its contents on the rising edge of this signal. The shift operation only occurs during the transition from low to high of the clock signal.
+- **Serial Input (`serial_in`)**: This single-bit input is shifted into the least significant bit (LSB) of the register on each clock pulse.
+- **Parallel Output (`parallel_out`)**: This is an 8-bit wide output that holds the current value of the register. It updates on each positive clock edge to reflect the shifted contents.
+
+## SIPO (Serial In, and Parallel Out) Functional Overview ##
+- On every positive edge of the clock signal, the register's contents are shifted one position to the left.
+- The bit in `serial_in` is placed in the least significant bit position (`parallel_out[0]`).
+- The most significant bit (`parallel_out[7]`) is discarded during the shift operation.
+- The new value of the register is available at the parallel output (`parallel_out`).
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Named module interface binding
+
+Module: serial_in_parallel_out_8bit.
+Connect ports by name. The enumeration below does not establish positional order.
+- clock: input; 1 bits in the concrete formal instance.
+- serial_in: input; 1 bits in the concrete formal instance.
+- parallel_out: output; 8 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The implementation shall be Verilog and the module name shall be serial_in_parallel_out_8bit. This SIPO converts a serial bitstream into a parallel value and is suitable for communication conversion and interfaces to parallel buses, memories, or register storage. No public parameters are specified.
+
+The top-level boundary has these ports, in the source's presentation order:
+
+clock: 1-bit input.
+serial_in: 1-bit input.
+parallel_out: 8-bit output [7:0].
+
+The declaration order is not normative because Q5 confirms connections only by name and says that positional declaration order is unverified. The module must therefore be instantiated by name.
+
+3. Reset.
+
+There is no reset input and no reset operation. Consequently there is no reset assertion, reset value, reset release, or first-after-reset step for any output or state element.
+
+At power-up, before the first rising clock edge has occurred and before any serial data has been shifted in, parallel_out is permitted to be 8'bxxxxxxxx. This is a source-authorized hardware-unknown initial condition. It does not prevent an ordinary rising edge from capturing serial_in: after each such edge, the new bit 0 is known and any still-retained initially unknown bits remain unknown until shifted out. Separately, the worked example specifies the distinct initial condition parallel_out = 8'b00000000.
+
+4. Timing.
+
+parallel_out is the registered current 8-bit contents. On every low-to-high transition of clock it updates to the shifted value with no additional clock-cycle latency, and it holds between rising edges. A low clock level and a falling edge cause no update. There are no pulse outputs or periodic outputs.
+
+The circuit's update period is one rising-edge-to-rising-edge clock cycle. The source specifies no duration for that cycle and no propagation delay. Separately, the evaluated trace uses the SpecIR full-cycle observation convention: each row is sampled before its modeled rising-edge transition, after settling. Row k denotes k * step_ns after settling, with timing.sample_offset_ns applied, when those interface timing fields are provided; this is not an implicit 10 ns clock tick.
+
+5. Behaviour.
+
+On every rising edge of clock, the previous 8-bit contents are shifted left by one position, previous bit 7 is discarded, and the current 1-bit serial_in value is placed in bit 0. Equivalently, the post-edge value is {the previous parallel_out[6:0], serial_in}. parallel_out presents that registered value until the next rising edge.
+
+The law for clock is that only its rising edge advances the register; its inactive levels and falling edge leave parallel_out unchanged. Because no other controls or transactions exist, every rising edge performs exactly one capture, including repeated consecutive edges.
+
+The law for serial_in is that its complete 1-bit domain is 0 and 1: the value present at each rising edge is captured into bit 0, while the earlier captured values move one bit toward bit 7. Changes that are not sampled at a rising edge do not update the register.
+
+The law for parallel_out is that it is observed before the active edge in each SpecIR trace row, then reflects that edge's new registered contents after the edge. From the permitted unknown power-up condition, each capture establishes the new bit 0 while retained initial unknown bits shift left; after eight consecutive rising edges all initial unknown bits have been discarded. There is no completion transition, clear interval, restart, disabled mode, cancellation, or handshake behavior. Continuous input therefore continues overwriting the oldest retained bit on every rising edge.
+
+After eight consecutive rising edges, the serial_in values captured first through eighth occupy parallel_out[7] through parallel_out[0], respectively. Every later edge discards the oldest retained bit and inserts the newest bit at bit 0.
+
+For the serial sequence 1, 0, 1, 1, 0, 0, 1, 0 applied in that order on eight consecutive rising edges, starting from parallel_out = 8'b00000000, the successive post-edge values are 8'b00000001, 8'b00000010, 8'b00000101, 8'b00001011, 8'b00010110, 8'b00101100, 8'b01011001, and 8'b10110010. The final value is 8'b10110010.
+
+The uncertain scoped answers refer to falling-edge waits only as checker observation points. They do not amend the original requirement that capture occurs at the rising edge.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete sampled instance, uses the source example's stated initial condition parallel_out = 8'b00000000, and uses the pre-transition observation convention stated in section 4. It does not replace the separately permitted unknown-power-up requirement above.
+
+### stimulus 0
+| cycle | serial_in | parallel_out |
+|---|---|---|
+| 0 | 0 | 8'b00000000 |
+| 1 | 0 | 8'b00000000 |
+| 2 | 0 | 8'b00000000 |
+| 3 | 0 | 8'b00000000 |
+| 4 | 0 | 8'b00000000 |
+| 5 | 0 | 8'b00000000 |
+| 6 | 0 | 8'b00000000 |
+| 7 | 0 | 8'b00000000 |
+| 8 | 0 | 8'b00000000 |
+| 9 | 0 | 8'b00000000 |
+
+### stimulus 1
+| cycle | serial_in | parallel_out |
+|---|---|---|
+| 0 | 1 | 8'b00000000 |
+| 1 | 1 | 8'b00000001 |
+| 2 | 1 | 8'b00000011 |
+| 3 | 1 | 8'b00000111 |
+| 4 | 1 | 8'b00001111 |
+| 5 | 1 | 8'b00011111 |
+| 6 | 1 | 8'b00111111 |
+| 7 | 1 | 8'b01111111 |
+| 8 | 1 | 8'b11111111 |
+| 9 | 1 | 8'b11111111 |
+
+### stimulus 2
+| cycle | serial_in | parallel_out |
+|---|---|---|
+| 0 | 1 | 8'b00000000 |
+| 1 | 0 | 8'b00000001 |
+| 2 | 1 | 8'b00000010 |
+| 3 | 1 | 8'b00000101 |
+| 4 | 0 | 8'b00001011 |
+| 5 | 0 | 8'b00010110 |
+| 6 | 1 | 8'b00101100 |
+| 7 | 0 | 8'b01011001 |
+| 8 | 1 | 8'b10110010 |
+| 9 | 0 | 8'b01100101 |
+
+### stimulus 3
+| cycle | serial_in | parallel_out |
+|---|---|---|
+| 0 | 0 | 8'b00000000 |
+| 1 | 1 | 8'b00000000 |
+| 2 | 0 | 8'b00000001 |
+| 3 | 1 | 8'b00000010 |
+| 4 | 0 | 8'b00000101 |
+| 5 | 1 | 8'b00001010 |
+| 6 | 0 | 8'b00010101 |
+| 7 | 1 | 8'b00101010 |
+| 8 | 0 | 8'b01010101 |
+| 9 | 1 | 8'b10101010 |
+
+### stimulus 4
+| cycle | serial_in | parallel_out |
+|---|---|---|
+| 0 | 1 | 8'b00000000 |
+| 1 | 0 | 8'b00000001 |
+| 2 | 0 | 8'b00000010 |
+| 3 | 0 | 8'b00000100 |
+| 4 | 0 | 8'b00001000 |
+| 5 | 0 | 8'b00010000 |
+| 6 | 0 | 8'b00100000 |
+| 7 | 0 | 8'b01000000 |
+| 8 | 0 | 8'b10000000 |
+| 9 | 1 | 8'b00000000 |
+
+### stimulus 5
+| cycle | serial_in | parallel_out |
+|---|---|---|
+| 0 | 0 | 8'b00000000 |
+| 1 | 0 | 8'b00000000 |
+| 2 | 0 | 8'b00000000 |
+| 3 | 0 | 8'b00000000 |
+| 4 | 0 | 8'b00000000 |
+| 5 | 0 | 8'b00000000 |
+| 6 | 0 | 8'b00000000 |
+| 7 | 1 | 8'b00000000 |
+| 8 | 1 | 8'b00000001 |
+| 9 | 0 | 8'b00000011 |
+
+### stimulus 6
+| cycle | serial_in | parallel_out |
+|---|---|---|
+| 0 | 1 | 8'b00000000 |
+| 1 | 1 | 8'b00000001 |
+| 2 | 0 | 8'b00000011 |
+| 3 | 1 | 8'b00000110 |
+| 4 | 0 | 8'b00001101 |
+| 5 | 0 | 8'b00011010 |
+| 6 | 1 | 8'b00110100 |
+| 7 | 1 | 8'b01101001 |
+| 8 | 0 | 8'b11010011 |
+| 9 | 1 | 8'b10100110 |
+| 10 | 1 | 8'b01001101 |
+| 11 | 0 | 8'b10011011 |
+| 12 | 0 | 8'b00110110 |
+| 13 | 1 | 8'b01101100 |
+| 14 | 0 | 8'b11011001 |
+| 15 | 1 | 8'b10110010 |
+| 16 | 0 | 8'b01100101 |
+| 17 | 0 | 8'b11001010 |
+
+### stimulus 7
+| cycle | serial_in | parallel_out |
+|---|---|---|
+| 0 | 0 | 8'b00000000 |
+| 1 | 1 | 8'b00000000 |
+| 2 | 0 | 8'b00000001 |
+| 3 | 1 | 8'b00000010 |
+| 4 | 0 | 8'b00000101 |
+| 5 | 1 | 8'b00001010 |
+| 6 | 1 | 8'b00010101 |
+| 7 | 0 | 8'b00101011 |
+| 8 | 1 | 8'b01010110 |
+| 9 | 0 | 8'b10101101 |
+
+## Normative clarification after closure validation
+
+`serial_in` is a 1-bit port. At each low-to-high transition of `clock`, exactly its logical 1-bit value at that edge is captured; any stimulus representation wider than the port is truncated to bit 0 before it can affect the circuit. Thus a represented numeric value contributes only its value modulo 2 and can never inject a multi-bit quantity into `parallel_out`.
+
+Each rising-edge update is atomic and uses the entire pre-edge value of `parallel_out`: post-edge `parallel_out[7:1]` equals pre-edge `parallel_out[6:0]`, and post-edge `parallel_out[0]` equals the sampled 1-bit `serial_in`. The post-edge value is available without an additional clock-cycle latency and is held through clock-low intervals and falling edges. In a trace sampled before its modeled rising edge, a row's `parallel_out` therefore reflects only earlier rising edges; that row's `serial_in` first appears in `parallel_out[0]` after the row's edge and in the next pre-edge observation.
+
+There is no reset and no implicit clearing or other update between rising edges. An execution with an explicitly stated initial value begins from that value, and each separately identified stimulus execution begins from its own stated initial condition rather than inheriting history from another execution. For the normative evaluated traces, that initial value is `8'b00000000`. Outside such an explicitly initialized execution, power-up may instead be unknown as already permitted; successive rising edges replace one initially unknown bit per capture, and after eight captures no power-up history remains.

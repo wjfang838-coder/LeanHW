@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_clock_divider_0003",
+  "toplevel": "clock_divider",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

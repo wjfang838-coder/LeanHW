@@ -1,0 +1,81 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- sel: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset and no stored state. From power-up onward, including before any edge or reset event, out is defined by the current inputs: it equals a when sel is 1'b0 and b when sel is 1'b1. No output or state element has an uninitialised interval, and a first step after reset release does not exist.
+
+Timing
+
+out is continuously combinational with zero clock-cycle latency from a, b, and sel. There is no clock, capture edge, registered output, pulse, or periodic signal. For the evaluated trace, row k denotes k × timing.step_ns after settling, sampled at timing.sample_offset_ns; this observation convention is separate from circuit timing and does not imply a 10 ns clock tick, circuit period, or propagation-delay law.
+
+Behaviour
+
+At all times, a determines out when sel is 1'b0 and has no effect on out when sel is 1'b1; changes to a take effect combinationally without transaction, interruption, repetition, or event-order semantics.
+
+At all times, b determines out when sel is 1'b1 and has no effect on out when sel is 1'b0; changes to b take effect combinationally without transaction, interruption, repetition, or event-order semantics.
+
+At all times, sel selects the source of out combinationally: sel equal to 1'b0 selects a and sel equal to 1'b1 selects b, including when sel changes simultaneously with either data input; there are no transactions or retained modes to interrupt or repeat.
+
+out is continuously combinational, equal to a while sel is 1'b0 and equal to b while sel is 1'b1, with no reset, capture edge, observation edge, initialization, hold or clear interval, completion, or restart; therefore pre-edge row sampling observes the inputs selected at that same pre-edge instant.
+
+Because a, b, and sel are each one bit, those two sel values cover every possible input encoding. The complete function is out = a for sel = 1'b0, and out = b for sel = 1'b1.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 1 |
+
+### stimulus 4
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 |
+
+### stimulus 6
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 |
+
+### stimulus 7
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 |

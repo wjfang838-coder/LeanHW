@@ -1,0 +1,124 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- areset: input 1 bit.
+- x: input 1 bit.
+- z: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+-  C: default = 2.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+`areset` is an active-high asynchronous reset. Whenever it is asserted, `z` becomes 0 immediately, regardless of `clk` and `x`, and remains 0 throughout the asserted interval. Assertion has priority over a coincident rising edge, cancels the current conversion, clears the remembered stream history, and establishes the retained output value 0.
+
+Before reset has ever been asserted, `z` is unknown. The implementation must leave that power-up value uninitialised: it must not use an `initial` block or declaration initialiser to give it a defined value.
+
+Deasserting `areset` does not itself capture `x` or change `z`. Consequently, after reset release and before the first subsequent rising edge, `z` remains 0. On the first rising edge after release, the first input bit is captured and its result becomes observable immediately after that edge.
+
+Timing
+
+`z` is registered. On every rising edge of `clk` for which `areset` is low, the circuit captures `x`; the converted result has a latency of one pre-edge trace row from that captured `x`, becoming visible immediately after the capture edge and appearing in the next row. Between rising edges, `z` retains its last captured result. Changes of `x` at static clock levels and on falling edges have no effect. Asserted asynchronous reset is the sole combinational override of `z`, forcing it immediately to 0.
+
+The evaluated object uses full-cycle observations: row k is sampled before active edge k, and the step following that row represents that rising edge. Thus each successive row is one clock cycle later. This observation convention does not imply a 10 ns clock or any other physical period or propagation delay; no physical period or delay is specified.
+
+Behaviour
+
+Each reset-delimited conversion consumes a bit stream least-significant bit first and may have arbitrary length. With `areset` low, each rising edge captures exactly one `x` bit. Captured zero bits before the stream's first captured 1 produce `z=0`. The first captured 1 produces `z=1`. Every subsequently captured bit produces its complement: a captured 0 produces 1 and a captured 1 produces 0. This is the serial two's-complement law: bits pass unchanged through the first 1 inclusive and are complemented thereafter.
+
+Repeated rising edges capture successive bits under that same law. `z` holds the most recently produced bit between captures. While `areset` is high, `x` is ignored. Reset assertion interrupts any stream; continued or repeated assertion retains `z=0`; release alone performs no capture; and the next rising edge begins a new stream with no remembered 1 from the interrupted stream.
+
+Worked trace
+
+The following evaluated trace is normative. Each row observes outputs before that row's active-edge transition.
+
+### stimulus 0
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 1 |
+| 3 | 0 | 1 | 1 |
+| 4 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 |
+| 5 | 0 | 1 | 1 |
+
+### stimulus 3
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 1 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 1 |
+
+### stimulus 4
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 1 |
+| 3 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 |
+
+### stimulus 6
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 |
+| 6 | 0 | 1 | 1 |
+
+### stimulus 7
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 1 |
+| 3 | 0 | 1 | 1 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 1 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 1 |

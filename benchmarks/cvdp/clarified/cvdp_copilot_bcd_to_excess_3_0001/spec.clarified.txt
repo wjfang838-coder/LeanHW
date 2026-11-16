@@ -1,0 +1,132 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a **BCD to Excess-3 Code Converter** that translates a 4-bit Binary-Coded Decimal (BCD) input into a corresponding 4-bit Excess-3 output code. The module should identify invalid BCD inputs and assert an error flag when they occur. The converter must operate combinationally, updating the output immediately upon any change in the input.
+
+## Design Specification
+
+**Module Name**:  
+`bcd_to_excess_3`
+
+### Key Considerations
+- The converter accepts a 4-bit BCD input and provides a 4-bit Excess-3 output.
+- When the BCD input is invalid (values outside `0` to `9`), the module should set the output to `0` and assert an `error` flag.
+- The conversion and error-checking operations are combinational and do not depend on a clock signal.
+  
+### Interface
+
+**Inputs:**
+- `bcd` (4 bits, `[3:0]`): 4-bit BCD input, representing a decimal digit from `0` to `9`.
+
+**Outputs:**
+- `excess3` (4 bits, `[3:0]`): 4-bit Excess-3 output code, representing the decimal value of `BCD + 3`.
+- `error` (1 bit): A flag that is asserted (`1`) when the `bcd` input is outside the valid range (`10` to `15`), indicating an invalid input.
+
+### Functional Description
+
+- The module converts a 4-bit BCD input to an Excess-3 output by adding `3` to the decimal value represented by the BCD input. 
+- For invalid BCD values (`10` to `15`), the output `excess3` should default to `0`, and the `error` flag should be set to `1` to indicate invalid input.
+
+### Edge Cases
+
+- **Invalid Input**: If the `bcd` input is any binary value representing `10` to `15`, the module should set `excess3` to `0` and assert `error`.
+- **Valid Range Handling**: For BCD inputs within the valid range (`0` to `9`), the `error` flag should be cleared (`0`), and `excess3` should provide the correct Excess-3 code.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Named module interface binding
+
+Module: bcd_to_excess_3.
+Connect ports by name. The enumeration below does not establish positional order.
+- bcd: input; 4 bits in the concrete formal instance.
+- excess3: output; 4 bits in the concrete formal instance.
+- error: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is bcd_to_excess_3. Its boundary contains exactly these ports, presented in the source's input-list-then-output-list order:
+
+bcd — input, 4 bits, [3:0].
+excess3 — output, 4 bits, [3:0].
+error — output, 1 bit.
+
+The available authority does not establish that positional declaration order is normative. The module must therefore be instantiated by name, using the exact spellings bcd, excess3, and error. The module has no public parameters.
+
+3. Reset.
+
+There is no reset port and no reset behavior. The converter has no state. At power-up, before any event has occurred, excess3 and error are the combinational values determined by the then-current bcd input according to Section 5. The same rule applies continuously; no reset edge, initialization interval, or first-step exception exists.
+
+4. Timing.
+
+excess3 is combinational with zero clock-cycle latency from bcd. error is combinational with zero clock-cycle latency from bcd. Both outputs update immediately whenever bcd changes. There is no clock, active edge, pulse, periodic signal, transaction, completion event, retention interval, or restart behavior.
+
+For the evaluated full-cycle table, row k is an observation at k times the interface step duration after settling, using the interface sample offset; it is not an implicit 10 ns clock tick. This observation convention does not add a clock, delay, or latency to the circuit. Because the interface supplies no numeric step duration or sample offset, no numeric duration is asserted here.
+
+5. Behaviour.
+
+The current bcd input alone determines both outputs in every observation and operating condition. There are no inactive modes, simultaneous events, interruptions, or repeated-transaction semantics.
+
+For every bcd value from 0 through 9 inclusive, excess3 equals the unsigned 4-bit value bcd + 3 and error equals 0. The addition is evaluated over the represented nonnegative input value; its results range from 3 through 12 and therefore require no truncation beyond the 4-bit excess3 boundary.
+
+For every bcd value from 10 through 15 inclusive, excess3 equals the 4-bit value 0 and error equals 1. This invalid-input exception takes precedence over the valid-input conversion law.
+
+The bcd input effect is the complete case split stated above for all 16 possible 4-bit encodings.
+
+The excess3 output is continuously and combinationally equal to bcd + 3 for bcd values 0 through 9, and equal to 0 for bcd values 10 through 15.
+
+The error output is continuously and combinationally equal to 0 for bcd values 0 through 9, and equal to 1 for bcd values 10 through 15.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete sampled instance and follows the observation convention in Section 4.
+
+### stimulus 0
+| cycle | bcd | excess3 | error |
+|---|---|---|---|
+| 0 | 4'b0000 | 4'b0011 | 0 |
+| 1 | 4'b1111 | 4'b0000 | 1 |
+
+### stimulus 1
+| cycle | bcd | excess3 | error |
+|---|---|---|---|
+| 0 | 4'b0001 | 4'b0100 | 0 |
+| 1 | 4'b1110 | 4'b0000 | 1 |
+
+### stimulus 2
+| cycle | bcd | excess3 | error |
+|---|---|---|---|
+| 0 | 4'b0010 | 4'b0101 | 0 |
+| 1 | 4'b1101 | 4'b0000 | 1 |
+
+### stimulus 3
+| cycle | bcd | excess3 | error |
+|---|---|---|---|
+| 0 | 4'b0011 | 4'b0110 | 0 |
+| 1 | 4'b1100 | 4'b0000 | 1 |
+
+### stimulus 4
+| cycle | bcd | excess3 | error |
+|---|---|---|---|
+| 0 | 4'b0100 | 4'b0111 | 0 |
+| 1 | 4'b1011 | 4'b0000 | 1 |
+
+### stimulus 5
+| cycle | bcd | excess3 | error |
+|---|---|---|---|
+| 0 | 4'b0101 | 4'b1000 | 0 |
+| 1 | 4'b1010 | 4'b0000 | 1 |
+
+### stimulus 6
+| cycle | bcd | excess3 | error |
+|---|---|---|---|
+| 0 | 4'b0110 | 4'b1001 | 0 |
+| 1 | 4'b1001 | 4'b1100 | 0 |
+
+### stimulus 7
+| cycle | bcd | excess3 | error |
+|---|---|---|---|
+| 0 | 4'b0111 | 4'b1010 | 0 |
+| 1 | 4'b1000 | 4'b1011 | 0 |

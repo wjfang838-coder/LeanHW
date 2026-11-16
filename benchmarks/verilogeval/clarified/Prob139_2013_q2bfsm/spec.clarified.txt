@@ -1,0 +1,144 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- resetn: input 1 bit.
+- x: input 1 bit.
+- y: input 1 bit.
+- f: output 1 bit.
+- g: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+-  S0: default = 2.
+-  S1: default = 3.
+-  S10: default = 4.
+-  G1: default = 5.
+-  G2: default = 6.
+-  P0: default = 7.
+-  P1: default = 8.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports.
+
+
+
+Reset.
+
+resetn is an active-low synchronous reset sampled only on a rising edge of clk. A rising edge with resetn low has priority over x and y, cancels all startup, recognition, and decision progress, and establishes the reset state. Further rising edges while resetn remains low establish that same state again. Deasserting resetn does not itself change any state or output.
+
+At power-up, before any rising edge has sampled resetn low, f and g are unknown. They remain unknown if resetn has been continuously high, regardless of rising edges or the values of x and y. The implementation must leave both outputs' underlying power-up state uninitialised: no initial block or declaration initialiser may give it a definite value.
+
+After a rising edge samples resetn low, both f and g read 0. On the first rising edge after reset release, f becomes 1 and g remains 0. No x or y value changes that first released-edge result.
+
+Timing.
+
+All state and both outputs update only on rising edges of clk. Falling edges and stable clock levels have no effect. Outputs are sampled before the transition represented by a row; consequently an edge's result is visible in the next row. Each row advances one full clock cycle after settling. No 10 ns clock period is implied, because the interface provides no numeric step duration or sample offset.
+
+f is registered. It is 1 for exactly one clock cycle: the interval following the first rising edge with resetn high after an effective reset edge. It returns to 0 on the next rising edge and remains 0 until another effective reset followed by release. An effective reset interrupts the pulse.
+
+g is registered. It remains 0 through reset, the two startup edges, and x-pattern recognition. It becomes 1 in the interval following the rising edge that completes the recognized x pattern. It remains 1 during both y-decision opportunities. It then retains 1 until reset if either opportunity samples y=1, or becomes 0 following the second opportunity if both sample y=0 and then retains 0 until reset.
+
+Behaviour.
+
+With resetn high after an effective reset, the first two rising edges form the fixed startup sequence. x and y are ignored on both edges. The first edge raises f; the second lowers f. g remains 0 throughout startup.
+
+After startup, rising edges recognize an x sequence consisting of one or more sampled 1 values followed by 0 then 1. Any number of zeros before the first 1 are harmless. Extra leading 1 values are harmless. Once a 1 followed by 0 has been sampled, another 0 abandons that attempt; recognition can begin again with a later 1. The rising edge sampling the final 1 completes recognition. x has no effect thereafter.
+
+y is ignored during reset, startup, and x recognition. The first two rising edges after x recognition are the two y-decision opportunities. If either edge samples y=1, g remains 1 permanently until reset. If both edges sample y=0, g clears after the second edge and remains 0 permanently until reset. Once either terminal result is reached, x and y cannot restart or alter it. An effective reset edge always has priority, clears f and g, and restarts all progress; reset release without a preceding effective reset cannot start an uninitialised machine.
+
+Worked trace.
+
+The following evaluated trace is normative. Row k denotes k full-cycle steps after settling under pre-edge sampling, independently of any physical nanosecond period.
+
+### stimulus 0
+| cycle | resetn | x | y | f | g |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | x | x |
+| 1 | 0 | 1 | 1 | 0 | 0 |
+| 2 | 1 | 0 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 1 | 0 |
+
+### stimulus 1
+| cycle | resetn | x | y | f | g |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | x | x |
+| 1 | 1 | 0 | 0 | x | x |
+
+### stimulus 2
+| cycle | resetn | x | y | f | g |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | x | x |
+| 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 1 | 0 |
+| 3 | 1 | 0 | 0 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 0 | 0 | 0 |
+
+### stimulus 3
+| cycle | resetn | x | y | f | g |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | x | x |
+| 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 1 | 0 |
+| 3 | 1 | 0 | 0 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 0 | 0 | 0 |
+
+### stimulus 4
+| cycle | resetn | x | y | f | g |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | x | x |
+| 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 1 | 0 |
+| 3 | 1 | 0 | 0 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 | 0 | 0 |
+| 7 | 1 | 0 | 1 | 0 | 0 |
+| 8 | 1 | 0 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | resetn | x | y | f | g |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | x | x |
+| 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 1 | 0 |
+| 3 | 1 | 1 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 | 0 | 0 |
+| 5 | 1 | 1 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 1 | 0 | 1 |
+
+### stimulus 6
+| cycle | resetn | x | y | f | g |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | x | x |
+| 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 | 1 | 0 |
+| 6 | 1 | 1 | 0 | 0 | 0 |
+| 7 | 1 | 0 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | resetn | x | y | f | g |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | x | x |
+| 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 | 1 | 0 |
+| 3 | 1 | 1 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 | 0 | 0 |
+| 6 | 1 | 1 | 0 | 0 | 0 |
+| 7 | 1 | 0 | 0 | 0 | 0 |
+| 8 | 1 | 1 | 0 | 0 | 0 |
+| 9 | 1 | 0 | 0 | 0 | 1 |
+| 10 | 1 | 0 | 0 | 0 | 1 |
+| 11 | 1 | 0 | 0 | 0 | 0 |

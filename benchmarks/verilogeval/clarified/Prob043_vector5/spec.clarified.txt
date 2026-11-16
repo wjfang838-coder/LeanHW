@@ -1,0 +1,95 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- c: input 1 bit.
+- d: input 1 bit.
+- e: input 1 bit.
+- out: output [24:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset and there are no state elements. At power-up, before any edge or reset event, out is already the combinational equality-matrix value for the inputs then present. It is neither initialized nor uninitialized state, and there is no first step after reset release.
+
+4. Timing.
+
+out is combinational with zero clock-cycle latency from a, b, c, d, and e. There is no clock, active edge, pulse, periodic output, circuit period, or state-dependent delay. Each normative trace row observes the settled output for the inputs on that same row before the model's no-op transition. Row k is an abstract full-cycle sampling step; it does not imply a 10 ns clock tick or any physical elapsed time.
+
+5. Behaviour.
+
+For all input combinations, out continuously equals the bitwise complement of `{5{a},5{b},5{c},5{d},5{e}}` XOR `{5{a,b,c,d,e}}`. Equivalently, read out as five consecutive rows in the order a, b, c, d, e and five columns in the order a, b, c, d, e: each bit is 1 exactly when its row input equals its column input, and is 0 otherwise. Thus out[24] compares a with a, out[23] compares a with b, continuing in row-major order through out[0], which compares e with e. This law completely covers every possible value of the five one-bit inputs.
+
+At all times and for every combination of b, c, d, and e, changing a toggles exactly out[23:19], out[14], out[9], and out[4], and leaves every other out bit unchanged.
+
+At all times and for every combination of a, c, d, and e, changing b toggles exactly out[23], out[19], out[17:15], out[13], out[8], and out[3], and leaves every other out bit unchanged.
+
+At all times and for every combination of a, b, d, and e, changing c toggles exactly out[22], out[17], out[14:13], out[11:10], out[7], and out[2], and leaves every other out bit unchanged.
+
+At all times and for every combination of a, b, c, and e, changing d toggles exactly out[21], out[16], out[11], out[9:7], out[5], and out[1], and leaves every other out bit unchanged.
+
+At all times and for every combination of a, b, c, and d, changing e toggles exactly out[20], out[15], out[10], out[5], out[4:1], and leaves every other out bit unchanged.
+
+There is no inactive level, mode, event priority, interruption, transaction history, capture, hold, clear, completion, cancellation, or restart behavior. Input changes propagate combinationally.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | c | d | e | out |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 25'h1ffffff |
+| 1 | 1 | 1 | 1 | 1 | 1 | 25'h1ffffff |
+
+### stimulus 1
+| cycle | a | b | c | d | e | out |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 25'h107bdef |
+| 1 | 0 | 1 | 1 | 1 | 1 | 25'h107bdef |
+
+### stimulus 2
+| cycle | a | b | c | d | e | out |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 0 | 25'h1745ef7 |
+| 1 | 1 | 0 | 1 | 1 | 1 | 25'h1745ef7 |
+
+### stimulus 3
+| cycle | a | b | c | d | e | out |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 0 | 25'h1bd937b |
+| 1 | 1 | 1 | 0 | 1 | 1 | 25'h1bd937b |
+
+### stimulus 4
+| cycle | a | b | c | d | e | out |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | 25'h1def45d |
+| 1 | 1 | 1 | 1 | 0 | 1 | 25'h1def45d |
+
+### stimulus 5
+| cycle | a | b | c | d | e | out |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 1 | 25'h1ef7bc1 |
+| 1 | 1 | 1 | 1 | 1 | 0 | 25'h1ef7bc1 |
+
+### stimulus 6
+| cycle | a | b | c | d | e | out |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 1 | 0 | 25'h1555555 |
+| 1 | 1 | 0 | 1 | 0 | 1 | 25'h1555555 |
+
+### stimulus 7
+| cycle | a | b | c | d | e | out |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 1 | 0 | 25'h19c98d9 |
+| 1 | 1 | 1 | 0 | 0 | 1 | 25'h19c98d9 |

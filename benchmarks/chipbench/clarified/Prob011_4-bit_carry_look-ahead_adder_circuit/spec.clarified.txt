@@ -1,0 +1,106 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- A_in: input [3:0].
+- B_in: input [3:0].
+- C_1: input 1 bit.
+- CO: output 1 bit.
+- S: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+TopModule has no reset input and no reset behavior. It has no state elements. From power-up onward, including before any edge has occurred, both outputs are determined by the current inputs: S is the low four bits of the unsigned sum A_in + B_in + C_1, and CO is the fifth bit of that sum. Neither output has an uninitialised interval.
+
+Timing
+
+S and CO are combinational outputs with zero clock-cycle latency from A_in, B_in, and C_1. There is no clock, capture edge, pulse, periodic output, state-retention interval, or circuit period or delay law.
+
+The evaluated trace uses the interface's full-cycle observation convention: each row observes the outputs for that row's settled inputs before the model's transition. The transition does not change state. Thus row indices are observation steps and do not imply a 10 ns clock tick or any physical circuit period.
+
+Behaviour
+
+A_in continuously contributes its unsigned 4-bit value to A_in + B_in + C_1, whose low four bits determine S and whose fifth bit determines CO; there are no modes, inactive levels, transactions, interruptions, or event priorities, so every change, including one simultaneous with other input changes, is reflected combinationally.
+
+B_in continuously contributes its unsigned 4-bit value to A_in + B_in + C_1, whose low four bits determine S and whose fifth bit determines CO; there are no modes, inactive levels, transactions, interruptions, or event priorities, so every change, including one simultaneous with other input changes, is reflected combinationally.
+
+C_1 continuously contributes zero when low and one when high to A_in + B_in + C_1, whose low four bits determine S and whose fifth bit determines CO; there are no modes, inactive controls, transactions, interruptions, or event priorities, so every change, including one simultaneous with other input changes, is reflected combinationally.
+
+S continuously equals the low four bits of A_in + B_in + C_1 with no reset, capture edge, observation-edge latency, initialization, hold or clear interval, completion, or restart behavior; therefore a pre-edge row observes the result of the input values present before that edge, and repeated input changes continuously produce new results.
+
+CO continuously equals the fifth bit of the unsigned sum A_in + B_in + C_1 with no reset, capture edge, observation-edge latency, initialization, hold or clear interval, completion, or restart behavior; therefore a pre-edge row observes the result of the input values present before that edge, and repeated input changes continuously produce new results.
+
+Equivalently, for every valid input encoding, form the unsigned 5-bit mathematical sum T = A_in + B_in + C_1. Then S = T modulo 16 and CO = floor(T / 16). Because A_in and B_in range from 0 through 15 and C_1 ranges from 0 through 1, CO is exactly 1 when T is at least 16 and is otherwise 0. This covers all possible input combinations.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | A_in | B_in | C_1 | CO | S |
+|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b0000 | 0 | 0 | 4'b0000 |
+
+### stimulus 1
+| cycle | A_in | B_in | C_1 | CO | S |
+|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b0000 | 1 | 0 | 4'b0001 |
+
+### stimulus 2
+| cycle | A_in | B_in | C_1 | CO | S |
+|---|---|---|---|---|---|
+| 0 | 4'b0001 | 4'b0000 | 0 | 0 | 4'b0001 |
+
+### stimulus 3
+| cycle | A_in | B_in | C_1 | CO | S |
+|---|---|---|---|---|---|
+| 0 | 4'b1111 | 4'b0000 | 1 | 1 | 4'b0000 |
+
+### stimulus 4
+| cycle | A_in | B_in | C_1 | CO | S |
+|---|---|---|---|---|---|
+| 0 | 4'b1000 | 4'b0000 | 0 | 0 | 4'b1000 |
+
+### stimulus 5
+| cycle | A_in | B_in | C_1 | CO | S |
+|---|---|---|---|---|---|
+| 0 | 4'b0110 | 4'b0000 | 1 | 0 | 4'b0111 |
+
+### stimulus 6
+| cycle | A_in | B_in | C_1 | CO | S |
+|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b0001 | 0 | 0 | 4'b0001 |
+
+### stimulus 7
+| cycle | A_in | B_in | C_1 | CO | S |
+|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b1111 | 1 | 1 | 4'b0000 |
+
+### stimulus 8
+| cycle | A_in | B_in | C_1 | CO | S |
+|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b1000 | 0 | 0 | 4'b1000 |
+
+### stimulus 9
+| cycle | A_in | B_in | C_1 | CO | S |
+|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b0101 | 1 | 0 | 4'b0110 |
+
+### stimulus 10
+| cycle | A_in | B_in | C_1 | CO | S |
+|---|---|---|---|---|---|
+| 0 | 4'b0111 | 4'b1001 | 0 | 1 | 4'b0000 |
+
+### stimulus 11
+| cycle | A_in | B_in | C_1 | CO | S |
+|---|---|---|---|---|---|
+| 0 | 4'b1111 | 4'b1111 | 1 | 1 | 4'b1111 |

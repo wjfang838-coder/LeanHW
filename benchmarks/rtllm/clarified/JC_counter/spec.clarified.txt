@@ -1,0 +1,500 @@
+Module and integration contract
+
+Module: JC_counter.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- Q: output [63:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+rst_n is an active-low asynchronous reset. Whenever rst_n is low, Q is immediately forced to 64'h0000000000000000 regardless of clk, and every subsequent rising edge while rst_n remains low leaves it at that value. Reset assertion coincident with a rising clk edge has priority over the counter update.
+
+At power-up, before rst_n has ever been asserted low, Q is unknown and remains unknown across rising clk edges. The implementation must leave Q uninitialised: it must have neither an initial block nor a declaration initialiser that gives it a definite value.
+
+Releasing rst_n high does not itself change Q. On the first rising clk edge after release, Q changes from the reset value to 64'h8000000000000000; that result is observed after the edge. A later reset assertion immediately clears Q and restarts the same sequence.
+
+4. Timing
+
+Q is a registered output. While rst_n is high, it holds its value between rising clk edges and has a latency of one rising-edge step from its preceding value: each rising edge computes the next Q, which is visible immediately after that edge. Reset assertion is the sole asynchronous change.
+
+The complete Q sequence has a period of 128 rising-clock cycles. Each bit of Q is high for 64 cycles and low for 64 cycles in every 128-cycle period, with phase determined by its bit position. There is no completion pulse and no terminal hold.
+
+The evaluated full-cycle trace samples each row before that row's active edge. Thus the result produced by row k's edge first appears in row k+1. Row k denotes k full-cycle steps after settling; the interface specifies no numeric nanosecond step or sample offset. This observation convention is separate from the circuit law, whose update occurs on rising clk edges and whose asynchronous reset takes effect without waiting for an edge.
+
+5. Behaviour
+
+Inputs are interpreted at their declared one-bit widths. Therefore every possible input encoding is covered by the following rules.
+
+Whenever rst_n is low, Q is asynchronously forced to 64'h0000000000000000 and remains at that value regardless of clk.
+
+A rising clk edge updates Q by setting its next value to {~Q[0], Q[63:1]} when rst_n is high. A steady clk level and a falling clk edge have no effect. Repeated rising edges with rst_n high repeatedly apply this recurrence, and an intervening reset restarts it from zero.
+
+rst_n is an active-low asynchronous reset: asserting it low immediately forces Q to zero, low holds Q at zero across any number of clk edges, assertion coincident with a rising clk edge has priority, and releasing it high does not itself change Q but permits the recurrence on the next and subsequent rising clk edges; any later assertion interrupts the sequence and restarts it from zero.
+
+Q changes asynchronously to zero when rst_n is asserted low, otherwise holds between rising clk edges and updates at each rising edge with rst_n high to {~Q[0], Q[63:1]}. Because each trace row is sampled before its active edge, the value produced by that edge is first observed in the following row. After reset release the first such observed result is 64'h8000000000000000. The recurrence continues without a completion hold, returns to zero after 128 rising edges, and then repeats; any reset assertion clears and restarts it.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance and uses the observation convention stated above.
+
+### stimulus 0
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 1 | 64'x |
+| 1 | 1 | 64'x |
+| 2 | 0 | 64'h0 |
+| 3 | 1 | 64'h0 |
+| 4 | 1 | 64'h8000000000000000 |
+
+### stimulus 1
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 0 | 64'h0 |
+| 1 | 1 | 64'h0 |
+| 2 | 1 | 64'h8000000000000000 |
+| 3 | 1 | 64'hc000000000000000 |
+
+### stimulus 2
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 0 | 64'h0 |
+| 1 | 0 | 64'h0 |
+| 2 | 1 | 64'h0 |
+| 3 | 1 | 64'h8000000000000000 |
+
+### stimulus 3
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 0 | 64'h0 |
+| 1 | 1 | 64'h0 |
+| 2 | 0 | 64'h0 |
+| 3 | 1 | 64'h0 |
+| 4 | 1 | 64'h8000000000000000 |
+
+### stimulus 4
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 0 | 64'h0 |
+| 1 | 1 | 64'h0 |
+| 2 | 1 | 64'h8000000000000000 |
+| 3 | 0 | 64'h0 |
+| 4 | 0 | 64'h0 |
+| 5 | 1 | 64'h0 |
+
+### stimulus 5
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 1 | 64'x |
+| 1 | 0 | 64'h0 |
+| 2 | 0 | 64'h0 |
+| 3 | 1 | 64'h0 |
+
+### stimulus 6
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 0 | 64'h0 |
+| 1 | 1 | 64'h0 |
+| 2 | 1 | 64'h8000000000000000 |
+| 3 | 1 | 64'hc000000000000000 |
+| 4 | 1 | 64'he000000000000000 |
+| 5 | 1 | 64'hf000000000000000 |
+| 6 | 1 | 64'hf800000000000000 |
+| 7 | 1 | 64'hfc00000000000000 |
+| 8 | 1 | 64'hfe00000000000000 |
+| 9 | 1 | 64'hff00000000000000 |
+| 10 | 1 | 64'hff80000000000000 |
+| 11 | 1 | 64'hffc0000000000000 |
+| 12 | 1 | 64'hffe0000000000000 |
+| 13 | 1 | 64'hfff0000000000000 |
+| 14 | 1 | 64'hfff8000000000000 |
+| 15 | 1 | 64'hfffc000000000000 |
+| 16 | 1 | 64'hfffe000000000000 |
+| 17 | 1 | 64'hffff000000000000 |
+| 18 | 1 | 64'hffff800000000000 |
+| 19 | 1 | 64'hffffc00000000000 |
+| 20 | 1 | 64'hffffe00000000000 |
+| 21 | 1 | 64'hfffff00000000000 |
+| 22 | 1 | 64'hfffff80000000000 |
+| 23 | 1 | 64'hfffffc0000000000 |
+| 24 | 1 | 64'hfffffe0000000000 |
+| 25 | 1 | 64'hffffff0000000000 |
+| 26 | 1 | 64'hffffff8000000000 |
+| 27 | 1 | 64'hffffffc000000000 |
+| 28 | 1 | 64'hffffffe000000000 |
+| 29 | 1 | 64'hfffffff000000000 |
+| 30 | 1 | 64'hfffffff800000000 |
+| 31 | 1 | 64'hfffffffc00000000 |
+| 32 | 1 | 64'hfffffffe00000000 |
+| 33 | 1 | 64'hffffffff00000000 |
+| 34 | 1 | 64'hffffffff80000000 |
+| 35 | 1 | 64'hffffffffc0000000 |
+| 36 | 1 | 64'hffffffffe0000000 |
+| 37 | 1 | 64'hfffffffff0000000 |
+| 38 | 1 | 64'hfffffffff8000000 |
+| 39 | 1 | 64'hfffffffffc000000 |
+| 40 | 1 | 64'hfffffffffe000000 |
+| 41 | 1 | 64'hffffffffff000000 |
+| 42 | 1 | 64'hffffffffff800000 |
+| 43 | 1 | 64'hffffffffffc00000 |
+| 44 | 1 | 64'hffffffffffe00000 |
+| 45 | 1 | 64'hfffffffffff00000 |
+| 46 | 1 | 64'hfffffffffff80000 |
+| 47 | 1 | 64'hfffffffffffc0000 |
+| 48 | 1 | 64'hfffffffffffe0000 |
+| 49 | 1 | 64'hffffffffffff0000 |
+| 50 | 1 | 64'hffffffffffff8000 |
+| 51 | 1 | 64'hffffffffffffc000 |
+| 52 | 1 | 64'hffffffffffffe000 |
+| 53 | 1 | 64'hfffffffffffff000 |
+| 54 | 1 | 64'hfffffffffffff800 |
+| 55 | 1 | 64'hfffffffffffffc00 |
+| 56 | 1 | 64'hfffffffffffffe00 |
+| 57 | 1 | 64'hffffffffffffff00 |
+| 58 | 1 | 64'hffffffffffffff80 |
+| 59 | 1 | 64'hffffffffffffffc0 |
+| 60 | 1 | 64'hffffffffffffffe0 |
+| 61 | 1 | 64'hfffffffffffffff0 |
+| 62 | 1 | 64'hfffffffffffffff8 |
+| 63 | 1 | 64'hfffffffffffffffc |
+| 64 | 1 | 64'hfffffffffffffffe |
+| 65 | 1 | 64'hffffffffffffffff |
+| 66 | 1 | 64'h7fffffffffffffff |
+| 67 | 1 | 64'h3fffffffffffffff |
+| 68 | 1 | 64'h1fffffffffffffff |
+| 69 | 1 | 64'hfffffffffffffff |
+| 70 | 1 | 64'h7ffffffffffffff |
+| 71 | 1 | 64'h3ffffffffffffff |
+| 72 | 1 | 64'h1ffffffffffffff |
+| 73 | 1 | 64'hffffffffffffff |
+| 74 | 1 | 64'h7fffffffffffff |
+| 75 | 1 | 64'h3fffffffffffff |
+| 76 | 1 | 64'h1fffffffffffff |
+| 77 | 1 | 64'hfffffffffffff |
+| 78 | 1 | 64'h7ffffffffffff |
+| 79 | 1 | 64'h3ffffffffffff |
+| 80 | 1 | 64'h1ffffffffffff |
+| 81 | 1 | 64'hffffffffffff |
+| 82 | 1 | 64'h7fffffffffff |
+| 83 | 1 | 64'h3fffffffffff |
+| 84 | 1 | 64'h1fffffffffff |
+| 85 | 1 | 64'hfffffffffff |
+| 86 | 1 | 64'h7ffffffffff |
+| 87 | 1 | 64'h3ffffffffff |
+| 88 | 1 | 64'h1ffffffffff |
+| 89 | 1 | 64'hffffffffff |
+| 90 | 1 | 64'h7fffffffff |
+| 91 | 1 | 64'h3fffffffff |
+| 92 | 1 | 64'h1fffffffff |
+| 93 | 1 | 64'hfffffffff |
+| 94 | 1 | 64'h7ffffffff |
+| 95 | 1 | 64'h3ffffffff |
+| 96 | 1 | 64'h1ffffffff |
+| 97 | 1 | 64'hffffffff |
+| 98 | 1 | 64'h7fffffff |
+| 99 | 1 | 64'h3fffffff |
+| 100 | 1 | 64'h1fffffff |
+| 101 | 1 | 64'hfffffff |
+| 102 | 1 | 64'h7ffffff |
+| 103 | 1 | 64'h3ffffff |
+| 104 | 1 | 64'h1ffffff |
+| 105 | 1 | 64'hffffff |
+| 106 | 1 | 64'h7fffff |
+| 107 | 1 | 64'h3fffff |
+| 108 | 1 | 64'h1fffff |
+| 109 | 1 | 64'hfffff |
+| 110 | 1 | 64'h7ffff |
+| 111 | 1 | 64'h3ffff |
+| 112 | 1 | 64'h1ffff |
+| 113 | 1 | 64'hffff |
+| 114 | 1 | 64'h7fff |
+| 115 | 1 | 64'h3fff |
+| 116 | 1 | 64'h1fff |
+| 117 | 1 | 64'hfff |
+| 118 | 1 | 64'h7ff |
+| 119 | 1 | 64'h3ff |
+| 120 | 1 | 64'h1ff |
+| 121 | 1 | 64'hff |
+| 122 | 1 | 64'h7f |
+| 123 | 1 | 64'h3f |
+| 124 | 1 | 64'h1f |
+| 125 | 1 | 64'hf |
+| 126 | 1 | 64'h7 |
+| 127 | 1 | 64'h3 |
+| 128 | 1 | 64'h1 |
+| 129 | 1 | 64'h0 |
+| 130 | 1 | 64'h8000000000000000 |
+| 131 | 1 | 64'hc000000000000000 |
+| 132 | 1 | 64'he000000000000000 |
+| 133 | 1 | 64'hf000000000000000 |
+| 134 | 1 | 64'hf800000000000000 |
+| 135 | 1 | 64'hfc00000000000000 |
+| 136 | 1 | 64'hfe00000000000000 |
+| 137 | 1 | 64'hff00000000000000 |
+| 138 | 1 | 64'hff80000000000000 |
+| 139 | 1 | 64'hffc0000000000000 |
+| 140 | 1 | 64'hffe0000000000000 |
+| 141 | 1 | 64'hfff0000000000000 |
+| 142 | 1 | 64'hfff8000000000000 |
+| 143 | 1 | 64'hfffc000000000000 |
+| 144 | 1 | 64'hfffe000000000000 |
+| 145 | 1 | 64'hffff000000000000 |
+| 146 | 1 | 64'hffff800000000000 |
+| 147 | 1 | 64'hffffc00000000000 |
+| 148 | 1 | 64'hffffe00000000000 |
+| 149 | 1 | 64'hfffff00000000000 |
+| 150 | 1 | 64'hfffff80000000000 |
+| 151 | 1 | 64'hfffffc0000000000 |
+| 152 | 1 | 64'hfffffe0000000000 |
+| 153 | 1 | 64'hffffff0000000000 |
+| 154 | 1 | 64'hffffff8000000000 |
+| 155 | 1 | 64'hffffffc000000000 |
+| 156 | 1 | 64'hffffffe000000000 |
+| 157 | 1 | 64'hfffffff000000000 |
+| 158 | 1 | 64'hfffffff800000000 |
+| 159 | 1 | 64'hfffffffc00000000 |
+| 160 | 1 | 64'hfffffffe00000000 |
+| 161 | 1 | 64'hffffffff00000000 |
+| 162 | 1 | 64'hffffffff80000000 |
+| 163 | 1 | 64'hffffffffc0000000 |
+| 164 | 1 | 64'hffffffffe0000000 |
+| 165 | 1 | 64'hfffffffff0000000 |
+| 166 | 1 | 64'hfffffffff8000000 |
+| 167 | 1 | 64'hfffffffffc000000 |
+| 168 | 1 | 64'hfffffffffe000000 |
+| 169 | 1 | 64'hffffffffff000000 |
+| 170 | 1 | 64'hffffffffff800000 |
+| 171 | 1 | 64'hffffffffffc00000 |
+| 172 | 1 | 64'hffffffffffe00000 |
+| 173 | 1 | 64'hfffffffffff00000 |
+| 174 | 1 | 64'hfffffffffff80000 |
+| 175 | 1 | 64'hfffffffffffc0000 |
+| 176 | 1 | 64'hfffffffffffe0000 |
+| 177 | 1 | 64'hffffffffffff0000 |
+| 178 | 1 | 64'hffffffffffff8000 |
+| 179 | 1 | 64'hffffffffffffc000 |
+| 180 | 1 | 64'hffffffffffffe000 |
+| 181 | 1 | 64'hfffffffffffff000 |
+| 182 | 1 | 64'hfffffffffffff800 |
+| 183 | 1 | 64'hfffffffffffffc00 |
+| 184 | 1 | 64'hfffffffffffffe00 |
+| 185 | 1 | 64'hffffffffffffff00 |
+| 186 | 1 | 64'hffffffffffffff80 |
+| 187 | 1 | 64'hffffffffffffffc0 |
+| 188 | 1 | 64'hffffffffffffffe0 |
+| 189 | 1 | 64'hfffffffffffffff0 |
+| 190 | 1 | 64'hfffffffffffffff8 |
+| 191 | 1 | 64'hfffffffffffffffc |
+| 192 | 1 | 64'hfffffffffffffffe |
+| 193 | 1 | 64'hffffffffffffffff |
+| 194 | 1 | 64'h7fffffffffffffff |
+| 195 | 1 | 64'h3fffffffffffffff |
+| 196 | 1 | 64'h1fffffffffffffff |
+| 197 | 1 | 64'hfffffffffffffff |
+| 198 | 1 | 64'h7ffffffffffffff |
+| 199 | 1 | 64'h3ffffffffffffff |
+| 200 | 1 | 64'h1ffffffffffffff |
+| 201 | 1 | 64'hffffffffffffff |
+| 202 | 1 | 64'h7fffffffffffff |
+| 203 | 1 | 64'h3fffffffffffff |
+| 204 | 1 | 64'h1fffffffffffff |
+| 205 | 1 | 64'hfffffffffffff |
+| 206 | 1 | 64'h7ffffffffffff |
+| 207 | 1 | 64'h3ffffffffffff |
+| 208 | 1 | 64'h1ffffffffffff |
+| 209 | 1 | 64'hffffffffffff |
+| 210 | 1 | 64'h7fffffffffff |
+| 211 | 1 | 64'h3fffffffffff |
+| 212 | 1 | 64'h1fffffffffff |
+| 213 | 1 | 64'hfffffffffff |
+| 214 | 1 | 64'h7ffffffffff |
+| 215 | 1 | 64'h3ffffffffff |
+| 216 | 1 | 64'h1ffffffffff |
+| 217 | 1 | 64'hffffffffff |
+| 218 | 1 | 64'h7fffffffff |
+| 219 | 1 | 64'h3fffffffff |
+| 220 | 1 | 64'h1fffffffff |
+| 221 | 1 | 64'hfffffffff |
+| 222 | 1 | 64'h7ffffffff |
+| 223 | 1 | 64'h3ffffffff |
+| 224 | 1 | 64'h1ffffffff |
+| 225 | 1 | 64'hffffffff |
+| 226 | 1 | 64'h7fffffff |
+| 227 | 1 | 64'h3fffffff |
+| 228 | 1 | 64'h1fffffff |
+| 229 | 1 | 64'hfffffff |
+| 230 | 1 | 64'h7ffffff |
+| 231 | 1 | 64'h3ffffff |
+| 232 | 1 | 64'h1ffffff |
+| 233 | 1 | 64'hffffff |
+| 234 | 1 | 64'h7fffff |
+| 235 | 1 | 64'h3fffff |
+| 236 | 1 | 64'h1fffff |
+| 237 | 1 | 64'hfffff |
+| 238 | 1 | 64'h7ffff |
+| 239 | 1 | 64'h3ffff |
+| 240 | 1 | 64'h1ffff |
+| 241 | 1 | 64'hffff |
+| 242 | 1 | 64'h7fff |
+| 243 | 1 | 64'h3fff |
+| 244 | 1 | 64'h1fff |
+| 245 | 1 | 64'hfff |
+| 246 | 1 | 64'h7ff |
+| 247 | 1 | 64'h3ff |
+| 248 | 1 | 64'h1ff |
+| 249 | 1 | 64'hff |
+| 250 | 1 | 64'h7f |
+| 251 | 1 | 64'h3f |
+| 252 | 1 | 64'h1f |
+| 253 | 1 | 64'hf |
+| 254 | 1 | 64'h7 |
+| 255 | 1 | 64'h3 |
+| 256 | 1 | 64'h1 |
+| 257 | 1 | 64'h0 |
+| 258 | 1 | 64'h8000000000000000 |
+| 259 | 1 | 64'hc000000000000000 |
+| 260 | 1 | 64'he000000000000000 |
+| 261 | 1 | 64'hf000000000000000 |
+| 262 | 1 | 64'hf800000000000000 |
+| 263 | 1 | 64'hfc00000000000000 |
+| 264 | 1 | 64'hfe00000000000000 |
+| 265 | 1 | 64'hff00000000000000 |
+| 266 | 1 | 64'hff80000000000000 |
+| 267 | 1 | 64'hffc0000000000000 |
+| 268 | 1 | 64'hffe0000000000000 |
+| 269 | 1 | 64'hfff0000000000000 |
+| 270 | 1 | 64'hfff8000000000000 |
+| 271 | 1 | 64'hfffc000000000000 |
+| 272 | 1 | 64'hfffe000000000000 |
+| 273 | 1 | 64'hffff000000000000 |
+| 274 | 1 | 64'hffff800000000000 |
+| 275 | 1 | 64'hffffc00000000000 |
+| 276 | 1 | 64'hffffe00000000000 |
+| 277 | 1 | 64'hfffff00000000000 |
+| 278 | 1 | 64'hfffff80000000000 |
+| 279 | 1 | 64'hfffffc0000000000 |
+| 280 | 1 | 64'hfffffe0000000000 |
+| 281 | 1 | 64'hffffff0000000000 |
+| 282 | 1 | 64'hffffff8000000000 |
+| 283 | 1 | 64'hffffffc000000000 |
+| 284 | 1 | 64'hffffffe000000000 |
+| 285 | 1 | 64'hfffffff000000000 |
+| 286 | 1 | 64'hfffffff800000000 |
+| 287 | 1 | 64'hfffffffc00000000 |
+| 288 | 1 | 64'hfffffffe00000000 |
+| 289 | 1 | 64'hffffffff00000000 |
+| 290 | 1 | 64'hffffffff80000000 |
+| 291 | 1 | 64'hffffffffc0000000 |
+| 292 | 1 | 64'hffffffffe0000000 |
+| 293 | 1 | 64'hfffffffff0000000 |
+| 294 | 1 | 64'hfffffffff8000000 |
+| 295 | 1 | 64'hfffffffffc000000 |
+| 296 | 1 | 64'hfffffffffe000000 |
+| 297 | 1 | 64'hffffffffff000000 |
+| 298 | 1 | 64'hffffffffff800000 |
+| 299 | 1 | 64'hffffffffffc00000 |
+| 300 | 1 | 64'hffffffffffe00000 |
+| 301 | 1 | 64'hfffffffffff00000 |
+| 302 | 1 | 64'hfffffffffff80000 |
+| 303 | 1 | 64'hfffffffffffc0000 |
+| 304 | 1 | 64'hfffffffffffe0000 |
+| 305 | 1 | 64'hffffffffffff0000 |
+| 306 | 1 | 64'hffffffffffff8000 |
+| 307 | 1 | 64'hffffffffffffc000 |
+| 308 | 1 | 64'hffffffffffffe000 |
+| 309 | 1 | 64'hfffffffffffff000 |
+| 310 | 1 | 64'hfffffffffffff800 |
+| 311 | 1 | 64'hfffffffffffffc00 |
+| 312 | 1 | 64'hfffffffffffffe00 |
+| 313 | 1 | 64'hffffffffffffff00 |
+| 314 | 1 | 64'hffffffffffffff80 |
+| 315 | 1 | 64'hffffffffffffffc0 |
+| 316 | 1 | 64'hffffffffffffffe0 |
+| 317 | 1 | 64'hfffffffffffffff0 |
+| 318 | 1 | 64'hfffffffffffffff8 |
+| 319 | 1 | 64'hfffffffffffffffc |
+| 320 | 1 | 64'hfffffffffffffffe |
+| 321 | 1 | 64'hffffffffffffffff |
+| 322 | 1 | 64'h7fffffffffffffff |
+| 323 | 1 | 64'h3fffffffffffffff |
+| 324 | 1 | 64'h1fffffffffffffff |
+| 325 | 1 | 64'hfffffffffffffff |
+| 326 | 1 | 64'h7ffffffffffffff |
+| 327 | 1 | 64'h3ffffffffffffff |
+| 328 | 1 | 64'h1ffffffffffffff |
+| 329 | 1 | 64'hffffffffffffff |
+| 330 | 1 | 64'h7fffffffffffff |
+| 331 | 1 | 64'h3fffffffffffff |
+| 332 | 1 | 64'h1fffffffffffff |
+| 333 | 1 | 64'hfffffffffffff |
+| 334 | 1 | 64'h7ffffffffffff |
+| 335 | 1 | 64'h3ffffffffffff |
+| 336 | 1 | 64'h1ffffffffffff |
+| 337 | 1 | 64'hffffffffffff |
+| 338 | 1 | 64'h7fffffffffff |
+| 339 | 1 | 64'h3fffffffffff |
+| 340 | 1 | 64'h1fffffffffff |
+| 341 | 1 | 64'hfffffffffff |
+| 342 | 1 | 64'h7ffffffffff |
+| 343 | 1 | 64'h3ffffffffff |
+| 344 | 1 | 64'h1ffffffffff |
+| 345 | 1 | 64'hffffffffff |
+| 346 | 1 | 64'h7fffffffff |
+| 347 | 1 | 64'h3fffffffff |
+| 348 | 1 | 64'h1fffffffff |
+| 349 | 1 | 64'hfffffffff |
+| 350 | 1 | 64'h7ffffffff |
+| 351 | 1 | 64'h3ffffffff |
+| 352 | 1 | 64'h1ffffffff |
+| 353 | 1 | 64'hffffffff |
+| 354 | 1 | 64'h7fffffff |
+| 355 | 1 | 64'h3fffffff |
+| 356 | 1 | 64'h1fffffff |
+| 357 | 1 | 64'hfffffff |
+| 358 | 1 | 64'h7ffffff |
+| 359 | 1 | 64'h3ffffff |
+| 360 | 1 | 64'h1ffffff |
+| 361 | 1 | 64'hffffff |
+| 362 | 1 | 64'h7fffff |
+| 363 | 1 | 64'h3fffff |
+| 364 | 1 | 64'h1fffff |
+| 365 | 1 | 64'hfffff |
+| 366 | 1 | 64'h7ffff |
+| 367 | 1 | 64'h3ffff |
+| 368 | 1 | 64'h1ffff |
+| 369 | 1 | 64'hffff |
+| 370 | 1 | 64'h7fff |
+| 371 | 1 | 64'h3fff |
+| 372 | 1 | 64'h1fff |
+| 373 | 1 | 64'hfff |
+| 374 | 1 | 64'h7ff |
+| 375 | 1 | 64'h3ff |
+| 376 | 1 | 64'h1ff |
+| 377 | 1 | 64'hff |
+| 378 | 1 | 64'h7f |
+| 379 | 1 | 64'h3f |
+| 380 | 1 | 64'h1f |
+| 381 | 1 | 64'hf |
+| 382 | 1 | 64'h7 |
+| 383 | 1 | 64'h3 |
+| 384 | 1 | 64'h1 |
+| 385 | 1 | 64'h0 |
+
+### stimulus 7
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 1 | 64'x |
+| 1 | 1 | 64'x |
+| 2 | 1 | 64'x |
+| 3 | 1 | 64'x |
+| 4 | 1 | 64'x |
+| 5 | 1 | 64'x |

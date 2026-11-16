@@ -1,0 +1,96 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input [2:0].
+- b: input [2:0].
+- out_or_bitwise: output [2:0].
+- out_or_logical: output 1 bit.
+- out_not: output [5:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. The design has no state elements. From power-up onward, including before any sampling step and after the first sampling step, every output is defined solely by the current values of a and b: out_or_bitwise is a | b, out_or_logical indicates whether either input is nonzero, and out_not is {~b, ~a}. No output has an uninitialised interval.
+
+4. Timing.
+
+All three outputs are combinational with zero-cycle latency from both a and b. A change to either input, including a simultaneous change to both inputs, is reflected in all affected outputs without capture, interruption, retention, completion, or restart. There are no pulses, periodic signals, clock cycles, circuit period, or specified propagation-delay laws.
+
+The evaluated full-cycle trace uses an observation convention only: each row samples the settled combinational outputs for that row's inputs before the model's no-op transition. Consecutive rows are consecutive sampling steps; they do not imply a 10 ns clock tick or any physical circuit period. The interface specifies no numeric step duration or sample offset.
+
+5. Behaviour.
+
+For every possible input combination, a and b are unsigned three-bit vectors.
+
+out_or_bitwise continuously equals the three-bit bitwise OR a | b. Each result bit is the OR of the corresponding bits of a and b.
+
+out_or_logical continuously equals 1'b1 exactly when a is nonzero or b is nonzero. It equals 1'b0 exactly when both a and b are zero.
+
+out_not continuously equals {~b, ~a}. Bits [5:3] are the bitwise complement of the three bits of b, and bits [2:0] are the bitwise complement of the three bits of a. The complements are three bits wide before concatenation, and the concatenated result is six bits wide.
+
+At all times and with no modes or transaction state, a contributes bitwise to out_or_bitwise as a | b, makes out_or_logical true when a is nonzero, and appears complemented in out_not[2:0], so every change, including one simultaneous with a change of b, is reflected combinationally without capture, interruption, or retained effects.
+
+At all times and with no modes or transaction state, b contributes bitwise to out_or_bitwise as a | b, makes out_or_logical true when b is nonzero, and appears complemented in out_not[5:3], so every change, including one simultaneous with a change of a, is reflected combinationally without capture, interruption, or retained effects.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | out_or_bitwise | out_or_logical | out_not |
+|---|---|---|---|---|---|
+| 0 | 3'b000 | 3'b000 | 3'b000 | 0 | 6'b111111 |
+
+### stimulus 1
+| cycle | a | b | out_or_bitwise | out_or_logical | out_not |
+|---|---|---|---|---|---|
+| 0 | 3'b001 | 3'b000 | 3'b001 | 1 | 6'b111110 |
+
+### stimulus 2
+| cycle | a | b | out_or_bitwise | out_or_logical | out_not |
+|---|---|---|---|---|---|
+| 0 | 3'b111 | 3'b000 | 3'b111 | 1 | 6'b111000 |
+
+### stimulus 3
+| cycle | a | b | out_or_bitwise | out_or_logical | out_not |
+|---|---|---|---|---|---|
+| 0 | 3'b100 | 3'b000 | 3'b100 | 1 | 6'b111011 |
+
+### stimulus 4
+| cycle | a | b | out_or_bitwise | out_or_logical | out_not |
+|---|---|---|---|---|---|
+| 0 | 3'b011 | 3'b000 | 3'b011 | 1 | 6'b111100 |
+
+### stimulus 5
+| cycle | a | b | out_or_bitwise | out_or_logical | out_not |
+|---|---|---|---|---|---|
+| 0 | 3'b000 | 3'b001 | 3'b001 | 1 | 6'b110111 |
+
+### stimulus 6
+| cycle | a | b | out_or_bitwise | out_or_logical | out_not |
+|---|---|---|---|---|---|
+| 0 | 3'b000 | 3'b111 | 3'b111 | 1 | 6'b000111 |
+
+### stimulus 7
+| cycle | a | b | out_or_bitwise | out_or_logical | out_not |
+|---|---|---|---|---|---|
+| 0 | 3'b000 | 3'b100 | 3'b100 | 1 | 6'b011111 |
+
+### stimulus 8
+| cycle | a | b | out_or_bitwise | out_or_logical | out_not |
+|---|---|---|---|---|---|
+| 0 | 3'b000 | 3'b101 | 3'b101 | 1 | 6'b010111 |
+
+### stimulus 9
+| cycle | a | b | out_or_bitwise | out_or_logical | out_not |
+|---|---|---|---|---|---|
+| 0 | 3'b010 | 3'b101 | 3'b111 | 1 | 6'b010101 |

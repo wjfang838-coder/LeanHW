@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_events_to_apb_0001",
+  "toplevel": "apb_controller",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

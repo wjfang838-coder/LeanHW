@@ -1,0 +1,3 @@
+'CaseCPUMem.cycle_inv' depends on axioms: [propext, Quot.sound]
+'CaseCPUMem.cycle_refines' depends on axioms: [propext, Quot.sound]
+'CaseCPUMem.reset_refinement' depends on axioms: [propext, Quot.sound]

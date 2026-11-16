@@ -1,0 +1,38 @@
+name = "leancircuit"
+defaultTargets = ["LeanRTL", "LeanRTL.Lib", "LeanRTL.Example", "LeanSpec", "SpecIR", "FrozenRefinement", "FrozenSpecBridge"]
+
+# Compatibility source paths preserve existing Python/Lean imports and CPU source bindings.
+[[lean_lib]]
+name = "LeanRTL"
+srcDir = "method/stage2/framework"
+globs = ["LeanRTL", "LeanRTL.+"]
+
+[[lean_lib]]
+name = "LeanRTL.Lib"
+srcDir = "method/stage2/assets/lib"
+globs = ["LeanRTL.Lib.+"]
+
+[[lean_lib]]
+name = "LeanRTL.Example"
+srcDir = "method/stage2/example"
+globs = ["LeanRTL.Example.+"]
+
+[[lean_lib]]
+name = "LeanSpec"
+srcDir = "method/stage1/leanspec/lean"
+globs = ["LeanSpec", "LeanSpec.+"]
+
+[[lean_lib]]
+name = "SpecIR"
+srcDir = "method/stage1/leanspec/lean"
+globs = ["SpecIR", "SpecIR.+"]
+
+[[lean_lib]]
+name = "FrozenRefinement"
+srcDir = "method/stage2/refinement/lean"
+globs = ["FrozenRefinement", "BasicRewrite", "RefinementTests", "Compose", "BitwiseBridge"]
+
+[[lean_lib]]
+name = "FrozenSpecBridge"
+srcDir = "method/stage2/framework"
+globs = ["FrozenSpecBridge"]

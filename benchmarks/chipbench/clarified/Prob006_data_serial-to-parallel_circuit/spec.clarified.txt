@@ -1,0 +1,169 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- valid_a: input 1 bit.
+- data_a: input 1 bit.
+- ready_a: output 1 bit.
+- valid_b: output 1 bit.
+- data_b: output [5:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+2. Reset
+
+`rst_n` is an active-low asynchronous reset. Assertion takes effect without waiting for a rising `clk` edge and overrides any coincident edge, `valid_a`, and `data_a`. While reset is asserted, `ready_a` is 1, `valid_b` is 0, and `data_b` is 6'b000000. The partial-word contents and accepted-sample position are cleared, the retained completed word is set to 6'b000000, word alignment is established, and the completion indication is cleared. Activity while reset remains asserted is ignored.
+
+Releasing reset changes no state or output by itself. Before and after the first rising edge following release, `ready_a` is 1, `valid_b` is 0, and `data_b` is 6'b000000 unless that edge is the sixth accepted sample, which cannot occur immediately after reset. That first edge begins a new word only when `valid_a` is 1.
+
+Before reset has ever been asserted, `ready_a` is 1. If power-up begins with `rst_n` high, `valid_b` and `data_b` are unknown and remain unknown because word alignment has not been established. Their storage must be left uninitialised: no initial block or declaration initialiser may give either output a defined power-up value.
+
+3. Timing
+
+`ready_a` is combinational and constantly 1.
+
+Asserting `rst_n` low changes `valid_b` and `data_b` asynchronously. All other changes to these outputs result from rising `clk` edges. Static clock levels and falling edges have no effect. Each rising edge while `rst_n` is high advances the conversion exactly once; repeated rising edges process successive input opportunities under the same rules.
+
+`valid_b` is a registered completion indication. It is asserted on the pre-edge observation row immediately following the rising edge that accepts the sixth sample of a word. It remains asserted for exactly one clock cycle, then is low on the following pre-edge row. A low `valid_a` before acceptance of the sixth sample stalls the word and does not assert `valid_b`.
+
+`data_b` is registered. It changes to a completed word on the rising edge that accepts that word's sixth sample, so the new value is visible on the following pre-edge observation row. It otherwise retains the last completed word until another completion or reset.
+
+The evaluated trace uses full-cycle, pre-transition observations: row k shows the settled outputs before modeled transition k, and that transition produces the state observed on row k+1. The interface supplies no `step_ns` or `sample_offset_ns` value, so this row convention assigns no implicit 10 ns duration. This observation convention is separate from the circuit law that functional state advances on rising `clk` edges and asynchronous reset assertion takes effect immediately.
+
+4. Behaviour
+
+The input interface uses a valid-ready handshake. `ready_a` is always 1. With `rst_n` high, every rising edge with `valid_a` equal to 1 accepts the one-bit value of `data_a`; every rising edge with `valid_a` equal to 0 accepts nothing and leaves partial-word progress unchanged. `data_a` has no effect unless it is accepted. Reset overrides and discards a concurrent input.
+
+Accepted samples fill one six-bit word in arrival order. The first accepted sample becomes `data_b[0]`, the second becomes `data_b[1]`, and so on through the sixth, which becomes `data_b[5]`. On acceptance of the sixth sample, `data_b` becomes `{sixth, fifth, fourth, third, second, first}` and `valid_b` indicates that completion for one cycle. Collection of the next word restarts at bit 0, and repeated accepted samples can complete consecutive words.
+
+Before the first completed word after reset, `data_b` remains 6'b000000. During every partial word and every stall after a completion, `data_b` retains the most recently completed word regardless of `valid_b` being low. Between completions, `valid_b` is low. A partial transaction is cancelled by reset; after release, collection restarts with the first accepted sample at bit 0.
+
+The module has one-bit inputs, so low means 0 and high means 1; there are no additional input encodings. If reset has never established alignment, the unknown power-up behavior stated in section 2 applies regardless of `valid_a` and `data_a`.
+
+5. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst_n | valid_a | data_a | ready_a | valid_b | data_b |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | 6'b000000 |
+| 1 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 2 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 3 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 4 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 5 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 6 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 7 | 1 | 0 | 1 | 1 | 1 | 6'b010101 |
+| 8 | 1 | 0 | 0 | 1 | 0 | 6'b010101 |
+
+### stimulus 1
+| cycle | rst_n | valid_a | data_a | ready_a | valid_b | data_b |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 1 | 1 | 0 | 0 | 1 | 0 | 6'b000000 |
+| 2 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 3 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 4 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 5 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 6 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 7 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+
+### stimulus 2
+| cycle | rst_n | valid_a | data_a | ready_a | valid_b | data_b |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | x | 6'x |
+| 1 | 1 | 1 | 1 | 1 | x | 6'x |
+| 2 | 1 | 1 | 1 | 1 | x | 6'x |
+| 3 | 1 | 1 | 1 | 1 | x | 6'x |
+| 4 | 1 | 1 | 1 | 1 | x | 6'x |
+| 5 | 1 | 1 | 1 | 1 | x | 6'x |
+| 6 | 1 | 0 | 0 | 1 | x | 6'x |
+
+### stimulus 3
+| cycle | rst_n | valid_a | data_a | ready_a | valid_b | data_b |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | 6'b000000 |
+| 1 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 2 | 1 | 0 | 0 | 1 | 0 | 6'b000000 |
+| 3 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 4 | 1 | 0 | 1 | 1 | 0 | 6'b000000 |
+| 5 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 6 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 7 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 8 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 9 | 1 | 0 | 0 | 1 | 1 | 6'b010101 |
+
+### stimulus 4
+| cycle | rst_n | valid_a | data_a | ready_a | valid_b | data_b |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | 6'b000000 |
+| 1 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 2 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 3 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 4 | 0 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 5 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 6 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 7 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 8 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 9 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 10 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+
+### stimulus 5
+| cycle | rst_n | valid_a | data_a | ready_a | valid_b | data_b |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | 6'b000000 |
+| 1 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 2 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 3 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 4 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 5 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 6 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 7 | 1 | 1 | 1 | 1 | 1 | 6'b100000 |
+| 8 | 1 | 1 | 1 | 1 | 0 | 6'b100000 |
+| 9 | 1 | 1 | 1 | 1 | 0 | 6'b100000 |
+| 10 | 1 | 1 | 1 | 1 | 0 | 6'b100000 |
+| 11 | 1 | 1 | 1 | 1 | 0 | 6'b100000 |
+| 12 | 1 | 0 | 0 | 1 | 0 | 6'b100000 |
+
+### stimulus 6
+| cycle | rst_n | valid_a | data_a | ready_a | valid_b | data_b |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | 6'b000000 |
+| 1 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 2 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 3 | 1 | 0 | 1 | 1 | 0 | 6'b000000 |
+| 4 | 1 | 0 | 0 | 1 | 0 | 6'b000000 |
+| 5 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 6 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 7 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 8 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 9 | 1 | 1 | 1 | 1 | 1 | 6'b010101 |
+| 10 | 1 | 1 | 0 | 1 | 0 | 6'b010101 |
+
+### stimulus 7
+| cycle | rst_n | valid_a | data_a | ready_a | valid_b | data_b |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | 6'b000000 |
+| 1 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 2 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 3 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 4 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 5 | 1 | 1 | 0 | 1 | 0 | 6'b000000 |
+| 6 | 1 | 1 | 1 | 1 | 0 | 6'b000000 |
+| 7 | 1 | 1 | 1 | 1 | 1 | 6'b101010 |
+| 8 | 1 | 1 | 0 | 1 | 0 | 6'b101010 |
+| 9 | 1 | 1 | 1 | 1 | 0 | 6'b101010 |
+| 10 | 1 | 1 | 0 | 1 | 0 | 6'b101010 |
+| 11 | 1 | 1 | 1 | 1 | 0 | 6'b101010 |
+| 12 | 1 | 1 | 0 | 1 | 0 | 6'b101010 |
+| 13 | 1 | 0 | 0 | 1 | 1 | 6'b010101 |

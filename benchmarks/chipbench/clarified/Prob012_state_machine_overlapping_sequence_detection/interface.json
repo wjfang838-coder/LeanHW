@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob012_state_machine_overlapping_sequence_detection",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

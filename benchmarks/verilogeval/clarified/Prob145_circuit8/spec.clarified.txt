@@ -1,0 +1,181 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clock: input 1 bit.
+- a: input 1 bit.
+- p: output 1 bit.
+- q: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: each table row drives the explicitly named clock levels and data, then observes settled outputs. The model must apply the edge described by those levels exactly once; it must not insert a second pipeline delay.
+
+1. Module and ports.
+
+
+
+2. Reset.
+
+There is no reset input and no reset behavior. At power-up, before any clock transition or high-clock evaluation, both p and q are unknown. The implementation must leave both stored values uninitialized, with no initial block or declaration initializer. The first low-to-high transition does not change q; after that transition, p follows a during the high-clock interval. The first high-to-low transition captures into q the value of a present immediately before that transition; the newly captured value is visible after the transition. No reset edge exists, so there is no distinct first step after reset release.
+
+3. Timing.
+
+p is level-sensitive rather than cycle-registered: throughout an established high-clock interval it reflects the current a with no edge or cycle latency, and throughout a low-clock interval it retains the value most recently established while clock was high. At a sampled low-to-high transition, the pre-edge observation is the retained old p; p begins reflecting a after the transition.
+
+q is registered on each high-to-low transition. At the transition's pre-edge observation q still has its prior value; after the transition it has the a value present immediately before that transition. It retains that value through low-clock intervals, high-clock intervals, and low-to-high transitions. Neither output is a pulse or an autonomous periodic signal, so no pulse width or independent period applies.
+
+The evaluated rows use the interface half-cycle observation cadence: row k is the kth half-cycle sample after settling, and each row observes outputs before committing the pending transition represented by a changed clock level. This observation cadence does not impose a physical clock period or propagation delay; the circuit laws depend only on clock levels and transitions.
+
+4. Behaviour.
+
+With clock high, p continuously reflects a and q retains its prior value. With clock low, both outputs retain their prior values, except that each high-to-low transition captures the immediately pre-edge a value into q while p retains its last high-clock value. Each low-to-high transition starts p following a without changing q. Repeated or interrupted clock intervals obey these same rules independently, and there is no reset behavior.
+
+A change of a while clock is high is reflected by p without an edge and does not change q. A change of a while clock is low changes neither output. At a falling clock edge q captures the a value present immediately before the edge while p retains the value established during the preceding high interval. Repeated changes follow the same rules.
+
+p has no reset or defined initialization, is unknown until evaluated with clock high, equals a throughout every high-clock interval with no edge latency, and retains its last high-interval value throughout each low-clock interval. Because rows are sampled before a pending transition is committed, a low-to-high transition row shows the retained pre-edge value, and the newly followed a value is observable only after that transition. Every later interval repeats this behavior.
+
+q has no reset or defined initialization, remains unknown until the first high-to-low clock transition, captures the a value present immediately before every high-to-low transition, and retains that captured value through all other times and low-to-high transitions. Because rows are sampled before a pending transition is committed, a high-to-low transition row shows the old q, and the capture becomes observable after that transition. Successive high-to-low transitions replace the retained value.
+
+Since clock and a are one-bit inputs, the preceding cases cover every input encoding.
+
+5. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| half-cycle | clock | a | p | q |
+|---|---|---|---|---|
+| 0 | 0 | 0 | x | x |
+| 1 | 0 | 0 | x | x |
+| 2 | 0 | 0 | x | x |
+| 3 | 0 | 0 | x | x |
+| 4 | 0 | 0 | x | x |
+| 5 | 1 | 0 | x | x |
+| 6 | 1 | 0 | 0 | x |
+| 7 | 1 | 0 | 0 | x |
+| 8 | 1 | 0 | 0 | x |
+| 9 | 1 | 0 | 0 | x |
+| 10 | 1 | 0 | 0 | x |
+| 11 | 0 | 0 | 0 | x |
+| 12 | 0 | 0 | 0 | 0 |
+| 13 | 0 | 0 | 0 | 0 |
+| 14 | 0 | 1 | 0 | 0 |
+| 15 | 0 | 0 | 0 | 0 |
+| 16 | 0 | 1 | 0 | 0 |
+| 17 | 1 | 0 | 0 | 0 |
+| 18 | 1 | 1 | 1 | 0 |
+| 19 | 1 | 0 | 0 | 0 |
+| 20 | 1 | 1 | 1 | 0 |
+| 21 | 1 | 0 | 0 | 0 |
+| 22 | 1 | 1 | 1 | 0 |
+| 23 | 0 | 0 | 1 | 0 |
+| 24 | 0 | 1 | 1 | 1 |
+| 25 | 0 | 0 | 1 | 1 |
+| 26 | 0 | 1 | 1 | 1 |
+| 27 | 0 | 0 | 1 | 1 |
+| 28 | 0 | 0 | 1 | 1 |
+| 29 | 1 | 0 | 1 | 1 |
+| 30 | 1 | 0 | 0 | 1 |
+| 31 | 1 | 0 | 0 | 1 |
+| 32 | 1 | 0 | 0 | 1 |
+| 33 | 1 | 1 | 1 | 1 |
+| 34 | 1 | 0 | 0 | 1 |
+| 35 | 0 | 1 | 0 | 1 |
+| 36 | 0 | 0 | 0 | 0 |
+| 37 | 0 | 1 | 0 | 0 |
+| 38 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| half-cycle | clock | a | p | q |
+|---|---|---|---|---|
+| 0 | 1 | 1 | x | x |
+| 1 | 0 | 0 | 1 | x |
+| 2 | 1 | 0 | 1 | 1 |
+| 3 | 0 | 1 | 0 | 1 |
+
+### stimulus 2
+| half-cycle | clock | a | p | q |
+|---|---|---|---|---|
+| 0 | 0 | 1 | x | x |
+| 1 | 1 | 1 | x | x |
+| 2 | 0 | 0 | 1 | x |
+| 3 | 1 | 0 | 1 | 1 |
+
+### stimulus 3
+| half-cycle | clock | a | p | q |
+|---|---|---|---|---|
+| 0 | 0 | 0 | x | x |
+| 1 | 1 | 1 | x | x |
+| 2 | 1 | 0 | 0 | x |
+| 3 | 0 | 0 | 0 | x |
+
+### stimulus 4
+| half-cycle | clock | a | p | q |
+|---|---|---|---|---|
+| 0 | 0 | 0 | x | x |
+| 1 | 0 | 0 | x | x |
+| 2 | 1 | 0 | x | x |
+| 3 | 0 | 0 | 0 | x |
+
+### stimulus 5
+| half-cycle | clock | a | p | q |
+|---|---|---|---|---|
+| 0 | 0 | 0 | x | x |
+| 1 | 0 | 0 | x | x |
+| 2 | 0 | 0 | x | x |
+| 3 | 0 | 1 | x | x |
+
+### stimulus 6
+| half-cycle | clock | a | p | q |
+|---|---|---|---|---|
+| 0 | 0 | 0 | x | x |
+| 1 | 0 | 0 | x | x |
+| 2 | 0 | 0 | x | x |
+| 3 | 0 | 0 | x | x |
+| 4 | 1 | 1 | x | x |
+
+### stimulus 7
+| half-cycle | clock | a | p | q |
+|---|---|---|---|---|
+| 0 | 0 | 0 | x | x |
+| 1 | 0 | 0 | x | x |
+| 2 | 0 | 0 | x | x |
+| 3 | 0 | 0 | x | x |
+| 4 | 0 | 0 | x | x |
+| 5 | 1 | 0 | x | x |
+| 6 | 1 | 0 | 0 | x |
+| 7 | 1 | 0 | 0 | x |
+| 8 | 1 | 0 | 0 | x |
+| 9 | 1 | 0 | 0 | x |
+| 10 | 1 | 0 | 0 | x |
+| 11 | 0 | 0 | 0 | x |
+| 12 | 0 | 0 | 0 | 0 |
+| 13 | 0 | 0 | 0 | 0 |
+| 14 | 0 | 1 | 0 | 0 |
+| 15 | 0 | 0 | 0 | 0 |
+| 16 | 0 | 1 | 0 | 0 |
+| 17 | 1 | 0 | 0 | 0 |
+| 18 | 1 | 1 | 1 | 0 |
+| 19 | 1 | 0 | 0 | 0 |
+| 20 | 1 | 1 | 1 | 0 |
+| 21 | 1 | 0 | 0 | 0 |
+| 22 | 1 | 1 | 1 | 0 |
+| 23 | 0 | 0 | 1 | 0 |
+| 24 | 0 | 1 | 1 | 1 |
+| 25 | 0 | 0 | 1 | 1 |
+| 26 | 0 | 1 | 1 | 1 |
+| 27 | 0 | 0 | 1 | 1 |
+| 28 | 0 | 0 | 1 | 1 |
+| 29 | 1 | 0 | 1 | 1 |
+| 30 | 1 | 0 | 0 | 1 |
+| 31 | 1 | 0 | 0 | 1 |
+| 32 | 1 | 0 | 0 | 1 |
+| 33 | 1 | 1 | 1 | 1 |
+| 34 | 1 | 0 | 0 | 1 |
+| 35 | 0 | 1 | 0 | 1 |
+| 36 | 0 | 0 | 0 | 0 |
+| 37 | 0 | 1 | 0 | 0 |
+| 38 | 0 | 0 | 0 | 0 |
+| 39 | 1 | 0 | 0 | 0 |

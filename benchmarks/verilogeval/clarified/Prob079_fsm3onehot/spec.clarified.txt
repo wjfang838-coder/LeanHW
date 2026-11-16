@@ -1,0 +1,101 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input 1 bit.
+- state: input [3:0].
+- next_state: output [3:0].
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+-  C: default = 2.
+-  D: default = 3.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input, reset behavior, clock edge, or stored state. Consequently there is no first reset edge or first step after reset release. From power-up onward, both outputs are definite combinational functions of the current inputs: `next_state` has the value specified below and `out` equals `state[3]`. Neither output is uninitialized.
+
+Timing
+
+`next_state` and `out` are combinational outputs with zero-cycle latency from `in` and `state`. Input changes, including simultaneous or repeated changes, are reflected after combinational settling; there is no capture, retention, interruption, transaction, pulse, or periodic output behavior.
+
+For each one-hot state, `in=0` and `in=1` select exactly the two transitions listed below; changing or repeating `in` immediately recomputes `next_state` without capture, retention, interruption, or transaction state, and `in` has no effect on `out`.
+
+The evaluated trace uses the interface's observation cadence: row k denotes k times `step_ns` after settling, with the stated `sample_offset_ns`, when those numeric timing fields are supplied. This is only a trace observation convention and does not imply a 10 ns clock tick, a circuit period, or any circuit delay law. This interface supplies no numeric `step_ns` or `sample_offset_ns`; the circuit itself is autonomous and purely combinational.
+
+Behaviour
+
+Treat `in` as one bit and `state` as four bits. For every possible input encoding, `next_state` is continuously determined by `next_state[0] = (state[0] | state[2]) & ~in`, `next_state[1] = (state[0] | state[1] | state[3]) & in`, `next_state[2] = (state[1] | state[3]) & ~in`, and `next_state[3] = state[2] & in`. This law applies to all sixteen `state` values, including zero, multi-hot, and every other non-one-hot encoding.
+
+For the named one-hot encodings, this gives: A (`4'b0001`) transitions to A when `in=0` and B when `in=1`; B (`4'b0010`) transitions to C when `in=0` and B when `in=1`; C (`4'b0100`) transitions to A when `in=0` and D when `in=1`; and D (`4'b1000`) transitions to C when `in=0` and B when `in=1`.
+
+`out` continuously equals `state[3]` for every possible `state` value and is independent of `in`. Thus it is 1 for every encoding whose most significant state bit is 1, not only for the one-hot D encoding, and is 0 otherwise.
+
+Changing or repeating either input immediately recomputes both output laws without capture, retention, interruption, disabled mode, transaction state, initialization phase, hold phase, clear phase, completion, cancellation, or restart behavior.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0001 | 4'b0001 | 0 |
+
+### stimulus 1
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 1 | 4'b0001 | 4'b0010 | 0 |
+
+### stimulus 2
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0010 | 4'b0100 | 0 |
+
+### stimulus 3
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 1 | 4'b0010 | 4'b0010 | 0 |
+
+### stimulus 4
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0100 | 4'b0001 | 0 |
+
+### stimulus 5
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 1 | 4'b0100 | 4'b1000 | 0 |
+
+### stimulus 6
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b1000 | 4'b0100 | 1 |
+
+### stimulus 7
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 1 | 4'b1000 | 4'b0010 | 1 |
+
+### stimulus 8
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 4'b0000 | 0 |
+
+### stimulus 9
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 1 | 4'b1111 | 4'b1010 | 1 |
+
+### stimulus 10
+| cycle | in | state | next_state | out |
+|---|---|---|---|---|
+| 0 | 0 | 4'b0110 | 4'b0101 | 0 |

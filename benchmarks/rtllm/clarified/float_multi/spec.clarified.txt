@@ -1,0 +1,184 @@
+Module and integration contract
+
+Module: float_multi.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- a: input [31:0].
+- b: input [31:0].
+- z: output [31:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports.
+
+
+
+Reset.
+
+Reset is active high and synchronous to the rising edge of clk. A high rst immediately cancels transaction progress, prevents new work from starting on rising edges, and leaves z unchanged. No other stored value from an interrupted transaction affects later results. Releasing rst captures the then-current a and b for a new transaction before the next rising edge; that next rising edge is the first edge of the new transaction.
+
+At power-up, before any asserted-reset rising edge has been seen, z is unknown and remains unknown regardless of clock activity. The implementation must leave z uninitialised, with no initial block or declaration initialiser. During the first reset assertion z is therefore unknown. On later reset assertions it retains the last value previously published. On the first step after release, z remains retained for an ordinary finite pair, while a captured special case publishes the result specified below.
+
+Timing.
+
+Inputs are captured on reset release and again on every eighth rising edge of an uninterrupted transaction cadence. Changes to a or b at other times do not affect the transaction in progress. Falling edges have no effect.
+
+For a captured NaN, infinity, or zero special case, z is registered and updates on the first rising edge after capture, giving a latency of one clock cycle from captured a and b. For an ordinary finite nonzero pair, z is registered and updates on the sixth rising edge after capture, giving a latency of six clock cycles. z retains its preceding value on every edge that does not publish a result. A high rst cancels the cadence without clearing z; release starts a new cadence, and uninterrupted operation restarts every eight rising edges. There are no pulse or periodic output ports.
+
+The evaluated full-cycle trace samples outputs before each active edge. Row k denotes k times the interface timing step after settling; this observation convention does not specify the circuit clock period or any propagation delay, neither of which is fixed by this specification.
+
+Behaviour.
+
+a and b are IEEE-754 binary32 operands. For every published result, the sign is the XOR of the operand sign bits except for the fixed NaN encoding stated below.
+
+If either captured operand has exponent 255 and a nonzero fraction, z becomes 32'hffc00000. Infinity multiplied by zero also produces the fixed encoding 32'hffc00000. These NaN rules apply independently of operand order and of the other operand's sign.
+
+Infinity multiplied by any nonzero, non-NaN operand produces infinity with the XOR sign. Zero multiplied by any finite, non-NaN operand produces zero with the XOR sign. These rules include signed zero and subnormal operands.
+
+For two finite nonzero operands, including subnormals, z is their binary32 product rounded once using round-to-nearest, ties-to-even. The exact significands are multiplied, the product receives the single normalization adjustment required by its leading bit, and the exponent is adjusted accordingly. Exponent overflow produces infinity with the XOR sign. A result below the normal range is rounded into the binary32 subnormal range; if it rounds below the least subnormal it becomes signed zero, and if subnormal rounding carries into the normal range it becomes the least normal value with the XOR sign. Rounding carry at the top of a normal significand increments the exponent and can therefore produce overflow infinity.
+
+Only rising clk edges advance an active transaction: following capture, the first edge can publish a special-case result and the sixth edge publishes an ordinary finite result; subsequent rising edges restart this eight-edge cadence, falling edges have no effect, rst has priority while high, and z is retained on every edge that does not publish a result.
+
+A high rst immediately aborts transaction progress but leaves z unchanged, rising clk edges while rst remains high cannot start work, and releasing rst immediately captures the then-current operands and starts a new transaction before the next rising edge; repeated reset interruptions obey the same priority and retention rules.
+
+The 32-bit binary32 operand a is captured when rst is released and again every eighth rising clk edge thereafter, affects the corresponding product together with captured b, and changes at all other times have no effect on the transaction in progress; reset interruption discards that transaction and the next release captures anew.
+
+The 32-bit binary32 operand b is captured when rst is released and again every eighth rising clk edge thereafter, affects the corresponding product together with captured a, and changes at all other times have no effect on the transaction in progress; reset interruption discards that transaction and the next release captures anew.
+
+With rows sampled before active edges, rst assertion and release leave z unchanged, a special-case result captured at release is observable in the row after the first rising edge, an ordinary finite result is observable in the row after the sixth rising edge, z is retained between updates, and uninterrupted transactions restart every eight rising edges while a reset interruption cancels progress without clearing z.
+
+Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst | a | b | z |
+|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 32'hffffffff | 32'x |
+| 1 | 0 | 32'h3f800000 | 32'h3f800000 | 32'x |
+| 2 | 0 | 32'h40000000 | 32'h40400000 | 32'x |
+| 3 | 0 | 32'h40000000 | 32'h40400000 | 32'x |
+| 4 | 0 | 32'h40000000 | 32'h40400000 | 32'x |
+| 5 | 0 | 32'h40000000 | 32'h40400000 | 32'x |
+
+### stimulus 1
+| cycle | rst | a | b | z |
+|---|---|---|---|---|
+| 0 | 0 | 32'h3f800000 | 32'h40000000 | 32'x |
+| 1 | 0 | 32'h3f800000 | 32'h40000000 | 32'x |
+| 2 | 1 | 32'h40400000 | 32'h40800000 | 32'x |
+| 3 | 0 | 32'h40400000 | 32'h40800000 | 32'x |
+| 4 | 0 | 32'h40400000 | 32'h40800000 | 32'x |
+| 5 | 0 | 32'h40400000 | 32'h40800000 | 32'x |
+
+### stimulus 2
+| cycle | rst | a | b | z |
+|---|---|---|---|---|
+| 0 | 1 | 32'h7f800000 | 32'h0 | 32'x |
+| 1 | 0 | 32'h7f800000 | 32'h0 | 32'x |
+| 2 | 0 | 32'hff800000 | 32'h3f800000 | 32'hffc00000 |
+| 3 | 0 | 32'h7fc00001 | 32'h3f800000 | 32'hffc00000 |
+| 4 | 0 | 32'h7f800000 | 32'h40000000 | 32'hffc00000 |
+| 5 | 0 | 32'h7f800000 | 32'h40000000 | 32'hffc00000 |
+
+### stimulus 3
+| cycle | rst | a | b | z |
+|---|---|---|---|---|
+| 0 | 1 | 32'h80000000 | 32'h1 | 32'x |
+| 1 | 0 | 32'h80000000 | 32'h1 | 32'x |
+| 2 | 0 | 32'h1 | 32'h7fffff | 32'h80000000 |
+| 3 | 0 | 32'h800000 | 32'h800000 | 32'h80000000 |
+| 4 | 0 | 32'h800000 | 32'h800000 | 32'h80000000 |
+| 5 | 0 | 32'h800000 | 32'h800000 | 32'h80000000 |
+
+### stimulus 4
+| cycle | rst | a | b | z |
+|---|---|---|---|---|
+| 0 | 1 | 32'hffffffff | 32'h80000000 | 32'x |
+| 1 | 0 | 32'hffffffff | 32'h80000000 | 32'x |
+| 2 | 0 | 32'h7f7fffff | 32'h40000000 | 32'hffc00000 |
+| 3 | 0 | 32'hff7fffff | 32'h40000000 | 32'hffc00000 |
+| 4 | 0 | 32'h3f000000 | 32'h3f000000 | 32'hffc00000 |
+| 5 | 0 | 32'h3f000000 | 32'h3f000000 | 32'hffc00000 |
+
+### stimulus 5
+| cycle | rst | a | b | z |
+|---|---|---|---|---|
+| 0 | 1 | 32'h3f800001 | 32'h3f800001 | 32'x |
+| 1 | 0 | 32'h3f800001 | 32'h3f800001 | 32'x |
+| 2 | 0 | 32'h3f7fffff | 32'h3f800001 | 32'x |
+| 3 | 0 | 32'h3fc00000 | 32'h3fc00000 | 32'x |
+| 4 | 0 | 32'h3fc00000 | 32'h3fc00000 | 32'x |
+| 5 | 0 | 32'h3fc00000 | 32'h3fc00000 | 32'x |
+
+### stimulus 6
+| cycle | rst | a | b | z |
+|---|---|---|---|---|
+| 0 | 1 | 32'h40000000 | 32'h40400000 | 32'x |
+| 1 | 0 | 32'h40000000 | 32'h40400000 | 32'x |
+| 2 | 0 | 32'h40000000 | 32'h40400000 | 32'x |
+| 3 | 0 | 32'h40000000 | 32'h40400000 | 32'x |
+| 4 | 0 | 32'h40000000 | 32'h40400000 | 32'x |
+| 5 | 0 | 32'h40000000 | 32'h40400000 | 32'x |
+| 6 | 0 | 32'h40000000 | 32'h40400000 | 32'x |
+| 7 | 0 | 32'h40000000 | 32'h40400000 | 32'h40c00000 |
+| 8 | 0 | 32'h40400000 | 32'h40800000 | 32'h40c00000 |
+| 9 | 0 | 32'h40400000 | 32'h40800000 | 32'h40c00000 |
+| 10 | 0 | 32'h40400000 | 32'h40800000 | 32'h40c00000 |
+| 11 | 0 | 32'h40400000 | 32'h40800000 | 32'h40c00000 |
+| 12 | 0 | 32'h40400000 | 32'h40800000 | 32'h40c00000 |
+| 13 | 0 | 32'h40400000 | 32'h40800000 | 32'h40c00000 |
+| 14 | 0 | 32'h40400000 | 32'h40800000 | 32'h41400000 |
+| 15 | 0 | 32'h40400000 | 32'h40800000 | 32'h41400000 |
+| 16 | 0 | 32'h40400000 | 32'h40800000 | 32'h41400000 |
+| 17 | 0 | 32'h40400000 | 32'h40800000 | 32'h41400000 |
+| 18 | 0 | 32'h40400000 | 32'h40800000 | 32'h41400000 |
+| 19 | 0 | 32'h40400000 | 32'h40800000 | 32'h41400000 |
+
+### stimulus 7
+| cycle | rst | a | b | z |
+|---|---|---|---|---|
+| 0 | 1 | 32'h3f800000 | 32'h40000000 | 32'x |
+| 1 | 0 | 32'h3f800000 | 32'h40000000 | 32'x |
+| 2 | 0 | 32'h3f800000 | 32'h40000000 | 32'x |
+| 3 | 0 | 32'hbf800000 | 32'h40000000 | 32'x |
+| 4 | 0 | 32'hbf800000 | 32'h40000000 | 32'x |
+| 5 | 0 | 32'hbf800000 | 32'h3f000000 | 32'x |
+| 6 | 0 | 32'h3f800000 | 32'h3f000000 | 32'x |
+| 7 | 0 | 32'h3f800000 | 32'h3f000000 | 32'h40000000 |
+| 8 | 0 | 32'h3f800000 | 32'h3f000000 | 32'h40000000 |
+| 9 | 0 | 32'hbf800000 | 32'h3f000000 | 32'h40000000 |
+| 10 | 0 | 32'hbf800000 | 32'h40000000 | 32'h40000000 |
+| 11 | 0 | 32'hbf800000 | 32'h40000000 | 32'h40000000 |
+| 12 | 0 | 32'h3f800000 | 32'h40000000 | 32'h40000000 |
+| 13 | 0 | 32'h3f800000 | 32'h40000000 | 32'h40000000 |
+| 14 | 0 | 32'h3f800000 | 32'h40000000 | 32'h3f000000 |
+| 15 | 0 | 32'hbf800000 | 32'h3f000000 | 32'h3f000000 |
+| 16 | 0 | 32'hbf800000 | 32'h3f000000 | 32'h3f000000 |
+| 17 | 0 | 32'hbf800000 | 32'h3f000000 | 32'h3f000000 |
+| 18 | 0 | 32'h3f800000 | 32'h3f000000 | 32'h3f000000 |
+| 19 | 0 | 32'h3f800000 | 32'h3f000000 | 32'h3f000000 |
+| 20 | 0 | 32'h3f800000 | 32'h40000000 | 32'h3f000000 |
+| 21 | 0 | 32'hbf800000 | 32'h40000000 | 32'hbf000000 |
+| 22 | 0 | 32'hbf800000 | 32'h40000000 | 32'hbf000000 |
+| 23 | 0 | 32'hbf800000 | 32'h40000000 | 32'hbf000000 |
+| 24 | 0 | 32'h3f800000 | 32'h40000000 | 32'hbf000000 |
+| 25 | 0 | 32'h3f800000 | 32'h3f000000 | 32'hbf000000 |
+| 26 | 0 | 32'h3f800000 | 32'h3f000000 | 32'hbf000000 |
+| 27 | 0 | 32'hbf800000 | 32'h3f000000 | 32'hbf000000 |
+| 28 | 0 | 32'hbf800000 | 32'h3f000000 | 32'hc0000000 |
+| 29 | 0 | 32'hbf800000 | 32'h3f000000 | 32'hc0000000 |
+
+## Normative clarification after closure validation
+
+All state transitions occur only on rising edges of clk.  Each trace observation is the pre-transition value of z; an update made by that rising edge is first observable at the following observation.  Falling edges have no effect.
+
+rst is active high and has priority on every rising edge.  Before the first rising edge observed with rst high, clock activity cannot start a transaction and z remains unknown.  A rising edge with rst high cancels all transaction history but retains z, including its power-up unknown value if no result has yet been published.  The high-to-low transition of rst captures the then-current a and b and begins a transaction immediately before the next rising edge; it does not itself change z.  Later changes to a or b do not affect that transaction.  With no reset interruption, a new pair is captured every eighth rising edge of the cadence.
+
+Number the first rising edge after a capture as edge 1.  A captured NaN, infinity, or zero case publishes on edge 1.  A captured ordinary finite nonzero pair publishes on edge 6.  Thus the new z is visible one or six observations after capture, respectively.  Every other edge retains z; published data remains present until another publication and is not a pulse.
+
+For finite nonzero multiplication, interpret a normal operand as (-1)^sign times (2^23+fraction) times 2^(exponent-150), and a subnormal operand as (-1)^sign times fraction times 2^-149.  Multiply those exact values, then round the single exact product once to binary32 using round-to-nearest, ties-to-even.  In particular, exponent fields are biased binary32 exponents and must not receive any additional scaling offset.  Apply the already specified overflow, subnormal, carry, and signed-zero rules to that rounded product.

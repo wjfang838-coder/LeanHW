@@ -1,0 +1,246 @@
+Original implementation instruction (verbatim):
+
+Design a System Verilog module named `ttc_counter_lite.sv` that implements a lightweight timer/counter. The module is a timer/counter that supports interval mode operation, interrupt generation, and AXI-Lite register-based control and status monitoring.
+
+Module and integration contract
+
+Module: ttc_counter_lite.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- axi_addr: input [3:0].
+- axi_wdata: input [31:0].
+- axi_write_en: input 1 bit.
+- axi_read_en: input 1 bit.
+- axi_rdata: output [31:0].
+- interrupt: output 1 bit.
+
+Public parameters:
+- None.
+- Verification-visible signal `count`: count is 16 bits, clears to 16'h0000 on a rising edge with reset asserted, otherwise retains while disabled, increments by one on each enabled rising edge whose pre-edge value differs from match_value, and at equality loads reload_value in interval_mode or retains match_value otherwise.
+- Verification-visible signal `enable`: enable is 1 bit, clears on a rising edge with reset asserted, and otherwise captures axi_wdata[0] on each rising edge with axi_write_en asserted at axi_addr 4'h3 and retains its value on other edges.
+- Verification-visible signal `interrupt_enable`: interrupt_enable is 1 bit, clears on a rising edge with reset asserted, and otherwise captures axi_wdata[2] on each rising edge with axi_write_en asserted at axi_addr 4'h3 and retains its value on other edges.
+- Verification-visible signal `interval_mode`: interval_mode is 1 bit, clears on a rising edge with reset asserted, and otherwise captures axi_wdata[1] on each rising edge with axi_write_en asserted at axi_addr 4'h3 and retains its value on other edges.
+- Verification-visible signal `match_value`: match_value is 16 bits, clears to 16'h0000 on a rising edge with reset asserted, and otherwise captures axi_wdata[15:0] on each rising edge with axi_write_en asserted at axi_addr 4'h1 and retains its value on other edges.
+- Verification-visible signal `reload_value`: reload_value is 16 bits, clears to 16'h0000 on a rising edge with reset asserted, and otherwise captures axi_wdata[15:0] on each rising edge with axi_write_en asserted at axi_addr 4'h2 and retains its value on other edges.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+The implementation deliverable is a SystemVerilog source file named ttc_counter_lite.sv containing module ttc_counter_lite. It is a lightweight timer/counter supporting interval operation, interrupt generation, and AXI-Lite register-based control and status monitoring.
+
+3. Reset.
+
+reset is active high and synchronous to the rising edge of clk. A rising edge that samples reset=1 has priority over every simultaneous write and timer event and clears count, match_value, reload_value, enable, interval_mode, interrupt_enable, and interrupt to zero. Repeated reset edges keep those values zero. Deasserting reset has no immediate sequential effect; normal operation resumes on the first subsequent rising edge, using pre-edge state. match_flag is one exactly when the current count equals the current match_value and is otherwise zero, including before a synchronous reset edge; after a reset-sampling edge both values are zero and therefore the equality condition is true.
+
+Implementation choice C1: solely for the finite executable instance's initial state before any rising edge has sampled reset, count, match_value, reload_value, enable, interval_mode, interrupt_enable, and interrupt are chosen as zero. Consequently state-derived axi_rdata follows the zero-valued state and interrupt is zero in that scope. This is a compatible implementation choice, not a source-established hardware power-up guarantee and not a reset-before-use restriction. The RTL contract guarantees these values only after a rising edge samples reset=1; a normal edge with reset=0 applies the ordinary laws even if no reset edge preceded it.
+
+On the first rising edge after reset release, every state element obeys the ordinary transition rules from the reset state. count remains zero if enable remains zero; writes on that edge are accepted; interrupt remains zero unless the pre-edge enabling and match conditions qualify it, which the reset-cleared controls do not.
+
+There are no amendments to original source clauses. The certain answers clarify previously unspecified details within their frozen scopes.
+
+4. Timing.
+
+The design has one clock domain. All sequential state changes occur only on rising edges of clk. Inputs are stable and meet setup and hold requirements relative to clk.
+
+axi_rdata is combinational and unregistered: it continuously decodes the current axi_addr and current readable state with zero clock-cycle read latency. axi_read_en does not qualify, capture, hold, clear, or otherwise affect axi_rdata, and has no sequential effect. A state update accepted at a rising edge is reflected after that edge and therefore in the next pre-edge observation row. There is no read completion pulse or restart latency.
+
+interrupt is registered. A qualifying match at a rising edge asserts interrupt after that edge; reset or a status-register write at a rising edge clears it after that edge. It remains asserted until a clearing edge, so it has no fixed pulse width: it is asserted for whole cycles from assertion through the cycle preceding clear. No autonomous periodic output is specified.
+
+For the worked trace, row k drives input i[k], permits combinational settling, and samples out(s[k], i[k]) before the rising edge; that edge computes s[k+1]. A value captured from row k is visible in row k+1 and represents one register. The interface supplies no numeric timing.step_ns or timing.sample_offset_ns value, so the table indexes full cycles rather than implying a 10 ns tick. This observation convention is separate from the circuit's physical clock period and propagation delays, for which the source specifies no numeric values.
+
+5. Behaviour.
+
+count, match_value, and reload_value are unsigned 16-bit quantities. Increment arithmetic is unsigned, and count + 1 is truncated only at the 16-bit count-register write boundary, producing modulo-2^16 behavior.
+
+When enable=0, count retains its value. When enable=1 and the pre-edge count differs from the pre-edge match_value, count increments by one modulo 2^16 on the rising edge. When enable=1 and those values are equal, count loads the pre-edge reload_value if interval_mode=1, and otherwise retains the match value. Timer evolution uses pre-edge control and configuration values even when the same edge writes new values.
+
+With reset low and axi_write_en=1, every rising edge samples a write. At axi_addr=4'h1, match_value captures axi_wdata[15:0]. At 4'h2, reload_value captures axi_wdata[15:0]. At 4'h3, enable, interval_mode, and interrupt_enable capture axi_wdata[0], axi_wdata[1], and axi_wdata[2], respectively. At 4'h4, interrupt clears regardless of axi_wdata. Address 4'h0 and addresses 4'h5 through 4'hF cause no write-side state change. With axi_write_en=0 there is no write. Repeated qualified writes resample current data on every rising edge. All axi_wdata bits outside the stated fields have no effect. Reset overrides a simultaneous write, and a status clear overrides a simultaneous interrupt assertion.
+
+With reset low, a rising edge whose pre-edge enable and interrupt_enable are both one and whose pre-edge count equals pre-edge match_value sets interrupt to one. Bits axi_wdata[1:0] do not directly assert interrupt. Once set, interrupt remains one through disabled operation, unequal counts, repeated matches, and mode changes until a reset edge or a write to address 4'h4 clears it.
+
+The readable register map is complete over every axi_addr encoding. Address 4'h0 continuously returns count in bits 15:0 and zero in bits 31:16. Address 4'h1 continuously returns match_value in bits 15:0 and zero in bits 31:16. Address 4'h2 continuously returns reload_value in bits 15:0 and zero in bits 31:16. Address 4'h3 continuously returns interrupt_enable, interval_mode, and enable in bits 2, 1, and 0 respectively, with bits 31:3 zero. Address 4'h4 continuously returns interrupt in bit 0 with bits 31:1 zero. Addresses 4'h5 through 4'hF continuously return 32'h00000000. These laws apply independently of axi_read_en, axi_write_en, and axi_wdata; address selection has no sequential effect except when a qualified write uses that address.
+
+Public-output updates and verification-visible observer advancement are separate. count clears on reset; otherwise it retains while enable=0, increments modulo 2^16 on an enabled edge whose pre-edge value differs from match_value, loads reload_value at equality when interval_mode=1, and retains match_value at equality when interval_mode=0. Its enabling condition is reset=0 and pre-edge enable=1. After interrupt asserts it continues under the same law; after a non-interval match it retains until changed controls or configuration make its law advance it.
+
+enable clears on reset and otherwise captures axi_wdata[0] exactly when reset=0, axi_write_en=1, and axi_addr=4'h3, retaining on every other edge. Its enabling condition is that qualified control write. It remains writable and otherwise retains after interrupt asserts or count reaches a held match.
+
+interrupt_enable clears on reset and otherwise captures axi_wdata[2] exactly when reset=0, axi_write_en=1, and axi_addr=4'h3, retaining on every other edge. Its enabling condition is that qualified control write. It remains writable and otherwise retains after interrupt asserts or count reaches a held match.
+
+interval_mode clears on reset and otherwise captures axi_wdata[1] exactly when reset=0, axi_write_en=1, and axi_addr=4'h3, retaining on every other edge. Its enabling condition is that qualified control write. It remains writable and otherwise retains after interrupt asserts or count reaches a held match.
+
+match_value clears to 16'h0000 on reset and otherwise captures axi_wdata[15:0] exactly when reset=0, axi_write_en=1, and axi_addr=4'h1, retaining on every other edge. Its enabling condition is that qualified match-register write. It remains writable and otherwise retains after interrupt asserts or count reaches a held match.
+
+reload_value clears to 16'h0000 on reset and otherwise captures axi_wdata[15:0] exactly when reset=0, axi_write_en=1, and axi_addr=4'h2, retaining on every other edge. Its enabling condition is that qualified reload-register write. It remains writable and otherwise retains after interrupt asserts or count reaches a held match.
+
+There is no transaction-cancellation input. Back-to-back and repeated writes each take effect independently on their sampling edge. The first interrupt and every later match use the same pre-edge law. Clearing interrupt does not cancel or pause timer evolution.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete sampled instance and observation convention. Its cycle-zero state reflects Implementation choice C1 and does not create a general hardware power-up guarantee.
+
+### stimulus 0
+| cycle | reset | axi_addr | axi_wdata | axi_write_en | axi_read_en | axi_rdata | interrupt |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 32'h1 | 0 | 0 | 32'h0 | 0 |
+| 1 | 0 | 4'b0001 | 32'h5 | 1 | 0 | 32'h0 | 0 |
+| 2 | 0 | 4'b0011 | 32'h7 | 1 | 0 | 32'h0 | 0 |
+| 3 | 0 | 4'b0000 | 32'h0 | 0 | 1 | 32'h0 | 0 |
+| 4 | 0 | 4'b0100 | 32'h0 | 0 | 1 | 32'h0 | 0 |
+
+### stimulus 1
+| cycle | reset | axi_addr | axi_wdata | axi_write_en | axi_read_en | axi_rdata | interrupt |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 1 | 0 | 4'b0001 | 32'h1 | 1 | 0 | 32'h0 | 0 |
+| 2 | 0 | 4'b0010 | 32'h0 | 1 | 0 | 32'h0 | 0 |
+| 3 | 0 | 4'b0011 | 32'h7 | 1 | 0 | 32'h0 | 0 |
+| 4 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 5 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 0 |
+| 6 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 1 |
+| 7 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 1 |
+| 8 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 1 |
+| 9 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 1 |
+| 10 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 1 |
+| 11 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 1 |
+
+### stimulus 2
+| cycle | reset | axi_addr | axi_wdata | axi_write_en | axi_read_en | axi_rdata | interrupt |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 1 | 0 | 4'b0011 | 32'h7 | 1 | 0 | 32'h0 | 0 |
+| 2 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 3 | 0 | 4'b0100 | 32'h1 | 1 | 0 | 32'h1 | 1 |
+| 4 | 0 | 4'b0100 | 32'h0 | 0 | 1 | 32'h0 | 0 |
+
+### stimulus 3
+| cycle | reset | axi_addr | axi_wdata | axi_write_en | axi_read_en | axi_rdata | interrupt |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 1 | 0 | 4'b0001 | 32'hffff | 1 | 0 | 32'h0 | 0 |
+| 2 | 0 | 4'b0001 | 32'h0 | 0 | 1 | 32'hffff | 0 |
+| 3 | 0 | 4'b0010 | 32'h8000 | 1 | 0 | 32'h0 | 0 |
+| 4 | 0 | 4'b0010 | 32'h0 | 0 | 1 | 32'h8000 | 0 |
+
+### stimulus 4
+| cycle | reset | axi_addr | axi_wdata | axi_write_en | axi_read_en | axi_rdata | interrupt |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 1 | 0 | 4'b0001 | 32'h1234 | 1 | 0 | 32'h0 | 0 |
+| 2 | 0 | 4'b0010 | 32'h1 | 1 | 0 | 32'h0 | 0 |
+| 3 | 0 | 4'b0011 | 32'h1 | 1 | 0 | 32'h0 | 0 |
+| 4 | 0 | 4'b0011 | 32'h0 | 0 | 1 | 32'h1 | 0 |
+| 5 | 0 | 4'b0000 | 32'h0 | 0 | 1 | 32'h1 | 0 |
+
+### stimulus 5
+| cycle | reset | axi_addr | axi_wdata | axi_write_en | axi_read_en | axi_rdata | interrupt |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 1 | 0 | 4'b1111 | 32'hffffffff | 1 | 0 | 32'h0 | 0 |
+| 2 | 0 | 4'b1111 | 32'h0 | 0 | 1 | 32'h0 | 0 |
+| 3 | 0 | 4'b0000 | 32'h0 | 0 | 1 | 32'h0 | 0 |
+
+### stimulus 6
+| cycle | reset | axi_addr | axi_wdata | axi_write_en | axi_read_en | axi_rdata | interrupt |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 1 | 0 | 4'b0001 | 32'h1 | 1 | 0 | 32'h0 | 0 |
+| 2 | 0 | 4'b0011 | 32'h5 | 1 | 0 | 32'h0 | 0 |
+| 3 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 4 | 0 | 4'b0100 | 32'h1 | 1 | 0 | 32'h0 | 0 |
+| 5 | 0 | 4'b0100 | 32'h0 | 0 | 1 | 32'h0 | 0 |
+| 6 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 1 |
+| 7 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 1 |
+| 8 | 0 | 4'b0100 | 32'h1 | 1 | 0 | 32'h1 | 1 |
+| 9 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 0 |
+
+### stimulus 7
+| cycle | reset | axi_addr | axi_wdata | axi_write_en | axi_read_en | axi_rdata | interrupt |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 1 | 0 | 4'b0001 | 32'h2 | 1 | 0 | 32'h0 | 0 |
+| 2 | 0 | 4'b0010 | 32'h0 | 1 | 0 | 32'h0 | 0 |
+| 3 | 0 | 4'b0011 | 32'h7 | 1 | 0 | 32'h0 | 0 |
+| 4 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 5 | 1 | 4'b0100 | 32'h1 | 1 | 0 | 32'h0 | 0 |
+| 6 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 7 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 8 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 9 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+
+### stimulus 8
+| cycle | reset | axi_addr | axi_wdata | axi_write_en | axi_read_en | axi_rdata | interrupt |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 1 | 0 | 4'b0011 | 32'h0 | 1 | 0 | 32'h0 | 0 |
+| 2 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 3 | 0 | 4'b0000 | 32'h0 | 0 | 1 | 32'h0 | 0 |
+| 4 | 0 | 4'b0011 | 32'hffffffff | 1 | 0 | 32'h0 | 0 |
+| 5 | 0 | 4'b0011 | 32'h0 | 0 | 1 | 32'h7 | 0 |
+
+### stimulus 9
+| cycle | reset | axi_addr | axi_wdata | axi_write_en | axi_read_en | axi_rdata | interrupt |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0100 | 32'h1 | 1 | 1 | 32'h0 | 0 |
+| 1 | 0 | 4'b0001 | 32'h3 | 1 | 0 | 32'h0 | 0 |
+| 2 | 0 | 4'b0010 | 32'h0 | 1 | 0 | 32'h0 | 0 |
+| 3 | 0 | 4'b0011 | 32'h7 | 1 | 0 | 32'h0 | 0 |
+| 4 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 5 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 0 |
+| 6 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h2 | 0 |
+| 7 | 0 | 4'b0000 | 32'h0 | 0 | 1 | 32'h3 | 0 |
+| 8 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 1 |
+| 9 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 1 |
+| 10 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h2 | 1 |
+| 11 | 0 | 4'b0100 | 32'h1 | 1 | 0 | 32'h1 | 1 |
+| 12 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 0 |
+| 13 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 0 |
+| 14 | 0 | 4'b0000 | 32'h0 | 0 | 1 | 32'h2 | 0 |
+| 15 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h3 | 0 |
+| 16 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 1 |
+| 17 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 1 |
+| 18 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h2 | 1 |
+| 19 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h3 | 1 |
+| 20 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 1 |
+| 21 | 0 | 4'b0000 | 32'h0 | 0 | 1 | 32'h1 | 1 |
+| 22 | 0 | 4'b0100 | 32'h1 | 1 | 0 | 32'h1 | 1 |
+| 23 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h3 | 0 |
+| 24 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 1 |
+| 25 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 1 |
+| 26 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h2 | 1 |
+| 27 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h3 | 1 |
+| 28 | 0 | 4'b0000 | 32'h0 | 0 | 1 | 32'h0 | 1 |
+| 29 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 1 |
+| 30 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h2 | 1 |
+| 31 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h3 | 1 |
+| 32 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 1 |
+| 33 | 0 | 4'b0100 | 32'h1 | 1 | 0 | 32'h1 | 1 |
+| 34 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h2 | 0 |
+| 35 | 0 | 4'b0000 | 32'h0 | 0 | 1 | 32'h3 | 0 |
+| 36 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 1 |
+| 37 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 1 |
+| 38 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h2 | 1 |
+| 39 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h3 | 1 |
+| 40 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 1 |
+| 41 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 1 |
+| 42 | 0 | 4'b0000 | 32'h0 | 0 | 1 | 32'h2 | 1 |
+| 43 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h3 | 1 |
+| 44 | 0 | 4'b0100 | 32'h1 | 1 | 0 | 32'h1 | 1 |
+| 45 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 0 |
+| 46 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h2 | 0 |
+| 47 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h3 | 0 |
+| 48 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 1 |
+| 49 | 0 | 4'b0000 | 32'h0 | 0 | 1 | 32'h1 | 1 |
+| 50 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h2 | 1 |
+| 51 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h3 | 1 |
+| 52 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h0 | 1 |
+| 53 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 1 |
+| 54 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h2 | 1 |
+| 55 | 0 | 4'b0100 | 32'h1 | 1 | 0 | 32'h1 | 1 |
+| 56 | 0 | 4'b0000 | 32'h0 | 0 | 1 | 32'h0 | 0 |
+| 57 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h1 | 0 |
+| 58 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h2 | 0 |
+| 59 | 0 | 4'b0000 | 32'h0 | 0 | 0 | 32'h3 | 0 |

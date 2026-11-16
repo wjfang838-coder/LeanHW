@@ -1,0 +1,9 @@
+/home/usr/leansilicon/case_cpu/bridge/StorageCircuit.lean:31:8: warning: exponent 1024 exceeds the threshold 256, exponentiation operation was not evaluated, use `set_option exponentiation.threshold <num>` to set a new threshold
+'CaseCPU.Bridge.circuit_write' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ offset_sign._native.bv_decide.ax_1_5]
+'CaseCPU.Bridge.circuit_reset' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ circuit_reset._native.bv_decide.ax_1_6]

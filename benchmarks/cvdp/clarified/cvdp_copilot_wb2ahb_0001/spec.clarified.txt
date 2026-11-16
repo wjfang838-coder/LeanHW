@@ -1,0 +1,248 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a System Verilog module named `wishbone_to_ahb_bridge`. The module facilitates communication between a Wishbone master and an AHB slave, translating Wishbone protocol signals into corresponding AHB protocol signals. The bridge supports single transfers and provides configurable data width for byte, halfword, and word-level transactions.
+
+## Specifications
+
+### Inputs
+- **Wishbone Ports (from WB Master):**
+  - `clk_i`: Clock signal for Wishbone operations.
+  - `rst_i`: Active-low reset signal to initialize the bridge.
+  - `cyc_i`: Indicates a valid Wishbone transaction cycle.
+  - `stb_i`: Strobe signal for valid data on the Wishbone interface.
+  - `sel_i[3:0]`: Byte enables to select which bytes are active.
+  - `we_i`: Write enable signal.
+  - `addr_i[31:0]`: Address for the Wishbone transaction.
+  - `data_i[31:0]`: Write data from the Wishbone master.
+- **AHB Ports (from AHB Slave):**
+  - `hclk`: Clock signal for AHB operations.
+  - `hreset_n`: Active-low reset signal for the AHB interface.
+  - `hrdata[31:0]`: Read data from the AHB slave.
+  - `hresp[1:0]`: AHB response signal.
+  - `hready`: Indicates when the AHB slave is ready.
+
+### Outputs
+- **Wishbone Outputs:**
+  - `data_o[31:0]`: Read data back to the Wishbone master.
+  - `ack_o`: Acknowledge signal for Wishbone operations.
+- **AHB Outputs:**
+  - `htrans[1:0]`: AHB transaction type.
+  - `hsize[2:0]`: Size of the AHB transfer.
+  - `hburst[2:0]`: Burst type (always single in this design).
+  - `hwrite`: Write enable signal for AHB transactions.
+  - `haddr[31:0]`: Address for the AHB transaction.
+  - `hwdata[31:0]`: Write data to the AHB slave.
+
+## Functional Requirements
+1. **Protocol Translation**:
+   - Translate Wishbone protocol signals to AHB-compliant signals.
+   - Support byte, halfword, and word-level transactions based on `sel_i`.
+
+2. **Address Fixing**:
+   - Derive AHB-compliant addresses from Wishbone addresses using `sel_i`.
+
+3. **Single Transfer Support**:
+   - Only SINGLE AHB transfers (`hburst = 3'b000`) are supported.
+
+4. **Data Handling**:
+   - Perform endian conversion for read and write data between Wishbone and AHB.
+
+5. **Control Signals**:
+   - Use an FSM-like approach to manage transaction phases (`htrans`), including IDLE, NON-SEQUENTIAL, and BUSY states.
+
+6. **Pipeline Management**:
+   - Handle data and address phases for AHB transactions with proper synchronization using `hready`.
+
+## Implementation Details
+- **Endian Conversion**:
+  - Convert between Wishbone's little-endian format and AHB's data handling.
+  - Use `sel_i` to determine active bytes in a transfer.
+
+- **Signal Holding**:
+  - To ensure proper synchronization, hold transaction attributes (address, size, transaction type, etc.) during AHB operations.
+
+- **Reset Behavior**:
+  - Ensure all internal registers are reset to default values when `rst_i` or `hreset_n` is asserted.
+
+- **Latency**:
+  - Ensure proper acknowledgment (`ack_o`) to the Wishbone master only after completing the AHB transaction (`hready` is asserted).
+
+
+## Edge Cases
+1. **Invalid Byte Selection**:
+   - Handle invalid or conflicting `sel_i` values gracefully without causing data corruption.
+
+2. **AHB Slave Busy**:
+   - Test the behavior when the AHB slave asserts `hready` late, stalling the transaction.
+
+3. **Back-to-Back Transactions**:
+   - Ensure correct operation when Wishbone initiates a new transaction immediately after the previous one completes.
+
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a System Verilog module named `wishbone_to_ahb_bridge`. The module facilitates communication between a Wishbone master and an AHB slave, translating Wishbone protocol signals into corresponding AHB protocol signals. The bridge supports single transfers and provides configurable data width for byte, halfword, and word-level transactions.
+
+Module and integration contract
+
+Module: wishbone_to_ahb_bridge.
+Ports below are in exact declaration order:
+- clk_i: input 1 bit.
+- rst_i: input 1 bit.
+- cyc_i: input 1 bit.
+- stb_i: input 1 bit.
+- sel_i: input [3:0].
+- we_i: input 1 bit.
+- addr_i: input [31:0].
+- data_i: input [31:0].
+- data_o: output [31:0].
+- ack_o: output 1 bit.
+- hclk: input 1 bit.
+- hreset_n: input 1 bit.
+- hrdata: input [31:0].
+- hresp: input [1:0].
+- hready: input 1 bit.
+- htrans: output [1:0].
+- hsize: output [2:0].
+- hburst: output [2:0].
+- hwrite: output 1 bit.
+- haddr: output [31:0].
+- hwdata: output [31:0].
+
+Public parameters:
+- None.
+
+Event convention: each table row drives the explicitly named clock levels and data, then observes settled outputs. The model must apply the edge described by those levels exactly once; it must not insert a second pipeline delay.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Both rst_i and hreset_n are active-low asynchronous resets. Assertion of either immediately cancels a pending request, clears ack_o to 0, and clears the retained read result to 32'h00000000. Assertion has priority over a simultaneous rising hclk edge. Reset does not gate the combinational outputs: htrans, hsize, hburst, hwrite, haddr, and hwdata continue to obey their current-input laws. While reset is asserted, data_o equals current hrdata during cyc_i && stb_i && !we_i and equals 32'h00000000 otherwise.
+
+Reset release alone changes no state and produces no pulse. On the first rising hclk edge after release, a live request is accepted if none is pending, and ack_o remains low. Without a live request, the reset-established state remains: no request pending, ack_o low, and retained read data zero. Edge history follows hclk while reset is asserted, so release while hclk is already high does not manufacture a rising edge.
+
+Implementation choice C1 — pre-reset initialization. Before any reset assertion has been observed, the concrete implementation represented by the verification model starts with no pending request, ack_o low, retained read data 32'h00000000, and hclk treated as previously low. Thus an initially high hclk is its first rising edge. This is a compatible implementation decision only in the otherwise unconstrained pre-reset power-up scope; it is not a fact established by the source, not a hardware power-up guarantee imposed on other compatible implementations, and not a reset-before-use restriction. All combinational laws apply immediately, and reset or ordinary hclk events establish the specified subsequent behavior.
+
+4. Timing.
+
+Only rising hclk edges advance transaction state. clk_i has no effect at either level or edge, and no relationship between clk_i and hclk is required. Pausing hclk pauses state progress; pausing or changing clk_i does not.
+
+Define E0 as a rising hclk edge at which no request is pending and cyc_i && stb_i is true immediately before the edge. E0 accepts the request; ack_o remains low after E0. Each subsequent rising hclk edge ends one completed hclk interval after the preceding edge. At every such edge while pending, pre-edge hready=0 retains the pending request and ack_o low. Let Ec be the first rising edge later than E0 with pre-edge hready=1. The transfer completes at Ec; pre-Ec we_i selects read versus write, and for a read pre-Ec hrdata is retained. ack_o becomes high after Ec for exactly one completed hclk interval. At the next rising edge, ack_o clears and that same edge may accept a held or newly asserted request; Ec itself does not accept another request. Deasserting cyc_i or stb_i after E0 does not cancel the pending request.
+
+From reset assertion through release and the first three rising edges: reset assertion immediately cancels pending state and clears registered results; release alone does nothing; the first eligible rising edge E0 accepts but does not acknowledge; the second rising edge either waits if hready is low or completes if hready is high; the third rising edge either continues waiting, completes a still-pending request, or clears the one-interval ack_o pulse and may accept another request. These actions use pre-edge inputs and state; counter or index advancement is not applicable because the design has none.
+
+The evaluated half-cycle rows are settled observations before the pending transition. A row presenting a low-to-high hclk change therefore shows pre-edge registered values; the resulting state appears in the next row. Row k uses the interface's half-cycle observation cadence. This observation convention is separate from circuit timing: the source specifies no physical clock period or propagation delay, and there is no implicit 10 ns clock tick.
+
+Per output: data_o is zero-latency combinational hrdata during a live read and otherwise is the registered retained read result; ack_o is registered with the E0/Ec latency above and is a one-completed-hclk-interval pulse; htrans, hsize, hburst, hwrite, haddr, and hwdata are zero-latency combinational outputs. No output is periodic.
+
+Amendment A7. The exact original clause "- `clk_i`: Clock signal for Wishbone operations." is superseded only for clk_i's event and progress role by Q15, whose certain answer law is exactly: "clk_i has no effect on any output or transaction progress at either level or edge; requests are sampled and completions are made observable only by hclk, so pausing or changing clk_i, including simultaneous clk_i and hclk edges, neither captures, interrupts, nor advances a transaction." The port name, direction, and existence are unchanged.
+
+Amendment A8. The exact original clause "- Handle data and address phases for AHB transactions with proper synchronization using `hready`." is made precise only within Q37's frozen clock-scheduling scope by its certain answer law, exactly: "No relationship between clk_i and hclk is required because clk_i has no effect: an hclk rising edge captures an unpending cyc_i && stb_i request, later hclk rising edges alone advance waiting, and a later hclk rising edge with hready makes ack_o and any retained read result observable after that edge; pausing hclk pauses progress, pausing clk_i does not, and pre-edge rows observe the prior state." This supersedes only interpretations requiring clk_i participation or a relationship between the clocks.
+
+5. Behaviour.
+
+Amendment A6. The exact original clause "The bridge supports single transfers and provides configurable data width for byte, halfword, and word-level transactions." is superseded only as to public configurability by Q36, whose certain answer law is exactly: "The header fixes this exact module name, spelling, and declaration order, on which positional instantiation depends: clk_i, rst_i, cyc_i, stb_i, sel_i[3:0], we_i, addr_i[31:0], data_i[31:0], hclk, hreset_n, hrdata[31:0], hresp[1:0], and hready are inputs; data_o[31:0], ack_o, htrans[1:0], hsize[2:0], hburst[2:0], hwrite, haddr[31:0], and hwdata[31:0] are outputs; no public parameters or symbolic ranges are declared." Under this fixed header there is no configurable width; byte, halfword, and word transaction sizes remain supported on the fixed 32-bit data interface. All other parts of the original clause remain unchanged.
+
+Amendment A1. The exact original clause "- Perform endian conversion for read and write data between Wishbone and AHB." is superseded only for read-data mapping by Q3, whose certain answer law is exactly: "data_o equals hrdata bit-for-bit whenever cyc_i && stb_i && !we_i, and otherwise equals the bit-for-bit hrdata value retained at the most recent completed read, initially zero after reset; no byte or bit reversal is applied." Outside read-data mapping, this notice changes nothing.
+
+Amendment A2. The exact original clause "- Perform endian conversion for read and write data between Wishbone and AHB." is superseded only for write-data mapping by Q11, whose certain answer law is exactly: "hwdata continuously equals data_i bit-for-bit for all request, wait, completion, idle, and reset conditions, with no byte or bit reversal." Outside write-data mapping, this notice changes nothing.
+
+Amendment A3. The exact original clause "- Convert between Wishbone's little-endian format and AHB's data handling." is superseded for read-data mapping by Q3, whose certain answer law is exactly: "data_o equals hrdata bit-for-bit whenever cyc_i && stb_i && !we_i, and otherwise equals the bit-for-bit hrdata value retained at the most recent completed read, initially zero after reset; no byte or bit reversal is applied." It is superseded for write-data mapping by Q11, whose certain answer law is exactly: "hwdata continuously equals data_i bit-for-bit for all request, wait, completion, idle, and reset conditions, with no byte or bit reversal." This amendment is limited to data mapping and does not change timing or sel_i decoding.
+
+Amendment A4a. The exact original clause "- To ensure proper synchronization, hold transaction attributes (address, size, transaction type, etc.) during AHB operations." is superseded only for hwrite/we_i holding while pending by Q13, whose certain answer law is exactly: "hwrite continuously equals the current we_i rather than a held transaction attribute, including while a request waits for completion." Pending and completion state remain held.
+
+Amendment A4b. The exact original clause "- To ensure proper synchronization, hold transaction attributes (address, size, transaction type, etc.) during AHB operations." is superseded only for current sel_i effects on hsize and haddr while pending by Q19, whose certain answer law is exactly: "sel_i continuously sets hsize to byte for one-hot masks, halfword for 0011 or 1100, and word for all others, and sets haddr[1:0] to 00/01/10/11 for lanes 0001/0010/0100/1000, to 00/10 for 0011/1100, or leaves addr_i[1:0] unchanged otherwise; it neither suppresses nor completes a request and changes take effect immediately even while waiting." Pending and completion state remain held.
+
+Amendment A4c. The exact original clause "- To ensure proper synchronization, hold transaction attributes (address, size, transaction type, etc.) during AHB operations." is superseded only for haddr/addr_i holding by Q21, whose certain answer law is exactly: "addr_i continuously drives haddr, except for the sel_i-dependent replacement of bits [1:0]; it is not captured, has no effect on acceptance or completion, and changes are immediately visible during idle, waiting, reset, and repeated transactions." Pending and completion state remain held.
+
+Amendment A4d. The exact original clause "- To ensure proper synchronization, hold transaction attributes (address, size, transaction type, etc.) during AHB operations." is superseded only for htrans holding by Q30, whose certain answer law is exactly: "htrans is a zero-latency combinational output equal to 2'b10 while cyc_i && stb_i and 2'b00 otherwise, with no capture, hold, completion-edge transition, or reset initialization beyond the current request inputs." Pending and completion state remain held.
+
+Amendment A4e. The exact original clause "- To ensure proper synchronization, hold transaction attributes (address, size, transaction type, etc.) during AHB operations." is superseded only for hsize holding by Q31, whose certain answer law is exactly: "hsize is a zero-latency combinational decoding of current sel_i—3'b000 for one-hot masks, 3'b001 for 0011 or 1100, and 3'b010 otherwise—with no capture, hold, completion-edge transition, or reset initialization." Pending and completion state remain held.
+
+Amendment A4f. The exact original clause "- To ensure proper synchronization, hold transaction attributes (address, size, transaction type, etc.) during AHB operations." is superseded only for haddr holding by Q34, whose certain answer law is exactly: "haddr is a zero-latency combinational function of current addr_i and sel_i, replacing only addr_i[1:0] for supported byte and halfword masks and otherwise preserving all addr_i bits, with no reset value, capture, hold, or completion-edge latency." Pending and completion state remain held.
+
+Amendment A4g. The exact original clause "- To ensure proper synchronization, hold transaction attributes (address, size, transaction type, etc.) during AHB operations." is superseded only for hwdata holding by Q35, whose certain answer law is exactly: "hwdata is a zero-latency bit-for-bit copy of current data_i during reset, idle, acceptance, waiting, completion, and restart, with no capture, hold, or completion-edge latency." Pending and completion state remain held.
+
+Amendment A5. The exact original clause "- Use an FSM-like approach to manage transaction phases (`htrans`), including IDLE, NON-SEQUENTIAL, and BUSY states." is superseded only for observable htrans encoding by Q9, whose certain answer law is exactly: "htrans is the live request encoding 2'b10 whenever cyc_i && stb_i and is 2'b00 otherwise, independent of acceptance, waiting, completion, and reset state." BUSY is not emitted; pending/wait/completion behavior remains.
+
+A live request is cyc_i && stb_i. It drives htrans=2'b10; otherwise htrans=2'b00. A rising hclk edge samples a live request only when none is pending. Deasserting either request input does not cancel a pending transfer. hready is ignored when none is pending; while pending, hready=0 at a rising edge waits and hready=1 completes. A held request may be accepted again only at a rising edge after its completion edge. clk_i has no effect. Every hresp value 2'b00 through 2'b11 has no effect on outputs, waiting, completion, read/write selection, retries, or repetition.
+
+hburst is continuously 3'b000. hwrite is current we_i. hwdata is current data_i bit-for-bit. hsize is 3'b000 for sel_i 0001, 0010, 0100, or 1000; 3'b001 for 0011 or 1100; and 3'b010 for every other pattern, including 0000, every noncontiguous mask, and 1111. haddr preserves addr_i[31:2] and replaces bits [1:0] with 00 for 0001 or 0011, 01 for 0010, 10 for 0100 or 1100, and 11 for 1000; for every other sel_i value haddr equals addr_i completely. All 16 sel_i patterns are deterministic, none suppresses a live request, and all follow the normal acknowledgement and data laws. addr_i, data_i, sel_i, and we_i changes take effect immediately during reset, idle, waiting, completion, and repeated transactions.
+
+During cyc_i && stb_i && !we_i, data_o equals current hrdata bit-for-bit, including during reset. Otherwise data_o equals the last hrdata retained at a rising hclk completion edge whose pre-edge we_i was zero; after reset that retained value is zero. A write completion leaves it unchanged. Outside a live read, hrdata changes have no effect. The retained value survives idle, wait edges, writes, and restarts until another completed read or either reset.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete sampled interface instance and uses the pre-edge observation convention stated above.
+
+### stimulus 0
+| half-cycle | clk_i | rst_i | cyc_i | stb_i | sel_i | we_i | addr_i | data_i | hclk | hreset_n | hrdata | hresp | hready | data_o | ack_o | htrans | hsize | hburst | hwrite | haddr | hwdata |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 4'b0000 | 0 | 32'h0 | 32'h0 | 0 | 0 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b00 | 3'b010 | 3'b000 | 0 | 32'h0 | 32'h0 |
+| 1 | 1 | 0 | 0 | 0 | 4'b0000 | 0 | 32'h0 | 32'h0 | 0 | 0 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b00 | 3'b010 | 3'b000 | 0 | 32'h0 | 32'h0 |
+| 2 | 0 | 1 | 0 | 0 | 4'b0000 | 0 | 32'h0 | 32'h1 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b00 | 3'b010 | 3'b000 | 0 | 32'h0 | 32'h1 |
+| 3 | 1 | 1 | 0 | 0 | 4'b0000 | 0 | 32'h0 | 32'h80000000 | 1 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b00 | 3'b010 | 3'b000 | 0 | 32'h0 | 32'h80000000 |
+
+### stimulus 1
+| half-cycle | clk_i | rst_i | cyc_i | stb_i | sel_i | we_i | addr_i | data_i | hclk | hreset_n | hrdata | hresp | hready | data_o | ack_o | htrans | hsize | hburst | hwrite | haddr | hwdata |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 4'b0001 | 0 | 32'h0 | 32'h1 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b000 | 3'b000 | 0 | 32'h0 | 32'h1 |
+| 1 | 1 | 1 | 1 | 1 | 4'b0001 | 0 | 32'h1 | 32'hff | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b000 | 3'b000 | 0 | 32'h0 | 32'hff |
+| 2 | 0 | 1 | 1 | 1 | 4'b0001 | 0 | 32'h0 | 32'h0 | 1 | 1 | 32'hff | 2'b00 | 1 | 32'hff | 0 | 2'b10 | 3'b000 | 3'b000 | 0 | 32'h0 | 32'h0 |
+
+### stimulus 2
+| half-cycle | clk_i | rst_i | cyc_i | stb_i | sel_i | we_i | addr_i | data_i | hclk | hreset_n | hrdata | hresp | hready | data_o | ack_o | htrans | hsize | hburst | hwrite | haddr | hwdata |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 4'b0010 | 1 | 32'h80000000 | 32'h80000000 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b000 | 3'b000 | 1 | 32'h80000001 | 32'h80000000 |
+| 1 | 0 | 1 | 1 | 1 | 4'b0010 | 1 | 32'h0 | 32'h0 | 1 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b000 | 3'b000 | 1 | 32'h1 | 32'h0 |
+| 2 | 1 | 1 | 1 | 1 | 4'b0010 | 1 | 32'h0 | 32'h0 | 1 | 1 | 32'h0 | 2'b00 | 1 | 32'h0 | 0 | 2'b10 | 3'b000 | 3'b000 | 1 | 32'h1 | 32'h0 |
+
+### stimulus 3
+| half-cycle | clk_i | rst_i | cyc_i | stb_i | sel_i | we_i | addr_i | data_i | hclk | hreset_n | hrdata | hresp | hready | data_o | ack_o | htrans | hsize | hburst | hwrite | haddr | hwdata |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 4'b0011 | 1 | 32'h12345678 | 32'hffffffff | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b001 | 3'b000 | 1 | 32'h12345678 | 32'hffffffff |
+| 1 | 1 | 1 | 1 | 1 | 4'b0011 | 1 | 32'h0 | 32'h0 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b001 | 3'b000 | 1 | 32'h0 | 32'h0 |
+| 2 | 0 | 1 | 1 | 1 | 4'b0011 | 1 | 32'h0 | 32'h0 | 1 | 1 | 32'h0 | 2'b01 | 1 | 32'h0 | 0 | 2'b10 | 3'b001 | 3'b000 | 1 | 32'h0 | 32'h0 |
+
+### stimulus 4
+| half-cycle | clk_i | rst_i | cyc_i | stb_i | sel_i | we_i | addr_i | data_i | hclk | hreset_n | hrdata | hresp | hready | data_o | ack_o | htrans | hsize | hburst | hwrite | haddr | hwdata |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 4'b1111 | 0 | 32'hffffffff | 32'h0 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b010 | 3'b000 | 0 | 32'hffffffff | 32'h0 |
+| 1 | 1 | 1 | 1 | 1 | 4'b1111 | 0 | 32'h0 | 32'h0 | 0 | 1 | 32'h89abcdef | 2'b00 | 0 | 32'h89abcdef | 0 | 2'b10 | 3'b010 | 3'b000 | 0 | 32'h0 | 32'h0 |
+| 2 | 0 | 1 | 1 | 1 | 4'b1111 | 0 | 32'h0 | 32'h0 | 1 | 1 | 32'h89abcdef | 2'b00 | 1 | 32'h89abcdef | 0 | 2'b10 | 3'b010 | 3'b000 | 0 | 32'h0 | 32'h0 |
+
+### stimulus 5
+| half-cycle | clk_i | rst_i | cyc_i | stb_i | sel_i | we_i | addr_i | data_i | hclk | hreset_n | hrdata | hresp | hready | data_o | ack_o | htrans | hsize | hburst | hwrite | haddr | hwdata |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 4'b0101 | 1 | 32'h0 | 32'h12345678 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b010 | 3'b000 | 1 | 32'h0 | 32'h12345678 |
+| 1 | 1 | 1 | 1 | 1 | 4'b0101 | 1 | 32'h0 | 32'h12345678 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b010 | 3'b000 | 1 | 32'h0 | 32'h12345678 |
+| 2 | 0 | 1 | 1 | 1 | 4'b0101 | 1 | 32'h0 | 32'h0 | 1 | 1 | 32'h0 | 2'b00 | 1 | 32'h0 | 0 | 2'b10 | 3'b010 | 3'b000 | 1 | 32'h0 | 32'h0 |
+
+### stimulus 6
+| half-cycle | clk_i | rst_i | cyc_i | stb_i | sel_i | we_i | addr_i | data_i | hclk | hreset_n | hrdata | hresp | hready | data_o | ack_o | htrans | hsize | hburst | hwrite | haddr | hwdata |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 4'b1111 | 1 | 32'h0 | 32'h1 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b010 | 3'b000 | 1 | 32'h0 | 32'h1 |
+| 1 | 1 | 1 | 1 | 1 | 4'b1111 | 1 | 32'h0 | 32'h1 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b010 | 3'b000 | 1 | 32'h0 | 32'h1 |
+| 2 | 0 | 1 | 0 | 0 | 4'b0000 | 0 | 32'h0 | 32'h0 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b00 | 3'b010 | 3'b000 | 0 | 32'h0 | 32'h0 |
+| 3 | 0 | 1 | 0 | 0 | 4'b0000 | 0 | 32'h0 | 32'h0 | 1 | 1 | 32'h0 | 2'b00 | 1 | 32'h0 | 0 | 2'b00 | 3'b010 | 3'b000 | 0 | 32'h0 | 32'h0 |
+| 4 | 0 | 1 | 1 | 1 | 4'b1111 | 0 | 32'h0 | 32'hffffffff | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b010 | 3'b000 | 0 | 32'h0 | 32'hffffffff |
+| 5 | 1 | 1 | 1 | 1 | 4'b1111 | 0 | 32'h0 | 32'h0 | 1 | 1 | 32'h80000000 | 2'b00 | 1 | 32'h80000000 | 0 | 2'b10 | 3'b010 | 3'b000 | 0 | 32'h0 | 32'h0 |
+
+### stimulus 7
+| half-cycle | clk_i | rst_i | cyc_i | stb_i | sel_i | we_i | addr_i | data_i | hclk | hreset_n | hrdata | hresp | hready | data_o | ack_o | htrans | hsize | hburst | hwrite | haddr | hwdata |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 4'b1111 | 1 | 32'h0 | 32'h12345678 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b010 | 3'b000 | 1 | 32'h0 | 32'h12345678 |
+| 1 | 1 | 1 | 1 | 1 | 4'b1111 | 1 | 32'h0 | 32'h0 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b010 | 3'b000 | 1 | 32'h0 | 32'h0 |
+| 2 | 0 | 1 | 1 | 1 | 4'b1111 | 1 | 32'h0 | 32'h0 | 1 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b010 | 3'b000 | 1 | 32'h0 | 32'h0 |
+| 3 | 0 | 1 | 1 | 1 | 4'b1111 | 1 | 32'h0 | 32'h0 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 0 | 2'b10 | 3'b010 | 3'b000 | 1 | 32'h0 | 32'h0 |
+| 4 | 1 | 1 | 1 | 1 | 4'b1111 | 1 | 32'h0 | 32'h0 | 1 | 1 | 32'h0 | 2'b00 | 1 | 32'h0 | 0 | 2'b10 | 3'b010 | 3'b000 | 1 | 32'h0 | 32'h0 |
+| 5 | 0 | 1 | 1 | 1 | 4'b0001 | 0 | 32'h4 | 32'h0 | 0 | 1 | 32'h0 | 2'b00 | 0 | 32'h0 | 1 | 2'b10 | 3'b000 | 3'b000 | 0 | 32'h4 | 32'h0 |
+| 6 | 1 | 1 | 1 | 1 | 4'b0001 | 0 | 32'h4 | 32'h0 | 1 | 1 | 32'h0 | 2'b00 | 1 | 32'h0 | 1 | 2'b10 | 3'b000 | 3'b000 | 0 | 32'h4 | 32'h0 |

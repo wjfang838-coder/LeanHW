@@ -1,0 +1,132 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- areset: input 1 bit.
+- bump_left: input 1 bit.
+- bump_right: input 1 bit.
+- ground: input 1 bit.
+- walk_left: output 1 bit.
+- walk_right: output 1 bit.
+- aaah: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  WL: default = 0.
+-  WR: default = 1.
+-  FALLL: default = 2.
+-  FALLR: default = 3.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+areset is active high and asynchronous. Its assertion immediately selects leftward walking and overrides a simultaneous rising clk edge: walk_left is 1, walk_right is 0, and aaah is 0. Keeping areset asserted retains those values. Deasserting areset causes no immediate change. On the first rising clk edge after release, the ordinary transition law is applied from leftward walking using the then-current ground and bump_left inputs.
+
+At power-up, before areset has ever been asserted, the current mode is not valid. walk_left, walk_right, and aaah are all unknown until the first assertion of areset. The implementation must leave that state and those outputs uninitialised, with no initial block or declaration initialiser that assigns them definite values.
+
+Timing
+
+Except for asynchronous reset assertion, all three outputs are registered Moore outputs. Ordinary input changes, a steady clk level, and falling clk edges do not change them. A transition selected by ground or a bump at a rising clk edge becomes visible just after that edge, a latency of one sampled transition from the named inputs. There are no completion-pulse outputs.
+
+The evaluated trace uses full-cycle pre-edge sampling: row k observes the settled outputs before transition k and then applies that row's rising-edge transition. Row k denotes k times the interface timing step after settling; this observation convention is separate from the circuit law that state changes occur on rising clk edges and reset assertion acts asynchronously. The interface provides no numeric nanosecond clock period or propagation delay, so none is specified.
+
+Behaviour
+
+The established modes are leftward walking, rightward walking, falling with leftward direction preserved, and falling with rightward direction preserved. In leftward walking, walk_left=1, walk_right=0, and aaah=0. In rightward walking, walk_left=0, walk_right=1, and aaah=0. In either falling mode, walk_left=0, walk_right=0, and aaah=1.
+
+Except for asynchronous reset assertion, outputs can change in response to ordinary inputs only just after a rising clk edge, which repeatedly captures the then-current ground and applicable bump condition in every mode; a steady clk level and falling edges have no effect, while simultaneous areset assertion overrides the rising-edge update and can interrupt it.
+
+Asserting active-high areset immediately makes the outputs indicate walking left (walk_left=1'b1, walk_right=1'b0, aaah=1'b0) in every mode and overrides a simultaneous rising clk edge; keeping it asserted repeats that priority, while deasserting it has no immediate effect and normal input-driven behavior resumes at the next rising clk edge.
+
+With areset inactive, bump_left=1 at a rising clk edge reverses leftward walking to rightward walking only when ground=1; bump_left=0 retains leftward walking, and bump_left has no effect while walking right, while falling, or when ground=0, with simultaneous bump_right governed solely by the current walking direction and repeated effective bumps applying on each rising edge.
+
+With areset inactive, bump_right=1 at a rising clk edge reverses rightward walking to leftward walking only when ground=1; bump_right=0 retains rightward walking, and bump_right has no effect while walking left, while falling, or when ground=0, with simultaneous bump_left governed solely by the current walking direction and repeated effective bumps applying on each rising edge.
+
+With areset inactive, ground=0 at a rising clk edge changes either walking mode to falling while preserving its direction and retains either falling mode, whereas ground=1 permits the applicable bump to select or retain a walking direction and changes either falling mode back to walking in its preserved direction; each rising edge applies this rule anew and areset overrides it.
+
+Consequently, if both bump inputs are 1 while grounded, the lemming reverses from whichever walking direction is current. A bump sampled on the edge that begins a fall is ignored. All bumps while falling are ignored, including on the landing edge. Landing restores the direction preserved when falling began. Every input is one bit, so these rules cover every input encoding.
+
+walk_left is unknown before reset, becomes 1'b1 immediately after asynchronous areset assertion, remains 1 exactly while the current mode is leftward walking, and otherwise is 0; with pre-edge row sampling a row shows the prior value and any normal transition selected from that row appears just after its rising clk edge, reset release causes no transition by itself, and subsequent rising edges can hold or restart leftward walking without a separate completion pulse.
+
+walk_right is unknown before reset, becomes 1'b0 immediately after asynchronous areset assertion, remains 1 exactly while the current mode is rightward walking, and otherwise is 0; with pre-edge row sampling a row shows the prior value and any normal transition selected from that row appears just after its rising clk edge, reset release causes no transition by itself, and subsequent rising edges can hold or restart rightward walking without a separate completion pulse.
+
+aaah is unknown before reset, becomes 1'b0 immediately after asynchronous areset assertion, remains 1 exactly while falling in either direction, and otherwise is 0; with pre-edge row sampling a row shows the prior value and a departure from ground or landing selected from that row changes aaah just after its rising clk edge, reset release causes no transition by itself, and later rising edges retain, clear, or restart falling indication without a separate completion pulse.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | areset | bump_left | bump_right | ground | walk_left | walk_right | aaah |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | x | x | x |
+| 1 | 1 | 1 | 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 1 | 1 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 1 | 1 | 0 | 0 |
+
+### stimulus 1
+| cycle | areset | bump_left | bump_right | ground | walk_left | walk_right | aaah |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 1 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | areset | bump_left | bump_right | ground | walk_left | walk_right | aaah |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 1 | 1 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 1 | 1 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 | 1 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | areset | bump_left | bump_right | ground | walk_left | walk_right | aaah |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 1 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 | 1 | 1 | 0 | 0 |
+
+### stimulus 4
+| cycle | areset | bump_left | bump_right | ground | walk_left | walk_right | aaah |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 1 | 0 | 0 | 0 | 1 |
+| 3 | 0 | 0 | 1 | 1 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 0 | 1 | 1 | 0 | 0 |
+
+### stimulus 5
+| cycle | areset | bump_left | bump_right | ground | walk_left | walk_right | aaah |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 1 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 1 | 0 | 1 | 0 | 0 | 1 |
+| 5 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
+
+### stimulus 6
+| cycle | areset | bump_left | bump_right | ground | walk_left | walk_right | aaah |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 3 | 1 | 1 | 1 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 1 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | areset | bump_left | bump_right | ground | walk_left | walk_right | aaah |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 0 | 1 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 1 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 1 | 1 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 | 1 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 1 | 1 | 0 | 0 |

@@ -1,0 +1,90 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- c: input 1 bit.
+- w: output 1 bit.
+- x: output 1 bit.
+- y: output 1 bit.
+- z: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+TopModule has no reset input and no reset behavior. It has no stored state. At power-up, before any input event or hypothetical reset edge, every output is already determined combinationally by the current inputs: w equals a, x and y equal b, and z equals c. No output has an uninitialized or unknown power-up interval.
+
+Timing
+
+All four outputs are combinational with zero clock-cycle latency: w responds to a, x responds to b, y responds to b, and z responds to c. There is no clock, no pulse output, and no periodic output. Trace rows are observations of the settled combinational circuit; the full-cycle row convention does not imply an actual clock, circuit period, or propagation-delay law.
+
+Behaviour
+
+At all times and for every possible combination of the one-bit inputs, w equals the current value of a. Changes to a appear at w without clock-cycle latency or history dependence, and a does not affect x, y, or z.
+
+At all times and for every possible combination of the one-bit inputs, x and y both equal the current value of b. Changes to b appear at both outputs without clock-cycle latency or history dependence, and b does not affect w or z.
+
+At all times and for every possible combination of the one-bit inputs, z equals the current value of c. Changes to c appear at z without clock-cycle latency or history dependence, and c does not affect w, x, or y.
+
+w is continuously combinationally equal to the current a, so a pre-transition row observes the a value present at that row and any change of a is reflected without a capture-to-observation delay.
+
+x is continuously combinationally equal to the current b, so a pre-transition row observes the b value present at that row and any change of b is reflected without a capture-to-observation delay.
+
+y is continuously combinationally equal to the current b, so a pre-transition row observes the b value present at that row and any change of b is reflected without a capture-to-observation delay.
+
+z is continuously combinationally equal to the current c, so a pre-transition row observes the c value present at that row and any change of c is reflected without a capture-to-observation delay.
+
+There are no inactive input levels, disabled modes, transactions, repeated-start semantics, cancellation behavior, retained results, first-result state, completion state, or otherwise unlisted input encodings.
+
+Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance of this specification.
+
+### stimulus 0
+| cycle | a | b | c | w | x | y | z |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | a | b | c | w | x | y | z |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | a | b | c | w | x | y | z |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 1 | 1 | 0 |
+
+### stimulus 3
+| cycle | a | b | c | w | x | y | z |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 0 | 1 | 1 | 1 |
+
+### stimulus 4
+| cycle | a | b | c | w | x | y | z |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | a | b | c | w | x | y | z |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 1 | 0 | 0 | 1 |
+
+### stimulus 6
+| cycle | a | b | c | w | x | y | z |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 1 | 1 | 1 | 0 |
+
+### stimulus 7
+| cycle | a | b | c | w | x | y | z |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |

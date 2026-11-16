@@ -1,0 +1,320 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+
+I would like you to implement a module named TopModule with the following
+interface. All input and output ports are one bit unless otherwise
+specified.
+
+ - input  in_A (8 bits)
+ - input  in_B (8 bits)
+ - input  in_operation (2 bits)
+ - output out_c (8 bits)
+
+This project implements a concise 8-bit Arithmetic Logic Unit (ALU). It
+receives two 8-bit input operands (in_A and in_B) and a 2-bit control signal
+(in_operation), and through the combination of internal bitwise AND, bitwise
+OR, adder (ADDER), and multiplexer (MUX) modules, it implements four basic
+operations: A AND B, A OR B, A + B, and A + ~B (equivalently A - B - 1 modulo 256). The design structure is clear
+and modular, with each submodule responsible for a single function, and
+finally the top-level ALU module selects the corresponding operation result
+based on the control signal and outputs it to out_c. This design approach not
+only facilitates understanding and debugging but also reflects the hierarchical
+design philosophy in hardware systems.
+
+Port descriptions:
+
+Input ports:
+- in_A (8 bits): The first operand of the ALU. It is an 8-bit binary number,
+  such as 8'b10101100. It is used in all operations (AND, OR, addition,
+  subtraction).
+
+- in_B (8 bits): The second operand. It is also an 8-bit binary number, such
+  as 8'b00111010. It participates in all calculations together with in_A.
+
+- in_operation (2 bits): This is the control signal that tells the ALU which
+  operation to perform. These 2 bits can be viewed as an opcode, where each
+  combination corresponds to a different operation:
+  - 00 → Perform bitwise AND (A AND B)
+  - 01 → Perform bitwise OR (A OR B)
+  - 10 → Perform addition (A + B)
+  - 11 → Perform subtraction (A + ~B (equivalently A - B - 1 modulo 256))
+
+  The control signal structure:
+  - The low bit in_operation[0] simultaneously controls the OR/AND selection
+    and the adder's add/subtract mode.
+  - The high bit in_operation[1] controls whether the output is a logic
+    operation result or an arithmetic operation result.
+
+Output ports:
+- out_c (8 bits): This is the final output result of the ALU. Its value
+  depends on the in_operation setting:
+  - When in_operation = 00 → Output A AND B
+  - When in_operation = 01 → Output A OR B
+  - When in_operation = 10 → Output A + B
+  - When in_operation = 11 → Output A + ~B (equivalently A - B - 1 modulo 256)
+
+  Therefore, out_c may be either a logic result or an arithmetic result.
+
+
+The following submodules are already provided and should be included as submodules in
+your design:
+- bit_8_AND: Performs bitwise AND operation on two 8-bit inputs
+- bit_8_OR: Performs bitwise OR operation on two 8-bit inputs
+- bit_8_ADDER: Performs addition or subtraction on two 8-bit inputs
+- mux_2X1: A 2-to-1 multiplexer that selects between two 8-bit inputs
+You need to add below code to implementation without any edit.
+provided: 
+```
+//AND
+module bit_8_AND(aANDb,A,B);
+	output reg [7:0] aANDb;
+	input [7:0]A,B;
+	always @(*)
+		begin
+			aANDb <= A&B;
+		end
+endmodule
+
+//OR
+module bit_8_OR(
+	output reg [7:0]aORb,
+	input [7:0]A,
+	input [7:0]B
+);
+	always @(*)
+		begin
+			aORb <= A|B;
+		end
+endmodule
+
+//8 bit adder
+module bit_8_ADDER(
+	output reg [7:0]aPlusb,
+	input [7:0]A,
+	input [7:0]B,
+	input carry_in);
+	reg [7:0]BB;
+	always @(*)
+		begin
+			if(carry_in == 1)
+				BB <= ~B;
+			else
+				BB <= B;
+         aPlusb <= A + BB;            
+		end
+endmodule
+
+//2 X 1 multiplxer
+module mux_2X1(
+	output reg [7:0]O,
+	input [7:0]I0,
+	input [7:0]I1,
+	input sel);
+
+	always @(*)
+		begin
+			if(sel == 0)
+				O <= I0;
+			else
+				O <= I1;
+		end
+endmodule
+```
+Local benchmark erratum: op=11 uses the supplied unchanged adder with carry_in=1, so it adds A and bitwise complement B without a +1 term. This is complement-add, not ordinary two's-complement subtraction. All supplied helpers remain mandatory and unchanged.
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in_A: input [7:0].
+- in_B: input [7:0].
+- in_operation: input [1:0].
+- out_c: output [7:0].
+
+Public parameters:
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+2. Given submodules
+The implementation file must contain the following supplied definitions verbatim alongside TopModule and must instantiate them rather than reimplement their function inline. All four supplied helpers are mandatory and unchanged.
+
+//AND
+module bit_8_AND(aANDb,A,B);
+	output reg [7:0] aANDb;
+	input [7:0]A,B;
+	always @(*)
+		begin
+			aANDb <= A&B;
+		end
+endmodule
+
+//OR
+module bit_8_OR(
+	output reg [7:0]aORb,
+	input [7:0]A,
+	input [7:0]B
+);
+	always @(*)
+		begin
+			aORb <= A|B;
+		end
+endmodule
+
+//8 bit adder
+module bit_8_ADDER(
+	output reg [7:0]aPlusb,
+	input [7:0]A,
+	input [7:0]B,
+	input carry_in);
+	reg [7:0]BB;
+	always @(*)
+		begin
+			if(carry_in == 1)
+				BB <= ~B;
+			else
+				BB <= B;
+         aPlusb <= A + BB;            
+		end
+endmodule
+
+//2 X 1 multiplxer
+module mux_2X1(
+	output reg [7:0]O,
+	input [7:0]I0,
+	input [7:0]I1,
+	input sel);
+
+	always @(*)
+		begin
+			if(sel == 0)
+				O <= I0;
+			else
+				O <= I1;
+		end
+endmodule
+
+3. Reset
+There is no reset input, clock input, or stored functional state. Reset polarity, assertion sampling, release and a first reset edge do not apply. At power-up, before any reset edge, out_c follows the same combinational law once the driven binary inputs have settled. There is no guaranteed constant power-up result independent of those inputs. No reset sequence or initialization choice is required for the finite model. Its Unit state records no hardware initialization guarantee. Transient values before settling are not specified.
+
+4. Timing
+out_c is combinational, with zero clock-cycle latency from the current complete tuple of in_A, in_B and in_operation; no clock edge captures it. No numerical propagation delay is specified. The first result is available once the first driven input tuple has settled. There are no completion pulses, periodic signals, bounded transactions, timeout intervals, acceptance edges E0/E1 or restart events.
+
+The finite model uses fullCycle as an observation convention only. Each row samples out before the inert step and observes the current settled input tuple. An external edge is not a circuit capture event. Unchanged inputs across such an edge leave the result unchanged; changed inputs produce the new result after settling. Row numbers enumerate input observations, not physical clock ticks or an autonomous period. The interface supplies neither step_ns nor sample_offset_ns, so no numerical sampling interval or offset is asserted here. This projection specifies settled binary observations and does not specify intermediate transients or a fixed settling duration.
+
+5. Behaviour
+Let A and B denote the unsigned eight-bit values of in_A and in_B. All four binary values of the two-bit in_operation are legal:
+00: out_c is the bitwise AND of A and B.
+01: out_c is the bitwise OR of A and B.
+10: out_c is (A + B) modulo 256.
+11: out_c is (A + (255 - B)) modulo 256, equivalently A - B - 1 modulo 256.
+
+The operands and arithmetic expression context are unsigned eight-bit quantities, as in the supplied adder; out_c retains the low eight bits at the eight-bit result assignment. Computing the nonnegative sum mathematically and then reducing modulo 256 gives exactly that result. The complement is the eight-bit complement of B, not an unbounded signed complement. Opcode 11 has no added one and is not ordinary two's-complement subtraction. No carry or overflow indication is exposed.
+
+in_operation[0] controls both the OR/AND selection and the adder's add/subtract mode; in_operation[1] selects the logic result or arithmetic result. The unchanged supplied helpers remain part of the required design.
+
+in_A is active in all modes; in mode 00 its bit changes are masked where in_B is zero, and in mode 01 its bit changes are masked where in_B is one.
+in_B is active in all modes; in mode 00 its bit changes are masked where in_A is zero, and in mode 01 its bit changes are masked where in_A is one.
+Zero on either operand is a value, not a disabling condition. Both operands participate in the arithmetic laws above.
+All four control encodings select an operation, and a change of control alone or simultaneously with operands selects the law for the new complete settled tuple.
+There is no busy interval, transaction acceptance, cancellation state, retained previous transaction result, mandatory clear interval or warm-up requirement. Repeated tuples yield the same result; changed tuples replace the previous calculation after settling.
+out_c follows the current complete input tuple after combinational settling without an edge or earlier-tuple dependency, remains unchanged for unchanged inputs, and has no reset, capture, completion or restart event.
+
+The source and certain scoped answers agree; no source amendment, example erratum, derived parameter constraint or implementation completion choice is applied. The interface has no public parameters and no additional verification bindings. No binary opcode is omitted. Lean input Naturals are projected to the stated port widths, rather than creating additional physical encodings.
+
+6. Worked trace
+The evaluated trace is normative for its listed settled binary input tuples under the observation convention above; the behavioural laws also apply to every other legal binary tuple.
+### stimulus 0
+| cycle | in_A | in_B | in_operation | out_c |
+|---|---|---|---|---|
+| 0 | 8'b10101100 | 8'b00111010 | 2'b00 | 8'b00101000 |
+| 1 | 8'b10101100 | 8'b00111010 | 2'b01 | 8'b10111110 |
+| 2 | 8'b10101100 | 8'b00111010 | 2'b10 | 8'b11100110 |
+| 3 | 8'b10101100 | 8'b00111010 | 2'b11 | 8'b01110001 |
+
+### stimulus 1
+| cycle | in_A | in_B | in_operation | out_c |
+|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 2'b00 | 8'b00000000 |
+| 1 | 8'b00000000 | 8'b00000000 | 2'b01 | 8'b00000000 |
+| 2 | 8'b00000000 | 8'b00000000 | 2'b10 | 8'b00000000 |
+| 3 | 8'b00000000 | 8'b00000000 | 2'b11 | 8'b11111111 |
+
+### stimulus 2
+| cycle | in_A | in_B | in_operation | out_c |
+|---|---|---|---|---|
+| 0 | 8'b11111111 | 8'b11111111 | 2'b00 | 8'b11111111 |
+| 1 | 8'b11111111 | 8'b11111111 | 2'b01 | 8'b11111111 |
+| 2 | 8'b11111111 | 8'b11111111 | 2'b10 | 8'b11111110 |
+| 3 | 8'b11111111 | 8'b11111111 | 2'b11 | 8'b11111111 |
+
+### stimulus 3
+| cycle | in_A | in_B | in_operation | out_c |
+|---|---|---|---|---|
+| 0 | 8'b10000000 | 8'b00000001 | 2'b00 | 8'b00000000 |
+| 1 | 8'b10000000 | 8'b00000001 | 2'b01 | 8'b10000001 |
+| 2 | 8'b10000000 | 8'b00000001 | 2'b10 | 8'b10000001 |
+| 3 | 8'b10000000 | 8'b00000001 | 2'b11 | 8'b01111110 |
+
+### stimulus 4
+| cycle | in_A | in_B | in_operation | out_c |
+|---|---|---|---|---|
+| 0 | 8'b00000001 | 8'b10000000 | 2'b00 | 8'b00000000 |
+| 1 | 8'b00000001 | 8'b10000000 | 2'b01 | 8'b10000001 |
+| 2 | 8'b00000001 | 8'b10000000 | 2'b10 | 8'b10000001 |
+| 3 | 8'b00000001 | 8'b10000000 | 2'b11 | 8'b10000000 |
+
+### stimulus 5
+| cycle | in_A | in_B | in_operation | out_c |
+|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000001 | 2'b11 | 8'b11111110 |
+| 1 | 8'b00000001 | 8'b00000000 | 2'b11 | 8'b00000000 |
+| 2 | 8'b00000001 | 8'b00000001 | 2'b11 | 8'b11111111 |
+| 3 | 8'b00000000 | 8'b11111111 | 2'b11 | 8'b00000000 |
+| 4 | 8'b11111111 | 8'b00000000 | 2'b11 | 8'b11111110 |
+
+### stimulus 6
+| cycle | in_A | in_B | in_operation | out_c |
+|---|---|---|---|---|
+| 0 | 8'b11111111 | 8'b00000001 | 2'b10 | 8'b00000000 |
+| 1 | 8'b10000000 | 8'b10000000 | 2'b10 | 8'b00000000 |
+| 2 | 8'b00000000 | 8'b00000001 | 2'b10 | 8'b00000001 |
+| 3 | 8'b00000001 | 8'b00000000 | 2'b10 | 8'b00000001 |
+| 4 | 8'b01001001 | 8'b01011011 | 2'b10 | 8'b10100100 |
+
+### stimulus 7
+| cycle | in_A | in_B | in_operation | out_c |
+|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b11111111 | 2'b00 | 8'b00000000 |
+| 1 | 8'b11111111 | 8'b00000000 | 2'b00 | 8'b00000000 |
+| 2 | 8'b01010101 | 8'b10101010 | 2'b00 | 8'b00000000 |
+| 3 | 8'b01010101 | 8'b10101010 | 2'b01 | 8'b11111111 |
+| 4 | 8'b01010101 | 8'b01010101 | 2'b00 | 8'b01010101 |
+
+### stimulus 8
+| cycle | in_A | in_B | in_operation | out_c |
+|---|---|---|---|---|
+| 0 | 8'b01001001 | 8'b01011011 | 2'b00 | 8'b01001001 |
+| 1 | 8'b01001001 | 8'b01011011 | 2'b01 | 8'b01011011 |
+| 2 | 8'b01001001 | 8'b01011011 | 2'b10 | 8'b10100100 |
+| 3 | 8'b01001001 | 8'b01011011 | 2'b11 | 8'b11101101 |
+| 4 | 8'b01001001 | 8'b01011011 | 2'b00 | 8'b01001001 |
+| 5 | 8'b01001001 | 8'b01011011 | 2'b11 | 8'b11101101 |
+
+### stimulus 9
+| cycle | in_A | in_B | in_operation | out_c |
+|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 2'b10 | 8'b00000000 |
+| 1 | 8'b11111111 | 8'b00000001 | 2'b10 | 8'b00000000 |
+| 2 | 8'b00000001 | 8'b00000001 | 2'b10 | 8'b00000010 |
+| 3 | 8'b10000000 | 8'b00000000 | 2'b10 | 8'b10000000 |
+| 4 | 8'b00000000 | 8'b00000000 | 2'b11 | 8'b11111111 |
+| 5 | 8'b11111111 | 8'b11111111 | 2'b11 | 8'b11111111 |

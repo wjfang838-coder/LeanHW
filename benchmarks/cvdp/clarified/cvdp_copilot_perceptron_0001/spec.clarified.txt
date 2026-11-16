@@ -1,0 +1,537 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a SystemVerilog RTL module `perceptron_gates` that implements a microcoded controller to train a perceptron model. The module takes signed 4-bit inputs (x1 and x2), a 4-bit threshold, a 1-bit learning rate, and a 2-bit gate selector to determine the target output based on logical gate operations. It uses a microcode ROM to sequentially execute actions like weight initialization, output computation, target selection, weight/bias updates, and convergence checks. The module outputs the updated weights, bias, perceptron response (y), and a stop signal when training converges.
+
+## Design Specification:
+The `perceptron_gates` module handles weight initialization, computation of perceptron outputs, target selection based on input indexes, and weight and bias updates. It features a microcoded approach for defining operational states, ensuring flexibility and reusability for perceptron-based learning tasks.
+
+## Interface
+## Inputs
+- `clk` (1-bit): Positive edge-triggered clock signal for calculating the microcode ROM address.
+- `rst_n` (1-bit): Negative edge-triggered reset signal. When ACTIVE LOW, `present_addr` is initialized to `4'd0`.
+- `x1`, `x2` (4-bit,[3:0], signed): Perceptron inputs. Can take only Bipolar values [`4'd1`,`-4'd1`]
+- `learning_rate` (1-bit): Learning rate for weight and bias updates.
+- `threshold` (4-bit,[3:0], signed): Threshold value for response calculation.
+- `gate_select` (2-bit,[1:0]): Specifies the gate type for determining target outputs.
+
+## Outputs
+- `percep_w1`, `percep_w2` (4-bit, [3:0], signed): Current weights of the perception. Can take any signed 4-bit value, including zero; additions wrap modulo 16 at the public 4-bit boundary.
+- `percep_bias` (4-bit,[3:0], signed): Current bias of the perception.Can take any signed 4-bit value, including zero; additions wrap modulo 16 at the public 4-bit boundary.
+- `present_addr` (4-bit,[3:0]): Current microcode ROM address.
+- `stop` (1-bit): Indicates the end of training.
+- `input_index` (3-bit,[2:0]): Tracks the current target value selected during an iteration. Can take values from 3'd0 to 3'd3.
+- `y_in` (4-bit,[3:0] signed): Raw signed weighted sum plus bias, truncated to the signed 4-bit output width; it is not limited to bipolar values.
+- `y` (4-bit, [3:0], signed): Perceptron output after applying the threshold.Can take three different values [`4'd1`,`4'd0`,`-4'd1`]
+- `prev_percep_wt_1`, `prev_percep_wt_2`, `prev_percep_bias` (4-bit, [3:0], signed): Weights and Bias during a previous iteration. Can take any signed 4-bit value, including zero; additions wrap modulo 16 at the public 4-bit boundary.
+
+## Submodule Overview
+### 1. Gate Target (`gate_target`)
+Generates target outputs (`t1`, `t2`, `t3`, `t4`) based on the selected gate type.
+- Inputs: `gate_select` (2-bit,[1:0]).
+- Outputs : `o_1`, `o_2`, `o_3`, `o_4` (4-bit, [3:0],signed).
+- Gates implemented: AND, OR, NAND, and NOR gates.
+   - `gate_select`:
+         - `2'b00` : AND Gate    ; target values : (`4'd1`,`-4'd1`,`-4'd1`,`-4'd1`)
+         - `2'b01` : OR Gate      ; target values : (`4'd1`, `4'd1`, `4'd1`,`-4'd1`)
+         - `2'b10` : NAND Gate ; target values : (`4'd1`, `4'd1`, `4'd1`,`-4'd1`) 
+         - `2'b11` : NOR Gate   ;  target values : (`4'd1`, `-4'd1`, `-4'd1`,`-4'd1`) 
+         
+### 2. Microcode ROM
+- Defines a sequence of 6 micro-instructions, specifying actions such as weight initialization, output computation, target selection, and weight/bias updates.
+
+## Algorithm Steps for Perceptron Learning
+- Initialization: All weights, biases, and counters are set to zero.
+- Compute Output: Compute `y_in` = `bias` + (`x1` * `w1`) + (`x2` * `w2`) and compare with the threshold to determine `y`.
+- Select Target: Based on `gate_select` and` input_index`, pick the desired target value
+- Update Weights and Bias: Adjust weights and bias  based on the condition (`y` != `target`)
+  -  If the condition is satisfied
+        - `wt1_update` = `learning_rate` * `x1` * `target`
+        - `wt2_update` = `learning_rate` * `x2` * `target`
+        - `bias_update` = `learning_rate` * `target`
+   - If the condition is not satisfied
+        - `wt1_update` = 0
+        - `wt2_update` = 0
+        - `bias_update` = 0
+  - The value of current weights and bias is calculated as follows :
+       - `percep_wt1` = `percep_w1` + `wt1_update`
+       - `percep_wt2` = `percep_wt2` + `wt2_update`
+       - `percep_bias` = `percep_bias` + `bias_update`
+- Check if the `wt1_update`, `wt2_update` , and `bias_update` values are equal to their previous iteration values. If the condition is satisfied, stop the learning. Otherwise assign the `wt1_update`, `wt2_update`, and `bias_update` values to their previous iteration values and continue learning.
+                                                 
+## Control Flow
+### Microcoded Actions
+- Action 0: Initialize weights and bias to zero.
+- Action 1: Compute `y_in` (weighted sum + bias) and `y` (thresholded output).
+- Action 2: Select target value based on `input_index `and `gate type`.
+- Action 3: Update weights and bias if the perceptron output differs from the target.
+- Action 4: Compare current and previous weights and bias to determine convergence.
+- Action 5: Finalize updates and prepare for the next epoch.
+**An epoch is the time taken to train the perceptron for a given combination of four input values**
+
+## Key Features
+- Microcoded Sequencing: Flexible execution of training steps using `microcode ROM`.
+- Dynamic Target Selection: Allows gate-based logic outputs for versatile applications.
+- Sequential Updates: Tracks and applies weight changes across iterations.
+- Convergence Monitoring: Halts training when weights stabilize.
+
+## Example Scenario
+ - Let us take training of AND gate for explaining the scenario
+ - The inputs (`x1` and `x2`) are strictly applied in the following order : (`1`,`1`) , (`1`,`-1`) , (`-1`,`1`) , (`-1`,`-1`).
+ - The learning rate is fixed to be 1. The threshold value is fixed to be 0.
+
+ 
+### First Epoch
+- For Input (1,1) :
+     Out - 0  
+     Target - 1
+     Weight and Bias Changes - (1,1,1)
+     Weights and Bias - (1,1,1)
+
+- For Input (1,-1)
+     Out - 1  
+     Target - -1
+     Weight and Bias Changes - (-1,1,-1)
+     Weights and Bias - (0,2,0)
+
+- For Input (-1,1)
+     Out - 1  
+     Target - -1
+     Weight and Bias Changes - (1,-1,-1)
+     Weights and Bias - (1,1,-1)
+
+- For Input (-1,-1)
+     Out - -1  
+     Target - -1
+     Weight and Bias Changes - (0,0,0)
+     Weights and Bias - (1,1,-1)
+
+### Second Epoch
+- For Input (1,1)
+     Out -  1  
+     Target - 1
+     Weight and Bias Changes - (0,0,0)
+     Weights and Bias - (1,1,-1)
+
+- For Input (1,-1)
+     Out - -1  
+     Target - -1
+     Weight and Bias Changes - (0,0,0)
+     Weights and Bias - (1,1,-1)
+
+- For Input (-1,1)
+     Out - -1  
+     Target - -1
+     Weight and Bias Changes - (0,0,0)
+     Weights and Bias - (1,1,-1)
+
+- For Input (-1,-1)
+     Out - -1  
+     Target - -1
+     Weight and Bias Changes - (0,0,0)
+     Weights and Bias - (1,1,-1)
+
+
+### Legends :
+-  **Input  -   x1, x2**
+- **Weight Changes - wt1_update, wt2_update, bias_update**
+- **Weights  -  pecep_w1, percep_w2, percep_b** 
+
+**Since all the `wt1_update` and `wt2_updates` are 0 in Second epoch , the `perceptron_module` got fully trained after First Epoch. Hence the training is stopped**
+
+Example Waveform :
+```wavedrom
+   {
+  "signal": [
+    {"name": "clk", "wave": "p..............."},
+    {"name": "rst", "wave": "0...1...........", "data": []},
+    {"name": "x1[3:0]", "wave": "0...3444..4444..", "data": ["4'd1","4'd1","-4'd1","-4'd1","4'd1","4'd1","-4'd1","-4'd1"]},
+    {"name": "x2[3:0]", "wave": "0...3444..4444..", "data": ["4'd1","-4'd1","4'd1","-4'd1","4'd1","-4'd1","4'd1","-4'd1"]},
+    {"name": "gate_select[1:0]", "wave": "x...3...........", "data": ["2'b00"]},
+    {"name": "percep_w1[3:0]", "wave": "0...3444..4444..", "data": ["4'd1","4'd0","4'd1","4'd1","4'd1","4'd1","4'd1","4'd1"]},
+    {"name": "percep_w2[3:0]", "wave": "0...3444..4444..", "data": ["4'd1","4'd2","4'd1","4'd1","4'd1","4'd1","4'd1","4'd1"]},
+    {"name": "percep_bias[3:0]", "wave": "0...3444..4444..", "data": ["4'd1","4'd0","-4'd1","-4'd1","-4'd1","-4'd1","-4'd1","-4'd1"]},
+    {"name": "present_addr[3:0]", "wave": "0...3333..3333..", "data": ["4'd5","4'd5","4'd5","4'd5","4'd5","4'd5","4'd5","4'd5"]},
+    {"name": "stop", "wave": "0............1..", "data": []},
+    {"name": "input_index[2:0]", "wave": "0...3444..4444..", "data": ["3'd0","3'd1","3'd2","3'd3","3'd0","3'd1","3'd2","3'd3"]},
+    {"name": "prev_percep_wt_1[3:0]", "wave": "0...3444..4444..", "data": ["4'd1","-4'd1","4'd1","4'd0","4'd0","4'd0","4'd0","4'd0"]},
+    {"name": "prev_percep_wt_2[3:0]", "wave": "0...3444..4444..", "data": ["4'd1","4'd1","-4'd1","4'd0","4'd0","4'd0","4'd0","4'd0","4'd0"]},
+    {"name": "prev_percep_bias[3:0]", "wave": "0...3444..4444..", "data": ["4'd1","-4'd1","-4'd1","4'd0","4'd0","4'd0","4'd0","4'd0","4'd0"]}
+    ],
+  "config": {"hscale": 5}
+   }
+ ```
+ 
+
+Local benchmark clarification: The four listed gate_select target tuples are normative lookup tables in the input order (1,1), (1,-1), (-1,1), (-1,-1), even where their legacy NAND/NOR labels do not denote standard Boolean truth tables. A reset assertion initializes all weights, previous weights, bias, previous bias, present_addr, input_index and stop to zero. Thresholding gives y=1 when the signed raw sum is above threshold, y=0 when equal, and y=-1 when below.
+
+
+Local experimental completion of perceptron laws. These exact rules supersede conflicting earlier arithmetic, previous-value descriptions, convergence shorthand and illustrative waveform timing. They are explicit benchmark definitions, not recovered designer intent:
+- All public signed values are 4-bit two's complement. Compute the mathematical signed sum bias+x1*w1+x2*w2, then wrap it to four bits for y_in; compare that signed wrapped value, not the untruncated sum, with the signed 4-bit threshold to produce y=1,0,-1. Weight, bias and previous-delta additions wrap to four bits. Learning rate is unsigned 0 or 1.
+- Initialization and asynchronous active-low reset zero all public outputs and internal state, with present_addr=0,input_index=0,stop=0. Reset overrides a simultaneous clock edge. Only rising clk edges perform normal actions. Public outputs retain their values between actions and on falling edges. Reset may interrupt any phase and restarts the controller. There is no implicit warm-up requirement.
+- The six microcode addresses are 0..5. Address 0 occurs only immediately after initialization/reset: its rising edge retains zero weights and advances to 1. Address 1 samples x1,x2,learning_rate,threshold and gate_select, publishes y_in and y using the current pre-edge weights, then advances to 2. Values captured here are used for the complete sample; input changes during addresses 2..5 do not affect it. Both inputs may be any bipolar combination for any input_index; the worked example's order is an example, not an input restriction.
+- Address 2 chooses target from the captured gate_select and current input_index using the four listed tuples, then advances to 3. Address 3 computes deltas: when the captured y differs from target, delta_w1=learning_rate*x1*target, delta_w2=learning_rate*x2*target, delta_bias=learning_rate*target; otherwise all deltas are zero. It immediately publishes weights/bias plus these deltas and records whether any nonzero delta occurred in the current four-sample epoch, then advances to 4.
+- Address 4 publishes the just-computed deltas on prev_percep_wt_1,prev_percep_wt_2,prev_percep_bias; these legacy-named outputs represent update deltas, not previous absolute weights. It decides convergence only if input_index=3 and the entire current epoch has had zero deltas, then advances to 5. Equality between adjacent nonzero deltas does not establish convergence.
+- Address 5 finalizes the sample. If the preceding convergence decision is true, set stop=1, retain present_addr=5 and input_index=3, and freeze all public outputs and training state until reset, regardless of later input changes. Otherwise increment input_index modulo four and return to address 1, retaining learned weights. After index 3 finalize, clear the epoch-change accumulator for the next epoch. Public y/y_in remain the values published by address 1; previous-delta outputs remain the values published by address 4. A gate change affects only the next address-1 capture and never resets weights or restarts a stopped controller by itself.
+
+
+This is a locally revised benchmark prompt (2026-10-01), with explicit errata that supersede conflicting earlier clauses. It is not an unchanged upstream CVDP problem. Implementation choices for behavior still unspecified must be disclosed and must not contradict these requirements.
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a SystemVerilog RTL module `perceptron_gates` that implements a microcoded controller to train a perceptron model. The module takes signed 4-bit inputs (x1 and x2), a 4-bit threshold, a 1-bit learning rate, and a 2-bit gate selector to determine the target output based on logical gate operations. It uses a microcode ROM to sequentially execute actions like weight initialization, output computation, target selection, weight/bias updates, and convergence checks. The module outputs the updated weights, bias, perceptron response (y), and a stop signal when training converges.
+
+Named module interface binding
+
+Module: perceptron_gates.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- rst_n: input; 1 bits in the concrete formal instance.
+- x1: input; 4 bits in the concrete formal instance.
+- x2: input; 4 bits in the concrete formal instance.
+- learning_rate: input; 1 bits in the concrete formal instance.
+- threshold: input; 4 bits in the concrete formal instance.
+- gate_select: input; 2 bits in the concrete formal instance.
+- percep_w1: output; 4 bits in the concrete formal instance.
+- percep_w2: output; 4 bits in the concrete formal instance.
+- percep_bias: output; 4 bits in the concrete formal instance.
+- present_addr: output; 4 bits in the concrete formal instance.
+- stop: output; 1 bits in the concrete formal instance.
+- input_index: output; 3 bits in the concrete formal instance.
+- y_in: output; 4 bits in the concrete formal instance.
+- y: output; 4 bits in the concrete formal instance.
+- prev_percep_wt_1: output; 4 bits in the concrete formal instance.
+- prev_percep_wt_2: output; 4 bits in the concrete formal instance.
+- prev_percep_bias: output; 4 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports
+
+The module name is perceptron_gates. No public parameters or parameter defaults are specified. The following is the canonical port enumeration, not a verified declaration order:
+Inputs: clk unsigned 1 bit; rst_n unsigned 1 bit; x1 signed [3:0]; x2 signed [3:0]; learning_rate unsigned 1 bit; threshold signed [3:0]; gate_select unsigned [1:0].
+Outputs: percep_w1 signed [3:0]; percep_w2 signed [3:0]; percep_bias signed [3:0]; present_addr unsigned [3:0]; stop unsigned 1 bit; input_index unsigned [2:0]; y_in signed [3:0]; y signed [3:0]; prev_percep_wt_1 signed [3:0]; prev_percep_wt_2 signed [3:0]; prev_percep_bias signed [3:0].
+Q30 confirms named connections but does not establish positional declaration order. This document does not fix that order. Named wiring is portable consumer guidance; a consumer with the actual declaration may instantiate positionally in that declaration's order.
+
+2. Reset
+
+The source's final explicit experimental completion governs conflicting earlier descriptions. Initialization and asynchronous active-low reset set every public output and all training state to zero. This includes captured operands and controls, target, pending update amounts, epoch history, convergence decision and stopped state. Before any reset assertion, initialization has already established those zero values; this is an explicit source initialization requirement, not an inference from the finite model. Assertion interrupts every phase and a stopped run, discards the captured sample and epoch history, and takes priority over a simultaneous rising edge. All state and outputs stay zero while rst_n is low, including through clock edges. Release alone retains zero. The first rising edge after release changes only present_addr to 1. The second rising edge captures the first sample and publishes y_in and y; the third selects its target. No reset-before-use or warm-up restriction is added.
+
+3. Timing
+
+Only rising clk edges perform normal actions. Every public output is registered and retains its published value between actions and on falling edges; asynchronous reset is the stated exception. No periodic output or completion pulse is specified: stop is a retained level until reset.
+For each sample E0 is the rising edge with pre-edge present_addr=1, rst_n=1 and stop=0. It accepts x1, x2, learning_rate, threshold and gate_select, publishes y_in and y, and advances present_addr to 2. E1, E2, E3 and E4 follow after one, two, three and four completed clock intervals from E0, respectively. Their pre-edge addresses are 2, 3, 4 and 5. E1 selects the captured gate's target and publishes address 3. E2 publishes the updated percep_w1, percep_w2 and percep_bias and address 4. E3 publishes prev_percep_wt_1, prev_percep_wt_2 and prev_percep_bias and address 5. E4 finalizes the sample, publishes stop if converged, and otherwise advances input_index modulo four and returns present_addr to 1. input_index remains the pre-E0 index through E3; convergence at E4 retains index 3 and address 5. Thus y_in/y latency is zero subsequent intervals from acceptance, weight/bias latency is two, previous-delta latency is three, and completion latency is four. The next nonstopped sample is accepted one interval after E4. No release event consumes a sample edge.
+Published values after an edge use the state and operands before that edge, separately from simultaneous address or index advancement. In particular E0 uses pre-edge weights, E1 uses the retained sample index, E2 adds the sample's deltas to the pre-edge weights, E3 publishes those retained deltas, and E4 uses the preceding convergence decision. Outputs not named for an action retain their values.
+
+4. Behaviour
+
+Interpret signed four-bit values as two's complement integers in -8..7; learning_rate is unsigned 0 or 1. Define S4(v)=((v+8) mod 16)-8, with nonnegative modulo, and encode signed outputs modulo 16. At E0 let A,B,L,H,G denote the accepted x1,x2,learning_rate,threshold,gate_select, let i denote input_index, and W1,W2,C denote pre-edge percep_w1,percep_w2,percep_bias. Compute the mathematical signed sum C+A*W1+B*W2 before truncation, set R=S4(C+A*W1+B*W2), and compare this signed wrapped R with H: Y=1 above, Y=0 equal, Y=-1 below. Publish y_in=R and y=Y at E0. There is no narrower intermediate expression truncation; the specified boundary is the signed four-bit raw sum and each published four-bit addition/update amount.
+T is element i of (1,-1,-1,-1) for G=0 or 3, and of (1,1,1,-1) for G=1 or 2. These are the normative lookup tables despite the legacy NAND/NOR labels. At E1 choose T using captured G and the sample index, independent of the live bipolar combination. Define g=L*T if Y differs from T and g=0 otherwise. The mathematical deltas are (g*A,g*B,g). At E2 publish (S4(W1+g*A),S4(W2+g*B),S4(C+g)) on the three weight/bias ports. At E3 publish (g*A,g*B,g) modulo 16 on the three previous-delta ports. Those ports denote update amounts, not previous absolute weights.
+An epoch consists of four samples at indices 0,1,2,3. Remember whether any mathematical delta was nonzero anywhere in that epoch. At E3 convergence is decided only when i=3 and all deltas throughout that epoch were zero. At E4 assert stop for convergence and freeze every output and all training state until reset; otherwise increment the index modulo four, return to address 1 and retain learned weights. When finalizing index 3 without convergence, clear the epoch-change history for the next epoch. Equal adjacent nonzero updates never imply convergence. L=0 gives a zero-update epoch even with classification mismatches, but no isolated zero update completes before index 3.
+Every data/control input is accepted only at E0 while running. Changes at address 0 or addresses 2..5 do not alter a pending sample. Later address-1 edges accept the then-current values. x1 and x2 affect the raw sum and their respective update products; their effect on Y also affects all deltas. threshold affects Y and the mismatch but not R. learning_rate affects deltas but neither R nor Y. gate_select affects T and deltas but neither R nor Y; a gate change does not clear weights. Inputs never restart a stopped controller; reset does. No separate request, busy exclusion or cancellation control exists. Reset alone cancels a pending sample. y_in/y retain the last E0 result, weights/bias the last E2 result, and previous-delta outputs the last E3 result until their next publication or reset.
+
+Amendment A1: The superseded original clause is "- `x1`, `x2` (4-bit,[3:0], signed): Perceptron inputs. Can take only Bipolar values [`4'd1`,`-4'd1`]". Frozen questions Q1 through Q11 cover the respective output coordinates after nonbipolar capture; Q14 (rule@input.x1) and Q15 (rule@input.x2) cover the input effects throughout reachable modes. The certain Q1 answer law states exactly: "The authorized Contract.edge model in answer-key/src/test_perceptron_gates.py has no bipolar-validation branch: captured x1,x2 are used as ordinary signed integers.". The certain Q14 and Q15 laws each state exactly: "Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1." Within these input and resulting-output scopes, the corrected law accepts all sixteen encodings of each signed four-bit input and applies the same capture, arithmetic, publication, convergence and retention laws; it does not impose a bipolar validator or stall. Only the bipolar-only restriction is superseded. Bipolar behavior and all other source obligations are preserved. This is an amendment, not preservation of the old input-domain clause.
+
+Clarification Q12 (rule@input.clk): The harness calls Contract.edge at each rising clk edge and asserts its complete output vector afterwards. With rst_n deasserted, address 0 advances to 1; address 1 captures the sample and publishes raw/thresholded outputs; address 2 selects its lookup value; address 3 publishes updated weights/bias; address 4 publishes update amounts; address 5 either publishes stop and stays at 5 or increments the index modulo four and returns to 1. Convergence requires index 3 and no nonzero mathematical update anywhere in the four-sample epoch. Stopped rising edges retain every output. A simultaneous reset assertion overrides a rising edge and zeroes every output. E0 is a reset assertion; after E0 all outputs are zero. After release, E1 publishes address 1, E2 publishes address 2 and the first computed outputs, E3 address 3, E4 address 4 and updated weights, E5 address 5 and update amounts, E6 finalizes the sample. A pre-edge row observes the preceding edge's outputs. The supplied harness does not assert outputs at falling edges or throughout an inactive clock level; the Python edge model does not establish the effect of those physical events, so the full inactive-clock obligation is unresolved.
+
+Clarification Q13 (rule@input.rst_n): rst_n assertion is asynchronous and active low. E0 is its physical 1-to-0 assertion: immediately after E0 every public output is zero, at every tested phase and even when E0 coincides with a rising clk edge. Assertion interrupts the current sample and discards its captured inputs and epoch history; it also restarts a stopped run. Deassertion alone leaves every output zero. With reset deasserted, subsequent rising edges E1,E2,E3,E4,E5 publish addresses 1,2,3,4,5 respectively; E2 publishes the first raw sum and thresholded result, E4 the first weight/bias additions, E5 the first previous-delta outputs. E6 finalizes the first sample and returns to address 1 with index 1. Pre-edge samples at E1 see reset zeros, and at each Ej thereafter see the preceding edge's values. Repeated assertions apply the same reset law. The harness checks assertion, release, and simultaneous assertion/clock; it does not establish normal clock behavior while rst_n remains low, so that held-reset part of the input-effect obligation is unresolved.
+
+Clarification Q14 (rule@input.x1): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. x1 is captured only at E0 while running; changes at addresses 0 or 2..5 do not modify the captured sample, and the value present at each later address-1 edge is used for that later sample. Its captured signed value A contributes A*W1 to R published as y_in at E0, which determines y at E0 and the mismatch gain g. At E2, percep_w1 becomes S4(W1+g*A); at E3 prev_percep_wt_1 publishes (g*A) mod 16. Its effect through g on the other updates is given by the same sample equations. Nonzero updates prevent completion of that four-sample epoch; only index 3 of an entirely zero-update epoch completes at E4. Reset overrides capture and discards any pending effect. While stopped, this input cannot change any output or restart training; reset is required.
+
+Clarification Q15 (rule@input.x2): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. x2 is captured only at E0 while running; changes at addresses 0 or 2..5 do not modify the captured sample, and the value present at each later address-1 edge is used for that later sample. Its captured signed value B contributes B*W2 to R published as y_in at E0, which determines y at E0 and the mismatch gain g. At E2, percep_w2 becomes S4(W2+g*B); at E3 prev_percep_wt_2 publishes (g*B) mod 16. Its effect through g on the other updates is given by the same sample equations. Nonzero updates prevent completion of that four-sample epoch; only index 3 of an entirely zero-update epoch completes at E4. Reset overrides capture and discards any pending effect. While stopped, this input cannot change any output or restart training; reset is required.
+
+Clarification Q16 (rule@input.learning_rate): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. learning_rate is captured only at E0 while running; changes at addresses 0 or 2..5 do not modify the captured sample, and the value present at each later address-1 edge is used for that later sample. L=0 makes all updates zero regardless of mismatch; L=1 applies the equations above. It does not affect R or Y. Additions publish at E2 and their amounts at E3. A complete four-sample zero-update epoch allows stop at E4 of index 3; changing the live rate during an already captured sample cannot disable its update. Nonzero updates prevent completion of that four-sample epoch; only index 3 of an entirely zero-update epoch completes at E4. Reset overrides capture and discards any pending effect. While stopped, this input cannot change any output or restart training; reset is required.
+
+Clarification Q17 (rule@input.threshold): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. threshold is captured only at E0 while running; changes at addresses 0 or 2..5 do not modify the captured sample, and the value present at each later address-1 edge is used for that later sample. H compares against the signed wrapped R at E0, not the mathematical untruncated sum. It affects Y and therefore g, but cannot change R directly. Resulting additions publish at E2 and their amounts at E3. Nonzero updates prevent completion of that four-sample epoch; only index 3 of an entirely zero-update epoch completes at E4. Reset overrides capture and discards any pending effect. While stopped, this input cannot change any output or restart training; reset is required.
+
+Clarification Q18 (rule@input.gate_select): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. gate_select is captured only at E0 while running; changes at addresses 0 or 2..5 do not modify the captured sample, and the value present at each later address-1 edge is used for that later sample. G selects the stated normative lookup tuple at E1 using i, regardless of the live inputs or their combination. G=2 has the same tuple as G=1, and G=3 as G=0. It affects g and thus E2 additions and E3 update amounts; it does not affect R or Y directly. A gate change never clears learned weights or restarts a stopped run. Nonzero updates prevent completion of that four-sample epoch; only index 3 of an entirely zero-update epoch completes at E4. Reset overrides capture and discards any pending effect. While stopped, this input cannot change any output or restart training; reset is required.
+
+Clarification Q19 (rule@output.percep_w1): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. An asynchronous rst_n assertion clears this output to zero, including when simultaneous with a rising clock edge; release alone leaves it zero. It may interrupt any sample or a stopped run. After release the first rising edge at address 0 leaves this output zero; E0 for the first sample is the following rising edge. Immediately after E0 and E1, percep_w1 retains W1; immediately after E2 it is S4(W1+g*A), encoded modulo 16, and retains that value after E3 and E4 and until the next sample's E2. Each later sample uses the same timeline. After stop=1 the output retains its final value despite subsequent input changes and rising edges, until reset; reset starts the timeline again. 
+
+Clarification Q20 (rule@output.percep_w2): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. An asynchronous rst_n assertion clears this output to zero, including when simultaneous with a rising clock edge; release alone leaves it zero. It may interrupt any sample or a stopped run. After release the first rising edge at address 0 leaves this output zero; E0 for the first sample is the following rising edge. Immediately after E0 and E1, percep_w2 retains W2; immediately after E2 it is S4(W2+g*B), encoded modulo 16, and retains that value after E3 and E4 and until the next sample's E2. Each later sample uses the same timeline. After stop=1 the output retains its final value despite subsequent input changes and rising edges, until reset; reset starts the timeline again. 
+
+Clarification Q21 (rule@output.percep_bias): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. An asynchronous rst_n assertion clears this output to zero, including when simultaneous with a rising clock edge; release alone leaves it zero. It may interrupt any sample or a stopped run. After release the first rising edge at address 0 leaves this output zero; E0 for the first sample is the following rising edge. Immediately after E0 and E1, percep_bias retains C; immediately after E2 it is S4(C+g), encoded modulo 16, and retains that value after E3 and E4 and until the next sample's E2. Each later sample uses the same timeline. After stop=1 the output retains its final value despite subsequent input changes and rising edges, until reset; reset starts the timeline again. 
+
+Clarification Q22 (rule@output.present_addr): E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. Ereset is the asynchronous assertion of rst_n: immediately after Ereset present_addr=0, including simultaneous clock/reset; release alone retains 0. The first rising edge after release publishes 1. Convergence for this sample means i=3 and every mathematical update amount for all four samples of the current epoch was zero; an epoch starts at index 0, including after reset. Equality of successive nonzero updates is insufficient. Immediately after E0,E1,E2,E3 the address is respectively 2,3,4,5. Immediately after E4 it is 5 if converged, otherwise 1. This repeats for every sample; on convergence it remains 5 through all later rising edges and input changes until reset, which restarts this sequence.
+
+Clarification Q23 (rule@output.stop): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. An asynchronous rst_n assertion clears this output to zero, including when simultaneous with a rising clock edge; release alone leaves it zero. It may interrupt any sample or a stopped run. After release the first rising edge at address 0 leaves this output zero; E0 for the first sample is the following rising edge. Convergence for this sample means i=3 and every mathematical update amount for all four samples of the current epoch was zero; an epoch starts at index 0, including after reset. Equality of successive nonzero updates is insufficient. Immediately after E0,E1,E2,E3 stop remains 0. Immediately after E4 it is 1 on convergence, otherwise 0. It remains 1 at every subsequent rising edge despite input changes until reset. A zero learning rate therefore permits completion after one four-sample epoch even when classifications disagree; isolated zero updates do not finish before index 3.
+
+Clarification Q24 (rule@output.input_index): E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. An asynchronous rst_n assertion clears this output to zero, including when simultaneous with a rising clock edge; release alone leaves it zero. It may interrupt any sample or a stopped run. After release the first rising edge at address 0 leaves this output zero; E0 for the first sample is the following rising edge. Convergence for this sample means i=3 and every mathematical update amount for all four samples of the current epoch was zero; an epoch starts at index 0, including after reset. Equality of successive nonzero updates is insufficient. Immediately after E0,E1,E2,E3 input_index remains i. Immediately after E4 it remains 3 on convergence; otherwise it becomes (i+1) mod 4. There is no index change in response to input data alone. Each later sample uses the same timeline. After stop=1 the output retains its final value despite subsequent input changes and rising edges, until reset; reset starts the timeline again. 
+
+Clarification Q25 (rule@output.y_in): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. An asynchronous rst_n assertion clears this output to zero, including when simultaneous with a rising clock edge; release alone leaves it zero. It may interrupt any sample or a stopped run. After release the first rising edge at address 0 leaves this output zero; E0 for the first sample is the following rising edge. Immediately after E0, y_in publishes R encoded modulo 16; immediately after E1,E2,E3,E4 it retains this value and holds it until the next E0. Changes to live inputs after E0 do not alter this sample's result. Each later sample uses the same timeline. After stop=1 the output retains its final value despite subsequent input changes and rising edges, until reset; reset starts the timeline again. 
+
+Clarification Q26 (rule@output.y): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. An asynchronous rst_n assertion clears this output to zero, including when simultaneous with a rising clock edge; release alone leaves it zero. It may interrupt any sample or a stopped run. After release the first rising edge at address 0 leaves this output zero; E0 for the first sample is the following rising edge. Immediately after E0, y publishes Y encoded modulo 16; immediately after E1,E2,E3,E4 it retains this value and holds it until the next E0. Changes to live inputs after E0 do not alter this sample's result. Each later sample uses the same timeline. After stop=1 the output retains its final value despite subsequent input changes and rising edges, until reset; reset starts the timeline again. 
+
+Clarification Q27 (rule@output.prev_percep_wt_1): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. An asynchronous rst_n assertion clears this output to zero, including when simultaneous with a rising clock edge; release alone leaves it zero. It may interrupt any sample or a stopped run. After release the first rising edge at address 0 leaves this output zero; E0 for the first sample is the following rising edge. prev_percep_wt_1 is an update amount, not a previous absolute weight: immediately after E0,E1,E2 it retains the preceding published amount; immediately after E3 it publishes (g*A) mod 16 and retains it after E4 and until the next sample's E3. Each later sample uses the same timeline. After stop=1 the output retains its final value despite subsequent input changes and rising edges, until reset; reset starts the timeline again. 
+
+Clarification Q28 (rule@output.prev_percep_wt_2): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. An asynchronous rst_n assertion clears this output to zero, including when simultaneous with a rising clock edge; release alone leaves it zero. It may interrupt any sample or a stopped run. After release the first rising edge at address 0 leaves this output zero; E0 for the first sample is the following rising edge. prev_percep_wt_2 is an update amount, not a previous absolute weight: immediately after E0,E1,E2 it retains the preceding published amount; immediately after E3 it publishes (g*B) mod 16 and retains it after E4 and until the next sample's E3. Each later sample uses the same timeline. After stop=1 the output retains its final value despite subsequent input changes and rising edges, until reset; reset starts the timeline again. 
+
+Clarification Q29 (rule@output.prev_percep_bias): Interpret x1, x2, threshold and the weights/bias as signed four-bit two's complement; learning_rate is unsigned 0 or 1. Let S4(v)=((v+8) mod 16)-8 and encode an output integer v as v mod 16. For a sample, let A,B,L,H,G be x1,x2,learning_rate,threshold,gate_select at its address-1 rising edge, i the current input_index, and W1,W2,C the pre-edge weights/bias. Let R=S4(C+A*W1+B*W2), Y=1 if R>H, 0 if R=H, and -1 if R<H. Let T be element i of (1,-1,-1,-1) for G=0 or 3, or (1,1,1,-1) for G=1 or 2. Let g=L*T when Y!=T and g=0 otherwise; the mathematical update amounts are (g*A,g*B,g). E0 is the physical rising clk edge with pre-edge present_addr=1, rst_n=1 and stop=0; E1,E2,E3,E4 are the next four rising edges, with pre-edge addresses 2,3,4,5 respectively. A row samples before its edge: an immediately-after-Ej value first appears in the pre-edge sample for E(j+1), without an extra physical edge. An asynchronous rst_n assertion clears this output to zero, including when simultaneous with a rising clock edge; release alone leaves it zero. It may interrupt any sample or a stopped run. After release the first rising edge at address 0 leaves this output zero; E0 for the first sample is the following rising edge. prev_percep_bias is an update amount, not a previous absolute weight: immediately after E0,E1,E2 it retains the preceding published amount; immediately after E3 it publishes (g) mod 16 and retains it after E4 and until the next sample's E3. Each later sample uses the same timeline. After stop=1 the output retains its final value despite subsequent input changes and rising edges, until reset; reset starts the timeline again. 
+
+Evidence scope: Q12's unverified inactive-clock observations and Q13's unverified held-reset observations describe limits of harness evidence. They leave no source obligation unresolved: the original explicitly requires falling-edge/between-action retention and asynchronous active-low reset of all outputs and state. No implementation choice is needed for these source-defined behaviors.
+
+5. Worked trace
+
+The following evaluated trace is normative for the finite active-edge scenario. Each full-cycle row observes out(s[k],i[k]) BEFORE the rising edge, then the transition produces s[k+1]; an immediately post-edge publication first appears in the next row without an extra circuit latency. The interface contains no physical clk level, so steps denote rising edges rather than all between-edge events. Reset assertions in this scenario are held through an active edge, with a reset output override visible in the pre-edge observation. This projection does not restrict legal asynchronous reset pulses or weaken immediate state clearing and subsequent reset-release behavior in the RTL contract. Initialization in this instance follows the explicit source initialization law, not an added reset setup. iface.json specifies no step_ns or sample_offset_ns; no numerical clock period is inferred from row numbers.
+
+### stimulus 0
+| cycle | rst_n | x1 | x2 | learning_rate | threshold | gate_select | percep_w1 | percep_w2 | percep_bias | present_addr | stop | input_index | y_in | y | prev_percep_wt_1 | prev_percep_wt_2 | prev_percep_bias |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 3 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 4 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 5 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0001 | 4'b0001 | 4'b0001 | 4'b0100 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 6 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0001 | 4'b0001 | 4'b0001 | 4'b0101 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 7 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0001 | 4'b0001 | 4'b0001 | 4'b0001 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 8 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0001 | 4'b0001 | 4'b0001 | 4'b0010 | 0 | 3'b001 | 4'b0011 | 4'b0001 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 9 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0001 | 4'b0001 | 4'b0001 | 4'b0011 | 0 | 3'b001 | 4'b0011 | 4'b0001 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 10 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b001 | 4'b0011 | 4'b0001 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 11 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b001 | 4'b0011 | 4'b0001 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 12 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b010 | 4'b0011 | 4'b0001 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 13 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b010 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 14 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b010 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 15 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0100 | 0 | 3'b010 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 16 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0101 | 0 | 3'b010 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 17 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0001 | 0 | 3'b011 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 18 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0010 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 19 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0011 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 20 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0100 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 21 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0101 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 22 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0001 | 0 | 3'b000 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 23 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0010 | 0 | 3'b000 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 24 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0011 | 0 | 3'b000 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 25 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b000 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 26 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b000 | 4'b1101 | 4'b1111 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 27 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b001 | 4'b1101 | 4'b1111 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 28 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 29 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 30 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0100 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 31 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0101 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 32 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0001 | 0 | 3'b010 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 33 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0010 | 0 | 3'b010 | 4'b1101 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 34 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0011 | 0 | 3'b010 | 4'b1101 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 35 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0100 | 0 | 3'b010 | 4'b1101 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 36 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0101 | 0 | 3'b010 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 37 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0001 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 38 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0010 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 39 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0011 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 40 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0100 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 41 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0101 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 42 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0001 | 0 | 3'b000 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 43 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0010 | 0 | 3'b000 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 44 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0011 | 0 | 3'b000 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 45 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b000 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 46 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b000 | 4'b1101 | 4'b1111 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 47 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b001 | 4'b1101 | 4'b1111 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 48 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 49 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 50 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0100 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0001 | 4'b0001 |
+| 51 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0101 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 52 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0001 | 0 | 3'b010 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 53 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0010 | 0 | 3'b010 | 4'b1101 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 54 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0011 | 0 | 3'b010 | 4'b1101 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 55 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0100 | 0 | 3'b010 | 4'b1101 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b1111 |
+| 56 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0101 | 0 | 3'b010 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 57 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0001 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 58 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0010 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 59 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0011 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 60 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0100 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 61 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0101 | 0 | 3'b011 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 62 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b1111 | 4'b1111 | 4'b1111 | 4'b0001 | 0 | 3'b000 | 4'b1101 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+
+### stimulus 1
+| cycle | rst_n | x1 | x2 | learning_rate | threshold | gate_select | percep_w1 | percep_w2 | percep_bias | present_addr | stop | input_index | y_in | y | prev_percep_wt_1 | prev_percep_wt_2 | prev_percep_bias |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 3 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 4 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 5 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 6 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 7 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 8 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 9 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 10 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 11 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 12 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b010 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 13 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b010 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 14 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b010 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 15 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b010 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 16 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b010 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 17 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b011 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 18 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b011 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 19 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b011 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 20 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b011 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 21 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b011 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 22 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 23 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 24 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 25 | 1 | 4'b1111 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 26 | 1 | 4'b0001 | 4'b1111 | 0 | 4'b0000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+
+### stimulus 2
+| cycle | rst_n | x1 | x2 | learning_rate | threshold | gate_select | percep_w1 | percep_w2 | percep_bias | present_addr | stop | input_index | y_in | y | prev_percep_wt_1 | prev_percep_wt_2 | prev_percep_bias |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 3 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 4 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 5 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b10 | 4'b1111 | 4'b0001 | 4'b0001 | 4'b0100 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 6 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b10 | 4'b1111 | 4'b0001 | 4'b0001 | 4'b0101 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b0001 | 4'b0001 |
+| 7 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b10 | 4'b1111 | 4'b0001 | 4'b0001 | 4'b0001 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b0001 | 4'b0001 |
+| 8 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b10 | 4'b1111 | 4'b0001 | 4'b0001 | 4'b0010 | 0 | 3'b001 | 4'b0011 | 4'b0001 | 4'b1111 | 4'b0001 | 4'b0001 |
+| 9 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b10 | 4'b1111 | 4'b0001 | 4'b0001 | 4'b0011 | 0 | 3'b001 | 4'b0011 | 4'b0001 | 4'b1111 | 4'b0001 | 4'b0001 |
+| 10 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b10 | 4'b1111 | 4'b0001 | 4'b0001 | 4'b0100 | 0 | 3'b001 | 4'b0011 | 4'b0001 | 4'b1111 | 4'b0001 | 4'b0001 |
+| 11 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b10 | 4'b1111 | 4'b0001 | 4'b0001 | 4'b0101 | 0 | 3'b001 | 4'b0011 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+
+### stimulus 3
+| cycle | rst_n | x1 | x2 | learning_rate | threshold | gate_select | percep_w1 | percep_w2 | percep_bias | present_addr | stop | input_index | y_in | y | prev_percep_wt_1 | prev_percep_wt_2 | prev_percep_bias |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 4'b1111 | 4'b1111 | 1 | 4'b0000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b0000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b0000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 3 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b0000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 4 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b0000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 5 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b0000 | 2'b11 | 4'b1111 | 4'b1111 | 4'b0001 | 4'b0100 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 6 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b0000 | 2'b11 | 4'b1111 | 4'b1111 | 4'b0001 | 4'b0101 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b1111 | 4'b0001 |
+| 7 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b0000 | 2'b11 | 4'b1111 | 4'b1111 | 4'b0001 | 4'b0001 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b1111 | 4'b1111 | 4'b0001 |
+| 8 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b0000 | 2'b11 | 4'b1111 | 4'b1111 | 4'b0001 | 4'b0010 | 0 | 3'b001 | 4'b0011 | 4'b0001 | 4'b1111 | 4'b1111 | 4'b0001 |
+| 9 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b0000 | 2'b11 | 4'b1111 | 4'b1111 | 4'b0001 | 4'b0011 | 0 | 3'b001 | 4'b0011 | 4'b0001 | 4'b1111 | 4'b1111 | 4'b0001 |
+| 10 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b0000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b001 | 4'b0011 | 4'b0001 | 4'b1111 | 4'b1111 | 4'b0001 |
+| 11 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b0000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b001 | 4'b0011 | 4'b0001 | 4'b0001 | 4'b0001 | 4'b1111 |
+
+### stimulus 4
+| cycle | rst_n | x1 | x2 | learning_rate | threshold | gate_select | percep_w1 | percep_w2 | percep_bias | present_addr | stop | input_index | y_in | y | prev_percep_wt_1 | prev_percep_wt_2 | prev_percep_bias |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b1111 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b1111 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 3 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b1111 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 4 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 5 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b1111 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 6 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b1111 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 7 | 1 | 4'b1111 | 4'b1111 | 1 | 4'b1111 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 8 | 0 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 9 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 10 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 11 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 12 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 13 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 14 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 15 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 16 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 17 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 18 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b10 | 4'b1111 | 4'b0001 | 4'b1111 | 4'b0100 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 19 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b11 | 4'b1111 | 4'b0001 | 4'b1111 | 4'b0101 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b1111 | 4'b0001 | 4'b1111 |
+
+### stimulus 5
+| cycle | rst_n | x1 | x2 | learning_rate | threshold | gate_select | percep_w1 | percep_w2 | percep_bias | present_addr | stop | input_index | y_in | y | prev_percep_wt_1 | prev_percep_wt_2 | prev_percep_bias |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 3 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 4 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 5 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 6 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 7 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 8 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 9 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 10 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 11 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 12 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b010 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 13 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b010 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 14 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b010 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 15 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b010 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 16 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b010 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 17 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 18 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 19 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 20 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 21 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 22 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 23 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 24 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 25 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 26 | 0 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 27 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 28 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 29 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 30 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 31 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 32 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 33 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 34 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 35 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 36 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 37 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 38 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b010 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 39 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b010 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 40 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b010 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 41 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b010 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 42 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b010 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 43 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 44 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 45 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 46 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 47 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 48 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 49 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b01 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 50 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b10 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 51 | 1 | 4'b0001 | 4'b0001 | 0 | 4'b1000 | 2'b11 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 1 | 3'b011 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+
+### stimulus 6
+| cycle | rst_n | x1 | x2 | learning_rate | threshold | gate_select | percep_w1 | percep_w2 | percep_bias | present_addr | stop | input_index | y_in | y | prev_percep_wt_1 | prev_percep_wt_2 | prev_percep_bias |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 4'b0001 | 4'b0001 | 1 | 4'b0001 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0001 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 1 | 4'b0000 | 4'b0001 | 1 | 4'b0001 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 3 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0001 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b000 | 4'b0000 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 4 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0001 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b000 | 4'b0000 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 5 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0001 | 2'b00 | 4'b0000 | 4'b0001 | 4'b0001 | 4'b0100 | 0 | 3'b000 | 4'b0000 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 6 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0001 | 2'b00 | 4'b0000 | 4'b0001 | 4'b0001 | 4'b0101 | 0 | 3'b000 | 4'b0000 | 4'b1111 | 4'b0000 | 4'b0001 | 4'b0001 |
+| 7 | 1 | 4'b0001 | 4'b0001 | 1 | 4'b0001 | 2'b00 | 4'b0000 | 4'b0001 | 4'b0001 | 4'b0001 | 0 | 3'b001 | 4'b0000 | 4'b1111 | 4'b0000 | 4'b0001 | 4'b0001 |
+
+### stimulus 7
+| cycle | rst_n | x1 | x2 | learning_rate | threshold | gate_select | percep_w1 | percep_w2 | percep_bias | present_addr | stop | input_index | y_in | y | prev_percep_wt_1 | prev_percep_wt_2 | prev_percep_bias |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 4'b0001 | 4'b1111 | 1 | 4'b0111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b0111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 1 | 4'b0001 | 4'b1000 | 1 | 4'b0111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 3 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b0111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b000 | 4'b0000 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 4 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b0111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b000 | 4'b0000 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 5 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b0111 | 2'b00 | 4'b0001 | 4'b1000 | 4'b0001 | 4'b0100 | 0 | 3'b000 | 4'b0000 | 4'b1111 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 6 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b0111 | 2'b00 | 4'b0001 | 4'b1000 | 4'b0001 | 4'b0101 | 0 | 3'b000 | 4'b0000 | 4'b1111 | 4'b0001 | 4'b1000 | 4'b0001 |
+| 7 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b0111 | 2'b00 | 4'b0001 | 4'b1000 | 4'b0001 | 4'b0001 | 0 | 3'b001 | 4'b0000 | 4'b1111 | 4'b0001 | 4'b1000 | 4'b0001 |
+
+### stimulus 8
+| cycle | rst_n | x1 | x2 | learning_rate | threshold | gate_select | percep_w1 | percep_w2 | percep_bias | present_addr | stop | input_index | y_in | y | prev_percep_wt_1 | prev_percep_wt_2 | prev_percep_bias |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 1 | 4'b0111 | 4'b0000 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 3 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 4 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 5 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0111 | 4'b0000 | 4'b0001 | 4'b0100 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 6 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0111 | 4'b0000 | 4'b0001 | 4'b0101 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0111 | 4'b0000 | 4'b0001 |
+| 7 | 1 | 4'b1111 | 4'b0001 | 1 | 4'b0000 | 2'b00 | 4'b0111 | 4'b0000 | 4'b0001 | 4'b0001 | 0 | 3'b001 | 4'b0000 | 4'b0000 | 4'b0111 | 4'b0000 | 4'b0001 |
+
+### stimulus 9
+| cycle | rst_n | x1 | x2 | learning_rate | threshold | gate_select | percep_w1 | percep_w2 | percep_bias | present_addr | stop | input_index | y_in | y | prev_percep_wt_1 | prev_percep_wt_2 | prev_percep_bias |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 1 | 4'b1000 | 4'b0111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 3 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 4 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 5 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 6 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 0 | 3'b000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 7 | 1 | 4'b0001 | 4'b1111 | 1 | 4'b1111 | 2'b00 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 0 | 3'b001 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 | 4'b0000 |

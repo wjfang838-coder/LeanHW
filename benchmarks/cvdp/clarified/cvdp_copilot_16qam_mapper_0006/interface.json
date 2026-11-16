@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_16qam_mapper_0006",
+  "toplevel": "qam16_demapper_interpolated",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

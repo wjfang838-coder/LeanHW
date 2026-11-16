@@ -1,0 +1,95 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- x: input [3:0].
+- y: input [3:0].
+- sum: output [4:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+There is no reset input and no reset behavior. The design has no state elements. From power-up onward, including before any edge has occurred, sum is defined solely by the current x and y values; it is never an uninitialized or unknown stored value.
+
+4. Timing
+
+sum is combinational. A change to either x or y contributes immediately after combinational settling, with zero clock-cycle latency. There is no clock, capture edge, pulse, completion event, periodic signal, hold interval, or restart behavior.
+
+The evaluated object's full-cycle rows are an observation convention only: row k denotes k times the interface step_ns after settling, sampled at the interface sample_offset_ns, and does not imply a 10 ns clock tick. The circuit itself has no clock period or delay law beyond combinational settling.
+
+5. Behaviour
+
+For every possible input combination, x and y are interpreted as unsigned 4-bit values and sum is their unsigned 5-bit arithmetic sum. Equivalently, sum = {1'b0, x} + {1'b0, y}; the fifth bit preserves carry-out, so no overflow is lost for values from 0 through 15.
+
+At all times, every change of x contributes its 4-bit unsigned value immediately to sum together with y. At all times, every change of y contributes its 4-bit unsigned value immediately to sum together with x. There are no modes, inactive levels, event priorities, interruptions, or transaction history, and repeated identical input combinations produce the same combinational result.
+
+sum continuously equals the 5-bit unsigned arithmetic sum of x and y with no reset, capture edge, latency, hold or clear interval, completion, or restart behavior. Pre-transition row sampling introduces no edge-relative distinction; each row observes the result of its current inputs after combinational settling.
+
+All 256 possible pairs of 4-bit input encodings are covered by this law.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | x | y | sum |
+|---|---|---|---|
+| 0 | 4'b0000 | 4'b0000 | 5'b00000 |
+
+### stimulus 1
+| cycle | x | y | sum |
+|---|---|---|---|
+| 0 | 4'b0001 | 4'b0000 | 5'b00001 |
+
+### stimulus 2
+| cycle | x | y | sum |
+|---|---|---|---|
+| 0 | 4'b0000 | 4'b0001 | 5'b00001 |
+
+### stimulus 3
+| cycle | x | y | sum |
+|---|---|---|---|
+| 0 | 4'b1111 | 4'b0000 | 5'b01111 |
+
+### stimulus 4
+| cycle | x | y | sum |
+|---|---|---|---|
+| 0 | 4'b0000 | 4'b1111 | 5'b01111 |
+
+### stimulus 5
+| cycle | x | y | sum |
+|---|---|---|---|
+| 0 | 4'b1000 | 4'b0000 | 5'b01000 |
+
+### stimulus 6
+| cycle | x | y | sum |
+|---|---|---|---|
+| 0 | 4'b0000 | 4'b1000 | 5'b01000 |
+
+### stimulus 7
+| cycle | x | y | sum |
+|---|---|---|---|
+| 0 | 4'b0110 | 4'b0101 | 5'b01011 |
+
+### stimulus 8
+| cycle | x | y | sum |
+|---|---|---|---|
+| 0 | 4'b1000 | 4'b1000 | 5'b10000 |
+
+### stimulus 9
+| cycle | x | y | sum |
+|---|---|---|---|
+| 0 | 4'b1111 | 4'b0001 | 5'b10000 |
+
+### stimulus 10
+| cycle | x | y | sum |
+|---|---|---|---|
+| 0 | 4'b1111 | 4'b1111 | 5'b11110 |

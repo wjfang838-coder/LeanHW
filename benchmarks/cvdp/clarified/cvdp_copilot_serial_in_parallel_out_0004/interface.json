@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_serial_in_parallel_out_0004",
+  "toplevel": "serial_in_parallel_out_8bit",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

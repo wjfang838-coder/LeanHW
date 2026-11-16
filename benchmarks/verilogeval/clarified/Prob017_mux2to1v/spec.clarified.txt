@@ -1,0 +1,81 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input [99:0].
+- b: input [99:0].
+- sel: input 1 bit.
+- out: output [99:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+The module has no reset input, reset behavior, or state elements. Consequently there is no reset edge and no first step after reset release. From power-up onward, including before any edge has occurred, out is the current combinationally selected input value; it is never an uninitialized stored value.
+
+4. Timing.
+
+out is combinational with zero clock-cycle latency: every change or repeated presentation of a, b, or sel is reflected immediately according to the resulting current inputs. There is no clock, capture edge, completion pulse, periodic output, transaction, interruption, or retained data.
+
+For the evaluated trace, row k observes the settled combinational inputs at sampling step k. A row is sampled before the model's transition, but that transition has no state effect. The full-cycle trace convention does not create an implicit 10 ns tick or any actual circuit period or delay law. The interface defines no numerical step_ns or sample_offset_ns value.
+
+5. Behaviour.
+
+At all times, when sel is 1'b0, out equals the entire 100-bit value a, and b has no effect on out.
+
+At all times, when sel is 1'b1, out equals the entire 100-bit value b, and a has no effect on out.
+
+The current value of sel combinationally selects the entire 100-bit output, with sel=1'b0 selecting a and sel=1'b1 selecting b. These are all possible encodings of the one-bit sel input; neither level is inactive.
+
+Changes or repeated presentations of a, b, or sel, including simultaneous changes, take effect immediately from the resulting current inputs. The behavior has no initialization phase, reset, transaction, cancellation, capture, completion, latency, clearing, holding, restart, or retained state.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 100'h0 | 100'hfffffffffffffffffffffffff | 0 | 100'h0 |
+
+### stimulus 1
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 100'hfffffffffffffffffffffffff | 100'h0 | 1 | 100'h0 |
+
+### stimulus 2
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 100'h1 | 100'h8000000000000000000000000 | 0 | 100'h1 |
+
+### stimulus 3
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 100'h8000000000000000000000000 | 100'h1 | 1 | 100'h1 |
+
+### stimulus 4
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 100'h2a | 100'h75bcd15 | 0 | 100'h2a |
+
+### stimulus 5
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 100'h2a | 100'h75bcd15 | 1 | 100'h75bcd15 |
+
+### stimulus 6
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 100'hfffffffffffffffffffffffff | 100'h8000000000000000000000000 | 0 | 100'hfffffffffffffffffffffffff |
+
+### stimulus 7
+| cycle | a | b | sel | out |
+|---|---|---|---|---|
+| 0 | 100'h75bcd15 | 100'h2a | 1 | 100'h2a |

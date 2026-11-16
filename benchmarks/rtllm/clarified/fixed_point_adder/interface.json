@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "fixed_point_adder",
+  "toplevel": "fixed_point_adder",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

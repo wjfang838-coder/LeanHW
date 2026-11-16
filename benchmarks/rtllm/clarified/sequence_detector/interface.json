@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "sequence_detector",
+  "toplevel": "sequence_detector",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

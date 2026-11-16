@@ -1,0 +1,84 @@
+Original implementation instruction (verbatim):
+
+## Problem Description
+Design a Verilog module named `reverse_bits` to reverse the bits of a 32-bit unsigned input number. The module should take a 32-bit input bus and produce a 32-bit output bus where the input bits are reversed. For example, if the input is `32'b00000000000000000000000000000001` (decimal 1), the output should be `32'b10000000000000000000000000000000`.
+
+Named module interface binding
+
+Module: reverse_bits.
+Connect ports by name. The enumeration below does not establish positional order.
+- num_in: input; 32 bits in the concrete formal instance.
+- num_out: output; 32 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports
+
+The module name is exactly reverse_bits. It has no public parameters. The confirmed boundary uses exact named connections. Declaration order and positional-instantiation order are not established, so the following source-list order is for presentation only and is not normative; the module must be instantiated by name.
+
+1. num_in — input, unsigned, 32 bits wide, with Verilog range [31:0].
+2. num_out — output, 32 bits wide, with Verilog range [31:0].
+
+The implementation deliverable must be synthesizable Verilog. It must use clear comments and intuitive naming to support readability and maintainability.
+
+3. Reset
+
+There is no reset input, no reset assertion or release behavior, and no state element. At power-up, including before any edge or reset event has occurred, num_out is determined combinationally from the current valid num_in by the reversal law in section 5. No first reset edge is required to establish it. Every later observation follows the same rule.
+
+4. Timing
+
+num_out is combinational from num_in with zero clock-cycle latency and continuously reflects the most recent complete num_in value after combinational propagation has settled. There is no clock, registered output, pulse, periodic signal, capture edge, hold interval, completion state, or restart protocol. Simultaneous, interrupted, and repeated input changes introduce no transaction semantics: after settling, only the current complete input value determines the output.
+
+The worked-trace rows use the interface observation convention: each row is an abstract settled sample. Because the circuit has no clock or state transition, row progression does not imply a circuit clock period, edge, or delay law. The source specifies no numerical propagation delay or circuit period.
+
+5. Behaviour
+
+For every valid 32-bit binary num_in and every bit index i from 0 through 31, num_out[31-i] equals num_in[i]. Equivalently, num_out[31] equals num_in[0], num_out[30] equals num_in[1], and the correspondence continues through num_out[0] equals num_in[31]. All 32 input bits participate exactly once; no bit is discarded or duplicated. num_out continuously reflects that reversal of the current num_in after combinational propagation has settled.
+
+Input 32'b00000000000000000000000000000001 produces 32'b10000000000000000000000000000000. The all-zero input produces all zeros. The all-one input produces all ones. Input 32'b10101010101010101010101010101010 produces 32'b01010101010101010101010101010101.
+
+Inputs containing unknown or high-impedance bits are outside the valid input domain and will not be supplied. No output behavior is specified for such invalid inputs; this restriction creates no don't-care for any valid binary input.
+
+6. Worked trace
+
+The evaluated trace below is normative for the sampled inputs and uses the settled-row observation convention stated in section 4.
+
+### stimulus 0
+| cycle | num_in | num_out |
+|---|---|---|
+| 0 | 32'h0 | 32'h0 |
+
+### stimulus 1
+| cycle | num_in | num_out |
+|---|---|---|
+| 0 | 32'h1 | 32'h80000000 |
+
+### stimulus 2
+| cycle | num_in | num_out |
+|---|---|---|
+| 0 | 32'hffffffff | 32'hffffffff |
+
+### stimulus 3
+| cycle | num_in | num_out |
+|---|---|---|
+| 0 | 32'h80000000 | 32'h1 |
+
+### stimulus 4
+| cycle | num_in | num_out |
+|---|---|---|
+| 0 | 32'h10000 | 32'h8000 |
+
+### stimulus 5
+| cycle | num_in | num_out |
+|---|---|---|
+| 0 | 32'h12345678 | 32'h1e6a2c48 |
+
+### stimulus 6
+| cycle | num_in | num_out |
+|---|---|---|
+| 0 | 32'haaaaaaaa | 32'h55555555 |
+
+### stimulus 7
+| cycle | num_in | num_out |
+|---|---|---|
+| 0 | 32'h55555555 | 32'haaaaaaaa |

@@ -1,0 +1,123 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- shift_ena: input 1 bit.
+- count_ena: input 1 bit.
+- data: input 1 bit.
+- q: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports.
+
+
+
+Reset.
+
+There is no reset input and no reset behavior. At power-up, before any rising edge has occurred, q is unknown. The implementation must leave q uninitialised: it must not give q a declaration initialiser or an initial-block value. There is consequently no reset assertion, reset edge, or first step after reset release. q becomes fully known only after four shift-enabled rising edges have supplied four known data bits; before then it remains unknown. Disabled rising edges hold its current state, and count-enabled rising edges while q is unknown do not make it known.
+
+Timing.
+
+q is a registered output updated only on the rising edge of clk. A steady clk, a falling edge, and intervals between rising edges leave q unchanged. On an eligible shift edge, the data value present at that edge is reflected in q immediately after that same edge, with zero additional clock-cycle latency. On an eligible count edge, the decremented value is likewise visible immediately after that edge, with zero additional clock-cycle latency. There are no pulses, periodic generated outputs, transactions, completion states, or interruption intervals.
+
+For the evaluated full-cycle trace, row k is the settled pre-edge observation for step k: it reports q before the rising-edge transition associated with that row, and the next row reports the state produced by that transition. Rows are separated according to the interface timing step, not by an implicit 10 ns clock tick. This observation convention does not impose a physical clock period or propagation delay; neither is specified.
+
+Behaviour.
+
+At every rising edge of clk, shift_ena has priority. If shift_ena is high, q becomes {the previous q[2:0], data}. This edge counts as one of the four determining shifts even if count_ena is also high. Successive shift-enabled rising edges perform successive shifts independently, with no completion or interruption state.
+
+If shift_ena is low and count_ena is high at a rising edge, q is decremented modulo 16. Thus decrementing 4'b0000 produces 4'b1111. Repeated eligible rising edges perform one decrement each. If q is still unknown, counting does not make it known.
+
+If both shift_ena and count_ena are low at a rising edge, q retains its previous value. A value produced by shifting or counting is retained on subsequent rising edges for which both enables are low.
+
+data is sampled only on a rising edge at which shift_ena is high. On that edge it becomes q[0], while the previous q[2:0] move to q[3:1]. data has no effect during counting, holding, or between rising edges, including when count_ena is asserted simultaneously with the higher-priority shift.
+
+Only a rising edge of clk can change q: each such edge applies the shift_ena/count_ena priority rule using the input values present at that edge, while a steady clock, a falling edge, or any interval between rising edges leaves q unchanged, and every rising edge independently repeats this behavior without a transaction, completion, or interruption state.
+
+q has no reset behavior and begins unknown; immediately after each rising edge it becomes {prior q[2:0], data} when shift_ena is high, otherwise prior q minus one modulo 16 when count_ena is high, otherwise it retains its prior value, so a row sampled before an active edge observes the result of the preceding eligible edge, with no separate clear, completion, latency, or restart interval and with the same rule applied on every repeated edge.
+
+Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | shift_ena | count_ena | data | q |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 4'x |
+
+### stimulus 1
+| cycle | shift_ena | count_ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 4'x |
+| 1 | 1 | 0 | 0 | 4'x |
+| 2 | 1 | 0 | 1 | 4'x |
+| 3 | 1 | 0 | 0 | 4'x |
+| 4 | 0 | 1 | 0 | 4'b1010 |
+
+### stimulus 2
+| cycle | shift_ena | count_ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'x |
+| 1 | 1 | 0 | 0 | 4'x |
+| 2 | 1 | 0 | 0 | 4'x |
+| 3 | 1 | 0 | 1 | 4'x |
+| 4 | 0 | 1 | 0 | 4'b0001 |
+| 5 | 0 | 1 | 0 | 4'b0000 |
+
+### stimulus 3
+| cycle | shift_ena | count_ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 4'x |
+| 1 | 1 | 0 | 1 | 4'x |
+| 2 | 1 | 0 | 1 | 4'x |
+| 3 | 1 | 0 | 1 | 4'x |
+| 4 | 0 | 1 | 0 | 4'b1111 |
+| 5 | 0 | 1 | 0 | 4'b1110 |
+
+### stimulus 4
+| cycle | shift_ena | count_ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 4'x |
+| 1 | 1 | 0 | 0 | 4'x |
+| 2 | 1 | 0 | 0 | 4'x |
+| 3 | 1 | 0 | 0 | 4'x |
+| 4 | 0 | 0 | 1 | 4'b1000 |
+
+### stimulus 5
+| cycle | shift_ena | count_ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'x |
+| 1 | 1 | 0 | 1 | 4'x |
+| 2 | 1 | 0 | 1 | 4'x |
+| 3 | 1 | 0 | 0 | 4'x |
+| 4 | 1 | 1 | 1 | 4'b0110 |
+| 5 | 0 | 0 | 0 | 4'b1101 |
+
+### stimulus 6
+| cycle | shift_ena | count_ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'x |
+| 1 | 1 | 0 | 0 | 4'x |
+| 2 | 1 | 0 | 0 | 4'x |
+| 3 | 1 | 0 | 0 | 4'x |
+| 4 | 0 | 1 | 0 | 4'b0000 |
+| 5 | 0 | 0 | 0 | 4'b1111 |
+
+### stimulus 7
+| cycle | shift_ena | count_ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 4'x |
+| 1 | 1 | 0 | 0 | 4'x |
+| 2 | 0 | 0 | 1 | 4'x |
+| 3 | 1 | 0 | 1 | 4'x |
+| 4 | 1 | 0 | 0 | 4'x |
+| 5 | 0 | 1 | 0 | 4'b1010 |
+| 6 | 1 | 0 | 1 | 4'b1001 |
+| 7 | 1 | 0 | 0 | 4'b0011 |
+| 8 | 1 | 0 | 1 | 4'b0110 |
+| 9 | 1 | 0 | 0 | 4'b1101 |

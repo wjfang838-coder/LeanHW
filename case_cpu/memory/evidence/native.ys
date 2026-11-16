@@ -1,0 +1,11 @@
+read_verilog -sv case_cpu/memory/rtl/cpu.sv
+hierarchy -check -top case_cpu_memory
+proc -norom
+flatten
+memory_collect
+pmuxtree
+opt -nodffe -nosdff
+wreduce
+opt -nodffe -nosdff
+check -assert
+write_json -noscopeinfo case_cpu/memory/evidence/native.rtlil.json

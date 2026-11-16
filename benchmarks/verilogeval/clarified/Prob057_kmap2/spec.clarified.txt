@@ -1,0 +1,90 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- c: input 1 bit.
+- d: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input, reset event, or reset state. At power-up, before any reset edge could have occurred, out is already the combinational value specified below for the current values of a, b, c, and d; it is neither stored nor uninitialised. There are no state elements and no first step after reset release.
+
+Timing
+
+out is continuously combinational, with zero clock-cycle latency from the current values of a, b, c, and d. It is not a pulse or periodic signal. Each normative trace row observes the settled combinational output for that row's current inputs before the design's no-op transition. Row k denotes k sampling steps after settling; the interface specifies no step duration or sample offset, and this convention does not imply a 10 ns clock, circuit period, or propagation delay.
+
+Behaviour
+
+The effect of a is combinational: when a=0, out=(~c & ~b) | ~d | (b & c & d), and when a=1, out=(~c & ~b) | (c & d); simultaneous or repeated input changes cause out to be reevaluated from the current input levels.
+
+The effect of b is combinational: when b=0, out=~c | (~d & ~a) | (a & c & d), and when b=1, out=(~d & ~a) | (c & d); simultaneous or repeated input changes cause out to be reevaluated from the current input levels.
+
+The effect of c is combinational: when c=0, out=~b | (~d & ~a), and when c=1, out=(~d & ~a) | (a & d) | (b & d); simultaneous or repeated input changes cause out to be reevaluated from the current input levels.
+
+The effect of d is combinational: when d=0, out=(~c & ~b) | ~a, and when d=1, out=(~c & ~b) | (a & c) | (b & c); simultaneous or repeated input changes cause out to be reevaluated from the current input levels.
+
+For every combination of the four one-bit inputs, out is continuously determined by out=(~c & ~b) | (~d & ~a) | (a & c & d) | (b & c & d). There are no modes, disabled inputs, inactive control levels, transactions, cancellation, retention, completion, or restart behavior.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 1 |
+| 1 | 0 | 0 | 0 | 1 | 1 |
+
+### stimulus 1
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 1 |
+| 1 | 0 | 0 | 1 | 1 | 0 |
+
+### stimulus 2
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 1 |
+| 1 | 0 | 1 | 0 | 1 | 0 |
+
+### stimulus 3
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 0 | 1 |
+| 1 | 0 | 1 | 1 | 1 | 1 |
+
+### stimulus 4
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 1 |
+| 1 | 1 | 0 | 0 | 1 | 1 |
+
+### stimulus 5
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 1 | 1 |
+
+### stimulus 6
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 0 |
+| 1 | 1 | 1 | 1 | 1 | 1 |

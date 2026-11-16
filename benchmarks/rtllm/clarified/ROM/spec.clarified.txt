@@ -1,0 +1,77 @@
+Module and integration contract
+
+Module: ROM.
+Ports below are in exact declaration order:
+- addr: input [7:0].
+- dout: output [15:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+ROM has no reset input, reset event, or stored state. Consequently there is no reset assertion interval or first step after reset release, and no state element has a reset value. From power-up onward, after combinational settling, dout has the value selected by the current addr. Before any hypothetical reset edge, which does not exist for this module, dout follows the same rule: it is one of the four defined words for addr 8'h00 through 8'h03 and is all-unknown for addr 8'h04 through 8'hff.
+
+4. Timing.
+
+dout is continuously combinational from the current addr with zero clock-cycle latency. There is no clock, capture edge, observation edge, pulse, periodic signal, circuit period, or specified propagation delay.
+
+The evaluated trace uses the interface observation convention: row k denotes the settled observation at k * step_ns, sampled at sample_offset_ns, and does not imply a 10 ns clock tick. That trace cadence is distinct from circuit timing; this clockless specification imposes no actual period or numerical delay law.
+
+5. Behaviour.
+
+At all times addr directly selects dout combinationally: 8'h00, 8'h01, 8'h02, and 8'h03 select 16'ha0a0, 16'hb1b1, 16'hc2c2, and 16'hd3d3 respectively, while 8'h04 through 8'hff select an all-unknown value; there are no inactive levels, modes, transactions, event priorities, interruptions, or retained effects, so every addr change immediately replaces the selection.
+
+dout is a continuously combinational function of the current addr, becoming 16'ha0a0, 16'hb1b1, 16'hc2c2, or 16'hd3d3 for addr 8'h00 through 8'h03 respectively and all-unknown for addr 8'h04 through 8'hff, with no reset, capture edge, observation edge, latency, hold/clear interval, completion, or restart; consequently pre-edge row sampling observes the value selected before that edge and an addr change at the edge is observable only after combinational settling.
+
+All 256 possible input encodings are covered by these ranges. An all-unknown value means all 16 bits of dout are unconstrained for that address.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | addr | dout |
+|---|---|---|
+| 0 | 8'b00000000 | 16'ha0a0 |
+
+### stimulus 1
+| cycle | addr | dout |
+|---|---|---|
+| 0 | 8'b00000001 | 16'hb1b1 |
+
+### stimulus 2
+| cycle | addr | dout |
+|---|---|---|
+| 0 | 8'b00000010 | 16'hc2c2 |
+
+### stimulus 3
+| cycle | addr | dout |
+|---|---|---|
+| 0 | 8'b00000011 | 16'hd3d3 |
+
+### stimulus 4
+| cycle | addr | dout |
+|---|---|---|
+| 0 | 8'b00000100 | 16'x |
+
+### stimulus 5
+| cycle | addr | dout |
+|---|---|---|
+| 0 | 8'b11111111 | 16'x |
+
+### stimulus 6
+| cycle | addr | dout |
+|---|---|---|
+| 0 | 8'b10000000 | 16'x |
+
+### stimulus 7
+| cycle | addr | dout |
+|---|---|---|
+| 0 | 8'b01011010 | 16'x |

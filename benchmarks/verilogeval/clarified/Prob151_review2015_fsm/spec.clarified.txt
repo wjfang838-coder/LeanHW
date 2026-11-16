@@ -1,0 +1,212 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- data: input 1 bit.
+- shift_ena: output 1 bit.
+- counting: output 1 bit.
+- done_counting: input 1 bit.
+- done: output 1 bit.
+- ack: input 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+Reset is active high and synchronous. Only a rising edge of clk samples reset. A rising edge with reset = 1 has priority over data, done_counting, and ack and returns the protocol to pattern acquisition; immediately after that edge shift_ena, counting, and done are all 0. Further rising edges with reset = 1 retain that state and those output values. Merely asserting reset between rising edges has no immediate effect.
+
+Before the first rising edge that samples reset = 1, shift_ena, counting, and done are all unknown, independently of the input values. The implementation must leave each of them uninitialised in that power-up interval: no initial block and no declaration initialiser may define them.
+
+On the first rising edge after reset is released, normal pattern acquisition resumes: data is sampled as the first possible bit of a new 1101 pattern. All outputs remain 0 after that edge unless and until the complete pattern and subsequent phase transitions described below occur.
+
+Timing
+
+All three outputs are registered state-dependent outputs and change only immediately after a rising edge of clk. reset, data, done_counting, and ack are sampled only on rising edges. A steady clk level and falling edges have no effect. Repeated rising edges advance or hold the protocol according to the current phase.
+
+shift_ena becomes 1 immediately after the rising edge that samples the final 1 of 1101. It remains 1 for exactly four complete clock-cycle intervals and becomes 0 immediately after the fourth following rising edge. Thus its asserted pulse is exactly four cycles wide.
+
+counting becomes 1 immediately after the rising edge ending the fourth shift-enabled interval. It has a one-edge response latency from a sampled high done_counting: on that pre-edge sample counting is still 1, and immediately after the edge it is 0.
+
+done becomes 1 immediately after a rising edge that samples done_counting = 1 while counting is asserted. It remains asserted for one or more complete cycles until acknowledgement. It has a one-edge response latency from a sampled high ack: on that pre-edge sample done is still 1, and immediately after the edge it is 0.
+
+The evaluated trace uses full-cycle observations. Row k is the settled pre-edge observation at k times the interface step_ns from the start of its stimulus block, with the interface sample_offset_ns applied; it is not an implicit 10 ns clock tick. Each row first observes the current outputs and inputs, then its rising edge computes the state used by the next row. This observation cadence is separate from the circuit law above, whose period is one rising-edge-to-rising-edge clock cycle.
+
+Behaviour
+
+With reset inactive, data is sampled on rising clock edges only during pattern acquisition for the serial pattern 1101. From an empty prefix, 0 leaves the prefix empty and 1 records one leading 1. After one leading 1, another 1 records two leading 1s, while 0 restarts the search. After at least two leading 1s, another 1 retains that overlapping prefix, while 0 records the prefix 110. From prefix 110, 1 completes detection and 0 restarts the search. This defines the behavior for both possible values of the one-bit data input at every acquisition state.
+
+data has no effect during the following four shift-enabled cycles, the counting interval, or the done interval. After acknowledgement, pattern acquisition restarts and the same rules apply to every later transaction.
+
+shift_ena is unknown before a reset edge, is 0 immediately after any rising edge sampling reset = 1, remains 0 during pattern acquisition, becomes 1 immediately after the rising edge that samples the final 1 of pattern 1101, stays 1 for four complete inter-edge intervals, then becomes 0 immediately after the fourth following rising edge and remains 0 throughout counting and done until a later detection. Because rows are pre-edge samples, the detection row still shows the prior value and the next row first shows assertion.
+
+counting is unknown before a reset edge, is 0 immediately after any rising edge sampling reset = 1, remains 0 through pattern acquisition and four complete shift-enabled intervals, becomes 1 immediately after the rising edge ending the fourth such interval, remains 1 across rising edges that sample done_counting = 0, and becomes 0 immediately after a rising edge sampling done_counting = 1. Pre-edge rows therefore show 1 on the completing done_counting edge, and counting remains 0 through done and restart until the next transaction reaches counting.
+
+done is unknown before a reset edge, is 0 immediately after any rising edge sampling reset = 1, remains 0 during pattern acquisition, shifting, and counting, becomes 1 immediately after a rising edge that samples done_counting = 1 while counting, remains 1 across rising edges sampling ack = 0, and becomes 0 immediately after a rising edge sampling ack = 1. Pre-edge rows show 0 on the completing done_counting edge and 1 on the acknowledging edge, after which repeated transactions may begin.
+
+With reset inactive, done_counting is sampled only while counting is 1: 0 retains counting, and 1 ends counting and asserts done immediately after that edge. It has no effect during pattern acquisition, the four shift-enabled cycles, or the done interval. reset overrides it, including when done_counting is 1, and the same rule applies in every later transaction.
+
+With reset inactive, ack is sampled only while done is 1: 0 retains done, and 1 clears done and restarts pattern acquisition immediately after that edge. It has no effect during pattern acquisition, the four shift-enabled cycles, or counting. reset overrides it, including when ack is 1, and the same rule applies in every later transaction.
+
+Worked trace
+
+The following evaluated trace is normative. It uses the pre-edge observation convention stated above.
+
+### stimulus 0
+| cycle | reset | data | done_counting | ack | shift_ena | counting | done |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | x | x | x |
+| 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 6 | 0 | 1 | 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 1
+| cycle | reset | data | done_counting | ack | shift_ena | counting | done |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | x | x | x |
+| 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 9 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 11 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| 12 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 13 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 14 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | reset | data | done_counting | ack | shift_ena | counting | done |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | x | x | x |
+| 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 8 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 9 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 10 | 0 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 11 | 0 | 0 | 1 | 0 | 0 | 0 | 1 |
+| 12 | 0 | 1 | 0 | 1 | 0 | 0 | 1 |
+| 13 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 3
+| cycle | reset | data | done_counting | ack | shift_ena | counting | done |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | x | x | x |
+| 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 8 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 9 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 10 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 11 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 12 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| 13 | 0 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 14 | 0 | 0 | 0 | 1 | 0 | 0 | 1 |
+| 15 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 4
+| cycle | reset | data | done_counting | ack | shift_ena | counting | done |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | x | x | x |
+| 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 8 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 9 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
+| 10 | 0 | 0 | 1 | 1 | 0 | 1 | 0 |
+| 11 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| 12 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | reset | data | done_counting | ack | shift_ena | counting | done |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | x | x | x |
+| 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 11 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 12 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| 13 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 14 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 15 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 16 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 6
+| cycle | reset | data | done_counting | ack | shift_ena | counting | done |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | x | x | x |
+| 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 9 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 11 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 12 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 13 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 14 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 15 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 16 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 17 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 18 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 19 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 20 | 0 | 0 | 1 | 0 | 0 | 1 | 0 |
+| 21 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| 22 | 0 | 0 | 0 | 1 | 0 | 0 | 1 |
+| 23 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | reset | data | done_counting | ack | shift_ena | counting | done |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | x | x | x |
+| 1 | 0 | 0 | 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 10 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 11 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 12 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |

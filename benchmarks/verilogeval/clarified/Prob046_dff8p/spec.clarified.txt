@@ -1,0 +1,109 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- d: input [7:0].
+- reset: input 1 bit.
+- q: output [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Reset is active high and synchronous to the falling edge of clk. Before the first falling edge of clk, q is unknown regardless of reset or d; the implementation must leave q uninitialised, with no initial block or declaration initialiser that gives it a defined value. Merely asserting or releasing reset between falling edges does not change q.
+
+At every falling edge with reset high, q becomes 8'b00110100 regardless of d. Reset has priority over d, and repeated reset-active falling edges reapply 8'b00110100. While reset remains asserted between falling edges, q retains the value established by the preceding falling edge; thus it can remain unknown if no falling edge has yet occurred.
+
+After reset is released, q retains its prior value until the first subsequent falling edge. At that falling edge, q captures the current eight-bit value of d. The sole stored state is the eight-bit value represented by q together with whether any falling edge has yet established a valid value; reset establishes a valid value of 8'b00110100, and a non-reset falling edge establishes a valid sampled value of d.
+
+4. Timing.
+
+q is a registered output updated only on falling edges of clk. From d sampled at a falling edge with reset low, the latency to the updated q is one interface trace step: because each row observes q before its falling-edge transition, that row shows the result of the preceding falling edge and the new result first appears in the following row. Rising edges, steady clock levels, and changes to d or reset between falling edges have no effect on q. q retains its value between falling edges. There are no pulse or periodic output ports.
+
+The trace uses the interface's full-cycle observation convention: row k is the settled pre-edge observation at k times the interface step interval, and then that row's falling-edge transition is applied. This sampling interval is not a specification of the circuit's physical clock period or propagation delay; no numeric physical period or delay is specified.
+
+5. Behaviour.
+
+Only a falling edge of clk updates q: at each falling edge, reset has priority; reset high produces 8'b00110100, and reset low captures d. Rising edges and steady clock levels do not update q, repeated falling edges apply this rule independently, and q retains its prior value between falling edges.
+
+Reset is active high and synchronous to the falling edge of clk: assertion, release, or interruption between falling edges has no immediate effect. If reset is high at a falling edge, q becomes 8'b00110100 with priority over d; if reset is low, q captures d. Repeated reset-active falling edges reapply 8'b00110100, and after release the first falling edge captures d.
+
+When reset is low, d is sampled on each falling edge of clk and its complete eight-bit value becomes q. When reset is high at that edge, d has no effect; changes to d between falling edges have no effect, and repeated falling edges capture the then-current d independently. Every possible eight-bit encoding of d follows the same rule.
+
+q is unknown before the first falling edge. After every falling edge, q is 8'b00110100 if reset was high at that edge and otherwise is the d value sampled at that edge; it retains that result through rising edges and between falling edges. Because each row is sampled before its active edge, the row observes the preceding falling-edge result, the current edge's result first appears on the following row, reset release requires a subsequent falling edge before d appears, and every later falling edge makes a new capture decision.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b00000000 | 0 | 8'x |
+| 1 | 8'b00000001 | 1 | 8'b00000000 |
+| 2 | 8'b00000010 | 0 | 8'b00110100 |
+| 3 | 8'b00000011 | 0 | 8'b00000010 |
+
+### stimulus 1
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b00000000 | 1 | 8'x |
+| 1 | 8'b11111111 | 1 | 8'b00110100 |
+| 2 | 8'b10000000 | 0 | 8'b00110100 |
+| 3 | 8'b01011010 | 0 | 8'b10000000 |
+
+### stimulus 2
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b10000000 | 1 | 8'x |
+| 1 | 8'b00000000 | 0 | 8'b00110100 |
+| 2 | 8'b00000001 | 0 | 8'b00000000 |
+| 3 | 8'b11111111 | 0 | 8'b00000001 |
+
+### stimulus 3
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b11111111 | 0 | 8'x |
+| 1 | 8'b00000000 | 0 | 8'b11111111 |
+| 2 | 8'b01011010 | 1 | 8'b00000000 |
+| 3 | 8'b00000001 | 0 | 8'b00110100 |
+
+### stimulus 4
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b00110100 | 1 | 8'x |
+| 1 | 8'b01011010 | 0 | 8'b00110100 |
+| 2 | 8'b10100101 | 1 | 8'b01011010 |
+| 3 | 8'b10000000 | 0 | 8'b00110100 |
+
+### stimulus 5
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b00000001 | 0 | 8'x |
+| 1 | 8'b00000001 | 0 | 8'b00000001 |
+| 2 | 8'b00000001 | 0 | 8'b00000001 |
+| 3 | 8'b00000001 | 0 | 8'b00000001 |
+
+### stimulus 6
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b11111111 | 1 | 8'x |
+| 1 | 8'b11111111 | 0 | 8'b00110100 |
+| 2 | 8'b00000000 | 0 | 8'b11111111 |
+| 3 | 8'b11111111 | 0 | 8'b00000000 |
+
+### stimulus 7
+| cycle | d | reset | q |
+|---|---|---|---|
+| 0 | 8'b01011010 | 0 | 8'x |
+| 1 | 8'b01011010 | 1 | 8'b01011010 |
+| 2 | 8'b10100101 | 0 | 8'b00110100 |
+| 3 | 8'b01011010 | 0 | 8'b10100101 |

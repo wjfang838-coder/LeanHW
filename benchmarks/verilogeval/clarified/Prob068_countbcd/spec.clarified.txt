@@ -1,0 +1,140 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- ena: output [3:1].
+- q: output [15:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Reset is active high and synchronous to the rising edge of `clk`. Before any rising edge with reset asserted has occurred, `q` is unknown and remains unknown across rising edges with reset low. During that interval `ena` is also unknown because it is decoded from `q`. The implementation must leave both values uninitialised: it must not use an initial block or declaration initialiser to give them defined power-up values.
+
+Each rising edge with reset high establishes `q` as `16'h0000`, with priority over counting. The resulting `ena` is `3'b000`. Repeated rising edges while reset remains high repeatedly establish the same values. Merely asserting or deasserting reset between rising edges changes neither output. On the first rising edge after reset is released, the retained `16'h0000` advances to `16'h0001`; under the pre-edge observation convention, that new value is visible in the following row.
+
+4. Timing.
+
+`q` is a registered output. A rising edge of `clk` updates it once according to the reset-priority law below; steady clock levels and falling edges do not update it. `ena` is combinational with respect to the current `q`: it changes when the registered `q` changes and otherwise continues to indicate the same decoded conditions. Thus an update produced by the rising edge associated with row k is first observed in row k+1.
+
+The concrete SpecIR trace uses full-cycle sampling. Row k denotes k times `timing.step_ns` after settling, with sampling at the interface's `timing.sample_offset_ns`; it does not imply a 10 ns clock tick. The circuit itself has no specified physical clock period or propagation delay. Every modeled step represents one rising edge, and outputs are sampled immediately before that edge.
+
+5. Behaviour.
+
+When `q` is defined, its four nibbles are decimal digits: `q[3:0]` is the ones digit, `q[7:4]` the tens digit, `q[11:8]` the hundreds digit, and `q[15:12]` the thousands digit. On every rising edge with reset low, `q` advances by exactly one in packed-BCD order from `16'h0000` through `16'h9999`, with the usual decimal carry between adjacent digits, and wraps from `16'h9999` to `16'h0000`. Reset interrupts this progression with priority. A rising edge with reset low before any reset edge preserves the unknown state rather than establishing a count.
+
+At all times for which `q` is defined, `ena[1]` is 1 exactly when `q[3:0] == 4'h9`, `ena[2]` is 1 exactly when `q[7:0] == 8'h99`, and `ena[3]` is 1 exactly when `q[11:0] == 12'h999`; every other bit condition produces 0 for the corresponding indication. Reset has no direct combinational effect on `ena`: a reset or count edge affects it only through the resulting `q`. When `q` is unknown, all three bits of `ena` are unknown.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | reset | ena | q |
+|---|---|---|---|
+| 0 | 0 | 3'x | 16'x |
+| 1 | 0 | 3'x | 16'x |
+| 2 | 0 | 3'x | 16'x |
+
+### stimulus 1
+| cycle | reset | ena | q |
+|---|---|---|---|
+| 0 | 1 | 3'x | 16'x |
+| 1 | 0 | 3'b000 | 16'h0 |
+| 2 | 0 | 3'b000 | 16'h1 |
+| 3 | 0 | 3'b000 | 16'h2 |
+
+### stimulus 2
+| cycle | reset | ena | q |
+|---|---|---|---|
+| 0 | 0 | 3'x | 16'x |
+| 1 | 1 | 3'x | 16'x |
+| 2 | 0 | 3'b000 | 16'h0 |
+| 3 | 0 | 3'b000 | 16'h1 |
+
+### stimulus 3
+| cycle | reset | ena | q |
+|---|---|---|---|
+| 0 | 1 | 3'x | 16'x |
+| 1 | 1 | 3'b000 | 16'h0 |
+| 2 | 0 | 3'b000 | 16'h0 |
+| 3 | 0 | 3'b000 | 16'h1 |
+
+### stimulus 4
+| cycle | reset | ena | q |
+|---|---|---|---|
+| 0 | 1 | 3'x | 16'x |
+| 1 | 0 | 3'b000 | 16'h0 |
+| 2 | 1 | 3'b000 | 16'h1 |
+| 3 | 0 | 3'b000 | 16'h0 |
+| 4 | 0 | 3'b000 | 16'h1 |
+
+### stimulus 5
+| cycle | reset | ena | q |
+|---|---|---|---|
+| 0 | 0 | 3'x | 16'x |
+| 1 | 0 | 3'x | 16'x |
+| 2 | 1 | 3'x | 16'x |
+| 3 | 0 | 3'b000 | 16'h0 |
+| 4 | 1 | 3'b000 | 16'h1 |
+| 5 | 0 | 3'b000 | 16'h0 |
+
+### stimulus 6
+| cycle | reset | ena | q |
+|---|---|---|---|
+| 0 | 0 | 3'x | 16'x |
+| 1 | 0 | 3'x | 16'x |
+| 2 | 0 | 3'x | 16'x |
+| 3 | 0 | 3'x | 16'x |
+| 4 | 0 | 3'x | 16'x |
+| 5 | 0 | 3'x | 16'x |
+| 6 | 0 | 3'x | 16'x |
+| 7 | 0 | 3'x | 16'x |
+| 8 | 0 | 3'x | 16'x |
+| 9 | 0 | 3'x | 16'x |
+| 10 | 0 | 3'x | 16'x |
+| 11 | 0 | 3'x | 16'x |
+| 12 | 0 | 3'x | 16'x |
+| 13 | 0 | 3'x | 16'x |
+| 14 | 0 | 3'x | 16'x |
+| 15 | 0 | 3'x | 16'x |
+| 16 | 0 | 3'x | 16'x |
+| 17 | 0 | 3'x | 16'x |
+| 18 | 0 | 3'x | 16'x |
+| 19 | 0 | 3'x | 16'x |
+| 20 | 0 | 3'x | 16'x |
+| 21 | 0 | 3'x | 16'x |
+| 22 | 0 | 3'x | 16'x |
+| 23 | 0 | 3'x | 16'x |
+| 24 | 0 | 3'x | 16'x |
+| 25 | 0 | 3'x | 16'x |
+| 26 | 0 | 3'x | 16'x |
+| 27 | 0 | 3'x | 16'x |
+| 28 | 0 | 3'x | 16'x |
+| 29 | 0 | 3'x | 16'x |
+| 30 | 0 | 3'x | 16'x |
+| 31 | 0 | 3'x | 16'x |
+| 32 | 0 | 3'x | 16'x |
+| 33 | 0 | 3'x | 16'x |
+| 34 | 0 | 3'x | 16'x |
+
+### stimulus 7
+| cycle | reset | ena | q |
+|---|---|---|---|
+| 0 | 1 | 3'x | 16'x |
+| 1 | 0 | 3'b000 | 16'h0 |
+| 2 | 0 | 3'b000 | 16'h1 |
+| 3 | 0 | 3'b000 | 16'h2 |
+| 4 | 0 | 3'b000 | 16'h3 |
+| 5 | 1 | 3'b000 | 16'h4 |
+| 6 | 0 | 3'b000 | 16'h0 |
+| 7 | 0 | 3'b000 | 16'h1 |

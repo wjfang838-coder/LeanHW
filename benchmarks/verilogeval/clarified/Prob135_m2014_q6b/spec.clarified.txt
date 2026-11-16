@@ -1,0 +1,86 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- y: input [2:0].
+- w: input 1 bit.
+- Y1: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. The module has no state elements. At power-up, before any edge or input change, Y1 is already the combinational value selected by the current y and w inputs: it is 0 when y is 3'b000 or 3'b011, 1 when y is 3'b001 or 3'b101, equal to w when y is 3'b010 or 3'b100, and unknown when y is 3'b110 or 3'b111. No reset edge is required to make a listed-state result valid, and the implementation must not introduce initialization or retained state.
+
+4. Timing.
+
+Y1 is continuously combinational from y and, in the cases identified below, w. Its latency is zero clock cycles. There is no clock, capture edge, pulse, periodic signal, hold interval, completion event, or restart behavior.
+
+For the evaluated trace, row k denotes the settled observation at k times the interface step duration; it does not imply a 10 ns clock. The interface does not specify a numeric step duration or sample offset. This trace observation convention is separate from circuit timing: the circuit has no period or delay law, and each row observes the current inputs before the framework advances to the next row.
+
+5. Behaviour.
+
+Y1 depends combinationally on y. For every value of w, Y1 is 0 when y is 3'b000 or 3'b011, and Y1 is 1 when y is 3'b001 or 3'b101. When y is 3'b010 or 3'b100, Y1 equals w. When y is 3'b110 or 3'b111, Y1 is unknown for either value of w.
+
+Every change of y, including repeated or interrupted changes and changes simultaneous with w, immediately selects the corresponding case. Y1 follows w immediately when y is 3'b010 or 3'b100. The input w has no effect when y is 3'b000, 3'b001, 3'b011, or 3'b101, and Y1 remains unknown for y equal to 3'b110 or 3'b111. Either input level and every repeated, interrupted, or simultaneous input change is reflected immediately, with no inactive phase or retained transaction state.
+
+Y1 is continuously combinational with no reset, capture edge, observation latency, hold interval, completion, or restart. A pre-transition trace row therefore observes the value selected by that row's current inputs, rather than a value captured by a transition.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | y | w | Y1 |
+|---|---|---|---|
+| 0 | 3'b000 | 0 | 0 |
+| 1 | 3'b000 | 1 | 0 |
+
+### stimulus 1
+| cycle | y | w | Y1 |
+|---|---|---|---|
+| 0 | 3'b001 | 0 | 1 |
+| 1 | 3'b001 | 1 | 1 |
+
+### stimulus 2
+| cycle | y | w | Y1 |
+|---|---|---|---|
+| 0 | 3'b010 | 0 | 0 |
+| 1 | 3'b010 | 1 | 1 |
+
+### stimulus 3
+| cycle | y | w | Y1 |
+|---|---|---|---|
+| 0 | 3'b011 | 0 | 0 |
+| 1 | 3'b011 | 1 | 0 |
+
+### stimulus 4
+| cycle | y | w | Y1 |
+|---|---|---|---|
+| 0 | 3'b100 | 0 | 0 |
+| 1 | 3'b100 | 1 | 1 |
+
+### stimulus 5
+| cycle | y | w | Y1 |
+|---|---|---|---|
+| 0 | 3'b101 | 0 | 1 |
+| 1 | 3'b101 | 1 | 1 |
+
+### stimulus 6
+| cycle | y | w | Y1 |
+|---|---|---|---|
+| 0 | 3'b110 | 0 | x |
+| 1 | 3'b110 | 1 | x |
+
+### stimulus 7
+| cycle | y | w | Y1 |
+|---|---|---|---|
+| 0 | 3'b111 | 0 | x |
+| 1 | 3'b111 | 1 | x |

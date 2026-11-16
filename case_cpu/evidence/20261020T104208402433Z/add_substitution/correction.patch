@@ -1,0 +1,11 @@
+--- faulty.sv
++++ repaired.sv
+@@ -62,7 +62,7 @@
+       sa={{32{a[31]}},a}; sb={{32{b[31]}},b}; ub={32'b0,b}; ua={32'b0,a};
+       product=0; prod_u=0;
+       case (op)
+-        ADD: alu=a-b; SUB: alu=a-b; SLL: alu=a<<b[4:0];
++        ADD: alu=a+b; SUB: alu=a-b; SLL: alu=a<<b[4:0];
+         SLT: alu=($signed(a)<$signed(b)); SLTU: alu=(a<b);
+         XOR_: alu=a^b; SRL: alu=a>>b[4:0]; SRA: alu=$signed(a)>>>b[4:0];
+         OR_: alu=a|b; AND_: alu=a&b;

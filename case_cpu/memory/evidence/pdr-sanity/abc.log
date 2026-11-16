@@ -1,0 +1,86 @@
+ABC command line: "read_aiger /home/usr/leansilicon/case_cpu/memory/evidence/pdr-sanity/design.aig; fold; strash; orpos; pdr -v -T 30; write_cex -a /home/usr/leansilicon/case_cpu/memory/evidence/pdr-sanity/counterexample.aiw".
+
+Warning: The last output is interpreted as a constraint.
+VarMax = 300. FrameMax = 10000. QueMax = 0. TimeMax = 30. MonoCNF = no. SkipGen = no. SolveAll = no.
+Frame Clauses                                                     Max Queue Flops Time
+  1 : 0 16                                                                1    16      0.51 sec
+  2 : 0 16 137                                                            2   158      1.00 sec
+  2 : 0 16 187                                                            2   224      1.22 sec
+  2 : 0 16 237                                                            2   316      1.44 sec
+  2 : 0 16 287                                                            2   396      1.61 sec
+  2 : 0 16 337                                                            2   462      1.79 sec
+  2 : 0 16 387                                                            2   554      1.98 sec
+  2 : 0 16 437                                                            2   638      2.19 sec
+  2 : 0 16 487                                                            2   704      2.42 sec
+  2 : 0 16 537                                                            2   780      2.67 sec
+  2 : 0 16 587                                                            2   840      2.95 sec
+  2 : 0 16 637                                                            2   910      3.24 sec
+  2 : 0 16 687                                                            2   966      3.57 sec
+  2 : 0 16 737                                                            2  1004      3.92 sec
+  2 : 0 16 787                                                            2  1070      4.28 sec
+  2 : 0 16 837                                                            2  1144      4.68 sec
+  2 : 0 16 887                                                            2  1198      5.12 sec
+  2 : 0 16 937                                                            2  1256      5.62 sec
+  2 : 0 16 987                                                            2  1316      6.30 sec
+  2 : 0 16 1037                                                           2  1354      6.85 sec
+  2 : 0 16 1087                                                           2  1412      7.37 sec
+  2 : 0 16 1137                                                           2  1472      7.93 sec
+  2 : 0 16 1187                                                           2  1530      8.51 sec
+  2 : 0 16 1237                                                           2  1576      9.15 sec
+  2 : 0 16 1287                                                           2  1626      9.80 sec
+  2 : 0 16 1337                                                           2  1672     10.49 sec
+  2 : 0 16 1387                                                           2  1724     11.22 sec
+  2 : 0 16 1437                                                           2  1762     12.00 sec
+  2 : 0 16 1487                                                           2  1796     12.81 sec
+  2 : 0 16 1537                                                           2  1832     13.65 sec
+  2 : 0 16 1587                                                           2  1860     14.51 sec
+  2 : 0 16 1637                                                           2  1906     15.42 sec
+  2 : 0 16 1687                                                           2  1938     16.37 sec
+  2 : 0 16 1737                                                           2  1958     17.35 sec
+  2 : 0 16 1787                                                           2  1982     18.35 sec
+  2 : 0 16 1837                                                           2  2000     19.37 sec
+  2 : 0 16 1887                                                           2  2028     20.39 sec
+  2 : 0 16 1937                                                           2  2050     21.45 sec
+  2 : 0 16 1987                                                           2  2064     22.55 sec
+  2 : 0 16 2037                                                           2  2076     23.69 sec
+  2 : 0 16 2110                                                           2  2114     24.91 sec
+  3 : 0 16 27 2186                                                        3  2153     25.16 sec
+  3 : 0 16 27 2236                                                        2  2155     25.25 sec
+  3 : 0 16 27 2286                                                        2  2155     25.33 sec
+  3 : 0 16 27 2336                                                        2  2155     25.41 sec
+  3 : 0 16 27 2386                                                        2  2155     25.50 sec
+  3 : 0 16 27 2436                                                        2  2155     25.58 sec
+  3 : 0 16 27 2486                                                        2  2155     25.67 sec
+  3 : 0 16 27 2536                                                        2  2155     25.75 sec
+  3 : 0 16 27 2586                                                        2  2155     25.84 sec
+  3 : 0 16 27 2636                                                        2  2155     25.92 sec
+  3 : 0 16 27 2686                                                        2  2155     26.01 sec
+  3 : 0 16 27 2736                                                        2  2155     26.11 sec
+  3 : 0 16 27 2786                                                        2  2155     26.20 sec
+  3 : 0 16 27 2836                                                        2  2155     26.29 sec
+  3 : 0 16 27 2886                                                        2  2155     26.40 sec
+  3 : 0 16 27 2936                                                        2  2155     26.52 sec
+  3 : 0 16 27 2986                                                        2  2155     26.61 sec
+  3 : 0 16 27 3036                                                        2  2155     26.70 sec
+  3 : 0 16 27 3130                                                        2  2162     26.88 sec
+  3 : 0 16 27 3193                                                        2  2209     27.32 sec
+  3 : 0 16 27 3243                                                        2  2253     27.74 sec
+  3 : 0 16 27 3293                                                        2  2297     28.17 sec
+  3 : 0 16 27 3343                                                        2  2347     28.62 sec
+  3 : 0 16 27 3393                                                        2  2390     29.09 sec
+  3 : 0 16 27 3443                                                        2  2428     29.56 sec
+  3 : 0 16 27 3489                                                        2  2472     30.00 sec
+Reached timeout (30 seconds) in frame 3.
+Block =   69  Oblig =  6995  Clause =  3532  Call = 22198 (sat=58.9%)  Cex =   0  Start =  72
+SAT solving =     4.28 sec ( 14.25 %)
+  unsat     =     0.16 sec (  0.53 %)
+  sat       =     4.12 sec ( 13.72 %)
+Generalize  =    26.52 sec ( 88.32 %)
+Push clause =     0.05 sec (  0.18 %)
+Ternary sim =    22.15 sec ( 73.75 %)
+Containment =     0.07 sec (  0.24 %)
+CNF compute =     0.13 sec (  0.43 %)
+Refinement  =     0.00 sec (  0.00 %)
+TOTAL       =    30.03 sec (100.00 %)
+Property UNDECIDED.  Time =    30.15 sec
+Counter-example is not available.

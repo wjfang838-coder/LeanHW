@@ -1,0 +1,367 @@
+{
+  "status": "passed",
+  "evidence": "evidence/20261020T104208402433Z",
+  "lean": {
+    "ISA": {
+      "seconds": 1.618,
+      "log": "evidence/20261020T104208402433Z/ISA.log",
+      "axiom_audit": []
+    },
+    "Pipeline": {
+      "seconds": 0.817,
+      "log": "evidence/20261020T104208402433Z/Pipeline.log",
+      "axiom_audit": []
+    },
+    "Refinement": {
+      "seconds": 2.17,
+      "log": "evidence/20261020T104208402433Z/Refinement.log",
+      "axiom_audit": [
+        "'CaseCPU.cycle_conservation' depends on axioms: [propext, Quot.sound]",
+        "'CaseCPU.trace_conservation' depends on axioms: [propext, Quot.sound]",
+        "'CaseCPU.trace_isa' depends on axioms: [propext, Quot.sound]",
+        "'CaseCPU.drained_refinement' depends on axioms: [propext, Quot.sound]",
+        "'CaseCPU.cycle_inv' depends on axioms: [propext, Quot.sound]",
+        "'CaseCPU.cycle_refines' depends on axioms: [propext, Quot.sound]",
+        "'CaseCPU.full_refinement' depends on axioms: [propext, Quot.sound]",
+        "'CaseCPU.reset_refinement' depends on axioms: [propext, Quot.sound]"
+      ]
+    },
+    "Diagnosis": {
+      "seconds": 3.472,
+      "log": "evidence/20261020T104208402433Z/Diagnosis.log",
+      "axiom_audit": [
+        "'CPUDiagnosis.stall_ambiguity' does not depend on any axioms",
+        "'CPUDiagnosis.forwarding_ambiguity' does not depend on any axioms",
+        "'CPUDiagnosis.latency_ambiguity' does not depend on any axioms",
+        "'CPUDiagnosis.divzero_incomplete' does not depend on any axioms",
+        "'CPUDiagnosis.x0_incomplete' does not depend on any axioms",
+        "'CPUDiagnosis.reset_contradiction' does not depend on any axioms",
+        "'CPUDiagnosis.progress_contradiction' does not depend on any axioms",
+        "'CPUDiagnosis.revised_projection_determined' does not depend on any axioms"
+      ]
+    },
+    "Mutants": {
+      "seconds": 1.017,
+      "log": "evidence/20261020T104208402433Z/Mutants.log",
+      "axiom_audit": [
+        "'CaseCPU.no_forward_counterexample' depends on axioms: [propext, Quot.sound]",
+        "'CaseCPU.divide_zero_counterexample' depends on axioms: [propext, Quot.sound]",
+        "'CaseCPU.stalled_retirement_counterexample' depends on axioms: [propext, Quot.sound]",
+        "'CaseCPU.corrected_refinement' depends on axioms: [propext, Quot.sound]"
+      ]
+    },
+    "Trace": {
+      "seconds": 1.618,
+      "log": "evidence/20261020T104208402433Z/Trace.log",
+      "axiom_audit": []
+    }
+  },
+  "simulation": {
+    "counts": {
+      "cycles": 16925,
+      "resets": 26,
+      "discarded_by_reset": 5,
+      "full_pipeline_cycles": 1623,
+      "wb_backpressure_cycles": 1956,
+      "multicycle_hold_cycles": 2584,
+      "accepted": 1778,
+      "retired": 1773,
+      "invalid_words_rejected": 131
+    },
+    "retired_by_opcode": {
+      "addi": 58,
+      "add": 176,
+      "sub": 47,
+      "sll": 72,
+      "slt": 46,
+      "sltu": 47,
+      "xor": 69,
+      "srl": 66,
+      "sra": 69,
+      "or": 53,
+      "and": 45,
+      "mul": 55,
+      "mulh": 55,
+      "mulhsu": 63,
+      "mulhu": 51,
+      "div": 67,
+      "divu": 70,
+      "rem": 60,
+      "remu": 56,
+      "slti": 50,
+      "sltiu": 47,
+      "xori": 43,
+      "ori": 60,
+      "andi": 70,
+      "slli": 61,
+      "srli": 45,
+      "srai": 58,
+      "lui": 60,
+      "auipc": 54
+    },
+    "stall_masks": {
+      "0": 4604,
+      "16": 2022,
+      "20": 577,
+      "26": 190,
+      "18": 600,
+      "17": 561,
+      "24": 573,
+      "21": 157,
+      "28": 189,
+      "4": 1057,
+      "14": 108,
+      "8": 1081,
+      "6": 353,
+      "9": 334,
+      "12": 340,
+      "22": 166,
+      "1": 1129,
+      "3": 313,
+      "5": 325,
+      "2": 1062,
+      "23": 48,
+      "10": 307,
+      "29": 42,
+      "25": 180,
+      "11": 103,
+      "19": 168,
+      "13": 84,
+      "30": 56,
+      "7": 97,
+      "15": 28,
+      "27": 51,
+      "31": 20
+    },
+    "seed": "0x20261020",
+    "all_32_registers_observed_after_each_drain": true
+  },
+  "lean_trace_seconds": 3.122,
+  "mutations": [
+    {
+      "name": "missing_forwarding",
+      "first_failing_cycle": 68,
+      "faulty_status": "counterexample_in_simulation",
+      "repaired_status": "all_vectors_pass",
+      "repaired_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "repair_kind": "scripted_local_rule"
+    },
+    {
+      "name": "oldest_writer_wins",
+      "first_failing_cycle": 68,
+      "faulty_status": "counterexample_in_simulation",
+      "repaired_status": "all_vectors_pass",
+      "repaired_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "repair_kind": "scripted_local_rule"
+    },
+    {
+      "name": "divide_zero_returns_zero",
+      "first_failing_cycle": 626,
+      "faulty_status": "counterexample_in_simulation",
+      "repaired_status": "all_vectors_pass",
+      "repaired_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "repair_kind": "scripted_local_rule"
+    },
+    {
+      "name": "ignore_writeback_stall",
+      "first_failing_cycle": 6,
+      "faulty_status": "counterexample_in_simulation",
+      "repaired_status": "all_vectors_pass",
+      "repaired_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "repair_kind": "scripted_local_rule"
+    },
+    {
+      "name": "add_substitution",
+      "first_failing_cycle": 70,
+      "faulty_status": "counterexample_in_simulation",
+      "repaired_status": "all_vectors_pass",
+      "repaired_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "repair_kind": "scripted_local_rule"
+    },
+    {
+      "name": "logical_signed_shift",
+      "first_failing_cycle": 1663,
+      "faulty_status": "counterexample_in_simulation",
+      "repaired_status": "all_vectors_pass",
+      "repaired_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "repair_kind": "scripted_local_rule"
+    }
+  ],
+  "pdr": {
+    "sanity": {
+      "task": "sanity",
+      "engine": "Yosys/ABC PDR",
+      "pdr_seconds": 60,
+      "rtl_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "miter_sha256": "6a3714fae160f2cec8cd728619afd248528b0d9a05898f3b0ae404e714df98dc",
+      "reference_sha256": "4a6d1aad4ac203dcf1edc9d3794ee6699137538e449ed42ba4a96804a1bccc8e",
+      "assumptions": [
+        "first edge reset",
+        "two-state synchronous semantics"
+      ],
+      "fairness_assumptions": [],
+      "auxiliary_invariants": [],
+      "versions": {
+        "yosys": "Yosys 0.51+41 (git sha1 0c689091e, g++ 11.4.0-1ubuntu1~22.04 -fPIC -O3)",
+        "abc": "ABC command line: \"version\".\n\nUC Berkeley, ABC 1.01 (compiled Mar 19 2025 01:57:47)"
+      },
+      "synthesis": {
+        "command": [
+          "yosys",
+          "-Q",
+          "-T",
+          "-s",
+          "/home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-sanity/synthesis.ys"
+        ],
+        "seconds": 0.818,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/20261020T104208402433Z/pdr-sanity/yosys.log"
+      },
+      "aiger": {
+        "max_variable": 1885,
+        "inputs": 1114,
+        "latches": 52,
+        "outputs": 0,
+        "ands": 719,
+        "bad": 3,
+        "constraints": 1
+      },
+      "pdr": {
+        "command": [
+          "/usr/local/bin/yosys-abc",
+          "-c",
+          "read_aiger /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-sanity/design.aig; fold; strash; orpos; pdr -v -T 60; write_cex -a /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-sanity/counterexample.aiw"
+        ],
+        "seconds": 0.114,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/20261020T104208402433Z/pdr-sanity/abc.log"
+      },
+      "status": "proved"
+    },
+    "order": {
+      "task": "order",
+      "engine": "Yosys/ABC PDR",
+      "pdr_seconds": 60,
+      "rtl_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "miter_sha256": "6a3714fae160f2cec8cd728619afd248528b0d9a05898f3b0ae404e714df98dc",
+      "reference_sha256": "4a6d1aad4ac203dcf1edc9d3794ee6699137538e449ed42ba4a96804a1bccc8e",
+      "assumptions": [
+        "first edge reset",
+        "two-state synchronous semantics"
+      ],
+      "fairness_assumptions": [],
+      "auxiliary_invariants": [],
+      "versions": {
+        "yosys": "Yosys 0.51+41 (git sha1 0c689091e, g++ 11.4.0-1ubuntu1~22.04 -fPIC -O3)",
+        "abc": "ABC command line: \"version\".\n\nUC Berkeley, ABC 1.01 (compiled Mar 19 2025 01:57:47)"
+      },
+      "synthesis": {
+        "command": [
+          "yosys",
+          "-Q",
+          "-T",
+          "-s",
+          "/home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-order/synthesis.ys"
+        ],
+        "seconds": 1.971,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/20261020T104208402433Z/pdr-order/yosys.log"
+      },
+      "aiger": {
+        "max_variable": 6564,
+        "inputs": 1403,
+        "latches": 343,
+        "outputs": 0,
+        "ands": 4818,
+        "bad": 3,
+        "constraints": 1
+      },
+      "pdr": {
+        "command": [
+          "/usr/local/bin/yosys-abc",
+          "-c",
+          "read_aiger /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-order/design.aig; fold; strash; orpos; pdr -v -T 60; write_cex -a /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-order/counterexample.aiw"
+        ],
+        "seconds": 13.097,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/20261020T104208402433Z/pdr-order/abc.log"
+      },
+      "status": "proved"
+    },
+    "full": {
+      "task": "full",
+      "engine": "Yosys/ABC PDR",
+      "pdr_seconds": 60,
+      "rtl_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "miter_sha256": "6a3714fae160f2cec8cd728619afd248528b0d9a05898f3b0ae404e714df98dc",
+      "reference_sha256": "4a6d1aad4ac203dcf1edc9d3794ee6699137538e449ed42ba4a96804a1bccc8e",
+      "assumptions": [
+        "first edge reset",
+        "two-state synchronous semantics"
+      ],
+      "fairness_assumptions": [],
+      "auxiliary_invariants": [],
+      "versions": {
+        "yosys": "Yosys 0.51+41 (git sha1 0c689091e, g++ 11.4.0-1ubuntu1~22.04 -fPIC -O3)",
+        "abc": "ABC command line: \"version\".\n\nUC Berkeley, ABC 1.01 (compiled Mar 19 2025 01:57:47)"
+      },
+      "synthesis": {
+        "command": [
+          "yosys",
+          "-Q",
+          "-T",
+          "-s",
+          "/home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-full/synthesis.ys"
+        ],
+        "seconds": 49.367,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/20261020T104208402433Z/pdr-full/yosys.log"
+      },
+      "aiger": {
+        "max_variable": 176427,
+        "inputs": 3707,
+        "latches": 2655,
+        "outputs": 0,
+        "ands": 170065,
+        "bad": 11,
+        "constraints": 1
+      },
+      "pdr": {
+        "command": [
+          "/usr/local/bin/yosys-abc",
+          "-c",
+          "read_aiger /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-full/design.aig; fold; strash; orpos; pdr -v -T 60; write_cex -a /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-full/counterexample.aiw"
+        ],
+        "seconds": 60.549,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/20261020T104208402433Z/pdr-full/abc.log"
+      },
+      "status": "pdr_timeout"
+    }
+  },
+  "sources": {
+    "lean/Diagnosis.lean": "3188a49511956f62bfef0f04cdb8d10a2c6c3df6b9c0a7c48b118d5e3569e205",
+    "lean/ISA.lean": "f0e7f52fe068f3f07f2b2743982a3e497ca063dbb94ac83a291fc9d1ba410db6",
+    "lean/Mutants.lean": "4a0c87d504f3f999a08cbc32829b56a5217cbbb4810d71d5a95da4f77216018a",
+    "lean/Pipeline.lean": "7133fea2926970be03dc5ec534faf8b208871aee51d70378a0f11a3ff5fc1da6",
+    "lean/Refinement.lean": "9ecefb68a89287f44090b9677d19c832c0ddc0b5c187716200088b362e70df66",
+    "lean/Trace.lean": "8149ed4ba715dbf2ccab57612b8bf3c74476e2b0ff76d0dde0acffde2c8edd3d",
+    "rtl/cpu.sv": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+    "rtl/isa_reference.svh": "4a6d1aad4ac203dcf1edc9d3794ee6699137538e449ed42ba4a96804a1bccc8e",
+    "rtl/miter.sv": "6a3714fae160f2cec8cd728619afd248528b0d9a05898f3b0ae404e714df98dc",
+    "rtl/tb.sv": "39df1e5ef2f89b012f7859bd4c2d0ecb2e2a11c50fa5bcf6f067a821f2632cdc",
+    "scripts/demo.py": "dd439bd272462d2cf2d9e033788bb427fc7d4e5041b951a2fcd15b545e9e2407",
+    "scripts/model.py": "743dca06d1a0aa664c7b60916a73aa54729d4efac5ada6d42c5616fdf90f139c",
+    "scripts/pdr.py": "a1f93d981fd3e030dbf61753b786ac219d17b3557fdbcf029ed3e8a74e388dd4",
+    "scripts/report.py": "f015659a890dc5c630563d83f2f2fefaee05878c3bec98e2d1bede0191fc1a8c",
+    "spec/decisions.json": "4b2613ea3faf1d72cd839036bb95b8cbdffaf7a707deca52351aa2e842e8873b",
+    "spec/original.txt": "5d9393ad28e14ad62da8f5f3380902108768a8896f68163506beb170e40dfbbf",
+    "spec/revised.txt": "550e0e3c60a177750dd5440ef92d6a3daa7ec3e8bb99a753939a7338e54bf0d1"
+  }
+}

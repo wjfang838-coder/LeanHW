@@ -1,0 +1,82 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- cin: input 1 bit.
+- cout: output 1 bit.
+- sum: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports.
+
+
+
+Reset.
+
+There is no reset input and no reset behavior. There are no state elements. From power-up, including before any edge has occurred, both outputs are determined immediately by the current input levels. Neither output is unknown or retained from an earlier observation.
+
+Timing.
+
+Both cout and sum are combinational outputs with zero clock-cycle latency from a, b, and cin. There is no clock, capture edge, pulse, periodic circuit signal, circuit period, or delay law.
+
+The evaluated trace uses the interface's full-cycle observation timebase. Each row is a sampling step after the combinational logic has settled: outputs are observed for that row's current inputs before the stateless transition. This row convention does not imply a 10 ns clock tick or any actual circuit period. The interface specifies no numeric step duration or sample offset.
+
+Behaviour.
+
+At all times, each of the one-bit unsigned inputs a, b, and cin participates in sum = a ^ b ^ cin and cout = (a & b) | (a & cin) | (b & cin), without enable, mode, priority, capture, or retained state; simultaneous changes, interruptions, and repeated changes cause both outputs to reflect the latest settled input levels.
+
+For every combination of a, b, and cin, sum = a ^ b ^ cin.
+
+For every combination of a, b, and cin, cout = (a & b) | (a & cin) | (b & cin).
+
+There are no disabled inputs, transactions, cancellations, starts, completion conditions, or terminal modes. Consequently there is no first-result exception, restart behavior, or retained result: the same two laws apply continuously.
+
+Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | cin | cout | sum |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | a | b | cin | cout | sum |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 1 |
+
+### stimulus 2
+| cycle | a | b | cin | cout | sum |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | a | b | cin | cout | sum |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 0 |
+
+### stimulus 4
+| cycle | a | b | cin | cout | sum |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | a | b | cin | cout | sum |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 1 | 0 |
+
+### stimulus 6
+| cycle | a | b | cin | cout | sum |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | a | b | cin | cout | sum |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 |

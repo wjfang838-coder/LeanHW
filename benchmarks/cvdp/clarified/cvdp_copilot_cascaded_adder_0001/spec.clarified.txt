@@ -1,0 +1,180 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Develop a System Verilog module that implements a cascaded adder. This module named `cascaded_adder` performs the summation of multiple input data elements, synchronized to the clock, and supports asynchronous reset functionality. The input data is received as a flattened 1D vector, and the output provides the cumulative sum of all the input elements.
+
+## Parameters:
+ - **`IN_DATA_WIDTH` (default = 16):** Specifies the bit-width of each individual input data element.
+ - **`IN_DATA_NS` (default = 4):** Defines the number of input data elements to be summed.
+
+## Input Ports:
+- `clk`: Clock signal. The design registers are triggered on its positive edge.
+- `rst_n`: An active-low asynchronous reset signal. When low, the module is held in a reset state, and both `o_valid` and `o_data` are driven low.
+- `i_valid`: An active-high input signal that indicates the availability of valid data for processing. It is assumed to be synchronous to the positive edge of `clk` signal.
+- `i_data` [`IN_DATA_WIDTH` * `IN_DATA_NS` - 1 : 0]: Input data provided as a flattened 1D vector. This vector contains `IN_DATA_NS` elements, each `IN_DATA_WIDTH` bits wide. It is assumed to be synchronous to the positive edge of `clk` signal.
+
+## Output Ports:
+- `o_valid`: Active-high signal indicating that the output sum has been computed and is ready to be read. It is driven on the rising edge of the `clk`
+- `o_data` [(`IN_DATA_WIDTH` + $clog2(`IN_DATA_NS`)) - 1 : 0]: Output data representing the cumulative sum of all input elements. The output width is designed to accommodate the full sum **without overflow**. It is driven on the rising edge of the `clk`
+
+## Functional Description:
+
+### Input Data Structure:
+- The input data is a flattened 1D vector `i_data` with a total width of `IN_DATA_WIDTH` * `IN_DATA_NS`. 
+- For instance, with `IN_DATA_NS` = 4 and `IN_DATA_WIDTH` = 16, the 64-bit wide `i_data` contains four 16-bit elements.
+- The input data is latched when i_valid is asserted, synchronized to the positive edge of the clock.
+
+### Cascaded Addition Process:
+- The summation is performed on the registered data in a cascaded manner using combinational logic, where each element is progressively added in sequence to the accumulated total.
+- Each stage adds the next element in the sequence to the cumulative result of the previous stages, ultimately producing the final sum.
+- The design includes an output register that latches the cumulative result at the positive edge of the clock.
+
+---
+```mermaid
+graph LR;
+    A1((0)) --> B1(('+'))
+    A2((1)) --> B1
+    B1 --> B2(('+'))
+    A3((2)) --> B2
+    B2 --> B3
+    A4((3)) --> B3(('+'))
+    B3 --> Result[Result]
+```
+----
+
+### Latency:
+The module introduces a total latency of two clock cycles. One cycle is added for registering the input data, and another for registering the output sum.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: cascaded_adder.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- i_valid: input 1 bit.
+- i_data: input [IN_DATA_WIDTH * IN_DATA_NS - 1 : 0].
+- o_valid: output 1 bit.
+- o_data: output [IN_DATA_WIDTH + $clog2(IN_DATA_NS) - 1:0].
+
+Public parameters:
+- integer IN_DATA_WIDTH: default = 16.
+- integer IN_DATA_NS: default = 4.
+- Verification-visible parameter `IN_DATA_NS`: Public integer parameter IN_DATA_NS has default 4 and determines the element count, the i_data width multiplier, and the $clog2(IN_DATA_NS) contribution to o_data width.
+- Verification-visible parameter `IN_DATA_WIDTH`: Public integer parameter IN_DATA_WIDTH has default 16 and determines each element width, the i_data width multiplier, and the base o_data width.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+rst_n is an active-low asynchronous reset. Its falling edge is reset event E0: immediately after E0, o_valid is 0 and o_data is zero, any accepted transaction awaiting publication is canceled, and no i_valid or i_data is accepted. Reset has priority if assertion coincides with a rising clk edge. Every rising edge while rst_n remains low preserves the reset state and reset output values. Deasserting rst_n has no immediate effect; ordinary operation resumes at the next rising clk edge.
+
+Before any reset assertion or qualifying clocked update has established them, o_valid and o_data have no established power-up values and read unknown. This power-up rule does not require them to remain unknown: reset assertion establishes both immediately, and ordinary clocked processing can establish them without a prior reset. It imposes no reset-before-use restriction.
+
+On the first rising edge after reset release, no canceled pre-reset request can publish. That edge can accept a new request when i_valid is 1. Its o_valid publication still describes the pending-valid state established before that edge, so it is 0 after a reset; o_data retains reset zero unless an older noncanceled request is publishing, which cannot occur immediately after reset cancellation.
+
+4. Timing.
+
+clk acts only on its positive edge. Steady clock levels and falling edges have no effect. o_valid and o_data are registered outputs. For a request accepted at rising edge E0, one complete E0-to-E1 clock interval elapses and the corresponding o_valid=1 and sum are published immediately after the next rising edge E1. Thus the original two-cycle path consists of the input register stage at E0 and the output register stage at E1; no additional physical edge is inserted.
+
+Immediately after E0, the outputs describe a request accepted before E0, if any. At E1 the post-edge o_data is computed from the vector captured before E1, while acceptance of the current i_valid and i_data independently establishes the request for the next publication edge. Back-to-back accepted inputs therefore publish independent results on consecutive rising edges. o_valid is high for one clock interval per isolated accepted request and can remain continuously high across consecutive result intervals for back-to-back requests. When no prior-edge request is pending, the next rising edge clears o_valid but retains o_data.
+
+The finite model is the concrete IN_DATA_WIDTH=16 and IN_DATA_NS=4 instance; it does not narrow the parameterized interface contract. It has no physical clk input and uses a full-cycle active-edge projection. Each step represents one rising edge. Row k samples the settled pre-edge outputs and inputs before that step, and then the step computes the post-edge state; consequently, a result written just after E1 first appears in the pre-edge row at E2. This observation convention is separate from the circuit's physical period and its two registered stages. No timing.step_ns or timing.sample_offset_ns values are present in the interface contract, so the finite rows assert no nanosecond clock period or sampling offset. The reset rows in the finite scenario hold reset active through a represented rising edge; that projection does not restrict legal asynchronous reset pulses or weaken the immediate assertion behavior above.
+
+5. Behaviour.
+
+With rst_n high, each rising edge samples i_valid. If i_valid is 1, the entire concurrent i_data vector is accepted. If i_valid is 0, no new request is accepted; changes to i_data then have no effect. Changes after an acceptance edge do not alter the accepted transaction. A rising edge that publishes an earlier request may simultaneously accept a new one. Reset assertion overrides acceptance and cancels pending work.
+
+The flattened vector contains IN_DATA_NS contiguous fields of IN_DATA_WIDTH bits. For every k from 0 through IN_DATA_NS-1, element k is i_data[k*IN_DATA_WIDTH +: IN_DATA_WIDTH]; i_data[k*IN_DATA_WIDTH] is that element's least-significant bit and i_data[(k+1)*IN_DATA_WIDTH-1] is its most-significant bit. Every element is unsigned. The published result is the unsigned sum of all elements, evaluated in the IN_DATA_WIDTH+$clog2(IN_DATA_NS)-bit output context. The truncation boundary is that declared output width; operands are not signed and no narrower intermediate or shift truncation is introduced.
+
+At the defaults, 64'hffffffffffffffff produces 18'h3fffc, 64'h8000000000000000 produces 18'h08000, and 64'h123456789abcdef0 produces 18'h1e258. Also at the defaults, 64'h0102_0304_0506_0708 maps element 0=16'h0708, element 1=16'h0506, element 2=16'h0304, and element 3=16'h0102, and produces 18'h01014.
+
+After reset has established known state, o_data is zero until the first result publication. On every publication edge it becomes that request's sum. On an edge with no pending result, o_data retains its most recently published value even though o_valid becomes 0. Repeated i_valid assertions are distinct requests, not a restart, cancellation, postponement, or busy exclusion.
+
+No source amendment or implementation-completion choice is made. The unsigned element interpretation, contiguous field mapping, invalid-interval retention, power-up behavior, and event timing above are certain scoped resolutions of previously open or unstated coordinates and do not supersede a contrary original clause.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete IN_DATA_WIDTH=16, IN_DATA_NS=4 active-edge scenarios and the stated pre-edge observation convention. It does not replace the parameterized requirements above.
+
+### stimulus 0
+| cycle | rst_n | i_valid | i_data | o_valid | o_data |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 64'h0 | 0 | 18'h0 |
+| 1 | 0 | 1 | 64'h1 | 0 | 18'h0 |
+| 2 | 1 | 1 | 64'h0 | 0 | 18'h0 |
+| 3 | 1 | 0 | 64'h1 | 0 | 18'h0 |
+| 4 | 1 | 0 | 64'h0 | 1 | 18'h0 |
+| 5 | 1 | 0 | 64'h0 | 0 | 18'h0 |
+
+### stimulus 1
+| cycle | rst_n | i_valid | i_data | o_valid | o_data |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 64'h0 | x | 18'x |
+| 1 | 1 | 1 | 64'h1 | 0 | 18'x |
+| 2 | 1 | 0 | 64'h0 | 0 | 18'x |
+| 3 | 1 | 0 | 64'h0 | 1 | 18'h1 |
+| 4 | 1 | 0 | 64'h0 | 0 | 18'h1 |
+
+### stimulus 2
+| cycle | rst_n | i_valid | i_data | o_valid | o_data |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 64'h0 | 0 | 18'h0 |
+| 1 | 1 | 1 | 64'hffffffffffffffff | 0 | 18'h0 |
+| 2 | 1 | 0 | 64'h0 | 0 | 18'h0 |
+| 3 | 1 | 1 | 64'h8000000000000000 | 1 | 18'h3fffc |
+| 4 | 1 | 0 | 64'h0 | 0 | 18'h3fffc |
+| 5 | 1 | 0 | 64'h0 | 1 | 18'h8000 |
+
+### stimulus 3
+| cycle | rst_n | i_valid | i_data | o_valid | o_data |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 64'h0 | 0 | 18'h0 |
+| 1 | 1 | 1 | 64'h123456789abcdef0 | 0 | 18'h0 |
+| 2 | 1 | 1 | 64'h1000100010001 | 0 | 18'h0 |
+| 3 | 1 | 0 | 64'h0 | 1 | 18'h1e258 |
+| 4 | 1 | 0 | 64'h0 | 1 | 18'h4 |
+| 5 | 1 | 0 | 64'h0 | 0 | 18'h4 |
+
+### stimulus 4
+| cycle | rst_n | i_valid | i_data | o_valid | o_data |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 64'h0 | 0 | 18'h0 |
+| 1 | 1 | 1 | 64'hffff0000ffff0000 | 0 | 18'h0 |
+| 2 | 0 | 1 | 64'h1 | 0 | 18'h0 |
+| 3 | 1 | 1 | 64'h100010001 | 0 | 18'h0 |
+| 4 | 1 | 0 | 64'h0 | 0 | 18'h0 |
+| 5 | 1 | 0 | 64'h0 | 1 | 18'h3 |
+
+### stimulus 5
+| cycle | rst_n | i_valid | i_data | o_valid | o_data |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 64'h0 | 0 | 18'h0 |
+| 1 | 1 | 1 | 64'h2000200020002 | 0 | 18'h0 |
+| 2 | 1 | 0 | 64'h0 | 0 | 18'h0 |
+| 3 | 1 | 1 | 64'h3000300030003 | 1 | 18'h8 |
+| 4 | 1 | 0 | 64'h0 | 0 | 18'h8 |
+| 5 | 1 | 0 | 64'h0 | 1 | 18'hc |
+
+### stimulus 6
+| cycle | rst_n | i_valid | i_data | o_valid | o_data |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 64'h0 | 0 | 18'h0 |
+| 1 | 1 | 0 | 64'h4000300020001 | 0 | 18'h0 |
+| 2 | 1 | 0 | 64'h0 | 0 | 18'h0 |
+| 3 | 1 | 0 | 64'h0 | 0 | 18'h0 |
+
+### stimulus 7
+| cycle | rst_n | i_valid | i_data | o_valid | o_data |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 64'hffffffffffffffff | 0 | 18'h0 |
+| 1 | 1 | 1 | 64'h1000000000000 | 0 | 18'h0 |
+| 2 | 1 | 0 | 64'h0 | 0 | 18'h0 |
+| 3 | 1 | 0 | 64'h0 | 1 | 18'h1 |
+| 4 | 1 | 0 | 64'h0 | 0 | 18'h1 |

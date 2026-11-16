@@ -1,0 +1,134 @@
+Streaming RV32 Arithmetic CPU: Frozen Revised Contract, revision 1
+
+Scope and reference
+
+[R01] XLEN=32, 32 integer registers, byte PC with modulo-2^32 arithmetic.
+There are five elastic in-order stages: IF, ID, EX, MEM and WB. MEM contains
+registers only. There is no instruction/data memory, branch/jump, trap,
+interrupt, CSR, or privilege support. This is a 29-instruction arithmetic
+subset, not a complete RV32IM implementation. Instructions use standard RV32
+binary encodings. This case follows the RV32I and M instruction semantics
+in the RISC-V Unprivileged ISA specification, version 20260120:
+https://docs.riscv.org/reference/isa/v20260120/unpriv/rv32.html
+https://docs.riscv.org/reference/isa/v20260120/unpriv/m-st-ext.html
+
+[R02] Integer instructions (29 total):
+ADD SUB SLL SLT SLTU XOR SRL SRA OR AND
+ADDI SLTI SLTIU XORI ORI ANDI SLLI SRLI SRAI
+LUI AUIPC
+MUL MULH MULHSU MULHU DIV DIVU REM REMU
+Reserved funct7 values, malformed shift-immediate encodings and all other
+opcodes are rejected: insn_ready=0, no pipeline entry, no architectural
+effect and no trap. ADDI x0,x0,0 is an ordinary accepted NOP transaction.
+
+Transaction-level ISA
+
+[R03] Let a=read(rs1), b=read(rs2). Every register read of x0 returns zero;
+every write to x0 is discarded. ADD/SUB return a+b/a-b modulo 2^32. Logical
+operations act bitwise. SLL and SRL shift by b[4:0]; SRA sign-fills by the
+same count. SLT tests signed(a)<signed(b), SLTU tests unsigned(a)<unsigned(b);
+each result is the 32-bit number zero or one. Immediate arithmetic/logical
+instructions replace b with signExtend32(insn[31:20]). Immediate shifts use
+insn[24:20] with the standard upper-immediate encoding restrictions. SLTIU
+compares a with the unsigned interpretation of the sign-extended immediate.
+
+[R04] Let U={insn[31:12],12'b0}. LUI returns U. AUIPC returns instruction_PC+U
+modulo 2^32. MUL returns the low 32 bits of the product. MULH returns bits
+63:32 of signed(a)*signed(b), MULHSU those of signed(a)*unsigned(b), MULHU
+those of unsigned(a)*unsigned(b). Arithmetic high-product extraction means
+the high word of the 64-bit two's-complement product, also for negative values.
+
+[R05] DIV computes signed division truncated toward zero. REM returns the
+signed remainder with the dividend's sign. DIVU/REMU use unsigned division.
+For divisor zero, DIV and DIVU return 0xffffffff; REM and REMU return a.
+For signed overflow 0x80000000 / 0xffffffff, DIV returns 0x80000000 and REM
+returns zero. Division does not trap. Every ISA transaction advances PC by
+four, including a transaction whose destination is x0.
+
+Ports, reset and sampling
+
+[R06] Inputs: clk, synchronous active-high rst, reg_init[1023:0], insn[31:0],
+insn_valid, stall_fetch, stall_decode, stall_execute, stall_memory,
+stall_writeback, debug_addr[4:0]. Outputs: insn_ready; retire_valid,
+retire_insn[31:0], retire_pc[31:0], retire_value[31:0], retire_rd[4:0];
+debug_data[31:0], arch_pc[31:0], occupancy[4:0].
+occupancy bit order, from low to high, is IF, ID, EX, MEM, WB.
+
+[R07] Reset has priority over every transfer and retirement. On a reset
+edge, set PC=0, all valid bits=0, remaining=0, and initialize x1..x31
+from reg_init[32*r +:32]. Force x0=0 regardless of reg_init[31:0]. Abort all
+in-flight instructions. No input is accepted and retire_valid=0 while rst=1.
+reg_init affects state only on reset. The verified execution starts after a
+reset; four-state power-on behavior is outside this case's two-state model.
+
+[R08] Inputs are sampled at rising edges. The combinational ready and
+retirement outputs describe the transfer on the upcoming edge, from the
+current registered state and inputs. Debug register/PC and occupancy show
+the current registered state. retire_valid is true exactly when rst=0,
+WB.valid=1 and stall_writeback=0. When it is false, every retirement data
+output is zero. A retirement reports the stored computed value even if
+retire_rd=0; discarding the write does not change that reported value.
+
+Cycle-level pipeline transition
+
+[R09] The following ordered phases define temporary next-state values on
+ONE rising edge. Each phase uses the temporary state produced by the prior
+phase. There is one opportunity to cross each stage boundary per edge.
+Oldest-to-youngest processing prevents an instruction crossing two boundaries
+on the same edge. Reset bypasses all phases.
+
+1. WB retirement. If WB.valid and !stall_writeback, write the WB result
+   (except x0), advance architectural PC by four, emit retirement, clear WB.
+   Otherwise retain WB. No other stage changes committed architectural state.
+2. MEM to WB. If !stall_memory and temporary WB is empty, copy MEM packet
+   and validity to WB and clear MEM validity. A bubble may transfer too.
+3. EX progress and EX to MEM. If stall_execute, hold EX and its countdown.
+   Otherwise, if remaining>0, decrement it by one and do not transfer EX.
+   Otherwise, if temporary MEM is empty, copy EX packet/validity to MEM and
+   clear EX validity. If MEM is occupied, retain the completed EX packet.
+4. ID to EX. If !stall_decode, temporary EX is empty, and ID is valid,
+   dispatch ID and clear ID validity. Start with the temporary committed
+   register file/PC after phase 1. Apply pending WB, then pending MEM,
+   forwarding both results and adding four to projected PC per valid packet.
+   MEM is younger and wins when both write the same nonzero register. Read
+   this projected register file to compute the ISA result for the dispatched
+   instruction. Capture its instruction, projected PC and result into EX.
+   Initialize remaining=L-1, with L=3 for MUL/MULH/MULHSU/MULHU, L=34 for
+   DIV/DIVU/REM/REMU, L=1 otherwise. The result is calculated on EX entry;
+   the countdown controls when it can leave. This is a fixed latency
+   arithmetic unit, not an iterative multiply/divide circuit. In the absence
+   of execute stalls and downstream blocking, a packet dispatched on edge t
+   moves to MEM on edge t+L. Entry sets the counter; it does not decrement it.
+5. IF to ID. If temporary ID is empty, copy IF instruction/validity to ID
+   and clear IF validity. ID can fill an empty slot while its departure is
+   externally blocked; it cannot replace a retained valid instruction.
+6. Stream acceptance. insn_ready is true exactly when rst=0, stall_fetch=0,
+   temporary IF is empty, and insn has a supported encoding. Accept exactly
+   when insn_ready && insn_valid, capturing that word into IF. An unsupported
+   word has no effect. valid=0 never inserts an instruction.
+
+[R10] Stalls gate the named source action: fetch acceptance, ID departure,
+EX countdown/departure, MEM departure, or WB retirement. An EX stall does
+not freeze an unblocked WB. A blocked source cannot depart, but an empty
+destination may fill. An empty EX may accept an ID packet even when its EX
+countdown/departure is blocked. If a source slot cannot depart its instruction,
+retain that slot and packet. Upstream backpressure follows occupied slots;
+stall inputs do not erase valid bits or retained arithmetic results.
+
+Environment and guarantees
+
+[R11] insn_valid, insn, debug_addr and all five stalls may vary arbitrarily
+each cycle; the formal safety contract does not assume a persistent source.
+Only accepted words belong to the instruction sequence. A normal software
+driver holds a valid word until acceptance. Arbitrary repeated resets are
+allowed and start new epochs, discarding prior pending words explicitly.
+
+[R12] For any stall sequence, the accepted program partitions into the
+already retired prefix and the still pending suffix, in order, with no
+duplication or silent loss within a reset epoch. On every retirement, the
+committed state performs the ISA transaction for that word; on all other
+non-reset cycles it stutters. After all pending work drains, committed state
+equals sequential ISA execution of exactly the accepted program. These are
+safety properties for arbitrary finite trace lengths. There is no bounded
+or unconditional eventual-retirement guarantee under arbitrary stalls.
+A separate liveness/fairness theorem is outside the demonstrated claim.

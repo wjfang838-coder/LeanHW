@@ -1,0 +1,143 @@
+Named module interface binding
+
+Module: cvdp_copilot_decode_firstbit.
+Connect ports by name. The enumeration below does not establish positional order.
+- Clk: input; 1 bits in the concrete formal instance.
+- Rst: input; 1 bits in the concrete formal instance.
+- In_Data: input; 32 bits in the concrete formal instance.
+- In_Valid: input; 1 bits in the concrete formal instance.
+- Out_FirstBit: output; 5 bits in the concrete formal instance.
+- Out_Found: output; 1 bits in the concrete formal instance.
+- Out_Valid: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is cvdp_copilot_decode_firstbit. Connections shall be made by name because positional declaration order is not established. The following sequence is descriptive only and is not a normative positional declaration order.
+
+The public parameters specified by the original requirements are InWidth_g, default 32; InReg_g, default 1; OutReg_g, default 1; and PlRegs_g, default 1. InWidth_g sets the width of In_Data. InReg_g enables input registration. OutReg_g enables output registration. PlRegs_g sets the decoder pipeline depth. BinBits_c is $clog2(InWidth_g), and 0 <= PlRegs_g <= (BinBits_c / 2) - 1. For InWidth_g = 32, BinBits_c = 5 and the allowed PlRegs_g values are 0 and 1.
+
+Clk: input, 1 bit.
+Rst: input, 1 bit.
+In_Data: input, InWidth_g bits; 32 bits in the concrete checked instance.
+In_Valid: input, 1 bit.
+Out_FirstBit: output, $clog2(InWidth_g) bits; 5 bits in the concrete checked instance.
+Out_Found: output, 1 bit.
+Out_Valid: output, 1 bit.
+
+Q11 provides this certain integration clarification: “The harness confirms by-name bindings to input ports Clk, Rst, In_Data, and In_Valid and output ports Out_FirstBit, Out_Found, and Out_Valid on module cvdp_copilot_decode_firstbit; connections are by name, positional declaration order is unverified, the frozen interface widths are Clk[0:0], Rst[0:0], In_Data[31:0], In_Valid[0:0], Out_FirstBit[4:0], Out_Found[0:0], and Out_Valid[0:0], and the harness names parameters InWidth_g and OutputFormat_g but does not establish their defaults or symbolic port ranges.” This clarification is limited to the module-header scope. It does not amend the original defaults or symbolic widths. OutputFormat_g is an integration-visible name, but its default and effect are unresolved by the supplied authority.
+
+3. Reset.
+
+Rst is active high and asynchronous. While Rst is asserted, every internal pipeline register and every output is zero: Out_FirstBit = 0, Out_Found = 0, and Out_Valid = 0. Assertion clears all in-flight pipeline state immediately and has priority over ordinary rising-edge processing. Repeated or continued assertion maintains the zero state.
+
+After Rst is released, the first rising edge applies the ordinary input and pipeline rules. Outputs remain the values supplied by the established pipeline state until later rising edges advance new state to them.
+
+The source specifies reset values but no hardware power-up values before reset has ever been asserted. It therefore provides no guaranteed output value in that interval. This absence of a power-up guarantee does not require X propagation and does not forbid an ordinary rising edge from establishing pipeline state. For the finite checked model and its table only, the initial state is the state reached after the documented asynchronous reset has been asserted and settled. That verification setup is not an RTL power-up guarantee and adds no reset-before-use input restriction.
+
+4. Timing.
+
+Clk is the rising-edge clock for all sequential elements, and Rst assertion is asynchronous. If InReg_g = 1, In_Data and In_Valid are registered on a rising edge; if InReg_g = 0, they pass directly to decoding without that input-register cycle. If OutReg_g = 1, Out_FirstBit, Out_Found, and Out_Valid are registered; if OutReg_g = 0, that output-register cycle is absent.
+
+PlRegs_g determines decoder pipeline depth and therefore valid propagation latency. Under the original stated convention, PlRegs_g = 0 produces detection in one cycle, and PlRegs_g = 1 splits detection across two stages and produces it in two cycles. Increasing PlRegs_g increases the cycle count. The original source supplies no further closed-form latency equation combining endpoint registration with PlRegs_g, so no additional total is imposed here.
+
+Out_FirstBit and Out_Found are aligned with Out_Valid. With the default concrete parameters, a token accepted at a rising edge is observed after two pipeline cycles. Reset drives all three outputs to zero immediately. The source does not specify a separate pulse-width law for Out_Valid beyond propagation of input validity through the pipeline; each stage passes the validity associated with its token.
+
+For the autonomous full-cycle evaluated table, row k denotes k × step_ns after settling. Each row samples outputs before transition k and then advances the model by one rising-edge step. No numeric step_ns or sample_offset_ns is present in the interface, so this convention implies neither a 10 ns clock nor any physical period or propagation delay. It is separate from the circuit timing laws above.
+
+The frozen rule observations are intentionally not amendments: “Rising edges delimit request acceptance and result observation in the harness, while no effect is established for a steady clock level or falling edge and the exact edge latency, simultaneous reset behavior, interruption behavior, and back-to-back acceptance behavior remain unverified.” “The harness holds Rst high with In_Valid low before transactions and releases it before use, but it does not observe outputs during reset or establish assertion/release edge semantics, priority over a simultaneous request, interruption, repeated reset behavior, or the effect of inactive Rst beyond permitting transactions.” “After a one-edge request the harness waits at successive rising edges until Out_Valid is high and treats that edge as the result observation, but it establishes neither a bounded or exact pre-edge-row capture-to-observation latency nor reset value, pulse width, inactive interval, retention, completion, interruption, or restart behavior.” These unclear harness statements add no exceptions to the original reset and timing requirements.
+
+5. Behaviour.
+
+For every In_Data value accepted with In_Valid high, decode exactly its InWidth_g input bits. Out_Found is 1 exactly if at least one accepted input bit is 1. When Out_Found is 1, Out_FirstBit is the zero-based index of the least-significant set input bit. When accepted In_Data is all zero, Out_Found = 0 and Out_FirstBit = 0. Out_Valid is the validity indication propagated in alignment with that result.
+
+This law covers every input encoding. A single set bit returns its index; multiple set bits return the lowest index; all-zero data returns zero with Out_Found low. Accepted 32'h0000_0080 therefore yields Out_FirstBit = 7, Out_Found = 1, and Out_Valid = 1 after the configured latency.
+
+InWidth_g need not be a power of two. The input is padded internally to the nearest power of two for processing. Padding positions are zero, cannot be selected as a found input bit, and must not alter the result for any actual input position or cause unnecessary resource utilization.
+
+At a rising edge, In_Valid qualifies In_Data as an input token and advances in alignment with its decoded data through the configured stages. With InReg_g enabled, that edge registers both In_Data and In_Valid. With it disabled, both pass directly to decoding. Pipeline stages pass the intermediate first-bit result and its validity toward the output. Out_Valid indicates whether the accompanying Out_FirstBit and Out_Found constitute a valid result. The all-zero valid result is distinguishable from an invalid cycle because Out_Valid is high for the valid result.
+
+The following frozen observations do not add requirements because their confidence is unclear: “For a value presented with In_Valid high through a rising edge, the subsequently valid result is computed from that accepted value, but the harness does not establish any effect while In_Valid is low, under reset, during interruption, or for changes and repeated values outside its one-at-a-time transaction sequence.” “The harness presents In_Valid high across one rising edge to request processing and then holds it low while waiting for a result, but it does not establish behavior for In_Valid during reset, simultaneous events, interruption, multi-cycle assertion, or back-to-back requests.”
+
+Likewise, these output observations merely agree with part of the original functional law and authorize no new exception: “At a rising-edge observation for which Out_Valid is high, Out_FirstBit equals the zero-based index of the least-significant set bit of the accepted In_Data when any bit is set; its reset value, zero-input value, exact capture-to-observation latency under pre-edge row semantics, invalid interval behavior, retention, completion, and restart timing are not established.” “At a rising-edge observation for which Out_Valid is high, Out_Found is 1 exactly when the accepted In_Data is nonzero and is 0 when it is zero; its reset value, exact capture-to-observation latency under pre-edge row semantics, invalid interval behavior, retention, completion, and restart timing are not established.” The original source, rather than these unclear observations, remains authoritative for reset, zero input, pipeline behavior, and parameterized latency.
+
+There are no authorized source amendments. In particular, Q1, Q2, and Q3 are unclear and do not authorize X or a don't-care. Invalid-cycle payload is not a valid decoded result, but the implementation must continue to obey reset and pipeline state laws; missing harness observation is not permission to create unknown hardware behavior.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete default-parameter checked instance and uses the reset-established initial-model scope and pre-transition observation convention stated above.
+
+### stimulus 0
+| cycle | Rst | In_Data | In_Valid | Out_FirstBit | Out_Found | Out_Valid |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+| 1 | 0 | 32'h1 | 1 | 5'b00000 | 0 | 0 |
+| 2 | 0 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+| 3 | 0 | 32'h0 | 0 | 5'b00000 | 1 | 1 |
+
+### stimulus 1
+| cycle | Rst | In_Data | In_Valid | Out_FirstBit | Out_Found | Out_Valid |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h1 | 1 | 5'b00000 | 0 | 0 |
+| 1 | 0 | 32'h80 | 1 | 5'b00000 | 0 | 0 |
+| 2 | 0 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+| 3 | 0 | 32'h0 | 0 | 5'b00111 | 1 | 1 |
+| 4 | 0 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+
+### stimulus 2
+| cycle | Rst | In_Data | In_Valid | Out_FirstBit | Out_Found | Out_Valid |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+| 1 | 0 | 32'h0 | 1 | 5'b00000 | 0 | 0 |
+| 2 | 0 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+| 3 | 0 | 32'h0 | 0 | 5'b00000 | 0 | 1 |
+
+### stimulus 3
+| cycle | Rst | In_Data | In_Valid | Out_FirstBit | Out_Found | Out_Valid |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+| 1 | 0 | 32'hffffffff | 1 | 5'b00000 | 0 | 0 |
+| 2 | 0 | 32'h80000000 | 1 | 5'b00000 | 0 | 0 |
+| 3 | 0 | 32'h12345678 | 1 | 5'b00000 | 1 | 1 |
+| 4 | 0 | 32'h0 | 0 | 5'b11111 | 1 | 1 |
+| 5 | 0 | 32'h0 | 0 | 5'b00011 | 1 | 1 |
+
+### stimulus 4
+| cycle | Rst | In_Data | In_Valid | Out_FirstBit | Out_Found | Out_Valid |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+| 1 | 0 | 32'h2 | 1 | 5'b00000 | 0 | 0 |
+| 2 | 0 | 32'h10 | 1 | 5'b00000 | 0 | 0 |
+| 3 | 0 | 32'h0 | 0 | 5'b00001 | 1 | 1 |
+| 4 | 0 | 32'h0 | 0 | 5'b00100 | 1 | 1 |
+| 5 | 0 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+
+### stimulus 5
+| cycle | Rst | In_Data | In_Valid | Out_FirstBit | Out_Found | Out_Valid |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+| 1 | 0 | 32'h8 | 1 | 5'b00000 | 0 | 0 |
+| 2 | 0 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+| 3 | 0 | 32'h20 | 1 | 5'b00011 | 1 | 1 |
+| 4 | 0 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+| 5 | 0 | 32'h0 | 0 | 5'b00101 | 1 | 1 |
+
+### stimulus 6
+| cycle | Rst | In_Data | In_Valid | Out_FirstBit | Out_Found | Out_Valid |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+| 1 | 0 | 32'h40 | 1 | 5'b00000 | 0 | 0 |
+| 2 | 1 | 32'h4 | 1 | 5'b00000 | 0 | 0 |
+| 3 | 0 | 32'h100 | 1 | 5'b00000 | 0 | 0 |
+| 4 | 0 | 32'h0 | 0 | 5'b00000 | 0 | 0 |
+| 5 | 0 | 32'h0 | 0 | 5'b01000 | 1 | 1 |
+
+### stimulus 7
+| cycle | Rst | In_Data | In_Valid | Out_FirstBit | Out_Found | Out_Valid |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 32'h1 | 1 | 5'b00000 | 0 | 0 |
+| 1 | 0 | 32'h2 | 1 | 5'b00000 | 0 | 0 |
+| 2 | 0 | 32'h4 | 1 | 5'b00000 | 1 | 1 |
+| 3 | 0 | 32'h0 | 0 | 5'b00001 | 1 | 1 |
+| 4 | 0 | 32'h0 | 0 | 5'b00010 | 1 | 1 |

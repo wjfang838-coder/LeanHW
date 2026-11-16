@@ -1,0 +1,105 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- d: input 1 bit.
+- q: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: each table row drives the explicitly named clock levels and data, then observes settled outputs. The model must apply the edge described by those levels exactly once; it must not insert a second pipeline delay.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+TopModule has no reset input and no reset behavior. At power-up, before the first rising or falling transition of clk has been processed, q is unknown and remains unknown regardless of changes to d. The implementation must leave q's stored state uninitialized: it must not give it a declaration initializer or an initial-block value. Because there is no reset, there is no reset edge or first step after reset release.
+
+4. Timing.
+
+q is registered. Every rising or falling transition of clk captures d, and the updated q is observable after that edge has been processed; a sample taken before the edge observes the preceding value of q. Thus the capture latency is one half-cycle trace transition from the pre-edge sample to the next sampled row. q holds its captured value between clock transitions. q is neither a pulse nor a periodic output.
+
+The evaluated trace uses the interface's half-cycle timebase. Each row is an observation after the inputs for that half-cycle have settled, with the output reflecting the pending clock-level transition exactly once; the state transition is then committed for the following row. This observation convention is separate from the circuit law: the circuit has no specified physical clock period or propagation delay. The interface provides no numeric step_ns or sample_offset_ns value.
+
+5. Behaviour.
+
+Every rising or falling transition of clk samples the concurrent value of d and updates q after that edge is processed; while clk remains at either level it has no further effect, and each successive transition independently repeats the same operation without an interruption or completion state.
+
+The value of d present at each rising or falling transition of clk is sampled for q, including when d and clk change together, while changes to d between clk transitions do not affect q and repeated samples are independent.
+
+There is no reset behavior: q is unknown before the first clk transition, a row sampled before an active edge observes the preceding q, q becomes the d value sampled at that rising or falling edge after the edge is processed, and it then holds that value until the next edge, with every edge serving as an immediate new capture rather than a completion or restart boundary.
+
+Since clk and d are one-bit inputs, the statements above cover all their possible binary values. There are no disabled, cancellation, completion, or restart modes. The first edge produces the first valid result; repeated edges capture independently; and in the absence of an edge, the retained result is unchanged.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| half-cycle | clk | d | q |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 1 | 1 |
+| 2 | 0 | 0 | 0 |
+
+### stimulus 1
+| half-cycle | clk | d | q |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 1 |
+
+### stimulus 2
+| half-cycle | clk | d | q |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 1 |
+| 3 | 1 | 1 | 1 |
+
+### stimulus 3
+| half-cycle | clk | d | q |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 1 | 1 | 1 |
+| 2 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+
+### stimulus 4
+| half-cycle | clk | d | q |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 0 | 1 | x |
+| 2 | 1 | 1 | 1 |
+| 3 | 1 | 0 | 1 |
+| 4 | 0 | 0 | 0 |
+
+### stimulus 5
+| half-cycle | clk | d | q |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 1 |
+| 2 | 1 | 0 | 0 |
+
+### stimulus 6
+| half-cycle | clk | d | q |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 1 |
+| 4 | 0 | 1 | 1 |
+
+### stimulus 7
+| half-cycle | clk | d | q |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 1 | 1 |
+| 2 | 0 | 1 | 1 |
+| 3 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 1 | 1 | 1 |

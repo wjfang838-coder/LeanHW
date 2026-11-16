@@ -1,0 +1,5 @@
+/home/usr/leansilicon/case_cpu/memory/lean/MemNetlistStep.lean:10:117: warning: exponent 1024 exceeds the threshold 256, exponentiation operation was not evaluated, use `set_option exponentiation.threshold <num>` to set a new threshold
+'CaseCPUMem.Source.actual_state' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ topology._native.native_decide.ax_1_1]

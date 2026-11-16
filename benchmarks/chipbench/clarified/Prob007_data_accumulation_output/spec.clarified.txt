@@ -1,0 +1,149 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- data_in: input [7:0].
+- valid_a: input 1 bit.
+- ready_b: input 1 bit.
+- ready_a: output 1 bit.
+- valid_b: output 1 bit.
+- data_out: output [9:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports.
+
+
+
+Reset.
+
+rst_n is an active-low asynchronous reset. Whenever rst_n is low, reset has priority over every input and active edge: ready_a is 1, valid_b is 0, data_out is 10'h000, the partial-group count is zero, and the stored accumulation is 10'h000. Holding or repeatedly asserting rst_n low preserves these values. Releasing rst_n alone changes nothing; on the first rising clk edge after release, an input is accepted only under the handshake law below, and otherwise all stored state and outputs retain their reset values.
+
+Before rst_n has ever been asserted, valid_b and data_out are unknown and must be left uninitialised, with no initial block or declaration initialiser. In that interval ready_a is 1 when ready_b is 1; when ready_b is 0, ready_a is unknown because it is the inversion of the unknown valid_b.
+
+Timing.
+
+The circuit responds sequentially only on rising clk edges, except for asynchronous reset and the combinational ready_a output. Each stimulus row denotes one full cycle and samples outputs immediately before its active rising edge; with timing.step_ns and timing.sample_offset_ns as supplied by the interface, row k is observed at k * step_ns plus the sampling offset after settling. This observation convention does not impose a 10 ns clock and is separate from the circuit laws.
+
+ready_a is combinational with zero-cycle latency from ready_b and the registered valid_b state. valid_b and data_out are registered: an accepted input updates data_out for the following pre-edge observation, and the fourth accepted input asserts valid_b for the following pre-edge observation. valid_b remains asserted for an unbounded whole number of cycles under backpressure and deasserts in the row following a consuming rising edge. It is a retained level, not a fixed-width pulse.
+
+Behaviour.
+
+With rst_n high, only a rising clk edge can accept an item, update data_out, assert valid_b after the fourth acceptance, or clear a consumed valid_b. Static clk levels and falling edges have no sequential effect. Repeated rising edges apply these handshake rules independently.
+
+ready_a continuously equals (!valid_b) or ready_b. It is 1 during and immediately after reset, stays 1 while no result is pending, becomes 0 without an extra clock of latency when valid_b is high and ready_b is low, remains 0 throughout that backpressure, and rises immediately if ready_b rises or valid_b clears. Since observations precede active edges, a clocked valid_b change affects ready_a in the following row. valid_a does not otherwise affect ready_a.
+
+An input item is accepted exactly on a rising clk edge for which rst_n is high, valid_a is 1, and ready_a is 1. valid_a equal to 0, ready_a equal to 0, reset, falling edges, and static clk levels prevent acceptance and preserve the partial group and data_out. Consecutive or separated acceptances are treated identically: every four accepted items form one group, and the fourth acceptance asserts valid_b.
+
+data_in affects state only when an item is accepted. For an accepted item that is first in its four-item group while ready_b is 1, data_out becomes the zero-extended data_in. For every other accepted item, data_out becomes (the prior data_out + data_in) modulo 1024. Thus data_out exposes the current modulo-1024 partial accumulation while valid_b is 0, changing on each accepted rising edge and otherwise retaining its prior value. The fourth accepted item produces the completed value and makes valid_b 1. All 8-bit data_in encodings are unsigned and are covered by this law.
+
+When ready_b is 0 and valid_b is 0, ready_a remains 1 and accepted inputs may continue the current group. Once a completed result makes valid_b 1, ready_b equal to 0 makes ready_a 0 and retains valid_b and data_out unchanged. ready_b equal to 1 makes ready_a 1 and consumes a pending valid_b on the next rising edge; an input may be accepted simultaneously on that edge. If that simultaneous input is the first item of the next group, the first-item data_out law applies. A consumed valid_b clears unless that same edge accepts the fourth item of a group, in which case the new completed result keeps valid_b asserted. Reset overrides both actions.
+
+After valid_b clears, a later sequence of four accepted items repeats the same behavior. There is no cancellation of a partial transaction other than reset, disabled inputs retain all partial state, completed data is retained throughout backpressure, and repeated valid_a assertions cause one acceptance on each eligible rising edge.
+
+Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst_n | data_in | valid_a | ready_b | ready_a | valid_b | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 8'b00100101 | 1 | 1 | 1 | x | 10'x |
+| 1 | 1 | 8'b00000001 | 1 | 1 | 1 | x | 10'x |
+
+### stimulus 1
+| cycle | rst_n | data_in | valid_a | ready_b | ready_a | valid_b | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 10'h0 |
+| 1 | 1 | 8'b00000001 | 1 | 1 | 1 | 0 | 10'h0 |
+| 2 | 1 | 8'b11111111 | 1 | 1 | 1 | 0 | 10'h1 |
+| 3 | 1 | 8'b10000000 | 1 | 1 | 1 | 0 | 10'h100 |
+| 4 | 1 | 8'b00100101 | 1 | 1 | 1 | 0 | 10'h180 |
+| 5 | 1 | 8'b00000000 | 0 | 1 | 1 | 1 | 10'h1a5 |
+| 6 | 1 | 8'b00000000 | 0 | 1 | 1 | 0 | 10'h1a5 |
+
+### stimulus 2
+| cycle | rst_n | data_in | valid_a | ready_b | ready_a | valid_b | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 10'h0 |
+| 1 | 1 | 8'b11111111 | 1 | 1 | 1 | 0 | 10'h0 |
+| 2 | 1 | 8'b11111111 | 1 | 1 | 1 | 0 | 10'hff |
+| 3 | 1 | 8'b11111111 | 1 | 1 | 1 | 0 | 10'h1fe |
+| 4 | 1 | 8'b11111111 | 1 | 0 | 1 | 0 | 10'h2fd |
+| 5 | 1 | 8'b00000000 | 0 | 0 | 0 | 1 | 10'h3fc |
+| 6 | 1 | 8'b00000000 | 0 | 1 | 1 | 1 | 10'h3fc |
+
+### stimulus 3
+| cycle | rst_n | data_in | valid_a | ready_b | ready_a | valid_b | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 10'h0 |
+| 1 | 1 | 8'b00000000 | 1 | 1 | 1 | 0 | 10'h0 |
+| 2 | 1 | 8'b00000001 | 1 | 1 | 1 | 0 | 10'h0 |
+| 3 | 1 | 8'b10000000 | 1 | 1 | 1 | 0 | 10'h1 |
+| 4 | 0 | 8'b00100101 | 1 | 1 | 1 | 0 | 10'h0 |
+| 5 | 1 | 8'b00100101 | 1 | 1 | 1 | 0 | 10'h0 |
+| 6 | 1 | 8'b00100101 | 1 | 1 | 1 | 0 | 10'h25 |
+| 7 | 1 | 8'b00100101 | 1 | 1 | 1 | 0 | 10'h4a |
+| 8 | 1 | 8'b00100101 | 1 | 1 | 1 | 0 | 10'h6f |
+
+### stimulus 4
+| cycle | rst_n | data_in | valid_a | ready_b | ready_a | valid_b | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 10'h0 |
+| 1 | 1 | 8'b00000001 | 1 | 1 | 1 | 0 | 10'h0 |
+| 2 | 1 | 8'b00000000 | 0 | 1 | 1 | 0 | 10'h1 |
+| 3 | 1 | 8'b11111111 | 1 | 1 | 1 | 0 | 10'h1 |
+| 4 | 1 | 8'b10000000 | 0 | 1 | 1 | 0 | 10'h100 |
+| 5 | 1 | 8'b10000000 | 1 | 1 | 1 | 0 | 10'h100 |
+| 6 | 1 | 8'b00100101 | 1 | 1 | 1 | 0 | 10'h180 |
+
+### stimulus 5
+| cycle | rst_n | data_in | valid_a | ready_b | ready_a | valid_b | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 10'h0 |
+| 1 | 1 | 8'b00000001 | 1 | 1 | 1 | 0 | 10'h0 |
+| 2 | 1 | 8'b00000001 | 1 | 1 | 1 | 0 | 10'h1 |
+| 3 | 1 | 8'b00000001 | 1 | 1 | 1 | 0 | 10'h2 |
+| 4 | 1 | 8'b00000001 | 1 | 1 | 1 | 0 | 10'h3 |
+| 5 | 1 | 8'b11111111 | 1 | 1 | 1 | 1 | 10'h4 |
+| 6 | 1 | 8'b11111111 | 1 | 1 | 1 | 0 | 10'hff |
+| 7 | 1 | 8'b11111111 | 1 | 1 | 1 | 0 | 10'h1fe |
+| 8 | 1 | 8'b11111111 | 1 | 1 | 1 | 0 | 10'h2fd |
+| 9 | 1 | 8'b00000000 | 0 | 1 | 1 | 1 | 10'h3fc |
+
+### stimulus 6
+| cycle | rst_n | data_in | valid_a | ready_b | ready_a | valid_b | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 10'h0 |
+| 1 | 1 | 8'b00000000 | 1 | 1 | 1 | 0 | 10'h0 |
+| 2 | 1 | 8'b00000000 | 1 | 1 | 1 | 0 | 10'h0 |
+| 3 | 1 | 8'b00000000 | 1 | 1 | 1 | 0 | 10'h0 |
+| 4 | 1 | 8'b00000000 | 1 | 0 | 1 | 0 | 10'h0 |
+| 5 | 1 | 8'b10000000 | 1 | 0 | 0 | 1 | 10'h0 |
+| 6 | 1 | 8'b10000000 | 1 | 1 | 1 | 1 | 10'h0 |
+| 7 | 1 | 8'b10000000 | 1 | 1 | 1 | 0 | 10'h80 |
+
+### stimulus 7
+| cycle | rst_n | data_in | valid_a | ready_b | ready_a | valid_b | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 10'h0 |
+| 1 | 1 | 8'b00100101 | 1 | 1 | 1 | 0 | 10'h0 |
+| 2 | 1 | 8'b00100101 | 1 | 1 | 1 | 0 | 10'h25 |
+| 3 | 1 | 8'b00100101 | 1 | 1 | 1 | 0 | 10'h4a |
+| 4 | 1 | 8'b00100101 | 1 | 1 | 1 | 0 | 10'h6f |
+| 5 | 1 | 8'b01100011 | 1 | 1 | 1 | 1 | 10'h94 |
+| 6 | 1 | 8'b01100011 | 1 | 1 | 1 | 0 | 10'h63 |
+
+### stimulus 8
+| cycle | rst_n | data_in | valid_a | ready_b | ready_a | valid_b | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 10'h0 |
+| 1 | 0 | 8'b11111111 | 1 | 1 | 1 | 0 | 10'h0 |
+| 2 | 1 | 8'b11111111 | 1 | 1 | 1 | 0 | 10'h0 |
+| 3 | 1 | 8'b00000001 | 1 | 0 | 1 | 0 | 10'hff |
+| 4 | 1 | 8'b00000001 | 1 | 1 | 1 | 0 | 10'h100 |

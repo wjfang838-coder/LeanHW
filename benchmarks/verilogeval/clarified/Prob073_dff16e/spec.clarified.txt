@@ -1,0 +1,116 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- resetn: input 1 bit.
+- byteena: input [1:0].
+- d: input [15:0].
+- q: output [15:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+resetn is an active-low synchronous reset. It is sampled only on a rising edge of clk. On any rising edge for which resetn is low, q becomes 16'h0000; this reset action overrides byteena and d. Assertion or release of resetn between rising edges has no immediate effect.
+
+At power-up, before any rising edge has reset or written the stored bytes, q is unknown. An implementation must leave that stored value uninitialized, with no initial block or declaration initializer. If only one byte has subsequently been written, the unwritten byte remains unknown and therefore the full q value remains unknown. After a reset edge, both stored bytes and q are zero. On the first rising edge after resetn is released high, each enabled byte captures its corresponding byte of d and each disabled byte retains zero; that result is visible after the edge and in the next sampled row.
+
+4. Timing
+
+q is a registered output. Only a rising edge of clk can change it. A selected byte of d sampled at a rising edge appears in the corresponding byte of q immediately after that edge, which is one row later under the pre-transition sampling convention. Falling edges, steady clock levels, and repeated inactive intervals do not change q. q produces no completion pulse and is not periodic.
+
+The circuit's event law is edge-based; no physical clock period or propagation delay is specified. The evaluated trace uses the interface's full-cycle observation convention: row k samples q before the active rising-edge transition for that row, and then that transition produces the state sampled in row k+1. Thus rows are observation steps, not implicit 10 ns clock ticks.
+
+5. Behaviour
+
+On every rising edge with resetn low, q becomes 16'h0000 regardless of byteena and d.
+
+On every rising edge with resetn high, byteena[0] independently enables capture of d[7:0] into q[7:0], and byteena[1] independently enables capture of d[15:8] into q[15:8]. Each byte whose enable bit is zero retains its preceding value. Consequently, byteena equal to 2'b00 retains all of q, 2'b01 updates only q[7:0], 2'b10 updates only q[15:8], and 2'b11 updates all 16 bits. These four values exhaust the encodings of the 2-bit byteena input.
+
+d is sampled only on a rising clk edge with resetn high, and then each enabled byte of q captures the corresponding byte of d while disabled bytes retain their prior values; changes to d between edges or during reset have no effect.
+
+Only a rising edge of clk can change q: each such edge first applies reset when resetn is low and otherwise performs the byteena-selected captures from d, while falling edges, steady clock levels, and any number of repeated inactive intervals have no effect.
+
+resetn is an active-low synchronous reset sampled on each rising clk edge, so low clears all of q and overrides simultaneous byte enables, whereas assertion or release between rising edges has no immediate effect and high permits normal selected-byte capture on every subsequent rising edge.
+
+When resetn is high at a rising clk edge, byteena[0] independently enables capture of d[7:0] into q[7:0] and byteena[1] independently enables capture of d[15:8] into q[15:8], with each zero bit retaining its byte; byteena has no effect between edges and is ignored when resetn is low.
+
+With each row sampled before its active rising edge, q initially is unknown, the reset or selected-byte captures from row k become observable in row k+1, reset assertion and release have no immediate between-edge effect, and q retains each byte until a later rising edge resets it or writes that byte, with repeated edges applying the same rule independently.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | resetn | byteena | d | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b00 | 16'h0 | 16'x |
+| 1 | 0 | 2'b00 | 16'h1 | 16'x |
+| 2 | 1 | 2'b00 | 16'hffff | 16'h0 |
+| 3 | 1 | 2'b11 | 16'h8000 | 16'h0 |
+| 4 | 1 | 2'b00 | 16'h1234 | 16'h8000 |
+
+### stimulus 1
+| cycle | resetn | byteena | d | q |
+|---|---|---|---|---|
+| 0 | 0 | 2'b11 | 16'habcd | 16'x |
+| 1 | 1 | 2'b00 | 16'h0 | 16'h0 |
+| 2 | 1 | 2'b01 | 16'h1 | 16'h0 |
+| 3 | 1 | 2'b10 | 16'h8000 | 16'h1 |
+
+### stimulus 2
+| cycle | resetn | byteena | d | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b11 | 16'h0 | 16'x |
+| 1 | 1 | 2'b00 | 16'hffff | 16'h0 |
+| 2 | 1 | 2'b01 | 16'hff | 16'h0 |
+| 3 | 1 | 2'b10 | 16'hff00 | 16'hff |
+| 4 | 1 | 2'b11 | 16'h5a5a | 16'hffff |
+
+### stimulus 3
+| cycle | resetn | byteena | d | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b01 | 16'h12 | 16'x |
+| 1 | 1 | 2'b00 | 16'h3456 | 16'x |
+| 2 | 1 | 2'b01 | 16'hff | 16'x |
+| 3 | 1 | 2'b00 | 16'h0 | 16'x |
+
+### stimulus 4
+| cycle | resetn | byteena | d | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b10 | 16'h1200 | 16'x |
+| 1 | 1 | 2'b00 | 16'habcd | 16'x |
+| 2 | 1 | 2'b10 | 16'h8000 | 16'x |
+| 3 | 1 | 2'b00 | 16'h0 | 16'x |
+
+### stimulus 5
+| cycle | resetn | byteena | d | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b11 | 16'h1111 | 16'x |
+| 1 | 1 | 2'b11 | 16'h2222 | 16'h1111 |
+| 2 | 0 | 2'b00 | 16'h3333 | 16'h2222 |
+| 3 | 1 | 2'b11 | 16'h4444 | 16'h0 |
+| 4 | 1 | 2'b11 | 16'h5555 | 16'h4444 |
+
+### stimulus 6
+| cycle | resetn | byteena | d | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b11 | 16'ha5a5 | 16'x |
+| 1 | 0 | 2'b01 | 16'h5a | 16'ha5a5 |
+| 2 | 1 | 2'b00 | 16'h0 | 16'h0 |
+| 3 | 1 | 2'b01 | 16'ha5 | 16'h0 |
+
+### stimulus 7
+| cycle | resetn | byteena | d | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b00 | 16'h1234 | 16'x |
+| 1 | 1 | 2'b11 | 16'h8001 | 16'x |
+| 2 | 1 | 2'b00 | 16'hffff | 16'h8001 |

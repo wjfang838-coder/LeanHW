@@ -1,0 +1,264 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- q: output [31:0].
+
+Public parameters:
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+
+I would like you to implement a module named TopModule with the following
+interface. All input and output ports are one bit unless otherwise
+specified.
+
+ - input  clk
+ - input  reset
+ - output q (32 bits)
+
+A linear feedback shift register is a shift register usually with a few
+XOR gates to produce the next state of the shift register. A Galois LFSR
+is one particular arrangement that shifts right, where a bit position with
+a "tap" is XORed with the LSB output bit (q[0]) to produce its next value,
+while bit positions without a tap shift right unchanged. 
+
+The module should implement a 32-bit Galois LFSR with taps at bit
+positions 32, 22, 2, and 1. Reset should be active high synchronous, and
+should reset the output q to 32'h1. Assume all sequential logic is
+triggered on the positive edge of the clock.
+
+
+<!-- original-requirements:end -->
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is active high and synchronous to the positive edge of clk. At every positive edge sampling reset=1, q becomes 32'h00000001, with reset taking priority over advancement regardless of the previous q. Repeated such edges keep q at that value. Assertion or release between positive edges does not change q; a reset pulse entirely between positive edges has no effect.
+
+Before the first positive edge sampling reset=1, all 32 bits of q are hardware x, including during asserted reset before that edge; non-reset positive edges preserve this unknown value. This is the certain initialization law of Q1, Q3 and Q5, not an implementation choice or a don't-care after reset. The sole stored bit state is the 32-bit value visible at q. After release, q retains the last published value until the next positive edge. If that value is the reset value and the next edge samples reset=0, q becomes 32'h80200003.
+
+4. Timing
+
+Only positive clk edges update q; constant clk levels and falling edges have no effect. q is registered: each positive edge publishes the result computed from q immediately before that edge and reset sampled at that edge, with no additional pipeline stage. Between positive clk edges q holds its value, including during reset assertion or release. There is no completion pulse, bounded transaction or terminal state; every non-reset positive edge advances the sequence.
+
+Let E0 be a positive edge sampling reset=1. Immediately after E0, q=32'h00000001. Release itself changes nothing. If E1, E2 and E3 are the next three positive edges and each samples reset=0, their post-edge values are respectively 32'h80200003, 32'hc0300002 and 32'h60180001. Their pre-edge values are respectively 32'h00000001, 32'h80200003 and 32'hc0300002. The pre-edge value at E0 is the preceding q, including x before initialization. A later edge sampling reset=1 interrupts advancement and restarts this timeline.
+
+The finite model is an active-edge scenario: row k observes the settled state before its represented positive edge, then that edge computes the state for row k+1. clk is implicit in this interface projection. A row with reset=1 represents reset held to that positive edge; it does not model separate between-edge assertion/release events or restrict legal reset pulses in the circuit. The interface supplies no step_ns or sample_offset_ns, and no physical clock period is specified. Row numbers count modeled active edges, not implicit 10 ns ticks. The circuit's edge and hold laws above apply independently of this observation convention.
+
+5. Behaviour
+
+Integration clarification (certain answer Q6, module@header):
+"The reference header fixes the module spelling RefModule and port order clk, reset, q; positional instantiation depends on this order. clk and reset are one-bit inputs; q is a 32-bit output with range [31:0]. There are no parameters or symbolic ranges. The original document names the public compilation target TopModule with these same port names, directions and widths; the reference module identifier is RefModule. The verification inventory lists no additional hardware bindings."
+This identifies RefModule only as the reference module; the implementation target remains TopModule. The confirmed declaration order is normative for this contract, and there are no additional verification-visible bindings.
+
+
+For every initialized pre-edge value P of q, each positive edge sampling reset=0 publishes F(P)=(P >> 1) XOR (P[0] ? 32'h80200003 : 32'h00000000), using unsigned 32-bit operands, a logical right shift and a 32-bit result. Reset=1 instead publishes 32'h00000001. The result is retained until the next positive edge. This law applies to every 32-bit P, not merely the illustrated sequence; there are no excluded bit patterns or disabled operating modes.
+
+Bit 31 is the most significant bit and bit 0 is the least significant bit. Tap positions are one-based: positions 32, 22, 2 and 1 correspond to output indices 31, 21, 1 and 0. The simultaneous post-edge equations for a non-reset edge are F(P)[31]=P[0], F(P)[21]=P[22] XOR P[0], F(P)[1]=P[2] XOR P[0], and F(P)[0]=P[1] XOR P[0]. For every index i in 1 through 30 except 1 and 21, F(P)[i]=P[i+1]. All right-hand operands are pre-edge bits; no equation uses a bit already updated at the same edge.
+
+From q=32'h00000001, successive non-reset edges publish 32'h80200003, 32'hc0300002, 32'h60180001, 32'hb02c0003, 32'hd8360002 and 32'h6c1b0001. Any positive edge sampling reset=1 restarts from 32'h00000001, even in the middle of this sequence. Holding reset low advances at every positive edge; holding it high republishes the reset value at every positive edge.
+
+6. Worked trace
+
+The following trace is normative for the finite active-edge observation scenario specified above. Each stimulus block starts before any reset edge with the certain hardware-unknown initialization law, rather than with a reset-preconditioned state. Output sampling precedes the transition for that row.
+
+### stimulus 0
+| cycle | reset | q |
+|---|---|---|
+| 0 | 0 | 32'x |
+| 1 | 0 | 32'x |
+| 2 | 0 | 32'x |
+| 3 | 0 | 32'x |
+| 4 | 0 | 32'x |
+
+### stimulus 1
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 32'x |
+| 1 | 0 | 32'h1 |
+| 2 | 0 | 32'h80200003 |
+| 3 | 0 | 32'hc0300002 |
+
+### stimulus 2
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 32'x |
+| 1 | 0 | 32'h1 |
+| 2 | 0 | 32'h80200003 |
+| 3 | 0 | 32'hc0300002 |
+| 4 | 0 | 32'h60180001 |
+| 5 | 0 | 32'hb02c0003 |
+| 6 | 0 | 32'hd8360002 |
+| 7 | 0 | 32'h6c1b0001 |
+| 8 | 0 | 32'hb62d8003 |
+| 9 | 0 | 32'hdb36c002 |
+| 10 | 0 | 32'h6d9b6001 |
+| 11 | 0 | 32'hb6edb003 |
+| 12 | 0 | 32'hdb56d802 |
+| 13 | 0 | 32'h6dab6c01 |
+| 14 | 0 | 32'hb6f5b603 |
+| 15 | 0 | 32'hdb5adb02 |
+| 16 | 0 | 32'h6dad6d81 |
+| 17 | 0 | 32'hb6f6b6c3 |
+| 18 | 0 | 32'hdb5b5b62 |
+| 19 | 0 | 32'h6dadadb1 |
+| 20 | 0 | 32'hb6f6d6db |
+| 21 | 0 | 32'hdb5b6b6e |
+| 22 | 0 | 32'h6dadb5b7 |
+| 23 | 0 | 32'hb6f6dad8 |
+| 24 | 0 | 32'h5b7b6d6c |
+| 25 | 0 | 32'h2dbdb6b6 |
+| 26 | 0 | 32'h16dedb5b |
+| 27 | 0 | 32'h8b4f6dae |
+| 28 | 0 | 32'h45a7b6d7 |
+| 29 | 0 | 32'ha2f3db68 |
+| 30 | 0 | 32'h5179edb4 |
+| 31 | 0 | 32'h28bcf6da |
+| 32 | 0 | 32'h145e7b6d |
+| 33 | 0 | 32'h8a0f3db5 |
+| 34 | 0 | 32'hc5279ed9 |
+| 35 | 0 | 32'he2b3cf6f |
+| 36 | 0 | 32'hf179e7b4 |
+| 37 | 0 | 32'h78bcf3da |
+| 38 | 0 | 32'h3c5e79ed |
+| 39 | 0 | 32'h9e0f3cf5 |
+| 40 | 0 | 32'hcf279e79 |
+| 41 | 0 | 32'he7b3cf3f |
+| 42 | 0 | 32'hf3f9e79c |
+| 43 | 0 | 32'h79fcf3ce |
+| 44 | 0 | 32'h3cfe79e7 |
+| 45 | 0 | 32'h9e5f3cf0 |
+| 46 | 0 | 32'h4f2f9e78 |
+| 47 | 0 | 32'h2797cf3c |
+| 48 | 0 | 32'h13cbe79e |
+| 49 | 0 | 32'h9e5f3cf |
+| 50 | 0 | 32'h84d2f9e4 |
+| 51 | 0 | 32'h42697cf2 |
+| 52 | 0 | 32'h2134be79 |
+| 53 | 0 | 32'h90ba5f3f |
+| 54 | 0 | 32'hc87d2f9c |
+| 55 | 0 | 32'h643e97ce |
+| 56 | 0 | 32'h321f4be7 |
+| 57 | 0 | 32'h992fa5f0 |
+| 58 | 0 | 32'h4c97d2f8 |
+| 59 | 0 | 32'h264be97c |
+| 60 | 0 | 32'h1325f4be |
+| 61 | 0 | 32'h992fa5f |
+| 62 | 0 | 32'h84e97d2c |
+| 63 | 0 | 32'h4274be96 |
+
+### stimulus 3
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 32'x |
+| 1 | 1 | 32'h1 |
+| 2 | 1 | 32'h1 |
+| 3 | 0 | 32'h1 |
+| 4 | 0 | 32'h80200003 |
+
+### stimulus 4
+| cycle | reset | q |
+|---|---|---|
+| 0 | 0 | 32'x |
+| 1 | 0 | 32'x |
+| 2 | 1 | 32'x |
+| 3 | 0 | 32'h1 |
+| 4 | 0 | 32'h80200003 |
+
+### stimulus 5
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 32'x |
+| 1 | 0 | 32'h1 |
+| 2 | 1 | 32'h80200003 |
+| 3 | 0 | 32'h1 |
+| 4 | 1 | 32'h80200003 |
+| 5 | 0 | 32'h1 |
+| 6 | 1 | 32'h80200003 |
+| 7 | 0 | 32'h1 |
+| 8 | 1 | 32'h80200003 |
+| 9 | 0 | 32'h1 |
+| 10 | 1 | 32'h80200003 |
+| 11 | 0 | 32'h1 |
+
+### stimulus 6
+| cycle | reset | q |
+|---|---|---|
+| 0 | 1 | 32'x |
+| 1 | 0 | 32'h1 |
+| 2 | 0 | 32'h80200003 |
+| 3 | 0 | 32'hc0300002 |
+| 4 | 0 | 32'h60180001 |
+| 5 | 0 | 32'hb02c0003 |
+| 6 | 0 | 32'hd8360002 |
+| 7 | 0 | 32'h6c1b0001 |
+| 8 | 0 | 32'hb62d8003 |
+| 9 | 0 | 32'hdb36c002 |
+| 10 | 0 | 32'h6d9b6001 |
+| 11 | 0 | 32'hb6edb003 |
+| 12 | 0 | 32'hdb56d802 |
+| 13 | 0 | 32'h6dab6c01 |
+| 14 | 0 | 32'hb6f5b603 |
+| 15 | 0 | 32'hdb5adb02 |
+| 16 | 0 | 32'h6dad6d81 |
+| 17 | 0 | 32'hb6f6b6c3 |
+| 18 | 0 | 32'hdb5b5b62 |
+| 19 | 0 | 32'h6dadadb1 |
+| 20 | 1 | 32'hb6f6d6db |
+| 21 | 0 | 32'h1 |
+| 22 | 0 | 32'h80200003 |
+| 23 | 0 | 32'hc0300002 |
+| 24 | 0 | 32'h60180001 |
+| 25 | 0 | 32'hb02c0003 |
+| 26 | 0 | 32'hd8360002 |
+| 27 | 0 | 32'h6c1b0001 |
+| 28 | 0 | 32'hb62d8003 |
+| 29 | 0 | 32'hdb36c002 |
+| 30 | 0 | 32'h6d9b6001 |
+| 31 | 0 | 32'hb6edb003 |
+| 32 | 0 | 32'hdb56d802 |
+| 33 | 0 | 32'h6dab6c01 |
+| 34 | 0 | 32'hb6f5b603 |
+| 35 | 0 | 32'hdb5adb02 |
+| 36 | 0 | 32'h6dad6d81 |
+| 37 | 0 | 32'hb6f6b6c3 |
+| 38 | 0 | 32'hdb5b5b62 |
+| 39 | 0 | 32'h6dadadb1 |
+| 40 | 0 | 32'hb6f6d6db |
+| 41 | 0 | 32'hdb5b6b6e |
+| 42 | 0 | 32'h6dadb5b7 |
+| 43 | 0 | 32'hb6f6dad8 |
+
+### stimulus 7
+| cycle | reset | q |
+|---|---|---|
+| 0 | 0 | 32'x |
+| 1 | 0 | 32'x |
+| 2 | 0 | 32'x |
+| 3 | 1 | 32'x |
+| 4 | 1 | 32'h1 |
+| 5 | 0 | 32'h1 |
+| 6 | 0 | 32'h80200003 |
+| 7 | 0 | 32'hc0300002 |
+| 8 | 0 | 32'h60180001 |
+| 9 | 0 | 32'hb02c0003 |
+| 10 | 0 | 32'hd8360002 |
+| 11 | 0 | 32'h6c1b0001 |
+| 12 | 1 | 32'hb62d8003 |
+| 13 | 0 | 32'h1 |
+| 14 | 0 | 32'h80200003 |
+| 15 | 0 | 32'hc0300002 |
+| 16 | 0 | 32'h60180001 |
+| 17 | 0 | 32'hb02c0003 |
+| 18 | 0 | 32'hd8360002 |
+| 19 | 0 | 32'h6c1b0001 |

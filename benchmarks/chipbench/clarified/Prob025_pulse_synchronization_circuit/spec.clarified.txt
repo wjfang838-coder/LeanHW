@@ -1,0 +1,304 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk_fast: input 1 bit.
+- clk_slow: input 1 bit.
+- rst_n: input 1 bit.
+- data_in: input 1 bit.
+- data_out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: each table row drives the explicitly named clock levels and data, then observes settled outputs. The model must apply the edge described by those levels exactly once; it must not insert a second pipeline delay.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+`rst_n` is an active-low asynchronous reset. Whenever `rst_n` is low, `data_out` is 0 immediately and remains 0 regardless of either clock and `data_in`. Reset clears the fast-domain event parity, both slow-domain parity samples, and the retained pulse result, and cancels all pending observable events. Reset overrides any coincident clock edge.
+
+Before reset has ever been asserted, `data_out` is unknown. The implementation must leave the corresponding stored result uninitialised: it must not use an `initial` block or declaration initialiser to give it a definite value. After reset is released, release alone causes no output event; `data_out` remains 0 until a later propagated parity difference arrives. The first clock edge after release follows the ordinary behavior below.
+
+4. Timing.
+
+All sequential behavior responds to positive clock edges. `data_out` is a registered slow-domain output. It changes only as the result of a `clk_slow` rising edge and holds its value between such edges. A fast-domain event captured on `clk_fast` rising edge f can first affect the settled post-edge value of `data_out` at the second `clk_slow` rising edge whose sampling occurs after f.
+
+For slow rising edges numbered n, let P[n] be the parity of all `clk_fast` rising edges through the sampling instant of slow rising edge n at which `data_in` was high. Immediately after slow rising edge n, `data_out` equals P[n-1] XOR P[n-2]. Thus an isolated propagated parity change produces a high pulse lasting exactly one complete slow-clock cycle: one interval from a `clk_slow` rising edge to the next. Consecutive parity changes can produce consecutive high intervals.
+
+The clock-frequency law is that `clk_fast` has ten times the frequency of `clk_slow`; equivalently, one slow-clock period spans ten fast-clock periods. Each clock is externally supplied, so this specification imposes no generated duty-cycle count beyond edge-sensitive behavior and does not fix their relative phase.
+
+Trace rows use the interface's half-cycle observation convention: each row observes the settled output for the presented clock levels before committing that row's pending rising-edge transition. This observation cadence is distinct from the circuit law that the two input clock periods have a 10:1 ratio; it does not imply a 10 ns clock tick or any other physical duration.
+
+5. Behaviour.
+
+While `rst_n` is high, each `clk_fast` rising edge at which `data_in` is high toggles the event parity later conveyed to `data_out`. A `clk_fast` rising edge with `data_in` low, and every falling edge or static `clk_fast` level, has no effect. A high `data_in` level spanning repeated `clk_fast` rising edges creates one toggle per edge; changes to `data_in` away from a rising edge have no effect.
+
+While `rst_n` is high, `clk_slow` affects `data_out` only on rising edges: immediately after rising edge n, `data_out` is the XOR of the fast-domain event parities sampled at rising edges n-1 and n-2, and it holds between rising edges. This law applies without exception to the first result, repeated events, consecutive results, and parity-cancelled transactions. Two accepted fast events that cancel in parity before being distinguished by the slow samples need not produce an output pulse.
+
+Driving `rst_n` low asynchronously forces `data_out` to 0 and cancels all pending events regardless of clocks or `data_in`; keeping it low retains 0. Releasing it high restarts subsequent operation from zero event parity and cleared slow-domain samples, without itself producing an event.
+
+All four inputs are one bit, so there are no additional input encodings beyond 0 and 1.
+
+6. Worked trace.
+
+The evaluated trace below is normative.
+
+### stimulus 0
+| half-cycle | clk_fast | clk_slow | rst_n | data_in | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 1 | 1 | 0 |
+| 8 | 0 | 0 | 1 | 0 | 0 |
+| 9 | 1 | 0 | 1 | 0 | 0 |
+| 10 | 0 | 1 | 1 | 0 | 0 |
+| 11 | 1 | 1 | 1 | 0 | 0 |
+| 12 | 0 | 1 | 1 | 0 | 0 |
+| 13 | 1 | 1 | 1 | 0 | 0 |
+| 14 | 0 | 1 | 1 | 0 | 0 |
+| 15 | 1 | 1 | 1 | 0 | 0 |
+| 16 | 0 | 1 | 1 | 0 | 0 |
+| 17 | 1 | 1 | 1 | 0 | 0 |
+| 18 | 0 | 1 | 1 | 0 | 0 |
+| 19 | 1 | 1 | 1 | 0 | 0 |
+| 20 | 0 | 0 | 1 | 0 | 0 |
+| 21 | 1 | 0 | 1 | 0 | 0 |
+| 22 | 0 | 0 | 1 | 0 | 0 |
+| 23 | 1 | 0 | 1 | 0 | 0 |
+| 24 | 0 | 0 | 1 | 0 | 0 |
+| 25 | 1 | 0 | 1 | 0 | 0 |
+| 26 | 0 | 0 | 1 | 0 | 0 |
+| 27 | 1 | 0 | 1 | 0 | 0 |
+| 28 | 0 | 0 | 1 | 0 | 0 |
+| 29 | 1 | 0 | 1 | 0 | 0 |
+| 30 | 0 | 1 | 1 | 0 | 0 |
+| 31 | 1 | 1 | 1 | 0 | 1 |
+| 32 | 0 | 1 | 1 | 0 | 1 |
+| 33 | 1 | 1 | 1 | 0 | 1 |
+| 34 | 0 | 1 | 1 | 0 | 1 |
+| 35 | 1 | 1 | 1 | 0 | 1 |
+| 36 | 0 | 1 | 1 | 0 | 1 |
+| 37 | 1 | 1 | 1 | 0 | 1 |
+| 38 | 0 | 1 | 1 | 0 | 1 |
+| 39 | 1 | 1 | 1 | 0 | 1 |
+| 40 | 0 | 0 | 1 | 0 | 1 |
+| 41 | 1 | 0 | 1 | 0 | 1 |
+| 42 | 0 | 0 | 1 | 0 | 1 |
+| 43 | 1 | 0 | 1 | 0 | 1 |
+| 44 | 0 | 0 | 1 | 0 | 1 |
+| 45 | 1 | 0 | 1 | 0 | 1 |
+| 46 | 0 | 0 | 1 | 0 | 1 |
+| 47 | 1 | 0 | 1 | 0 | 1 |
+| 48 | 0 | 0 | 1 | 0 | 1 |
+| 49 | 1 | 0 | 1 | 0 | 1 |
+| 50 | 0 | 1 | 1 | 0 | 1 |
+| 51 | 1 | 1 | 1 | 0 | 0 |
+| 52 | 0 | 1 | 1 | 0 | 0 |
+| 53 | 1 | 1 | 1 | 0 | 0 |
+| 54 | 0 | 1 | 1 | 0 | 0 |
+| 55 | 1 | 1 | 1 | 0 | 0 |
+| 56 | 0 | 1 | 1 | 0 | 0 |
+| 57 | 1 | 1 | 1 | 0 | 0 |
+| 58 | 0 | 1 | 1 | 0 | 0 |
+| 59 | 1 | 1 | 1 | 0 | 0 |
+| 60 | 0 | 0 | 1 | 0 | 0 |
+| 61 | 1 | 0 | 1 | 0 | 0 |
+| 62 | 0 | 0 | 1 | 0 | 0 |
+| 63 | 1 | 0 | 1 | 0 | 0 |
+
+### stimulus 1
+| half-cycle | clk_fast | clk_slow | rst_n | data_in | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 1 | 1 | 0 |
+| 4 | 0 | 0 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 1 | 0 | 0 |
+| 8 | 0 | 0 | 1 | 0 | 0 |
+| 9 | 1 | 0 | 1 | 0 | 0 |
+| 10 | 0 | 1 | 1 | 0 | 0 |
+| 11 | 1 | 1 | 1 | 0 | 0 |
+| 12 | 0 | 1 | 1 | 0 | 0 |
+| 13 | 1 | 1 | 1 | 0 | 0 |
+| 14 | 0 | 1 | 1 | 0 | 0 |
+| 15 | 1 | 1 | 1 | 0 | 0 |
+| 16 | 0 | 1 | 1 | 0 | 0 |
+| 17 | 1 | 1 | 1 | 0 | 0 |
+| 18 | 0 | 1 | 1 | 0 | 0 |
+| 19 | 1 | 1 | 1 | 0 | 0 |
+| 20 | 0 | 0 | 1 | 0 | 0 |
+| 21 | 1 | 0 | 1 | 0 | 0 |
+| 22 | 0 | 0 | 1 | 0 | 0 |
+| 23 | 1 | 0 | 1 | 0 | 0 |
+
+### stimulus 2
+| half-cycle | clk_fast | clk_slow | rst_n | data_in | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 1 | 0 | 0 |
+| 4 | 0 | 1 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 1 | 1 | 0 |
+| 6 | 0 | 1 | 1 | 0 | 0 |
+| 7 | 1 | 1 | 1 | 0 | 0 |
+| 8 | 0 | 1 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 1 | 0 | 0 |
+| 10 | 0 | 1 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 1 | 0 | 0 |
+| 12 | 0 | 0 | 1 | 0 | 0 |
+| 13 | 1 | 0 | 1 | 0 | 0 |
+| 14 | 0 | 0 | 1 | 0 | 0 |
+| 15 | 1 | 0 | 1 | 0 | 0 |
+| 16 | 0 | 0 | 1 | 0 | 0 |
+| 17 | 1 | 0 | 1 | 0 | 0 |
+| 18 | 0 | 0 | 1 | 0 | 0 |
+| 19 | 1 | 0 | 1 | 0 | 0 |
+| 20 | 0 | 0 | 1 | 0 | 0 |
+| 21 | 1 | 1 | 1 | 0 | 0 |
+| 22 | 0 | 1 | 1 | 0 | 0 |
+| 23 | 1 | 1 | 1 | 0 | 0 |
+
+### stimulus 3
+| half-cycle | clk_fast | clk_slow | rst_n | data_in | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 1 | 1 | 0 |
+| 8 | 0 | 0 | 1 | 0 | 0 |
+| 9 | 1 | 0 | 1 | 0 | 0 |
+| 10 | 0 | 1 | 1 | 0 | 0 |
+| 11 | 1 | 1 | 1 | 0 | 0 |
+| 12 | 0 | 1 | 1 | 0 | 0 |
+| 13 | 1 | 1 | 0 | 0 | 0 |
+| 14 | 0 | 1 | 1 | 0 | 0 |
+| 15 | 1 | 1 | 1 | 1 | 0 |
+| 16 | 0 | 1 | 1 | 0 | 0 |
+| 17 | 1 | 1 | 1 | 0 | 0 |
+| 18 | 0 | 1 | 1 | 0 | 0 |
+| 19 | 1 | 1 | 1 | 0 | 0 |
+| 20 | 0 | 0 | 1 | 0 | 0 |
+| 21 | 1 | 0 | 1 | 0 | 0 |
+| 22 | 0 | 0 | 1 | 0 | 0 |
+| 23 | 1 | 0 | 1 | 0 | 0 |
+| 24 | 0 | 0 | 1 | 0 | 0 |
+| 25 | 1 | 0 | 1 | 0 | 0 |
+| 26 | 0 | 0 | 1 | 0 | 0 |
+| 27 | 1 | 0 | 1 | 0 | 0 |
+
+### stimulus 4
+| half-cycle | clk_fast | clk_slow | rst_n | data_in | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 1 | 1 | 0 |
+| 6 | 0 | 0 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 1 | 0 | 0 |
+| 8 | 0 | 0 | 1 | 0 | 0 |
+| 9 | 1 | 0 | 1 | 0 | 0 |
+| 10 | 0 | 1 | 1 | 0 | 0 |
+| 11 | 1 | 1 | 1 | 0 | 0 |
+| 12 | 0 | 1 | 1 | 0 | 0 |
+| 13 | 1 | 1 | 1 | 0 | 0 |
+| 14 | 0 | 1 | 1 | 0 | 0 |
+| 15 | 1 | 1 | 1 | 0 | 0 |
+| 16 | 0 | 1 | 1 | 0 | 0 |
+| 17 | 1 | 1 | 1 | 0 | 0 |
+| 18 | 0 | 1 | 1 | 0 | 0 |
+| 19 | 1 | 1 | 1 | 0 | 0 |
+| 20 | 0 | 0 | 1 | 0 | 0 |
+| 21 | 1 | 0 | 1 | 0 | 0 |
+| 22 | 0 | 0 | 1 | 0 | 0 |
+| 23 | 1 | 0 | 1 | 0 | 0 |
+| 24 | 0 | 0 | 1 | 0 | 0 |
+| 25 | 1 | 0 | 1 | 1 | 0 |
+| 26 | 0 | 0 | 1 | 0 | 0 |
+| 27 | 1 | 0 | 1 | 0 | 0 |
+| 28 | 0 | 0 | 1 | 0 | 0 |
+| 29 | 1 | 0 | 1 | 0 | 0 |
+| 30 | 0 | 1 | 1 | 0 | 0 |
+| 31 | 1 | 1 | 1 | 0 | 1 |
+| 32 | 0 | 1 | 1 | 0 | 1 |
+| 33 | 1 | 1 | 1 | 0 | 1 |
+| 34 | 0 | 1 | 1 | 0 | 1 |
+| 35 | 1 | 1 | 1 | 0 | 1 |
+| 36 | 0 | 1 | 1 | 0 | 1 |
+| 37 | 1 | 1 | 1 | 0 | 1 |
+| 38 | 0 | 1 | 1 | 0 | 1 |
+| 39 | 1 | 1 | 1 | 0 | 1 |
+| 40 | 0 | 0 | 1 | 0 | 1 |
+| 41 | 1 | 0 | 1 | 0 | 1 |
+| 42 | 0 | 0 | 1 | 0 | 1 |
+| 43 | 1 | 0 | 1 | 0 | 1 |
+
+### stimulus 5
+| half-cycle | clk_fast | clk_slow | rst_n | data_in | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 1 | 1 | 0 |
+| 6 | 0 | 0 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 1 | 0 | 0 |
+| 8 | 0 | 0 | 1 | 0 | 0 |
+| 9 | 1 | 0 | 1 | 0 | 0 |
+| 10 | 0 | 0 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 1 | 0 | 0 |
+
+### stimulus 6
+| half-cycle | clk_fast | clk_slow | rst_n | data_in | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 1 | 0 | 0 |
+| 2 | 1 | 0 | 1 | 1 | 0 |
+| 3 | 0 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 1 | 0 | 0 |
+| 5 | 0 | 1 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 1 | 0 | 0 |
+| 7 | 0 | 1 | 1 | 0 | 0 |
+| 8 | 0 | 0 | 1 | 0 | 1 |
+| 9 | 0 | 1 | 1 | 0 | 1 |
+| 10 | 0 | 0 | 1 | 0 | 0 |
+| 11 | 0 | 1 | 1 | 0 | 0 |
+
+### stimulus 7
+| half-cycle | clk_fast | clk_slow | rst_n | data_in | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 1 | 1 | 0 |
+| 6 | 0 | 1 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 1 | 0 | 0 |
+| 8 | 0 | 0 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 1 | 1 | 0 |
+| 10 | 0 | 1 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 1 | 0 | 0 |
+| 12 | 0 | 0 | 1 | 0 | 0 |
+| 13 | 1 | 1 | 1 | 0 | 0 |
+| 14 | 0 | 1 | 1 | 0 | 1 |
+| 15 | 1 | 0 | 1 | 0 | 1 |

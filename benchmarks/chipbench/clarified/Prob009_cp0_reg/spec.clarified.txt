@@ -1,0 +1,193 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- we_i: input 1 bit.
+- waddr_i: input [4:0].
+- raddr_i: input [4:0].
+- data_i: input [31:0].
+- excepttype_i: input [31:0].
+- int_i: input [5:0].
+- current_inst_addr_i: input [31:0].
+- is_in_delayslot_i: input 1 bit.
+- data_o: output [31:0].
+- count_o: output [31:0].
+- compare_o: output [31:0].
+- status_o: output [31:0].
+- cause_o: output [31:0].
+- epc_o: output [31:0].
+- config_o: output [31:0].
+- prid_o: output [31:0].
+- timer_int_o: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+rst is active high and synchronous. A rising clk edge with rst asserted has priority over every write, interrupt, exception, and timer-match effect and sets count_o to 32'h00000000, compare_o to 32'h00000000, status_o to 32'h10000000, cause_o to 32'h00000000, epc_o to 32'h00000000, config_o to 32'h00008000, prid_o to 32'h004c0102, and timer_int_o to 1'b0. data_o is the exception: rst asserted forces it combinationally to 32'h00000000 without waiting for an edge. The reset edge also establishes the value retained by data_o as zero, so the first unlisted read address after reset release produces zero.
+
+Before the first rising edge that samples asserted rst, count_o, compare_o, status_o, cause_o, epc_o, config_o, prid_o, timer_int_o, and the value retained by data_o for an unlisted address are unknown and shall be left uninitialized, with no declaration initializer or initial block. A pre-edge observation while rst is asserted still sees these preceding or power-up stored values, except that data_o is already forced to zero; the stored reset values first appear after that rising edge. If rst is low on the first subsequent rising edge, normal operation applies immediately.
+
+4. Timing
+
+Only a rising clk edge changes stored outputs: each pre-edge row observes old values, the edge captures enabled reset, write, interrupt, and exception effects, and the new values are observable immediately after that edge, while a static clk level and falling edges have no stored-output effect.
+
+count_o, compare_o, status_o, cause_o, epc_o, config_o, prid_o, and timer_int_o are registered. An accepted change has one rising-edge capture latency: its pre-edge value is visible before the deciding edge and its new value is visible immediately afterward, with no additional pipeline cycle. data_o is combinational for reset and listed read addresses; post-edge changes of its selected registered output are visible immediately. For an unlisted read address, data_o retains its preceding value. timer_int_o is a retained level, not a pulse: once asserted it remains asserted for an unbounded number of cycles until a compare write or reset clears it.
+
+The evaluated trace uses full-cycle rows. Row k denotes the observation before transition k, followed by transition k; it is a cycle count, not an implicit 10 ns clock. The interface supplies no step_ns or sample_offset_ns value, so this specification assigns no nanosecond period or sampling offset.
+
+5. Behaviour
+
+With rst low, we_i high at a rising edge enables the waddr_i-selected write, repeated asserted edges perform repeated writes, and we_i low performs none; reset has priority, exception effects may override the simultaneously written status_o bit 1 or epc_o, and a compare write clears timer_int_o.
+
+When rst is low and we_i is high at a rising edge, waddr_i 5'b01001 writes all 32 data_i bits to count_o, 5'b01011 writes all 32 bits to compare_o and clears timer_int_o, 5'b01100 writes all 32 bits to status_o, 5'b01101 writes only cause_o bits 23, 22, 9, and 8 from the corresponding data_i bits, and 5'b01110 writes all 32 bits to epc_o. Every other waddr_i encoding writes none of these outputs. data_i has no effect unless such a write is enabled.
+
+With rst low, raddr_i combinationally selects count_o, compare_o, status_o, cause_o, epc_o, prid_o, or config_o at addresses 5'b01001, 01011, 01100, 01101, 01110, 01111, or 10000 respectively, while an unlisted address retains the preceding data_o value; with rst high the address has no effect and data_o is zero.
+
+On every non-reset rising edge, count_o increments modulo 2^32 unless an enabled write to 5'b01001 replaces it with data_i. compare_o retains its value except for an enabled write to 5'b01011. config_o and prid_o retain their values on every non-reset edge.
+
+On every non-reset rising edge, int_i is copied into cause_o[15:10], including during a write or exception. An enabled cause write simultaneously replaces only cause_o[23], cause_o[22], cause_o[9], and cause_o[8]. All other cause_o bits retain their preceding values except for the exception fields specified below.
+
+On a non-reset rising edge, excepttype_i 32'h00000001 sets status_o[1], sets cause_o[6:2] to 5'd0, and always captures an exception address. Values 32'h00000008, 32'h0000000a, 32'h0000000c, and 32'h0000000d set status_o[1] and set cause_o[6:2] to 5'd8, 5'd10, 5'd12, and 5'd13 respectively; they capture an exception address only if the pre-edge status_o[1] was clear. Value 32'h0000000e clears status_o[1]. Every other excepttype_i encoding causes none of these exception effects. Repeating a guarded exception while pre-edge status_o[1] is set updates its cause code but does not recapture the exception address.
+
+When an exception address is captured, is_in_delayslot_i equal to one sets cause_o[31] and stores current_inst_addr_i minus 4 modulo 2^32 in epc_o; is_in_delayslot_i equal to zero clears cause_o[31] and stores current_inst_addr_i in epc_o. When no address capture occurs, current_inst_addr_i and is_in_delayslot_i have no effect. A qualifying capture overrides a simultaneous full epc_o write. A recognized exception or return overrides status_o bit 1 of a simultaneous full status_o write while every other status_o bit remains from data_i.
+
+On a non-reset rising edge, timer_int_o becomes one when the pre-edge compare_o is nonzero and equals the pre-edge count_o. It otherwise retains its prior value. A simultaneous enabled write to compare address 5'b01011 clears timer_int_o with priority over a match; repeated later matches reassert it.
+
+6. Worked trace
+
+The following evaluated trace is normative. Each row samples outputs before that row's rising-edge transition.
+
+### stimulus 0
+| cycle | rst | we_i | waddr_i | raddr_i | data_i | excepttype_i | int_i | current_inst_addr_i | is_in_delayslot_i | data_o | count_o | compare_o | status_o | cause_o | epc_o | config_o | prid_o | timer_int_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | x |
+| 1 | 0 | 0 | 5'b00000 | 5'b00000 | 32'h1 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'h0 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b00000 | 32'hffffffff | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'h1 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+
+### stimulus 1
+| cycle | rst | we_i | waddr_i | raddr_i | data_i | excepttype_i | int_i | current_inst_addr_i | is_in_delayslot_i | data_o | count_o | compare_o | status_o | cause_o | epc_o | config_o | prid_o | timer_int_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | x |
+| 1 | 0 | 1 | 5'b01001 | 5'b00000 | 32'h80000000 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'h0 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h80000000 | 32'h80000000 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 3 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h80000001 | 32'h80000001 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 4 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h80000002 | 32'h80000002 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+
+### stimulus 2
+| cycle | rst | we_i | waddr_i | raddr_i | data_i | excepttype_i | int_i | current_inst_addr_i | is_in_delayslot_i | data_o | count_o | compare_o | status_o | cause_o | epc_o | config_o | prid_o | timer_int_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | x |
+| 1 | 0 | 1 | 5'b01011 | 5'b00000 | 32'h3 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'h0 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b01011 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h3 | 32'h1 | 32'h3 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 3 | 0 | 0 | 5'b00000 | 5'b01011 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h3 | 32'h2 | 32'h3 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 4 | 0 | 0 | 5'b00000 | 5'b01011 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h3 | 32'h3 | 32'h3 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 5 | 0 | 0 | 5'b00000 | 5'b01011 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h3 | 32'h4 | 32'h3 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 1 |
+| 6 | 0 | 1 | 5'b01011 | 5'b01011 | 32'h5 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h3 | 32'h5 | 32'h3 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 1 |
+| 7 | 0 | 0 | 5'b00000 | 5'b01011 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h5 | 32'h6 | 32'h5 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+
+### stimulus 3
+| cycle | rst | we_i | waddr_i | raddr_i | data_i | excepttype_i | int_i | current_inst_addr_i | is_in_delayslot_i | data_o | count_o | compare_o | status_o | cause_o | epc_o | config_o | prid_o | timer_int_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | x |
+| 1 | 0 | 1 | 5'b01100 | 5'b00000 | 32'h12345678 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'h0 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b01100 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h12345678 | 32'h1 | 32'h0 | 32'h12345678 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 3 | 0 | 1 | 5'b01101 | 5'b00000 | 32'hffffffff | 32'h0 | 6'b000001 | 32'h0 | 0 | 32'h12345678 | 32'h2 | 32'h0 | 32'h12345678 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 4 | 0 | 0 | 5'b00000 | 5'b01101 | 32'h0 | 32'h0 | 6'b100000 | 32'h0 | 0 | 32'hc00700 | 32'h3 | 32'h0 | 32'h12345678 | 32'hc00700 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+
+### stimulus 4
+| cycle | rst | we_i | waddr_i | raddr_i | data_i | excepttype_i | int_i | current_inst_addr_i | is_in_delayslot_i | data_o | count_o | compare_o | status_o | cause_o | epc_o | config_o | prid_o | timer_int_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | x |
+| 1 | 0 | 1 | 5'b01110 | 5'b00000 | 32'h80000000 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'h0 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b01110 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h80000000 | 32'h1 | 32'h0 | 32'h10000000 | 32'h0 | 32'h80000000 | 32'h8000 | 32'h4c0102 | 0 |
+| 3 | 0 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h1 | 6'b000000 | 32'h1 | 0 | 32'h80000000 | 32'h2 | 32'h0 | 32'h10000000 | 32'h0 | 32'h80000000 | 32'h8000 | 32'h4c0102 | 0 |
+| 4 | 0 | 0 | 5'b00000 | 5'b01110 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h1 | 32'h3 | 32'h0 | 32'h10000002 | 32'h0 | 32'h1 | 32'h8000 | 32'h4c0102 | 0 |
+
+### stimulus 5
+| cycle | rst | we_i | waddr_i | raddr_i | data_i | excepttype_i | int_i | current_inst_addr_i | is_in_delayslot_i | data_o | count_o | compare_o | status_o | cause_o | epc_o | config_o | prid_o | timer_int_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | x |
+| 1 | 0 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h8 | 6'b000000 | 32'h12345678 | 1 | 32'h0 | 32'h0 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b01101 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h80000020 | 32'h1 | 32'h0 | 32'h10000002 | 32'h80000020 | 32'h12345674 | 32'h8000 | 32'h4c0102 | 0 |
+| 3 | 0 | 0 | 5'b00000 | 5'b01110 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h12345674 | 32'h2 | 32'h0 | 32'h10000002 | 32'h80000020 | 32'h12345674 | 32'h8000 | 32'h4c0102 | 0 |
+| 4 | 0 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'he | 6'b000000 | 32'h0 | 0 | 32'h12345674 | 32'h3 | 32'h0 | 32'h10000002 | 32'h80000020 | 32'h12345674 | 32'h8000 | 32'h4c0102 | 0 |
+| 5 | 0 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h1f | 6'b000000 | 32'h0 | 0 | 32'h12345674 | 32'h4 | 32'h0 | 32'h10000000 | 32'h80000020 | 32'h12345674 | 32'h8000 | 32'h4c0102 | 0 |
+
+### stimulus 6
+| cycle | rst | we_i | waddr_i | raddr_i | data_i | excepttype_i | int_i | current_inst_addr_i | is_in_delayslot_i | data_o | count_o | compare_o | status_o | cause_o | epc_o | config_o | prid_o | timer_int_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | x |
+| 1 | 0 | 0 | 5'b00000 | 5'b01111 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h4c0102 | 32'h0 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b10000 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h8000 | 32'h1 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 3 | 0 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h8000 | 32'h2 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 4 | 0 | 0 | 5'b00000 | 5'b11111 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h8000 | 32'h3 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+
+### stimulus 7
+| cycle | rst | we_i | waddr_i | raddr_i | data_i | excepttype_i | int_i | current_inst_addr_i | is_in_delayslot_i | data_o | count_o | compare_o | status_o | cause_o | epc_o | config_o | prid_o | timer_int_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | x |
+| 1 | 0 | 1 | 5'b00000 | 5'b00000 | 32'h1 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'h0 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 2 | 0 | 1 | 5'b11111 | 5'b00000 | 32'hffffffff | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'h1 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 3 | 0 | 0 | 5'b00000 | 5'b11111 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'h2 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+
+### stimulus 8
+| cycle | rst | we_i | waddr_i | raddr_i | data_i | excepttype_i | int_i | current_inst_addr_i | is_in_delayslot_i | data_o | count_o | compare_o | status_o | cause_o | epc_o | config_o | prid_o | timer_int_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 5'b01001 | 5'b00000 | 32'h1 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | x |
+| 1 | 0 | 1 | 5'b01001 | 5'b00000 | 32'hffffffff | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'h0 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 2 | 1 | 0 | 5'b00000 | 5'b00000 | 32'h0 | 32'h8 | 6'b111111 | 32'h0 | 0 | 32'h0 | 32'hffffffff | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 3 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'h0 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+
+### stimulus 9
+| cycle | rst | we_i | waddr_i | raddr_i | data_i | excepttype_i | int_i | current_inst_addr_i | is_in_delayslot_i | data_o | count_o | compare_o | status_o | cause_o | epc_o | config_o | prid_o | timer_int_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b01001 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 0 | 32'h0 | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | 32'x | x |
+| 1 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h1 | 32'h0 | 6'b000001 | 32'h0 | 0 | 32'h0 | 32'h0 | 32'h0 | 32'h10000000 | 32'h0 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h2 | 32'h0 | 6'b000010 | 32'h0 | 0 | 32'h1 | 32'h1 | 32'h0 | 32'h10000000 | 32'h400 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 3 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h3 | 32'h0 | 6'b000011 | 32'h0 | 0 | 32'h2 | 32'h2 | 32'h0 | 32'h10000000 | 32'h800 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 4 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h4 | 32'h0 | 6'b000100 | 32'h0 | 0 | 32'h3 | 32'h3 | 32'h0 | 32'h10000000 | 32'hc00 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 5 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h5 | 32'h0 | 6'b000101 | 32'h0 | 0 | 32'h4 | 32'h4 | 32'h0 | 32'h10000000 | 32'h1000 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 6 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h6 | 32'h0 | 6'b000110 | 32'h0 | 0 | 32'h5 | 32'h5 | 32'h0 | 32'h10000000 | 32'h1400 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 7 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h7 | 32'h0 | 6'b000111 | 32'h0 | 0 | 32'h6 | 32'h6 | 32'h0 | 32'h10000000 | 32'h1800 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 8 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h8 | 32'h0 | 6'b001000 | 32'h0 | 0 | 32'h7 | 32'h7 | 32'h0 | 32'h10000000 | 32'h1c00 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 9 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h9 | 32'h0 | 6'b001001 | 32'h0 | 0 | 32'h8 | 32'h8 | 32'h0 | 32'h10000000 | 32'h2000 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 10 | 0 | 0 | 5'b00000 | 5'b01001 | 32'ha | 32'h0 | 6'b001010 | 32'h0 | 0 | 32'h9 | 32'h9 | 32'h0 | 32'h10000000 | 32'h2400 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 11 | 0 | 0 | 5'b00000 | 5'b01001 | 32'hb | 32'h0 | 6'b001011 | 32'h0 | 0 | 32'ha | 32'ha | 32'h0 | 32'h10000000 | 32'h2800 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 12 | 0 | 0 | 5'b00000 | 5'b01001 | 32'hc | 32'h0 | 6'b001100 | 32'h0 | 0 | 32'hb | 32'hb | 32'h0 | 32'h10000000 | 32'h2c00 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 13 | 0 | 0 | 5'b00000 | 5'b01001 | 32'hd | 32'h0 | 6'b001101 | 32'h0 | 0 | 32'hc | 32'hc | 32'h0 | 32'h10000000 | 32'h3000 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 14 | 0 | 0 | 5'b00000 | 5'b01001 | 32'he | 32'h0 | 6'b001110 | 32'h0 | 0 | 32'hd | 32'hd | 32'h0 | 32'h10000000 | 32'h3400 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 15 | 0 | 0 | 5'b00000 | 5'b01001 | 32'hf | 32'h0 | 6'b001111 | 32'h0 | 0 | 32'he | 32'he | 32'h0 | 32'h10000000 | 32'h3800 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 16 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h10 | 32'h0 | 6'b010000 | 32'h0 | 0 | 32'hf | 32'hf | 32'h0 | 32'h10000000 | 32'h3c00 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 17 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h11 | 32'h0 | 6'b010001 | 32'h0 | 0 | 32'h10 | 32'h10 | 32'h0 | 32'h10000000 | 32'h4000 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 18 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h12 | 32'h0 | 6'b010010 | 32'h0 | 0 | 32'h11 | 32'h11 | 32'h0 | 32'h10000000 | 32'h4400 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 19 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h13 | 32'h0 | 6'b010011 | 32'h0 | 0 | 32'h12 | 32'h12 | 32'h0 | 32'h10000000 | 32'h4800 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 20 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h14 | 32'h0 | 6'b010100 | 32'h0 | 0 | 32'h13 | 32'h13 | 32'h0 | 32'h10000000 | 32'h4c00 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 21 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h15 | 32'h0 | 6'b010101 | 32'h0 | 0 | 32'h14 | 32'h14 | 32'h0 | 32'h10000000 | 32'h5000 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 22 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h16 | 32'h0 | 6'b010110 | 32'h0 | 0 | 32'h15 | 32'h15 | 32'h0 | 32'h10000000 | 32'h5400 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 23 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h17 | 32'h0 | 6'b010111 | 32'h0 | 0 | 32'h16 | 32'h16 | 32'h0 | 32'h10000000 | 32'h5800 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 24 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h18 | 32'h0 | 6'b011000 | 32'h0 | 0 | 32'h17 | 32'h17 | 32'h0 | 32'h10000000 | 32'h5c00 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 25 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h19 | 32'h0 | 6'b011001 | 32'h0 | 0 | 32'h18 | 32'h18 | 32'h0 | 32'h10000000 | 32'h6000 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 26 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h1a | 32'h0 | 6'b011010 | 32'h0 | 0 | 32'h19 | 32'h19 | 32'h0 | 32'h10000000 | 32'h6400 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 27 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h1b | 32'h0 | 6'b011011 | 32'h0 | 0 | 32'h1a | 32'h1a | 32'h0 | 32'h10000000 | 32'h6800 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 28 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h1c | 32'h0 | 6'b011100 | 32'h0 | 0 | 32'h1b | 32'h1b | 32'h0 | 32'h10000000 | 32'h6c00 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 29 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h1d | 32'h0 | 6'b011101 | 32'h0 | 0 | 32'h1c | 32'h1c | 32'h0 | 32'h10000000 | 32'h7000 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 30 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h1e | 32'h0 | 6'b011110 | 32'h0 | 0 | 32'h1d | 32'h1d | 32'h0 | 32'h10000000 | 32'h7400 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 31 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h1f | 32'h0 | 6'b011111 | 32'h0 | 0 | 32'h1e | 32'h1e | 32'h0 | 32'h10000000 | 32'h7800 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 32 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h20 | 32'h0 | 6'b100000 | 32'h0 | 0 | 32'h1f | 32'h1f | 32'h0 | 32'h10000000 | 32'h7c00 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 33 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h21 | 32'h0 | 6'b100001 | 32'h0 | 0 | 32'h20 | 32'h20 | 32'h0 | 32'h10000000 | 32'h8000 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 34 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h22 | 32'h0 | 6'b100010 | 32'h0 | 0 | 32'h21 | 32'h21 | 32'h0 | 32'h10000000 | 32'h8400 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 35 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h23 | 32'h0 | 6'b100011 | 32'h0 | 0 | 32'h22 | 32'h22 | 32'h0 | 32'h10000000 | 32'h8800 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 36 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h24 | 32'h0 | 6'b100100 | 32'h0 | 0 | 32'h23 | 32'h23 | 32'h0 | 32'h10000000 | 32'h8c00 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 37 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h25 | 32'h0 | 6'b100101 | 32'h0 | 0 | 32'h24 | 32'h24 | 32'h0 | 32'h10000000 | 32'h9000 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 38 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h26 | 32'h0 | 6'b100110 | 32'h0 | 0 | 32'h25 | 32'h25 | 32'h0 | 32'h10000000 | 32'h9400 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |
+| 39 | 0 | 0 | 5'b00000 | 5'b01001 | 32'h27 | 32'h0 | 6'b100111 | 32'h0 | 0 | 32'h26 | 32'h26 | 32'h0 | 32'h10000000 | 32'h9800 | 32'h0 | 32'h8000 | 32'h4c0102 | 0 |

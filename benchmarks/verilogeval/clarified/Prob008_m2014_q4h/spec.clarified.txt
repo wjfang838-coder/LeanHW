@@ -1,0 +1,87 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset and no reset edge. The design has no state elements. From power-up onward, including before any edge, out equals the current one-bit value of in; it is not an uninitialised or retained value.
+
+Timing
+
+out is combinational from in with zero clock-cycle latency. Every change of in affects out continuously, without an edge, transaction delay, pulse, or periodic timing. The interface supplies no numeric step_ns or sample_offset_ns values. Under the trace convention, row k is the settled observation at k * step_ns, sampled at sample_offset_ns within that step, for the cadence supplied by the enclosing driver. This trace observation convention does not impose a clock tick, circuit period, or propagation-delay law.
+
+Behaviour
+
+In the sole reachable combinational mode, out continuously equals in: an inactive in of 1'b0 produces 1'b0 and an active in of 1'b1 produces 1'b1, with every change taking effect without an edge or transaction latency; simultaneous changes, interruption, and repeated values introduce no priority, retained state, or additional effect.
+
+There is no reset or transaction timing: out continuously equals the current in, so a row sampled before an active edge observes the input value present before that edge, with no capture-to-observation latency, initialization interval, hold or clear phase, completion event, or restart behavior.
+
+The input and output are each one bit, so these two cases cover every input encoding.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | out |
+|---|---|---|
+| 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | in | out |
+|---|---|---|
+| 0 | 1 | 1 |
+
+### stimulus 2
+| cycle | in | out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 1 |
+
+### stimulus 3
+| cycle | in | out |
+|---|---|---|
+| 0 | 1 | 1 |
+| 1 | 0 | 0 |
+
+### stimulus 4
+| cycle | in | out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 0 | 0 |
+| 2 | 1 | 1 |
+
+### stimulus 5
+| cycle | in | out |
+|---|---|---|
+| 0 | 1 | 1 |
+| 1 | 1 | 1 |
+| 2 | 0 | 0 |
+
+### stimulus 6
+| cycle | in | out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 1 |
+| 2 | 0 | 0 |
+| 3 | 1 | 1 |
+
+### stimulus 7
+| cycle | in | out |
+|---|---|---|
+| 0 | 1 | 1 |
+| 1 | 0 | 0 |
+| 2 | 1 | 1 |
+| 3 | 0 | 0 |

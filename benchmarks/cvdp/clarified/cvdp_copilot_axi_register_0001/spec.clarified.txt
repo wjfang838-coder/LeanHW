@@ -1,0 +1,508 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+
+Design a **SystemVerilog module** named `axi_register` that implements a configurable **AXI4-Lite Slave** interface for controlling and monitoring specific hardware registers. This module allows software to interact with hardware by performing read and write operations via the AXI4-Lite protocol. The supported functionalities include:
+
+- **Beat Counter**: A 20-bit counter that can be set and read by the AXI master.  
+- **Start Signal**: A single-bit control signal to trigger a hardware operation.  
+- **Done Status**: A single-bit flag indicating the completion of a hardware task.  
+- **Writeback Signal**: A single-bit control signal to trigger a writeback operation.  
+- **ID Register**: A fixed, read-only 32-bit register for identification purposes.
+
+The module should adhere to the AXI4-Lite protocol, ensure proper handshaking, and handle valid data transfers with error handling for invalid operations.
+
+---
+
+## Design Specification
+
+### AXI4-Lite Protocol Features
+
+- **Handshake Mechanism**  
+  Implements the AXI handshake protocol using valid and ready signals for read (`arvalid_i`, `arready_o`, `rvalid_o`, `rready_i`) and write (`awvalid_i`, `awready_o`, `wvalid_i`, `wready_o`, `bvalid_o`, `bready_i`) operations.
+
+- **Address Decoding**  
+  Decodes incoming AXI addresses (using `awaddr_i` or `araddr_i`) to access specific registers based on the lower address bits.
+
+- **Flow Control**  
+  Supports backpressure and flow control using ready signals to properly synchronize with the AXI master.
+
+---
+
+## Interface
+
+### Parameters
+
+1. **`ADDR_WIDTH`**: Specifies the width of the AXI address bus. The default value is `32`. This parameter determines the maximum addressable range of the registers. It must be a positive integer greater than or equal to 12.
+
+2. **`DATA_WIDTH`**: Specifies the width of the AXI data bus. The default value is `32`. This parameter defines the size of the data transferred during read and write operations, and it must be a positive integer greater than or equal to 8.
+
+### Inputs
+
+- **`clk_i`**: The clock signal for synchronous operations. The design operates on the positive edge of the clock signal.
+- **`rst_n_i`**: Active-low asynchronous reset. When de-asserted, the module returns to its initial state.
+- **`[ADDR_WIDTH-1:0] awaddr_i`**: Address for write operations.
+- **`awvalid_i`**: Indicates the write address is valid.
+- **`[DATA_WIDTH-1:0] wdata_i`**: Data to be written, matching the address specified.
+- **`wvalid_i`**: Indicates that the written data is valid.
+- **`[(DATA_WIDTH/8)-1:0] wstrb_i`**: Byte-enable signals for partial or full writes.
+- **`bready_i`**: Indicates that the master is ready to receive the completed response for the write.
+- **`[ADDR_WIDTH-1:0] araddr_i`**: Address for read operations.
+- **`arvalid_i`**: Indicates that the read address is valid.
+- **`rready_i`**: Indicates that the master is ready to receive the read data.
+- **`done_i`**: Indicates that a hardware task has been completed, to be reflected in the status register.
+
+---
+
+### Outputs
+
+- **`awready_o`**: Indicates that the module is ready to accept the write address.
+- **`wready_o`**: Indicates that the module is ready to accept the write data.
+- **`[1:0] bresp_o`**: Two-bit field indicating success or error for the write transaction.
+- **`bvalid_o`**: Indicates that the write completion response is valid.
+- **`arready_o`**: Indicates that the module is ready to accept the read address.
+- **`[DATA_WIDTH-1:0] rdata_o`**: Data returned to the master for a read request.
+- **`rvalid_o`**: Indicates that read data is valid.
+- **`[1:0] rresp_o`**: A two-bit field indicating success or error for the read transaction.
+- **`[19:0] beat_o`**: Reflects the current value of the beat counter, configured via AXI writes.
+- **`start_o`**: Single-bit control signal triggered via AXI write.
+- **`writeback_o`**: Single-bit control signal to trigger a writeback operation, also set via AXI.
+
+---
+
+## Register Map
+
+| **Register**  | **Offset** | **Description**              | **Access**   | **Bit Width** |
+|---------------|------------|------------------------------|--------------|---------------|
+| Beat          | 0x100      | 20-bit beat counter          | Read/Write   | 20            |
+| Start         | 0x200      | Single-bit trigger signal    | Read/Write   | 1             |
+| Done          | 0x300      | Single-bit done status       | Read/Write   | 1             |
+| Writeback     | 0x400      | Single-bit writeback control | Read/Write   | 1             |
+| ID            | 0x500      | Fixed identification value   | Read-Only    | 32            |
+
+---
+
+## Functional Description
+
+### Write Transactions
+
+#### Address Phase
+- Provides a write address on **`awaddr_i`** and asserts **`awvalid_i`** to indicate the validity of the address.  
+- The module asserts **`awready_o`** to confirm that it is ready to accept the address.  
+- Once the address is accepted, **`awready_o`** is de-asserted, and the module transitions to the data phase.
+
+#### Data Phase
+- Provides the write data on **`wdata_i`**, along with byte-enable signals on **`wstrb_i`**, and asserts **`wvalid_i`**.  
+- The module asserts **`wready_o`** to indicate it is ready to accept the write data.
+
+##### Conditions:
+
+1. **Full Write**  
+   If **`wvalid_i`** is asserted and all bits in **`wstrb_i`** are set (indicating that all bytes in **`wdata_i`** are valid), the module performs a complete update of the targeted register.
+
+2. **Partial Write**  
+   If **`wvalid_i`** is asserted but not all bits in **`wstrb_i`** are set, the module acknowledges the write without modifying the targeted register. The register remains unchanged.
+
+##### Register Updates
+- The module uses the lower bits of **`awaddr_i`** to determine the target register, then updates the corresponding outputs:
+  - **Beat Counter**: Updates the 20-bit counter with the lower bits of **`wdata_i`** and reflects on **`beat_o`**.
+  - **Start Signal**: Sets **`start_o`** to `1` if the least significant bit of **`wdata_i`** is `1` and the corresponding byte is enabled by **`wstrb_i`**.
+  - **Done Signal**: An accepted full write with wdata_i[0]=1 clears the internal latched Done status. done_i is an external input and is never driven or cleared by the module. A sampled low-to-high transition of done_i sets the latched status; a simultaneous accepted clear has priority. A held-high done_i does not re-set the status after clear. This law applies to all accepted Done clears, whether or not software previously read Done.
+  - **Writeback Signal**: Sets **`writeback_o`** to `1` if the least significant bit of **`wdata_i`** is `1` and the corresponding byte is enabled by **`wstrb_i`**.
+  - **ID Register**: Attempts to write to this read-only register generate an error on **`bresp_o`**.
+
+#### Completion Phase
+- After processing the write data, the module generates a write response on **`bresp_o`** and asserts **`bvalid_o`**.  
+- The master drives bready_i to acknowledge the response. The module observes that input and deasserts bvalid_o after a sampled bvalid_o/bready_i handshake.
+- Possible responses:
+  - **OKAY (`2'b00`)**: Indicates a successful write operation.
+  - **SLVERR (`2'b10`)**: Indicates an error, such as an invalid address or an attempt to write to the read-only register.
+
+---
+
+### Read Transactions
+
+#### Address Phase
+- Provides a read address on **`araddr_i`** and asserts **`arvalid_i`** to indicate the validity of the address. 
+- The module asserts **`arready_o`** to confirm that it is ready to accept the address. 
+- Once the address is accepted, **`arready_o`** is de-asserted, and the module transitions to the data phase.
+
+#### Data Phase
+- The module decodes the address from **`araddr_i`** and retrieves the corresponding data:
+  - **Beat Counter**: Returns the current 20-bit counter value on **`rdata_o`**, padded to match the data width.
+  - **Done Signal**: Returns the internal latched Done status as bit 0, with the remaining read-data bits zero.
+  - **ID Register**: Returns the fixed 32-bit identification value.
+  - **Invalid Address**: Generates an error on **`rresp_o`**.
+
+#### Completion Phase
+- The module provides the read data on **`rdata_o`** and asserts **`rvalid_o`**.  
+- The AXI master asserts **`rready_i`** to acknowledge the read data, after which **`rvalid_o`** is deasserted.
+- Possible responses:
+  - **OKAY (`2'b00`)**: Indicates a successful read operation.
+  - **SLVERR (`2'b10`)**: Indicates an error, such as an invalid address.
+
+---
+
+## Edge Cases
+
+1. **Reset (`rst_n_i`)**:  
+   When reset is active, all outputs (`beat_o`, `start_o`, `writeback_o`) are deasserted, and registers are cleared to default values.
+
+2. **Read-Only Registers**:  
+   Attempts to write to the ID register generate an error response (`SLVERR`) on **`bresp_o`**, preventing unwanted modifications.
+
+3. **Invalid Addresses**:  
+   Any read or write operation targeting an undefined address generates an error response on **`rresp_o`** or **`bresp_o`**.
+
+---
+
+## Example Operations
+
+### Write Example
+- **Operation**: Write `0x5678` to the Beat register.  
+  - **Address**: `0x100`  
+  - **Data**: `0x00005678`  
+  - **Result**: The 20-bit counter updates to `0x5678`, and `beat_o` reflects this new value.
+
+### Read Example
+- **Operation**: Read from the ID register.  
+  - **Address**: `0x500`  
+  - **Result**: The module returns `0x0001_0001` on **`rdata_o`**, indicating the fixed ID value.
+
+### Error Example
+- **Operation**: Attempt to write to the ID register.  
+  - **Address**: `0x500`  
+  - **Data**: Any value  
+  - **Result**: The module returns an error response (`SLVERR`) on **`bresp_o`**, and the register remains unchanged.
+
+Local experimental completion of AXI laws (declared benchmark choices, not recovered designer intent). These exact rules supersede any conflicting earlier examples, register-update shorthand, unspecified FSM timing, or parameter-width statements:
+- ADDR_WIDTH is an integer at least 12. DATA_WIDTH is an integer multiple of 8, at least 8; defaults remain 32/32. WSTRB has DATA_WIDTH/8 bits. All bus values are unsigned. Decode the low 12 address bits: 0x100 Beat, 0x200 Start, 0x300 Done, 0x400 Writeback, 0x500 ID. Other offsets are invalid; higher address bits are ignored.
+- Experiment initialization and asynchronous rst_n_i assertion clear the 20-bit Beat, Start, Writeback, latched Done status, previous-done sample, captured addresses, response payloads and valid flags. Read and write state machines become IDLE. Reset has priority over every simultaneous event. While rst_n_i=0 every output is zero. Immediately on release awready_o and arready_o are high, all other outputs are zero. Initial state is the reset-reachable zero state; this is the declared local experiment initialization.
+- The write machine is independent of the read machine. In write IDLE, awready_o=1,wready_o=0,bvalid_o=0. A rising clk_i edge with awvalid_i=1 accepts and captures awaddr_i, then enters DATA with awready_o=0,wready_o=1. DATA accepts wdata_i and wstrb_i only at a rising edge with wvalid_i=1; that edge applies the update/error law below and enters RESPONSE, publishing bvalid_o=1,wready_o=0 immediately after the edge. RESPONSE holds bvalid_o and bresp_o stable while bready_i=0. A rising edge with pre-edge bvalid_o=1 and bready_i=1 consumes the response and returns to IDLE. An early bready_i does not consume a response on its publication edge. No address or data is accepted in RESPONSE; no write data is accepted in IDLE. Withdrawal of awvalid_i or wvalid_i before its accepting edge has no effect. Held requests are accepted again only when their channel next becomes ready.
+- A valid-offset full-strobe write has bresp_o=OKAY and replaces Beat with the least-significant 20 bits of zero-extended wdata_i (truncate when DATA_WIDTH>20), Start or Writeback with wdata_i[0], or clears latched Done if wdata_i[0]=1 (otherwise Done is retained). A valid writable-offset partial-strobe write is acknowledged OKAY but changes no CSR, including Start and Writeback even if byte zero is enabled. Every ID write and every invalid-offset write gives SLVERR with no CSR update, regardless of strobes. Stored write response payload is retained after consumption until the next published write response or reset.
+- In read IDLE, arready_o=1,rvalid_o=0. A rising edge with arvalid_i=1 accepts/captures araddr_i and enters DATA, with arready_o=0. At the next rising edge DATA publishes rdata_o/rresp_o/rvalid_o and enters RESPONSE. Valid reads return the current pre-edge Beat, Start, latched Done or Writeback value zero extended or truncated to DATA_WIDTH; ID returns the low DATA_WIDTH bits of unsigned 0x00010001, zero extended when wider than 32. Invalid reads return data zero and SLVERR. Valid reads return OKAY. RESPONSE holds data, response and valid while rready_i=0. A rising edge with pre-edge rvalid_o=1 and rready_i=1 consumes the response and returns to IDLE. No read is accepted in DATA or RESPONSE. Early rready_i does not consume a just-published response. Stored read payloads are retained after consumption until the next published read response or reset.
+- At every rising clk_i edge, sample done_i. A sampled zero-to-one change sets latched Done; a simultaneous accepted full-strobe Done clear with wdata_i[0]=1 has priority. A continuously high done_i does not re-set after a clear. Read publication sees the pre-edge CSR state, so a concurrent write or new Done event affects later publications. Start, Beat and Writeback retain their values outside reset and accepted full writes. Response acknowledgements change protocol state only. All falling clock edges and inactive valid inputs have no registered-state effect.
+- Master drives bready_i and rready_i; these are never driven by the module. CSR side effects occur at accepted write-data edges, never at address capture. Read DATA publication is one rising edge after address capture; response acknowledgements are separate later edges. Exact named ports and symbolic ranges stay as documented, with no positional-order guarantee.
+
+
+This is a locally revised benchmark prompt (2026-10-01), with explicit errata that supersede conflicting earlier clauses. It is not an unchanged upstream CVDP problem. Implementation choices for behavior still unspecified must be disclosed and must not contradict these requirements.
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a **SystemVerilog module** named `axi_register` that implements a configurable **AXI4-Lite Slave** interface for controlling and monitoring specific hardware registers. This module allows software to interact with hardware by performing read and write operations via the AXI4-Lite protocol. The supported functionalities include:
+
+Named module interface binding
+
+Module: axi_register.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk_i: input; 1 bits in the concrete formal instance.
+- rst_n_i: input; 1 bits in the concrete formal instance.
+- awaddr_i: input; 32 bits in the concrete formal instance.
+- awvalid_i: input; 1 bits in the concrete formal instance.
+- wdata_i: input; 32 bits in the concrete formal instance.
+- wvalid_i: input; 1 bits in the concrete formal instance.
+- wstrb_i: input; 4 bits in the concrete formal instance.
+- bready_i: input; 1 bits in the concrete formal instance.
+- araddr_i: input; 32 bits in the concrete formal instance.
+- arvalid_i: input; 1 bits in the concrete formal instance.
+- rready_i: input; 1 bits in the concrete formal instance.
+- done_i: input; 1 bits in the concrete formal instance.
+- awready_o: output; 1 bits in the concrete formal instance.
+- wready_o: output; 1 bits in the concrete formal instance.
+- bresp_o: output; 2 bits in the concrete formal instance.
+- bvalid_o: output; 1 bits in the concrete formal instance.
+- arready_o: output; 1 bits in the concrete formal instance.
+- rdata_o: output; 32 bits in the concrete formal instance.
+- rvalid_o: output; 1 bits in the concrete formal instance.
+- rresp_o: output; 2 bits in the concrete formal instance.
+- beat_o: output; 20 bits in the concrete formal instance.
+- start_o: output; 1 bits in the concrete formal instance.
+- writeback_o: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+- Verification-visible parameter `ADDR_WIDTH` (not an additional port): Required harness-visible parameter: test_axi_register reads its integer value, and test_runner supplies overrides 12, 16 and 32. The original establishes integer type, default 32 and range at least 12; overrides do not verify the default.
+- Verification-visible parameter `DATA_WIDTH` (not an additional port): Required harness-visible parameter: test_axi_register reads its integer value, and test_runner supplies overrides 8, 16, 32 and 64. The original establishes integer type, default 32 and range a multiple of 8 at least 8; overrides do not verify the default.
+
+1. Module and ports
+
+The module name is exactly axi_register. Public integer parameters are ADDR_WIDTH, default 32, at least 12, and DATA_WIDTH, default 32, a multiple of 8 and at least 8. These domains and defaults are explicit source requirements, including the source's local experimental completion. They apply to the full parameter family; the worked trace specializes both parameters to 32.
+
+The exact named interface is listed below. This listing is not a normative declaration order: neither the source nor integration answer Q24 verifies positional order. Named wiring is portable consumer guidance. A caller possessing the actual module declaration may instantiate positionally in that declaration's order.
+
+Inputs:
+clk_i: 1 bit.
+rst_n_i: 1 bit.
+awaddr_i: [ADDR_WIDTH-1:0].
+awvalid_i: 1 bit.
+wdata_i: [DATA_WIDTH-1:0].
+wvalid_i: 1 bit.
+wstrb_i: [(DATA_WIDTH/8)-1:0].
+bready_i: 1 bit.
+araddr_i: [ADDR_WIDTH-1:0].
+arvalid_i: 1 bit.
+rready_i: 1 bit.
+done_i: 1 bit.
+
+Outputs:
+awready_o: 1 bit.
+wready_o: 1 bit.
+bresp_o: [1:0].
+bvalid_o: 1 bit.
+arready_o: 1 bit.
+rdata_o: [DATA_WIDTH-1:0].
+rvalid_o: 1 bit.
+rresp_o: [1:0].
+beat_o: [19:0].
+start_o: 1 bit.
+writeback_o: 1 bit.
+
+The master drives bready_i and rready_i, and external hardware drives done_i; the module never drives these inputs. No provided submodule definitions occur in the source.
+
+3. Reset
+
+Reset is asynchronous and active low. Assertion immediately clears Beat, Start, Writeback, latched Done, the previous Done sample, captured read and write addresses, read data, read and write response payloads, and response valid flags; both transaction machines return to IDLE. Reset has priority over all simultaneous events, cancels transactions and discards pending responses. While rst_n_i=0 every output is zero, including all ready outputs. Deassertion itself accepts no transaction and samples no Done event. Immediately after release, awready_o and arready_o are one and every other output is zero. Subsequent rising edges follow the ordinary transaction laws without a warm-up edge.
+
+The source explicitly declares local experiment initialization to the reset-reachable zero state. In that finite experiment, before any reset assertion, with rst_n_i=1, awready_o and arready_o are one and every other output is zero; with rst_n_i=0 every output is zero. All modeled initial payloads and protocol state follow from the documented reset. This experiment setup is separate from the circuit reset contract and does not assert a hardware power-up guarantee or require reset before ordinary operation. No new Implementation choice is introduced. Hardware power-up values absent reset are not established by the experiment setup; ordinary state-establishing edges retain their specified effects.
+
+4. Timing
+
+Only rising clk_i edges perform ordinary registered updates. Falling edges have no registered-state effect. Asynchronous reset assertion is a separate state-reset event; reset release changes reset gating and exposes IDLE readiness without performing a normal transaction update.
+
+awready_o is the reset-gated indication of write IDLE; wready_o is the reset-gated indication of write DATA; bvalid_o is the reset-gated indication of write RESPONSE. arready_o is the reset-gated indication of read IDLE; rvalid_o is the reset-gated indication of read RESPONSE. These flags change after the corresponding state-entry edge, with no additional cycle of latency. bresp_o is registered at write-data acceptance. rdata_o and rresp_o are registered at read DATA publication. beat_o, start_o and writeback_o reflect retained registered values updated at accepted full-strobe write-data edges. Reset overrides every output immediately.
+
+Write E0 is a rising edge accepting awvalid_i while write IDLE. Immediately after E0, awready_o=0 and wready_o=1. E1 is the first subsequent rising edge with wvalid_i=1 while DATA; any intervening edges with wvalid_i=0 retain DATA. E1 samples the previously captured address and current unsigned data and strobes, applies the CSR/error law, and publishes bresp_o and bvalid_o=1 immediately after that edge. wready_o then becomes zero. With data valid at the first eligible edge, E1 is one completed clock interval after E0. No data is accepted at E0. E2 is a later rising edge with pre-edge bvalid_o=1 and bready_i=1; it consumes the response and returns to IDLE. Even bready_i=1 at E1 cannot consume the newly published response at E1. Thus bvalid_o lasts at least one complete cycle and can last indefinitely under backpressure.
+
+Read E0 is a rising edge accepting arvalid_i while read IDLE. It captures the address and deasserts arready_o. E1 is the next rising edge, exactly one completed interval after E0; it publishes the read response from the captured address and pre-E1 CSR values, asserting rvalid_o. A concurrent E1 write or sampled Done event changes subsequent CSR state, not this published read snapshot. E2 is a later rising edge with pre-edge rvalid_o=1 and rready_i=1; it consumes the response and returns to IDLE. Early rready_i cannot consume the response at E1. rvalid_o lasts at least one complete cycle and remains asserted under backpressure.
+
+A response-consumption edge accepts no replacement request on that transaction machine. The following rising edge can accept a new address if valid remains asserted. The read and write machines operate independently and may accept, publish or consume on the same physical rising edge.
+
+Start and Writeback are retained levels, not fixed-width pulses. There are no periodic output signals or numerical timeout laws. No physical clock period is specified.
+
+The finite model uses full-cycle active-edge observations with no explicit clk_i input: row k samples out(s[k],i[k]) before its rising-edge transition, then step produces s[k+1]. Registered post-edge changes first appear in the next row. The reset scenarios represent assertion held to an active edge; reset gating is visible in the assertion row. This projection does not simulate reset pulses entirely between active-edge observations and does not weaken the circuit's asynchronous reset obligation. The interface supplies no step_ns or sample_offset_ns, so no numerical nanosecond spacing or implicit 10 ns tick is asserted.
+
+For an otherwise idle reset/release history, assertion clears everything immediately; release exposes only the two address-ready outputs. The first, second and third rising edges sample done_i and execute the same ordinary laws as any later edges. If a read address is valid at the first edge, that edge accepts it, the second publishes it, and the third may consume it. If write address and data valid are both held, the first edge accepts the address, the second accepts data and publishes the response, and the third may consume it. None of these transactions is accepted merely at reset release.
+
+5. Behaviour
+
+The retained original prose, including its explicit superseding local experimental completion, is authoritative. The decisions here preserve that completion; no certain-answer amendment, source self-erratum or example erratum is introduced. Q1–Q23 report epistemic uncertainty about harness evidence, not hardware X or a permission to override the explicit source laws.
+
+All bus values are unsigned and limited to their declared widths. Decode precisely the low 12 address bits, ignoring higher bits: 0x100 Beat, 0x200 Start, 0x300 Done, 0x400 Writeback, and 0x500 ID. Every other low-12-bit value is invalid, including nonmatching low-bit address variants. The captured address, rather than a later live address, determines the transaction.
+
+In write IDLE only an asserted awvalid_i at a rising edge accepts an address; wvalid_i, data, strobes and bready_i have no write-state effect there. In DATA only an asserted wvalid_i at a rising edge accepts data; changes to awaddr_i or awvalid_i do not replace the captured address. DATA waits indefinitely when wvalid_i=0. In RESPONSE no address or data is accepted; only bready_i=1 at a rising edge consumes the response. With bready_i=0, response payload and valid remain stable. Withdrawal of either valid before its accepting edge has no effect. Held requests can be accepted again only when their channel next becomes ready. Stored write response payload is retained after consumption until another response is published or reset occurs.
+
+Full strobe means every one of the DATA_WIDTH/8 strobe bits is one. At a valid writable offset, a full-strobe write returns OKAY (0). Beat is replaced by the low 20 bits of zero-extended wdata_i, so widths below 20 produce zero upper Beat bits and widths above 20 truncate at bit 20. Start and Writeback are replaced by wdata_i bit 0, including clearing them when that bit is zero. A full-strobe Done write with bit 0 one clears latched Done; with bit 0 zero it retains Done except for the independent sampled Done-event law. No other data bits affect these one-bit registers.
+
+At any writable offset a partial-strobe write returns OKAY and modifies no CSR, including Start and Writeback when byte zero is enabled. This does not suppress an independent sampled Done event. Every ID write and every invalid-offset write returns SLVERR (2) and modifies no CSR, regardless of strobes. CSR side effects occur only at accepted write-data edges, never at address capture. Beat is software-set storage, not an autonomously incrementing counter.
+
+In read IDLE only arvalid_i=1 at a rising edge accepts an address. In DATA the next rising edge publishes the response unconditionally; changes to the live address or arvalid_i cannot cancel or replace it. In RESPONSE arvalid_i cannot accept a request; rready_i=0 holds data, response and valid stable, and rready_i=1 at a rising edge consumes the response. Stored read payloads remain after consumption until another publication or reset.
+
+Every valid read returns OKAY (0). Beat, Start, latched Done and Writeback return their current pre-publication-edge value, zero extended or truncated to DATA_WIDTH; all bits other than bit 0 of the one-bit register reads are zero. ID returns unsigned 0x00010001 reduced to DATA_WIDTH bits, with zero upper bits when DATA_WIDTH exceeds 32. Invalid reads publish zero data and SLVERR (2). Same-address simultaneous write and read publication returns the old value, without forwarding the write.
+
+At every rising edge outside reset, the previous Done sample becomes the current done_i value. A sampled zero-to-one transition sets latched Done; a simultaneous accepted full-strobe Done clear with wdata_i bit 0 one has priority. A held-high done_i does not re-set Done after a clear, whether or not software previously read Done. Sampling continues independently of either transaction machine, including idle, waiting and response-backpressure modes. A sampled low followed by a sampled high can set Done again. Beat, Start and Writeback retain their values outside reset and their accepted full writes. Response acknowledgements affect protocol state only, not CSR values. Invalid and read-only writes do not prevent Done sampling.
+
+6. Worked trace
+
+The following evaluated trace is normative for the declared default-width local experiment and pre-edge observation domain. It does not restrict the parameter family or legal asynchronous-reset histories of the circuit.
+
+### stimulus 0
+| cycle | rst_n_i | awaddr_i | awvalid_i | wdata_i | wvalid_i | wstrb_i | bready_i | araddr_i | arvalid_i | rready_i | done_i | awready_o | wready_o | bresp_o | bvalid_o | arready_o | rdata_o | rvalid_o | rresp_o | beat_o | start_o | writeback_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 1 | 0 | 32'h0 | 1 | 32'hffffffff | 1 | 4'b1111 | 0 | 32'h0 | 1 | 0 | 1 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 2 | 1 | 32'h0 | 0 | 32'h1 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 3 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 4 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+
+### stimulus 1
+| cycle | rst_n_i | awaddr_i | awvalid_i | wdata_i | wvalid_i | wstrb_i | bready_i | araddr_i | arvalid_i | rready_i | done_i | awready_o | wready_o | bresp_o | bvalid_o | arready_o | rdata_o | rvalid_o | rresp_o | beat_o | start_o | writeback_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h100 | 1 | 32'h0 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 1 | 1 | 32'h100 | 1 | 32'h1 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 2 | 1 | 32'h100 | 1 | 32'h0 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 1 | 2'b00 | 20'h1 | 0 | 0 |
+| 3 | 1 | 32'h100 | 1 | 32'h0 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+| 4 | 1 | 32'h100 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+| 5 | 1 | 32'h100 | 1 | 32'h0 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h1 | 1 | 2'b00 | 20'hfffff | 0 | 0 |
+| 6 | 1 | 32'h100 | 1 | 32'h0 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h1 | 0 | 2'b00 | 20'hfffff | 0 | 0 |
+| 7 | 1 | 32'h100 | 1 | 32'h80000000 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h1 | 0 | 2'b00 | 20'hfffff | 0 | 0 |
+| 8 | 1 | 32'h100 | 1 | 32'h0 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'hfffff | 1 | 2'b00 | 20'h0 | 0 | 0 |
+| 9 | 1 | 32'h100 | 1 | 32'h0 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'hfffff | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 10 | 1 | 32'h100 | 1 | 32'h5678 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'hfffff | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 11 | 1 | 32'h100 | 1 | 32'h0 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 1 | 2'b00 | 20'h5678 | 0 | 0 |
+| 12 | 1 | 32'h100 | 1 | 32'h0 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h5678 | 0 | 0 |
+| 13 | 1 | 32'h100 | 1 | 32'h100000 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h5678 | 0 | 0 |
+| 14 | 1 | 32'h100 | 1 | 32'h0 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h5678 | 1 | 2'b00 | 20'h0 | 0 | 0 |
+| 15 | 1 | 32'h100 | 1 | 32'h0 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h5678 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 16 | 1 | 32'h100 | 1 | 32'hfffff | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h5678 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 17 | 1 | 32'h100 | 1 | 32'h0 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 1 | 2'b00 | 20'hfffff | 0 | 0 |
+
+### stimulus 2
+| cycle | rst_n_i | awaddr_i | awvalid_i | wdata_i | wvalid_i | wstrb_i | bready_i | araddr_i | arvalid_i | rready_i | done_i | awready_o | wready_o | bresp_o | bvalid_o | arready_o | rdata_o | rvalid_o | rresp_o | beat_o | start_o | writeback_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h200 | 1 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 1 | 1 | 32'h0 | 0 | 32'h1 | 1 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 1 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 2 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 1 | 32'h200 | 1 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 3 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 4 | 1 | 32'h200 | 1 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h1 | 1 | 2'b00 | 20'h0 | 1 | 0 |
+| 5 | 1 | 32'h0 | 0 | 32'h0 | 1 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 1 | 2'b00 | 0 | 1 | 32'h1 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 6 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 1 | 32'h0 | 0 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h1 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 7 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h200 | 1 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h1 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 8 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h1 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 9 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h0 | 1 | 2'b00 | 20'h0 | 0 | 0 |
+| 10 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+
+### stimulus 3
+| cycle | rst_n_i | awaddr_i | awvalid_i | wdata_i | wvalid_i | wstrb_i | bready_i | araddr_i | arvalid_i | rready_i | done_i | awready_o | wready_o | bresp_o | bvalid_o | arready_o | rdata_o | rvalid_o | rresp_o | beat_o | start_o | writeback_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h400 | 1 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 1 | 1 | 32'h0 | 0 | 32'h1 | 1 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 1 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 2 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 1 | 32'h0 | 0 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 1 |
+| 3 | 1 | 32'h400 | 1 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 1 |
+| 4 | 1 | 32'h0 | 0 | 32'h0 | 1 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 1 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 1 |
+| 5 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 1 | 32'h400 | 1 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 6 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 7 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h0 | 1 | 2'b00 | 20'h0 | 0 | 0 |
+| 8 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+
+### stimulus 4
+| cycle | rst_n_i | awaddr_i | awvalid_i | wdata_i | wvalid_i | wstrb_i | bready_i | araddr_i | arvalid_i | rready_i | done_i | awready_o | wready_o | bresp_o | bvalid_o | arready_o | rdata_o | rvalid_o | rresp_o | beat_o | start_o | writeback_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 1 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 1 | 1 | 32'h300 | 1 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 1 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 2 | 1 | 32'h0 | 0 | 32'h1 | 1 | 4'b1111 | 0 | 32'h300 | 1 | 0 | 1 | 0 | 1 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 3 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 1 | 32'h0 | 0 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 4 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 1 | 1 | 1 | 0 | 2'b00 | 0 | 0 | 32'h0 | 1 | 2'b00 | 20'h0 | 0 | 0 |
+| 5 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 6 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h300 | 1 | 0 | 1 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 7 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 1 | 1 | 0 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 8 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 1 | 1 | 1 | 0 | 2'b00 | 0 | 0 | 32'h1 | 1 | 2'b00 | 20'h0 | 0 | 0 |
+| 9 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h1 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+
+### stimulus 5
+| cycle | rst_n_i | awaddr_i | awvalid_i | wdata_i | wvalid_i | wstrb_i | bready_i | araddr_i | arvalid_i | rready_i | done_i | awready_o | wready_o | bresp_o | bvalid_o | arready_o | rdata_o | rvalid_o | rresp_o | beat_o | start_o | writeback_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h300 | 1 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 1 | 1 | 32'h0 | 0 | 32'h1 | 1 | 4'b1111 | 0 | 32'h300 | 1 | 0 | 1 | 0 | 1 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 2 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 1 | 32'h0 | 0 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 3 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 1 | 1 | 1 | 0 | 2'b00 | 0 | 0 | 32'h0 | 1 | 2'b00 | 20'h0 | 0 | 0 |
+| 4 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 5 | 1 | 32'h300 | 1 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 6 | 1 | 32'h0 | 0 | 32'h0 | 1 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 1 | 0 | 1 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 7 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 1 | 32'h300 | 1 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 8 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 9 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h1 | 1 | 2'b00 | 20'h0 | 0 | 0 |
+
+### stimulus 6
+| cycle | rst_n_i | awaddr_i | awvalid_i | wdata_i | wvalid_i | wstrb_i | bready_i | araddr_i | arvalid_i | rready_i | done_i | awready_o | wready_o | bresp_o | bvalid_o | arready_o | rdata_o | rvalid_o | rresp_o | beat_o | start_o | writeback_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b1111 | 1 | 32'h200 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 1 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b1111 | 1 | 32'h200 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 2 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b1111 | 1 | 32'h200 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 1 | 2'b00 | 20'h0 | 1 | 0 |
+| 3 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b0000 | 1 | 32'h200 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 4 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b0000 | 1 | 32'h200 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 5 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b0000 | 1 | 32'h200 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h1 | 1 | 2'b00 | 20'h0 | 1 | 0 |
+| 6 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b0001 | 1 | 32'h200 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h1 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 7 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b0001 | 1 | 32'h200 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h1 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 8 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b0001 | 1 | 32'h200 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h1 | 1 | 2'b00 | 20'h0 | 1 | 0 |
+| 9 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b1000 | 1 | 32'h200 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h1 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 10 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b1000 | 1 | 32'h200 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h1 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 11 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b1000 | 1 | 32'h200 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h1 | 1 | 2'b00 | 20'h0 | 1 | 0 |
+| 12 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b0111 | 1 | 32'h200 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h1 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 13 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b0111 | 1 | 32'h200 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h1 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 14 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b0111 | 1 | 32'h200 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h1 | 1 | 2'b00 | 20'h0 | 1 | 0 |
+| 15 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b1111 | 1 | 32'h200 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h1 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 16 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b1111 | 1 | 32'h200 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h1 | 0 | 2'b00 | 20'h0 | 1 | 0 |
+| 17 | 1 | 32'h200 | 1 | 32'h1 | 1 | 4'b1111 | 1 | 32'h200 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h1 | 1 | 2'b00 | 20'h0 | 1 | 0 |
+
+### stimulus 7
+| cycle | rst_n_i | awaddr_i | awvalid_i | wdata_i | wvalid_i | wstrb_i | bready_i | araddr_i | arvalid_i | rready_i | done_i | awready_o | wready_o | bresp_o | bvalid_o | arready_o | rdata_o | rvalid_o | rresp_o | beat_o | start_o | writeback_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h500 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h500 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 1 | 1 | 32'h500 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h500 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 2 | 1 | 32'h500 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h500 | 1 | 1 | 0 | 0 | 0 | 2'b10 | 1 | 0 | 32'h10001 | 1 | 2'b00 | 20'h0 | 0 | 0 |
+| 3 | 1 | 32'h0 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h0 | 1 | 1 | 0 | 1 | 0 | 2'b10 | 0 | 1 | 32'h10001 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 4 | 1 | 32'h0 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h0 | 1 | 1 | 0 | 0 | 1 | 2'b10 | 0 | 0 | 32'h10001 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 5 | 1 | 32'h0 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h0 | 1 | 1 | 0 | 0 | 0 | 2'b10 | 1 | 0 | 32'h0 | 1 | 2'b10 | 20'h0 | 0 | 0 |
+| 6 | 1 | 32'h1 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h1 | 1 | 1 | 0 | 1 | 0 | 2'b10 | 0 | 1 | 32'h0 | 0 | 2'b10 | 20'h0 | 0 | 0 |
+| 7 | 1 | 32'h1 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h1 | 1 | 1 | 0 | 0 | 1 | 2'b10 | 0 | 0 | 32'h0 | 0 | 2'b10 | 20'h0 | 0 | 0 |
+| 8 | 1 | 32'h1 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h1 | 1 | 1 | 0 | 0 | 0 | 2'b10 | 1 | 0 | 32'h0 | 1 | 2'b10 | 20'h0 | 0 | 0 |
+| 9 | 1 | 32'h80000000 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h80000000 | 1 | 1 | 0 | 1 | 0 | 2'b10 | 0 | 1 | 32'h0 | 0 | 2'b10 | 20'h0 | 0 | 0 |
+| 10 | 1 | 32'h80000000 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h80000000 | 1 | 1 | 0 | 0 | 1 | 2'b10 | 0 | 0 | 32'h0 | 0 | 2'b10 | 20'h0 | 0 | 0 |
+| 11 | 1 | 32'h80000000 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h80000000 | 1 | 1 | 0 | 0 | 0 | 2'b10 | 1 | 0 | 32'h0 | 1 | 2'b10 | 20'h0 | 0 | 0 |
+| 12 | 1 | 32'h101 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h101 | 1 | 1 | 0 | 1 | 0 | 2'b10 | 0 | 1 | 32'h0 | 0 | 2'b10 | 20'h0 | 0 | 0 |
+| 13 | 1 | 32'h101 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h101 | 1 | 1 | 0 | 0 | 1 | 2'b10 | 0 | 0 | 32'h0 | 0 | 2'b10 | 20'h0 | 0 | 0 |
+| 14 | 1 | 32'h101 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h101 | 1 | 1 | 0 | 0 | 0 | 2'b10 | 1 | 0 | 32'h0 | 1 | 2'b10 | 20'h0 | 0 | 0 |
+| 15 | 1 | 32'hfff | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'hfff | 1 | 1 | 0 | 1 | 0 | 2'b10 | 0 | 1 | 32'h0 | 0 | 2'b10 | 20'h0 | 0 | 0 |
+| 16 | 1 | 32'hfff | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'hfff | 1 | 1 | 0 | 0 | 1 | 2'b10 | 0 | 0 | 32'h0 | 0 | 2'b10 | 20'h0 | 0 | 0 |
+| 17 | 1 | 32'hfff | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'hfff | 1 | 1 | 0 | 0 | 0 | 2'b10 | 1 | 0 | 32'h0 | 1 | 2'b10 | 20'h0 | 0 | 0 |
+| 18 | 1 | 32'hffffffff | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'hffffffff | 1 | 1 | 0 | 1 | 0 | 2'b10 | 0 | 1 | 32'h0 | 0 | 2'b10 | 20'h0 | 0 | 0 |
+| 19 | 1 | 32'hffffffff | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'hffffffff | 1 | 1 | 0 | 0 | 1 | 2'b10 | 0 | 0 | 32'h0 | 0 | 2'b10 | 20'h0 | 0 | 0 |
+| 20 | 1 | 32'hffffffff | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'hffffffff | 1 | 1 | 0 | 0 | 0 | 2'b10 | 1 | 0 | 32'h0 | 1 | 2'b10 | 20'h0 | 0 | 0 |
+| 21 | 1 | 32'h1100 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h1100 | 1 | 1 | 0 | 1 | 0 | 2'b10 | 0 | 1 | 32'h0 | 0 | 2'b10 | 20'h0 | 0 | 0 |
+| 22 | 1 | 32'h1100 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h1100 | 1 | 1 | 0 | 0 | 1 | 2'b10 | 0 | 0 | 32'h0 | 0 | 2'b10 | 20'h0 | 0 | 0 |
+| 23 | 1 | 32'h1100 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h1100 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 1 | 2'b00 | 20'hfffff | 0 | 0 |
+| 24 | 1 | 32'h80000100 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h80000100 | 1 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'hfffff | 0 | 0 |
+| 25 | 1 | 32'h80000100 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h80000100 | 1 | 1 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'hfffff | 0 | 0 |
+| 26 | 1 | 32'h80000100 | 1 | 32'hffffffff | 1 | 4'b1111 | 1 | 32'h80000100 | 1 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'hfffff | 1 | 2'b00 | 20'hfffff | 0 | 0 |
+
+### stimulus 8
+| cycle | rst_n_i | awaddr_i | awvalid_i | wdata_i | wvalid_i | wstrb_i | bready_i | araddr_i | arvalid_i | rready_i | done_i | awready_o | wready_o | bresp_o | bvalid_o | arready_o | rdata_o | rvalid_o | rresp_o | beat_o | start_o | writeback_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h100 | 1 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 1 | 1 | 32'h0 | 0 | 32'h1 | 1 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 1 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 2 | 1 | 32'h200 | 1 | 32'h0 | 1 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+| 3 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+| 4 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+| 5 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 1 | 32'h0 | 0 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+| 6 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h100 | 1 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+| 7 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+| 8 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h500 | 1 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h1 | 1 | 2'b00 | 20'h1 | 0 | 0 |
+| 9 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h1 | 1 | 2'b00 | 20'h1 | 0 | 0 |
+| 10 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h1 | 1 | 2'b00 | 20'h1 | 0 | 0 |
+| 11 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h1 | 1 | 2'b00 | 20'h1 | 0 | 0 |
+| 12 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h1 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+| 13 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h1 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+
+### stimulus 9
+| cycle | rst_n_i | awaddr_i | awvalid_i | wdata_i | wvalid_i | wstrb_i | bready_i | araddr_i | arvalid_i | rready_i | done_i | awready_o | wready_o | bresp_o | bvalid_o | arready_o | rdata_o | rvalid_o | rresp_o | beat_o | start_o | writeback_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h100 | 1 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 1 | 0 | 32'h0 | 0 | 32'h1 | 1 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 1 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 2 | 1 | 32'h100 | 1 | 32'h5678 | 1 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 3 | 1 | 32'h0 | 0 | 32'hfffff | 1 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 1 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 4 | 0 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 1 | 32'h100 | 1 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 5 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h100 | 1 | 0 | 1 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 6 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 7 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h0 | 1 | 2'b00 | 20'h0 | 0 | 0 |
+| 8 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+
+### stimulus 10
+| cycle | rst_n_i | awaddr_i | awvalid_i | wdata_i | wvalid_i | wstrb_i | bready_i | araddr_i | arvalid_i | rready_i | done_i | awready_o | wready_o | bresp_o | bvalid_o | arready_o | rdata_o | rvalid_o | rresp_o | beat_o | start_o | writeback_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 32'h1 | 1 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 1 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 2 | 1 | 32'h100 | 1 | 32'h0 | 0 | 4'b1111 | 1 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 3 | 1 | 32'h0 | 0 | 32'hffffffff | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 1 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 4 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 1 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 5 | 1 | 32'h0 | 0 | 32'h1 | 1 | 4'b1111 | 1 | 32'h100 | 1 | 0 | 0 | 0 | 1 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 6 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 1 | 32'h0 | 0 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+| 7 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h1 | 1 | 2'b00 | 20'h1 | 0 | 0 |
+| 8 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h1 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+| 9 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h1 | 0 | 2'b00 | 20'h1 | 0 | 0 |
+
+### stimulus 11
+| cycle | rst_n_i | awaddr_i | awvalid_i | wdata_i | wvalid_i | wstrb_i | bready_i | araddr_i | arvalid_i | rready_i | done_i | awready_o | wready_o | bresp_o | bvalid_o | arready_o | rdata_o | rvalid_o | rresp_o | beat_o | start_o | writeback_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 32'h100 | 1 | 32'h0 | 0 | 4'b1111 | 0 | 32'h100 | 1 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 1 | 1 | 32'h0 | 0 | 32'h5678 | 1 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 1 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h0 | 0 | 0 |
+| 2 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 1 | 32'h0 | 0 | 1 | 0 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 1 | 2'b00 | 20'h5678 | 0 | 0 |
+| 3 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h100 | 1 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h0 | 0 | 2'b00 | 20'h5678 | 0 | 0 |
+| 4 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h0 | 0 | 2'b00 | 20'h5678 | 0 | 0 |
+| 5 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 1 | 0 | 1 | 0 | 2'b00 | 0 | 0 | 32'h5678 | 1 | 2'b00 | 20'h5678 | 0 | 0 |
+| 6 | 1 | 32'h500 | 1 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b00 | 0 | 1 | 32'h5678 | 0 | 2'b00 | 20'h5678 | 0 | 0 |
+| 7 | 1 | 32'h0 | 0 | 32'h0 | 1 | 4'b0000 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 1 | 2'b00 | 0 | 1 | 32'h5678 | 0 | 2'b00 | 20'h5678 | 0 | 0 |
+| 8 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 1 | 32'h0 | 0 | 0 | 0 | 0 | 0 | 2'b10 | 1 | 1 | 32'h5678 | 0 | 2'b00 | 20'h5678 | 0 | 0 |
+| 9 | 1 | 32'h0 | 0 | 32'h0 | 0 | 4'b1111 | 0 | 32'h0 | 0 | 0 | 0 | 1 | 0 | 2'b10 | 0 | 1 | 32'h5678 | 0 | 2'b00 | 20'h5678 | 0 | 0 |

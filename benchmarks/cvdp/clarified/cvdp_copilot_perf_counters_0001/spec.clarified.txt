@@ -1,0 +1,250 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Based on the requirements below, design a performance counter module that counts events triggered by a CPU and has a software-controlled reset.
+
+**Requirements**:
+- The counter will increment when a trigger event from the CPU pipeline (`cpu_trig_i`) is received.
+- The counter's value should only be readable via a software request (`sw_req_i`). If there is no read request, the output should remain zero.
+- Once the software reads the value, the counter resets to zero in the next cycle.
+- The counter and the software read are independent and have no protocol dependencies.
+- The counter width should be parameterizable.
+- Use positive edge-triggered flip-flops with an asynchronous reset.
+
+**Interface Definition**:
+- `clk`: Clock signal (input).
+- `reset`: Active-high reset signal (input).
+- `sw_req_i`: Software request signal (input).
+- `cpu_trig_i`: CPU trigger signal (input).
+- `p_count_o [CNT_W-1:0]`: Performance counter output (output).
+
+**Behavior**:
+- On reset, the counter value is set to zero.
+- The counter starts incrementing when `cpu_trig_i` is active, but the value is only output on `p_count_o` when a software read (`sw_req_i`) occurs.
+- After the software reads the counter, it resets to zero on the next cycle.
+
+```
+{
+    "signal": [
+        { "name": "clk", "wave": "p........" },
+        { "name": "reset", "wave": "10......." },
+        { "name": "sw_req_i", "wave": "0...10..." },
+        { "name": "cpu_trig_i", "wave": "0.1.0.1.." },
+        { "name": "count_q", "wave": "0123..567", "data": [ "0", "1", "2", "3", "4", "5", "6" ] },
+        { "name": "p_count_o", "wave": "2...22...", "data": [ "0", "1", "0", "3", "4", "5", "6" ] }
+    ]
+}
+```
+
+**Boundary Conditions:**
+- The counter should handle overflow correctly based on its parameterized width (`CNT_W`).
+
+Provide a parameterizable Verilog module that meets these requirements. Ensure all timing and synchronization aspects, such as clock and reset behavior, are clearly handled.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: cvdp_copilot_perf_counters.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- sw_req_i: input 1 bit.
+- cpu_trig_i: input 1 bit.
+- p_count_o: output [CNT_W-1:0].
+
+Public parameters:
+- integer CNT_W: default = 8.
+- Verification-visible signal `clk`: This verification-visible binding is the one-bit input clk named in the header.
+- Verification-visible signal `cpu_trig_i`: This verification-visible binding is the one-bit input cpu_trig_i named in the header.
+- Verification-visible signal `p_count_o`: This verification-visible binding is the [CNT_W-1:0] output p_count_o named in the header.
+- Verification-visible signal `reset`: This verification-visible binding is the one-bit input reset named in the header.
+- Verification-visible signal `sw_req_i`: This verification-visible binding is the one-bit input sw_req_i named in the header.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+`reset` is active high and asynchronous. Assertion is an effective event independent of `clk` and has priority over every simultaneous input. Immediately after assertion, `count_q` and `p_count_o` are zero and post-reset counting is disabled. They remain so while reset is asserted. Release alone changes no state or output.
+
+Before reset has ever been asserted and before any rising edge has established `p_count_o`, `p_count_o` is hardware-unknown. This unknown is expressly established by Q1 and Q4--Q8 and is limited to state not yet established by an effective event. Before reset, a rising edge with `sw_req_i` high establishes `p_count_o` as zero-extended `cpu_trig_i`; without a request, increment or hold preserves an unknown prior value. The finite model's invalid initial registers represent only this disclosed pre-event state and do not create any wider hardware power-up guarantee.
+
+After reset release, counting remains disabled. On each rising edge while disabled, high `cpu_trig_i` retains zero and remains disabled. The first rising edge sampling low `cpu_trig_i` retains zero and enables the answered `p_count_o` behavior beginning at the following rising edge; `sw_req_i` is ignored on that enabling edge. A later reset assertion immediately restarts this sequence.
+
+4. Timing
+
+Ordinary sampling and state updates occur only on the positive edge of `clk`; static levels and falling edges have no effect. Asynchronous reset assertion is the sole exception. `p_count_o` is a registered `CNT_W`-bit output. There is no completion pulse or serialized output.
+
+For any positive edge Ek, pre-edge state and operands determine post-edge registered values. An enabled request at Ek publishes zero-extended `cpu_trig_i` immediately after Ek. An enabled trigger without a request publishes `(pre-edge p_count_o + 1) mod 2**CNT_W` immediately after Ek. Mode advancement is simultaneous: an edge that changes disabled to enabled still publishes zero, and enabled behavior starts at the next edge.
+
+For the source counter-clear timing, E0 is the positive edge accepting `sw_req_i`. The request schedules the counter reset for E1, the next positive edge after one completed clock interval. At E1 the pre-edge pending clear supplies a zero base, and a trigger accepted at E1 independently contributes one, so post-edge `count_q` is zero when `cpu_trig_i` is low and one when it is high. This preserves both the next-cycle clear and the stated independence of triggering and software reading.
+
+The finite model has no physical `clk` input: each full-cycle step denotes one positive edge. Row k observes settled `out(s[k], i[k])` before that edge, and the transition is first visible in row k+1. The scenarios include reset held asserted at sampled edges; they do not restrict legal asynchronous reset pulses between edges. No numerical `timing.step_ns` or `timing.sample_offset_ns` is present in the interface, so row numbers are active-edge indices, not implicit 10 ns ticks. This observation convention is separate from the unspecified physical clock period and reset propagation delay.
+
+5. Behaviour
+
+All arithmetic is unsigned at `CNT_W`. Addition is evaluated from the pre-edge `CNT_W`-bit operand, and the stored result is truncated at the `CNT_W` register boundary; therefore all ones increments to zero. The concrete finite instance binds `CNT_W=8`, while the public module remains parameterized.
+
+The source-named `count_q` is distinct from the public `p_count_o`. Reset establishes `count_q=0`. Subject to reset priority, every positive edge with `cpu_trig_i=1` contributes one modulo `2**CNT_W`. A request accepted at E0 schedules the zero base at E1 as specified in the timing section. With neither a pending clear nor a trigger, `count_q` retains its prior value. The source-supplied `count_q` waveform remains a normative illustration of this distinct counter state.
+
+Before the first reset assertion, each positive edge applies this `p_count_o` priority: high `sw_req_i` replaces it with the `CNT_W`-bit zero-extension of `cpu_trig_i`; otherwise high `cpu_trig_i` increments its current value modulo `2**CNT_W`; otherwise it holds. An increment or hold cannot make an initially unknown value known.
+
+After reset has established the disabled condition, reset has highest priority. While disabled, high `cpu_trig_i` at a positive edge holds zero and remains disabled; low `cpu_trig_i` holds zero and enables normal behavior only for later edges, regardless of `sw_req_i`. Once enabled, each positive edge independently applies this priority: high `sw_req_i` replaces `p_count_o` with zero-extended `cpu_trig_i`; otherwise high `cpu_trig_i` increments it modulo `2**CNT_W`; otherwise it retains its value. Repeated requests repeat the replacement. Changes between positive edges have no effect except asynchronous reset assertion.
+
+Amendment A0 (Q6). Exact original clause: "Based on the requirements below, design a performance counter module that counts events triggered by a CPU and has a software-controlled reset." Exact certain-answer law quote: "Once enabled, every rising edge with sw_req_i high has priority and replaces p_count_o with zero-extended cpu_trig_i, while sw_req_i low permits a high cpu_trig_i to increment modulo 2**CNT_W or a low cpu_trig_i to hold the value." This corrected law supersedes the summary's “software-controlled reset” characterization only for the Q6 `sw_req_i` effect on `p_count_o`; the distinct source counter's next-cycle software clear and CPU-trigger counting remain normative.
+
+Amendment A1 (Q7). Exact original clause: "- The counter will increment when a trigger event from the CPU pipeline (`cpu_trig_i`) is received." Exact certain-answer law quote: "After reset release and before counting is enabled, rising clk edges with cpu_trig_i high keep p_count_o zero whereas the first rising edge with cpu_trig_i low enables behavior on later edges without changing p_count_o; once enabled, a rising edge with sw_req_i high replaces p_count_o with zero-extended cpu_trig_i, otherwise cpu_trig_i high increments modulo 2**CNT_W and cpu_trig_i low holds, with reset always taking priority and repeated edges applying the rule independently." This corrected law supersedes the original clause only for the Q7 `cpu_trig_i` effect on `p_count_o`; the distinct `count_q` trigger-counting obligation is unchanged.
+
+Amendment A2 (Q8). Exact original clause: "- The counter's value should only be readable via a software request (`sw_req_i`). If there is no read request, the output should remain zero." Exact certain-answer law quote: "At each enabled rising edge E2, E3, and so on, p_count_o immediately becomes zero-extended cpu_trig_i when sw_req_i is high; otherwise it increments modulo 2**CNT_W when cpu_trig_i is high, or retains its prior value when cpu_trig_i is low." This corrected law supersedes the clause only in the Q8 `p_count_o` output-timing scope after counting is enabled: the registered output is not forced to zero merely because current `sw_req_i` is low.
+
+Amendment A3 (Q6). Exact original clause: "- Once the software reads the value, the counter resets to zero in the next cycle." Exact certain-answer law quote: "Once enabled, every rising edge with sw_req_i high has priority and replaces p_count_o with zero-extended cpu_trig_i, while sw_req_i low permits a high cpu_trig_i to increment modulo 2**CNT_W or a low cpu_trig_i to hold the value." This corrected law supersedes the clause only for the Q6 request effect on `p_count_o`: replacement is immediate after the request edge and includes simultaneous `cpu_trig_i`. The distinct `count_q` next-cycle clear remains normative.
+
+Amendment A4 (Q6). Exact original clause: "- The counter and the software read are independent and have no protocol dependencies." Exact certain-answer law quote: "After reset has established the disabled condition, sw_req_i has no effect while reset is asserted or until an earlier rising clk edge with reset low sampled cpu_trig_i low; sw_req_i is also ignored on that enabling edge, and p_count_o remains zero." This corrected law supersedes the clause only for the Q6 `sw_req_i` effect on `p_count_o` during reset and the post-reset disabled/enabling phases. Triggering and the distinct `count_q` software-clear schedule remain independent.
+
+Amendment A5 (Q7). Exact original clause: "- The counter starts incrementing when `cpu_trig_i` is active, but the value is only output on `p_count_o` when a software read (`sw_req_i`) occurs." Exact certain-answer law quote: "After reset release and before counting is enabled, rising clk edges with cpu_trig_i high keep p_count_o zero whereas the first rising edge with cpu_trig_i low enables behavior on later edges without changing p_count_o; once enabled, a rising edge with sw_req_i high replaces p_count_o with zero-extended cpu_trig_i, otherwise cpu_trig_i high increments modulo 2**CNT_W and cpu_trig_i low holds, with reset always taking priority and repeated edges applying the rule independently." This corrected law supersedes the clause only for the Q7 `p_count_o` trigger-effect scope; the distinct `count_q` continues to count triggers under its unchanged source law.
+
+Amendment A6 (Q6). Exact original clause: "- After the software reads the counter, it resets to zero on the next cycle." Exact certain-answer law quote: "Once enabled, every rising edge with sw_req_i high has priority and replaces p_count_o with zero-extended cpu_trig_i, while sw_req_i low permits a high cpu_trig_i to increment modulo 2**CNT_W or a low cpu_trig_i to hold the value." This corrected law supersedes the repeated clause only for the Q6 request effect on `p_count_o`; the separate `count_q` reset action still occurs at E1.
+
+Amendment A7 (Q8). Exact original clause: '        { "name": "p_count_o", "wave": "2...22...", "data": [ "0", "1", "0", "3", "4", "5", "6" ] }' Exact certain-answer law quote: "Row k is sampled PRE-edge: it sees the value produced immediately after the preceding effective event, and a value produced immediately after row k's rising edge is first observed by the PRE-edge sample at row k+1." This corrected law supersedes only the waveform's `p_count_o` illustrative coordinates governed by Q8; it does not amend the adjacent `count_q` row or any interface, reset, or arithmetic requirement.
+
+Verification-visible `clk` advances ordinary state only on positive edges; static levels and falling edges do not advance it. It has no terminal behavior and continues indefinitely.
+
+Verification-visible `reset` asynchronously clears both specified values and disables answered output behavior; assertion is the advance guard, continued assertion retains reset state, and release alone does nothing. It has no terminal behavior.
+
+Verification-visible `sw_req_i` is sampled on positive edges under the phase-specific priorities above and schedules the source counter clear. It is ignored for `p_count_o` during reset and during disabled/enabling phases. It has no terminal behavior.
+
+Verification-visible `cpu_trig_i` is sampled on positive edges and separately governs `count_q`, output-mode enabling, output replacement data, or output increment as stated. Reset overrides it. It has no terminal behavior.
+
+Verification-visible `p_count_o` changes on asynchronous reset assertion or immediately after qualifying positive edges and otherwise retains its registered value. Observation continues indefinitely; there is no terminal behavior.
+
+6. Worked trace
+
+The evaluated trace is normative for the concrete `CNT_W=8` active-edge scenarios and PRE-edge observation convention. It supplements but does not narrow the parameterized RTL contract or asynchronous events outside the projection.
+
+### stimulus 0
+| cycle | reset | sw_req_i | cpu_trig_i | p_count_o |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 1 | 8'b00000000 |
+| 2 | 0 | 1 | 0 | 8'b00000000 |
+| 3 | 0 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 0 | 8'b00000000 |
+
+### stimulus 1
+| cycle | reset | sw_req_i | cpu_trig_i | p_count_o |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 8'x |
+| 1 | 1 | 1 | 1 | 8'b00000000 |
+| 2 | 0 | 0 | 1 | 8'b00000000 |
+| 3 | 0 | 1 | 0 | 8'b00000000 |
+
+### stimulus 2
+| cycle | reset | sw_req_i | cpu_trig_i | p_count_o |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 8'b00000000 |
+| 1 | 0 | 0 | 1 | 8'b00000000 |
+| 2 | 0 | 1 | 1 | 8'b00000000 |
+| 3 | 0 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 0 | 8'b00000000 |
+
+### stimulus 3
+| cycle | reset | sw_req_i | cpu_trig_i | p_count_o |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 1 | 8'b00000000 |
+| 2 | 0 | 1 | 0 | 8'b00000000 |
+| 3 | 0 | 0 | 1 | 8'b00000000 |
+| 4 | 0 | 1 | 0 | 8'b00000001 |
+| 5 | 0 | 0 | 0 | 8'b00000000 |
+
+### stimulus 4
+| cycle | reset | sw_req_i | cpu_trig_i | p_count_o |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 1 | 8'b00000000 |
+| 2 | 1 | 0 | 1 | 8'b00000000 |
+| 3 | 0 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 0 | 8'b00000000 |
+
+### stimulus 5
+| cycle | reset | sw_req_i | cpu_trig_i | p_count_o |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 1 | 8'b00000000 |
+| 2 | 0 | 0 | 1 | 8'b00000000 |
+| 3 | 0 | 0 | 1 | 8'b00000000 |
+| 4 | 0 | 0 | 1 | 8'b00000000 |
+| 5 | 0 | 0 | 1 | 8'b00000000 |
+| 6 | 0 | 0 | 1 | 8'b00000000 |
+| 7 | 0 | 0 | 1 | 8'b00000000 |
+| 8 | 0 | 0 | 1 | 8'b00000000 |
+| 9 | 0 | 0 | 1 | 8'b00000000 |
+| 10 | 0 | 0 | 1 | 8'b00000000 |
+| 11 | 0 | 0 | 1 | 8'b00000000 |
+| 12 | 0 | 0 | 1 | 8'b00000000 |
+| 13 | 0 | 0 | 1 | 8'b00000000 |
+| 14 | 0 | 0 | 1 | 8'b00000000 |
+| 15 | 0 | 0 | 1 | 8'b00000000 |
+| 16 | 0 | 0 | 1 | 8'b00000000 |
+| 17 | 0 | 0 | 1 | 8'b00000000 |
+| 18 | 0 | 1 | 1 | 8'b00000000 |
+| 19 | 0 | 0 | 1 | 8'b00000000 |
+| 20 | 0 | 0 | 1 | 8'b00000000 |
+| 21 | 0 | 0 | 1 | 8'b00000000 |
+| 22 | 0 | 0 | 1 | 8'b00000000 |
+| 23 | 0 | 0 | 1 | 8'b00000000 |
+| 24 | 0 | 0 | 1 | 8'b00000000 |
+| 25 | 0 | 0 | 1 | 8'b00000000 |
+| 26 | 0 | 0 | 1 | 8'b00000000 |
+| 27 | 0 | 0 | 1 | 8'b00000000 |
+| 28 | 0 | 0 | 1 | 8'b00000000 |
+| 29 | 0 | 0 | 1 | 8'b00000000 |
+| 30 | 0 | 0 | 1 | 8'b00000000 |
+| 31 | 0 | 0 | 1 | 8'b00000000 |
+| 32 | 0 | 0 | 1 | 8'b00000000 |
+| 33 | 0 | 0 | 1 | 8'b00000000 |
+| 34 | 0 | 0 | 1 | 8'b00000000 |
+| 35 | 0 | 1 | 1 | 8'b00000000 |
+| 36 | 0 | 0 | 1 | 8'b00000000 |
+| 37 | 0 | 0 | 1 | 8'b00000000 |
+| 38 | 0 | 0 | 1 | 8'b00000000 |
+| 39 | 0 | 0 | 1 | 8'b00000000 |
+| 40 | 0 | 0 | 1 | 8'b00000000 |
+| 41 | 0 | 0 | 1 | 8'b00000000 |
+| 42 | 0 | 0 | 1 | 8'b00000000 |
+| 43 | 0 | 0 | 1 | 8'b00000000 |
+| 44 | 0 | 0 | 1 | 8'b00000000 |
+| 45 | 0 | 0 | 1 | 8'b00000000 |
+| 46 | 0 | 0 | 1 | 8'b00000000 |
+| 47 | 0 | 0 | 1 | 8'b00000000 |
+| 48 | 0 | 0 | 1 | 8'b00000000 |
+| 49 | 0 | 0 | 1 | 8'b00000000 |
+| 50 | 0 | 0 | 1 | 8'b00000000 |
+| 51 | 0 | 0 | 1 | 8'b00000000 |
+| 52 | 0 | 1 | 1 | 8'b00000000 |
+| 53 | 0 | 0 | 1 | 8'b00000000 |
+| 54 | 0 | 0 | 1 | 8'b00000000 |
+
+### stimulus 6
+| cycle | reset | sw_req_i | cpu_trig_i | p_count_o |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 0 | 8'b00000000 |
+| 3 | 0 | 0 | 0 | 8'b00000000 |
+
+### stimulus 7
+| cycle | reset | sw_req_i | cpu_trig_i | p_count_o |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 1 | 8'b00000000 |
+| 2 | 0 | 0 | 1 | 8'b00000000 |
+| 3 | 0 | 1 | 0 | 8'b00000000 |
+| 4 | 0 | 0 | 1 | 8'b00000000 |
+| 5 | 0 | 0 | 1 | 8'b00000001 |
+| 6 | 0 | 1 | 0 | 8'b00000010 |

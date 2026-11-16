@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "barrel_shifter",
+  "toplevel": "barrel_shifter",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

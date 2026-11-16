@@ -1,0 +1,122 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input [3:0].
+- b: input [3:0].
+- c: input [3:0].
+- d: input [3:0].
+- e: input [3:0].
+- q: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset operation. The circuit has no state elements. At power-up, before any edge or reset event, q is already the combinational value selected from the settled inputs by the behaviour below; it is not an uninitialised or retained value. The first step and every later step have exactly the same rule, and no output or state is cleared, captured, or delayed.
+
+4. Timing.
+
+q is combinational and continuously reflects the current a, b, c, d, and e inputs with zero clock-cycle latency. There is no clock, capture edge, pulse, periodic output, circuit period, duty cycle, or delay law.
+
+For trace observation only, row k denotes the settled sample at k * step_ns, using timing.step_ns and timing.sample_offset_ns from the interface when those quantities are supplied; this sampling convention does not impose a clock, period, latency, or delay on the circuit. The present interface supplies no numeric step_ns or sample_offset_ns, so this document assigns neither a numeric value.
+
+5. Behaviour.
+
+All inputs and q are unsigned 4-bit values. q is evaluated continuously and immediately as follows: when c is 4'd0, q equals b; when c is 4'd1, q equals e; when c is 4'd2, q equals a; when c is 4'd3, q equals d; and when c is any value from 4'd4 through 4'd15, q equals 4'hf.
+
+a determines q continuously and immediately only while c is 4'd2; at every other c value, a has no effect. b determines q continuously and immediately only while c is 4'd0; at every other c value, b has no effect. d determines q continuously and immediately only while c is 4'd3; at every other c value, d has no effect. e determines q continuously and immediately only while c is 4'd1; at every other c value, e has no effect.
+
+Every change of c, including a change simultaneous with any data-input change, is reflected immediately according to the complete selection law. Input changes, simultaneous changes, disabled inputs, interruptions, and repetitions introduce no state, priority, transaction, cancellation, capture, completion, retention, restart, hold, or clear behavior. A pre-edge trace row therefore observes the value selected by that row's settled inputs before the nominal step.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | c | d | e | q |
+|---|---|---|---|---|---|---|
+| 0 | 4'b1010 | 4'b1011 | 4'b0000 | 4'b1101 | 4'b1110 | 4'b1011 |
+| 1 | 4'b1010 | 4'b1011 | 4'b0001 | 4'b1101 | 4'b1110 | 4'b1110 |
+| 2 | 4'b1010 | 4'b1011 | 4'b0010 | 4'b1101 | 4'b1110 | 4'b1010 |
+| 3 | 4'b1010 | 4'b1011 | 4'b0011 | 4'b1101 | 4'b1110 | 4'b1101 |
+| 4 | 4'b1010 | 4'b1011 | 4'b0100 | 4'b1101 | 4'b1110 | 4'b1111 |
+| 5 | 4'b1010 | 4'b1011 | 4'b0101 | 4'b1101 | 4'b1110 | 4'b1111 |
+| 6 | 4'b1010 | 4'b1011 | 4'b0110 | 4'b1101 | 4'b1110 | 4'b1111 |
+| 7 | 4'b1010 | 4'b1011 | 4'b0111 | 4'b1101 | 4'b1110 | 4'b1111 |
+| 8 | 4'b1010 | 4'b1011 | 4'b1000 | 4'b1101 | 4'b1110 | 4'b1111 |
+| 9 | 4'b1010 | 4'b1011 | 4'b1001 | 4'b1101 | 4'b1110 | 4'b1111 |
+| 10 | 4'b1010 | 4'b1011 | 4'b1010 | 4'b1101 | 4'b1110 | 4'b1111 |
+| 11 | 4'b1010 | 4'b1011 | 4'b1011 | 4'b1101 | 4'b1110 | 4'b1111 |
+| 12 | 4'b1010 | 4'b1011 | 4'b1100 | 4'b1101 | 4'b1110 | 4'b1111 |
+| 13 | 4'b1010 | 4'b1011 | 4'b1101 | 4'b1101 | 4'b1110 | 4'b1111 |
+| 14 | 4'b1010 | 4'b1011 | 4'b1110 | 4'b1101 | 4'b1110 | 4'b1111 |
+| 15 | 4'b1010 | 4'b1011 | 4'b1111 | 4'b1101 | 4'b1110 | 4'b1111 |
+
+### stimulus 1
+| cycle | a | b | c | d | e | q |
+|---|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b1011 | 4'b0000 | 4'b1101 | 4'b1110 | 4'b1011 |
+| 1 | 4'b0001 | 4'b1011 | 4'b0000 | 4'b1101 | 4'b1110 | 4'b1011 |
+| 2 | 4'b1000 | 4'b1011 | 4'b0000 | 4'b1101 | 4'b1110 | 4'b1011 |
+| 3 | 4'b1111 | 4'b1011 | 4'b0000 | 4'b1101 | 4'b1110 | 4'b1011 |
+| 4 | 4'b0110 | 4'b1011 | 4'b0000 | 4'b1101 | 4'b1110 | 4'b1011 |
+
+### stimulus 2
+| cycle | a | b | c | d | e | q |
+|---|---|---|---|---|---|---|
+| 0 | 4'b1010 | 4'b0000 | 4'b0000 | 4'b1101 | 4'b1110 | 4'b0000 |
+| 1 | 4'b1010 | 4'b0001 | 4'b0000 | 4'b1101 | 4'b1110 | 4'b0001 |
+| 2 | 4'b1010 | 4'b1000 | 4'b0000 | 4'b1101 | 4'b1110 | 4'b1000 |
+| 3 | 4'b1010 | 4'b1111 | 4'b0000 | 4'b1101 | 4'b1110 | 4'b1111 |
+| 4 | 4'b1010 | 4'b0110 | 4'b0000 | 4'b1101 | 4'b1110 | 4'b0110 |
+
+### stimulus 3
+| cycle | a | b | c | d | e | q |
+|---|---|---|---|---|---|---|
+| 0 | 4'b1010 | 4'b1011 | 4'b0001 | 4'b0000 | 4'b1110 | 4'b1110 |
+| 1 | 4'b1010 | 4'b1011 | 4'b0001 | 4'b0001 | 4'b1110 | 4'b1110 |
+| 2 | 4'b1010 | 4'b1011 | 4'b0001 | 4'b1000 | 4'b1110 | 4'b1110 |
+| 3 | 4'b1010 | 4'b1011 | 4'b0001 | 4'b1111 | 4'b1110 | 4'b1110 |
+| 4 | 4'b1010 | 4'b1011 | 4'b0001 | 4'b0110 | 4'b1110 | 4'b1110 |
+
+### stimulus 4
+| cycle | a | b | c | d | e | q |
+|---|---|---|---|---|---|---|
+| 0 | 4'b1010 | 4'b1011 | 4'b0001 | 4'b1101 | 4'b0000 | 4'b0000 |
+| 1 | 4'b1010 | 4'b1011 | 4'b0001 | 4'b1101 | 4'b0001 | 4'b0001 |
+| 2 | 4'b1010 | 4'b1011 | 4'b0001 | 4'b1101 | 4'b1000 | 4'b1000 |
+| 3 | 4'b1010 | 4'b1011 | 4'b0001 | 4'b1101 | 4'b1111 | 4'b1111 |
+| 4 | 4'b1010 | 4'b1011 | 4'b0001 | 4'b1101 | 4'b0110 | 4'b0110 |
+
+### stimulus 5
+| cycle | a | b | c | d | e | q |
+|---|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b0001 | 4'b0010 | 4'b1000 | 4'b1111 | 4'b0000 |
+| 1 | 4'b0001 | 4'b1000 | 4'b0011 | 4'b1111 | 4'b0000 | 4'b1111 |
+| 2 | 4'b1000 | 4'b1111 | 4'b0010 | 4'b0000 | 4'b0001 | 4'b1000 |
+| 3 | 4'b1111 | 4'b0000 | 4'b0011 | 4'b0001 | 4'b1000 | 4'b0001 |
+
+### stimulus 6
+| cycle | a | b | c | d | e | q |
+|---|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b0001 | 4'b0100 | 4'b1000 | 4'b1111 | 4'b1111 |
+| 1 | 4'b1111 | 4'b1000 | 4'b0111 | 4'b0001 | 4'b0000 | 4'b1111 |
+| 2 | 4'b1000 | 4'b0000 | 4'b1100 | 4'b1111 | 4'b0001 | 4'b1111 |
+| 3 | 4'b0001 | 4'b1111 | 4'b1111 | 4'b0000 | 4'b1000 | 4'b1111 |
+
+### stimulus 7
+| cycle | a | b | c | d | e | q |
+|---|---|---|---|---|---|---|
+| 0 | 4'b0101 | 4'b0110 | 4'b0000 | 4'b0111 | 4'b1001 | 4'b0110 |
+| 1 | 4'b0101 | 4'b0110 | 4'b0001 | 4'b0111 | 4'b1001 | 4'b1001 |
+| 2 | 4'b0101 | 4'b0110 | 4'b0010 | 4'b0111 | 4'b1001 | 4'b0101 |
+| 3 | 4'b0101 | 4'b0110 | 4'b0011 | 4'b0111 | 4'b1001 | 4'b0111 |
+| 4 | 4'b0101 | 4'b0110 | 4'b0100 | 4'b0111 | 4'b1001 | 4'b1111 |

@@ -1,0 +1,355 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a packet controller module in `verilog` to handle data reception and transmission. The design must implement a finite state machine (FSM) to process received packets, validate their integrity, compute appropriate responses, and manage transmission. The module should emphasize precise functionality and align with the following specifications.
+
+---
+
+### **Specifications**
+- **Module Name**: `packet_controller`
+
+#### **1. Input/Output Interface**
+- **Inputs**:
+  - `clk`: System clock signal (active on the rising edge).
+  - `rst`: Active-high asynchronous reset.
+  - `rx_valid_i`: Indicates valid incoming data (strobe signal).
+  - `rx_data_8_i [7:0]`: 8-bit data received from the RX interface.
+  - `tx_done_tick_i`: Indicates the successful transmission of a byte.
+- **Outputs**:
+  - `tx_start_o`: High during transmission; low otherwise.
+  - `tx_data_8_o [7:0]`: 8-bit data to transmit.
+
+---
+
+#### **2. FSM Behavior**
+- **States**:
+  - `S_IDLE`: Waits for 8 bytes of data to accumulate in the buffer.
+  - `S_GOT_8_BYTES`: Checks the header and computes the checksum.
+  - `S_RECV_CHECKSUM`: Validates the checksum. If valid, transitions to response building; otherwise, resets to `S_IDLE`.
+  - `S_BUILD_RESPONSE`: Prepares the outgoing response packet.
+  - `S_SEND_FIRST_BYTE`: Initiates the response transmission by sending the first byte.
+  - `S_RESPONSE_READY`: Handles the remaining response transmission.
+  - **Error Handling**: Returns to `S_IDLE` on invalid checksum or unexpected header.
+
+---
+
+#### **3. Functional Details**
+- **Packet Format**:
+  - **Header**: The first 16 bits of the packet must match `16'hBACD` for valid packets.
+  - **Payload**: Two 16-bit integers (`num1`, `num2`), an 8-bit opcode, and an 8-bit checksum.
+  - **Checksum**: The sum of all bytes (modulo 256) must equal zero for valid packets.
+
+- **Outgoing Response**:
+  - Header: Fixed as `16'hABCD`.
+  - Payload: The computed result of `num1` and `num2` based on the opcode:
+    - `opcode = 8'h00`: Addition (`num1 + num2`).
+    - `opcode = 8'h01`: Subtraction (`num1 - num2`).
+    - Other opcodes result in `0`.
+  - Checksum: Calculated to ensure the outgoing packet meets checksum validation.
+
+---
+
+#### **4. Error Handling**
+- Invalid packets (e.g., checksum mismatch, unexpected header) reset the FSM to `S_IDLE`. 
+
+---
+
+#### **5. Edge Case Scenarios**
+1. **Invalid Headers**:
+   - Headers other than `16'hBACD` are treated as invalid, causing the FSM to reset to `S_IDLE`.
+2. **Checksum Failures**:
+   - Packets with incorrect checksum are discarded, resetting the FSM to `S_IDLE`.
+3. **Arithmetic Operations**:
+   - Handles addition and subtraction but does not explicitly address signed arithmetic or overflow/underflow scenarios.
+4. **Rapid Consecutive Packets**:
+   - Designed to handle valid packets one at a time without specific provisions for back-to-back packet handling.
+
+---
+
+#### **6. Timing Constraints**
+- **FSM Synchronization**:
+  - State transitions and output updates are synchronized with the system clock.
+- **Transmission Latency**:
+  - Transmission continues until all 5 bytes of the response are sent, synchronized to `tx_done_tick_i`.
+
+---
+
+### **RTL Implementation Requirements**
+1. **FSM Design**:
+   - Implement states (`S_IDLE`, `S_GOT_8_BYTES`, etc.) with appropriate transitions.
+2. **Checksum Logic**:
+   - Validate incoming packets and generate outgoing packet checksums.
+3. **Arithmetic Operations**:
+   - Implement addition and subtraction for `num1` and `num2` based on `opcode`.
+4. **Error Handling**:
+   - Reset FSM to `S_IDLE` for invalid headers or checksum mismatches.
+5. **Timing and Synchronization**:
+   - Ensure all state transitions and signal updates occur on the rising edge of `clk`.
+
+---
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a packet controller module in `verilog` to handle data reception and transmission. The design must implement a finite state machine (FSM) to process received packets, validate their integrity, compute appropriate responses, and manage transmission. The module should emphasize precise functionality and align with the following specifications.
+
+Named module interface binding
+
+Module: packet_controller.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- rst: input; 1 bits in the concrete formal instance.
+- rx_valid_i: input; 1 bits in the concrete formal instance.
+- rx_data_8_i: input; 8 bits in the concrete formal instance.
+- tx_done_tick_i: input; 1 bits in the concrete formal instance.
+- tx_start_o: output; 1 bits in the concrete formal instance.
+- tx_data_8_o: output; 8 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly `packet_controller`. Named top-level wiring is the portable integration contract confirmed by certain answer Q18. The public ports are input `clk` (1 bit), input `rst` (1 bit), input `rx_valid_i` (1 bit), input `rx_data_8_i` (`[7:0]`), input `tx_done_tick_i` (1 bit), output `tx_start_o` (1 bit), and output `tx_data_8_o` (`[7:0]`). There are no public parameters.
+
+No RTL declaration establishing positional order is available, so this document does not guarantee declaration order. A consumer with the actual module declaration may instantiate it positionally in that declaration's order; connections by the exact names above are the portable consumer guidance.
+
+3. Reset.
+
+`rst` is active high and asynchronous. Assertion immediately abandons a partial receive packet or an active response and establishes `S_IDLE`: the receive position and checksum accumulator are zero, all captured packet fields and computed-response fields are zero, and the response-byte position is zero. Reset has priority over simultaneous receive and completion inputs. Since reset ends transmission and `tx_start_o` is low when not transmitting, `tx_start_o` is 0 while reset is asserted. Under Implementation choice C1, `tx_data_8_o` is `8'h00` while reset is asserted.
+
+Reset release is not an update event. Before the first rising edge after release, the reset values remain visible. At that first rising edge, `rx_valid_i=1` accepts packet byte position 0; otherwise the state remains `S_IDLE`. The same rules apply after reset interrupts reception or transmission.
+
+Implementation choice C1 — initial and reset-phase completion. Before reset has ever been asserted, the concrete implementation begins in the same stored state and produces the same outputs as the reset state: `tx_start_o=0` and `tx_data_8_o=8'h00`. The source leaves physical power-up state and reset-phase `tx_data_8_o` unspecified; choosing these values is a compatible implementation decision, not a source-derived hardware power-up guarantee. It imposes no reset-before-use restriction. All modeled initial values equal the documented reset-state values, and no memory or other unreset state exists in this design.
+
+The finite verification instance starts from Implementation choice C1. Stimuli that assert reset use the asynchronously established reset state before released-clock operation; this verification setup is separate from the RTL contract.
+
+4. Timing.
+
+The circuit's ordinary acceptance, state-transition, and registered-output event is the rising edge of `clk`; reset assertion is asynchronous. `tx_start_o` and `tx_data_8_o` are registered transaction outputs, except that asynchronous reset assertion immediately applies their reset-phase values. The trace uses the interface full-cycle observation convention: row k denotes k times `step_ns` after settling, sampled at `sample_offset_ns` before that row's active-edge transition. Those interface metadata values are preserved by the evaluated trace and are not an implicit 10 ns circuit clock period.
+
+Let E0 be the rising edge accepting packet byte position 0. Every later rising edge with `rx_valid_i=1` while receiving accepts the next position, including consecutive asserted edges; an edge with `rx_valid_i=0` accepts nothing. Let E7 be the edge accepting position 7. Immediately after E7 the state is `S_GOT_8_BYTES`, while `tx_start_o=0`. At the first completed post-E7 interval, the next rising edge checks the header, computes the modulo-256 checksum from all eight stored bytes, and, for a correct header, enters `S_RECV_CHECKSUM`. At the second completed post-E7 interval, the next rising edge validates that computed checksum and either enters `S_BUILD_RESPONSE` or returns to `S_IDLE`. At the third completed post-E7 interval, the next rising edge computes and stores the response, enters `S_SEND_FIRST_BYTE`, and publishes response byte 0 with `tx_start_o=1`. Thus first-byte publication is the action on the third rising edge after E7, not an action at E7.
+
+During transmission, `tx_start_o` remains continuously high and `tx_data_8_o` retains the current response byte until a rising edge samples `tx_done_tick_i=1`. Let T0 be the state-entry edge that publishes byte 0. The first, second, third, and fourth later acknowledgement edges publish bytes 1, 2, 3, and 4, respectively. Each pre-edge output is the byte selected by the old response position; the same acknowledgement edge advances the position and selects the registered post-edge byte. The fifth acknowledgement edge ends transmission and returns to `S_IDLE`, after which `tx_start_o=0` and `tx_data_8_o=8'h00`. A continuously high `tx_done_tick_i` acknowledges one byte on every rising edge during transmission. There is no separate one-cycle `tx_start_o` pulse; its high interval spans the five-byte transaction.
+
+Implementation choice C2 — exact byte handshake. The source requires five response bytes synchronized to `tx_done_tick_i` but does not fix continuous versus per-byte assertion or the exact advance edge. This implementation holds `tx_start_o` high continuously and advances after each rising edge sampling `tx_done_tick_i=1`, preserving five acknowledgements, byte retention between acknowledgements, and all five ordered bytes. This completion applies only to the byte handshake and changes no response value or source-stated latency.
+
+5. Behaviour.
+
+In `S_IDLE`, each non-reset rising edge with `rx_valid_i=1` accepts one `rx_data_8_i` byte. Accepted positions 0 through 7 are respectively header `[15:8]`, header `[7:0]`, `num1[15:8]`, `num1[7:0]`, `num2[15:8]`, `num2[7:0]`, opcode, and checksum. Every 16-bit field is therefore received most-significant byte first. In particular, a valid header is received as `8'hBA`, then `8'hCD`. This is the certain law of Q19.
+
+After position 7, `S_GOT_8_BYTES` checks whether the stored header is `16'hBACD` and computes the unsigned sum of all eight stored bytes modulo 256. `S_RECV_CHECKSUM` then accepts the packet exactly when that computed value is zero. An unexpected header or nonzero checksum returns to `S_IDLE` without any response. The receive checksum truncation boundary is the final modulo-256 sum; the eight byte operands are unsigned.
+
+For every valid packet, `num1` and `num2` are unsigned 16-bit operands. Define `R=(num1+num2) mod 2^16` for opcode `8'h00`, `R=(num1-num2) mod 2^16` for opcode `8'h01`, and `R=16'h0000` for every other opcode. Addition and subtraction are evaluated in an unsigned integer context wide enough to represent the intermediate mathematical operation, and truncation occurs only at the specified 16-bit result boundary. Underflow and overflow wrap modulo `2^16`. This is the certain law of Q4.
+
+The five response bytes are, in order, `8'hAB`, `8'hCD`, `R[15:8]`, `R[7:0]`, and `C`. Thus the response header `16'hABCD` is serialized most-significant byte first, as required by the certain law of Q3. Define `C = (-(8'hAB + 8'hCD + R[15:8] + R[7:0])) mod 256`; the operands are unsigned, the four-byte sum is evaluated before the documented modulo-256 checksum truncation, and the unsigned sum of all five transmitted bytes is zero modulo 256. This is the certain law of Q5.
+
+Implementation choice C3 — non-result data. `tx_data_8_o` is `8'h00` whenever no response byte is being transmitted. This fixes only a source-unconstrained non-result phase and does not alter a required response byte, completion event, or retention while transmitting.
+
+Implementation choice C4 — receive cadence and overlap. Every non-reset rising edge while receiving with `rx_valid_i=1` accepts one byte, even on consecutive edges. Receive inputs presented after E7 while checking, validating, building, or transmitting have no effect. During transmission, a simultaneous `tx_done_tick_i=1` follows the acknowledgement law; reset remains dominant. This compatible completion preserves the source's one-packet-at-a-time behavior, does not cancel or restart an accepted transaction, and imposes no restriction on values a caller may drive.
+
+Outside reception, `rx_data_8_i` and `rx_valid_i` have no state effect. Outside transmission, `tx_done_tick_i` has no state effect. Invalid packets never start transmission. After the fifth acknowledgement, a later packet can begin with a byte accepted on any later rising edge for which `rx_valid_i=1`; no packet byte asserted during the preceding active response is buffered.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete interface instance and for the observation convention stated above.
+
+### stimulus 0
+| cycle | rst | rx_valid_i | rx_data_8_i | tx_done_tick_i | tx_start_o | tx_data_8_o |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 1 | 8'b00000001 | 0 | 0 | 8'b00000000 |
+| 2 | 0 | 0 | 8'b11111111 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 0 | 8'b10000000 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 0 | 8'b01011010 | 0 | 0 | 8'b00000000 |
+
+### stimulus 1
+| cycle | rst | rx_valid_i | rx_data_8_i | tx_done_tick_i | tx_start_o | tx_data_8_o |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 8'b10111010 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 8'b11001101 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 5 | 0 | 1 | 8'b00000001 | 0 | 0 | 8'b00000000 |
+| 6 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 7 | 0 | 1 | 8'b00000010 | 0 | 0 | 8'b00000000 |
+| 8 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 9 | 0 | 1 | 8'b01110110 | 0 | 0 | 8'b00000000 |
+| 10 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 11 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 12 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 13 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b10101011 |
+| 14 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b11001101 |
+| 15 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 |
+
+### stimulus 2
+| cycle | rst | rx_valid_i | rx_data_8_i | tx_done_tick_i | tx_start_o | tx_data_8_o |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 8'b10111010 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 8'b11001101 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 5 | 0 | 1 | 8'b00000011 | 0 | 0 | 8'b00000000 |
+| 6 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 7 | 0 | 1 | 8'b00000001 | 0 | 0 | 8'b00000000 |
+| 8 | 0 | 1 | 8'b00000001 | 0 | 0 | 8'b00000000 |
+| 9 | 0 | 1 | 8'b01110100 | 0 | 0 | 8'b00000000 |
+| 10 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 11 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 12 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 13 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b10101011 |
+| 14 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b11001101 |
+
+### stimulus 3
+| cycle | rst | rx_valid_i | rx_data_8_i | tx_done_tick_i | tx_start_o | tx_data_8_o |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 8'b10111010 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 8'b11001101 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 8'b10000000 | 0 | 0 | 8'b00000000 |
+| 5 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 6 | 0 | 1 | 8'b10000000 | 0 | 0 | 8'b00000000 |
+| 7 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 8 | 0 | 1 | 8'b00000010 | 0 | 0 | 8'b00000000 |
+| 9 | 0 | 1 | 8'b01110111 | 0 | 0 | 8'b00000000 |
+| 10 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 11 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+
+### stimulus 4
+| cycle | rst | rx_valid_i | rx_data_8_i | tx_done_tick_i | tx_start_o | tx_data_8_o |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 8'b10111010 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 8'b11001101 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 8'b11111111 | 0 | 0 | 8'b00000000 |
+| 5 | 0 | 1 | 8'b11111111 | 0 | 0 | 8'b00000000 |
+| 6 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 7 | 0 | 1 | 8'b00000001 | 0 | 0 | 8'b00000000 |
+| 8 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 9 | 0 | 1 | 8'b01111010 | 0 | 0 | 8'b00000000 |
+| 10 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 11 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+
+### stimulus 5
+| cycle | rst | rx_valid_i | rx_data_8_i | tx_done_tick_i | tx_start_o | tx_data_8_o |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 5 | 0 | 1 | 8'b00000001 | 0 | 0 | 8'b00000000 |
+| 6 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 7 | 0 | 1 | 8'b00000010 | 0 | 0 | 8'b00000000 |
+| 8 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 9 | 0 | 1 | 8'b11111101 | 0 | 0 | 8'b00000000 |
+| 10 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 11 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+
+### stimulus 6
+| cycle | rst | rx_valid_i | rx_data_8_i | tx_done_tick_i | tx_start_o | tx_data_8_o |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 8'b10111010 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 8'b11001101 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 5 | 0 | 1 | 8'b00000001 | 0 | 0 | 8'b00000000 |
+| 6 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 7 | 0 | 1 | 8'b00000010 | 0 | 0 | 8'b00000000 |
+| 8 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 9 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 10 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 11 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+
+### stimulus 7
+| cycle | rst | rx_valid_i | rx_data_8_i | tx_done_tick_i | tx_start_o | tx_data_8_o |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 8'b10111010 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 8'b11001101 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 5 | 0 | 1 | 8'b00000001 | 0 | 0 | 8'b00000000 |
+| 6 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 7 | 1 | 1 | 8'b00000010 | 0 | 0 | 8'b00000000 |
+| 8 | 0 | 1 | 8'b10111010 | 0 | 0 | 8'b00000000 |
+| 9 | 0 | 1 | 8'b11001101 | 0 | 0 | 8'b00000000 |
+| 10 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 11 | 0 | 1 | 8'b00000001 | 0 | 0 | 8'b00000000 |
+| 12 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 13 | 0 | 1 | 8'b00000010 | 0 | 0 | 8'b00000000 |
+| 14 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 15 | 0 | 1 | 8'b01110110 | 0 | 0 | 8'b00000000 |
+| 16 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 17 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 18 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 19 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b10101011 |
+| 20 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b11001101 |
+| 21 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'b00000000 |
+
+### stimulus 8
+| cycle | rst | rx_valid_i | rx_data_8_i | tx_done_tick_i | tx_start_o | tx_data_8_o |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 8'b10111010 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 8'b11001101 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 5 | 0 | 1 | 8'b00000001 | 0 | 0 | 8'b00000000 |
+| 6 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 7 | 0 | 1 | 8'b00000010 | 0 | 0 | 8'b00000000 |
+| 8 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 9 | 0 | 1 | 8'b01110110 | 0 | 0 | 8'b00000000 |
+| 10 | 0 | 1 | 8'b10111010 | 1 | 0 | 8'b00000000 |
+| 11 | 0 | 1 | 8'b11001101 | 1 | 0 | 8'b00000000 |
+| 12 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 13 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b10101011 |
+| 14 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b11001101 |
+| 15 | 0 | 1 | 8'b10111010 | 0 | 1 | 8'b00000000 |
+| 16 | 0 | 1 | 8'b11001101 | 0 | 1 | 8'b00000000 |
+| 17 | 0 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 |
+| 18 | 0 | 1 | 8'b00000100 | 0 | 1 | 8'b00000000 |
+| 19 | 0 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 |
+| 20 | 0 | 1 | 8'b00000101 | 0 | 1 | 8'b00000000 |
+| 21 | 0 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 |
+| 22 | 0 | 1 | 8'b01110000 | 0 | 1 | 8'b00000000 |
+| 23 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b00000000 |
+| 24 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b00000011 |
+| 25 | 0 | 0 | 8'b00000000 | 1 | 1 | 8'b10000101 |
+| 26 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 27 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 28 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+
+### stimulus 9
+| cycle | rst | rx_valid_i | rx_data_8_i | tx_done_tick_i | tx_start_o | tx_data_8_o |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 1 | 0 | 1 | 8'b00100101 | 0 | 0 | 8'b00000000 |
+| 2 | 0 | 0 | 8'b01001010 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 8'b01101111 | 1 | 0 | 8'b00000000 |
+| 4 | 0 | 0 | 8'b10010100 | 1 | 0 | 8'b00000000 |
+| 5 | 0 | 1 | 8'b10111001 | 1 | 0 | 8'b00000000 |
+| 6 | 0 | 0 | 8'b11011110 | 0 | 0 | 8'b00000000 |
+| 7 | 0 | 1 | 8'b00000011 | 0 | 0 | 8'b00000000 |
+| 8 | 0 | 0 | 8'b00101000 | 0 | 0 | 8'b00000000 |
+| 9 | 0 | 1 | 8'b01001101 | 1 | 0 | 8'b00000000 |
+| 10 | 0 | 0 | 8'b01110010 | 1 | 0 | 8'b00000000 |
+| 11 | 0 | 1 | 8'b10010111 | 1 | 0 | 8'b00000000 |
+| 12 | 0 | 0 | 8'b10111100 | 0 | 0 | 8'b00000000 |
+| 13 | 0 | 1 | 8'b11100001 | 0 | 0 | 8'b00000000 |
+| 14 | 0 | 0 | 8'b00000110 | 0 | 0 | 8'b00000000 |
+| 15 | 0 | 1 | 8'b00101011 | 1 | 0 | 8'b00000000 |
+| 16 | 0 | 0 | 8'b01010000 | 1 | 0 | 8'b00000000 |
+| 17 | 0 | 1 | 8'b01110101 | 1 | 0 | 8'b00000000 |
+| 18 | 0 | 0 | 8'b10011010 | 0 | 0 | 8'b00000000 |
+| 19 | 0 | 1 | 8'b10111111 | 0 | 0 | 8'b00000000 |
+| 20 | 0 | 0 | 8'b11100100 | 0 | 0 | 8'b00000000 |
+| 21 | 0 | 1 | 8'b00001001 | 1 | 0 | 8'b00000000 |
+| 22 | 0 | 0 | 8'b00101110 | 1 | 0 | 8'b00000000 |
+| 23 | 0 | 1 | 8'b01010011 | 1 | 0 | 8'b00000000 |

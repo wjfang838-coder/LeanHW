@@ -1,0 +1,88 @@
+Module and integration contract
+
+Module: multi_8bit.
+Ports below are in exact declaration order:
+- A: input [7:0].
+- B: input [7:0].
+- product: output [15:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+The module has no reset, initialization sequence, stored state, or reset edge. At power-up, before any hypothetical reset edge, product already has the same combinational meaning it has at all other times: after combinational propagation, it is the 16-bit unsigned product of the current A and B values. No output or state element is uninitialized, because the module has no state and product is wholly determined by its inputs.
+
+Timing
+
+product is combinational. It updates after combinational propagation from either A or B with zero clock-cycle latency; there is no clock, registered latency, pulse, periodic signal, capture edge, or retained prior result.
+
+The evaluated trace uses full-cycle observation rows only as a sampling convention for this autonomous combinational design. Row k denotes k times the interface step duration after settling, not an implicit 10 ns clock tick. The interface specifies neither a physical circuit period nor a propagation delay, so the observation cadence imposes neither one.
+
+Behaviour
+
+A is the unsigned 8-bit multiplicand in the continuously evaluated relation product = A * B. A value of zero makes product zero. Every change of A, including a change simultaneous with B, recomputes product after combinational propagation; there are no modes, inactive control levels, transactions, interruptions, edge captures, or retained effects, and repeated equal values have no additional effect.
+
+B is the unsigned 8-bit multiplier in the continuously evaluated relation product = A * B. A value of zero makes product zero, and each asserted bit B[i] contributes A times 2^i. Every change of B, including a change simultaneous with A, recomputes product after combinational propagation; there are no modes, inactive control levels, transactions, interruptions, edge captures, or retained effects, and repeated equal values have no additional effect.
+
+For every possible input pair, product is the 16-bit unsigned value A * B and updates solely by combinational propagation. The multiplication uses both complete 8-bit unsigned operand values, so its mathematical range is 0 through 65025 and fits without truncation in product. There is no reset, initialization sequence, active edge, capture, hold or clear interval, completion, or restart. A pre-transition observation row therefore reports the product of the input values present for that row after they have propagated, with zero edge-to-observation latency and no retained prior result.
+
+Worked trace
+
+The following evaluated trace is normative for the listed stimuli and observation points.
+
+### stimulus 0
+| cycle | A | B | product |
+|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 16'h0 |
+
+### stimulus 1
+| cycle | A | B | product |
+|---|---|---|---|
+| 0 | 8'b00000001 | 8'b00000001 | 16'h1 |
+
+### stimulus 2
+| cycle | A | B | product |
+|---|---|---|---|
+| 0 | 8'b11111111 | 8'b11111111 | 16'hfe01 |
+
+### stimulus 3
+| cycle | A | B | product |
+|---|---|---|---|
+| 0 | 8'b10000000 | 8'b10000000 | 16'h4000 |
+
+### stimulus 4
+| cycle | A | B | product |
+|---|---|---|---|
+| 0 | 8'b00100101 | 8'b01011011 | 16'hd27 |
+
+### stimulus 5
+| cycle | A | B | product |
+|---|---|---|---|
+| 0 | 8'b11111111 | 8'b00000001 | 16'hff |
+
+### stimulus 6
+| cycle | A | B | product |
+|---|---|---|---|
+| 0 | 8'b00000001 | 8'b11111111 | 16'hff |
+
+### stimulus 7
+| cycle | A | B | product |
+|---|---|---|---|
+| 0 | 8'b10000000 | 8'b00000010 | 16'h100 |
+
+### stimulus 8
+| cycle | A | B | product |
+|---|---|---|---|
+| 0 | 8'b00000010 | 8'b10000000 | 16'h100 |
+
+### stimulus 9
+| cycle | A | B | product |
+|---|---|---|---|
+| 0 | 8'b00000000 | 8'b10101101 | 16'h0 |

@@ -1,0 +1,54 @@
+{
+  "task": "full",
+  "synthesis_script_sha256": "4c9911bd46d1e6357c48593cfb1ccc54f787fd926843852246fb555abe57356f",
+  "engine": "Yosys/ABC PDR",
+  "pdr_seconds": 60,
+  "rtl_sha256": "f5d0c13323902abe8d4077f214249e7fb6ef8f5753e7f7657959ab52a3fbe0c0",
+  "miter_sha256": "468bf7008f938c6376cffea55b16b1985f5f9fc01952889f76bb042bc1c04b48",
+  "reference_sha256": "4a6d1aad4ac203dcf1edc9d3794ee6699137538e449ed42ba4a96804a1bccc8e",
+  "assumptions": [
+    "first edge reset",
+    "equality of the two arbitrary initial RAM arrays",
+    "two-state synchronous semantics"
+  ],
+  "fairness_assumptions": [],
+  "auxiliary_invariants": [],
+  "versions": {
+    "yosys": "Yosys 0.51+41 (git sha1 0c689091e, g++ 11.4.0-1ubuntu1~22.04 -fPIC -O3)",
+    "abc": "ABC command line: \"version\".\n\nUC Berkeley, ABC 1.01 (compiled Mar 19 2025 01:57:47)"
+  },
+  "synthesis": {
+    "command": [
+      "yosys",
+      "-Q",
+      "-T",
+      "-s",
+      "/home/usr/leansilicon/case_cpu/memory/evidence/pdr-full/synthesis.ys"
+    ],
+    "seconds": 106.072,
+    "exit_code": 0,
+    "timeout": false,
+    "log": "evidence/pdr-full/yosys.log"
+  },
+  "aiger": {
+    "max_variable": 512190,
+    "inputs": 25494,
+    "latches": 21984,
+    "outputs": 0,
+    "ands": 464712,
+    "bad": 74,
+    "constraints": 1
+  },
+  "pdr": {
+    "command": [
+      "/usr/local/bin/yosys-abc",
+      "-c",
+      "read_aiger /home/usr/leansilicon/case_cpu/memory/evidence/pdr-full/design.aig; fold; strash; orpos; pdr -v -T 60; write_cex -a /home/usr/leansilicon/case_cpu/memory/evidence/pdr-full/counterexample.aiw"
+    ],
+    "seconds": 61.967,
+    "exit_code": 0,
+    "timeout": false,
+    "log": "evidence/pdr-full/abc.log"
+  },
+  "status": "pdr_timeout"
+}

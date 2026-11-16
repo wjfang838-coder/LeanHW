@@ -1,0 +1,441 @@
+{
+  "demo": "evidence/20261020T104208402433Z",
+  "rtl_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+  "diagnosis": {
+    "ambiguity": 3,
+    "incompleteness": 2,
+    "contradiction": 2,
+    "scope": "seven clause-local contexts and seven projected observations"
+  },
+  "lean": {
+    "status": "kernel_checked",
+    "unbounded": true,
+    "scope": "Lean cycle model -> transaction ISA, plus acceptance/order conservation",
+    "printed_axiom_audits": [
+      "'CaseCPU.cycle_conservation' depends on axioms: [propext, Quot.sound]",
+      "'CaseCPU.trace_conservation' depends on axioms: [propext, Quot.sound]",
+      "'CaseCPU.trace_isa' depends on axioms: [propext, Quot.sound]",
+      "'CaseCPU.drained_refinement' depends on axioms: [propext, Quot.sound]",
+      "'CaseCPU.cycle_inv' depends on axioms: [propext, Quot.sound]",
+      "'CaseCPU.cycle_refines' depends on axioms: [propext, Quot.sound]",
+      "'CaseCPU.full_refinement' depends on axioms: [propext, Quot.sound]",
+      "'CaseCPU.reset_refinement' depends on axioms: [propext, Quot.sound]",
+      "'CPUDiagnosis.stall_ambiguity' does not depend on any axioms",
+      "'CPUDiagnosis.forwarding_ambiguity' does not depend on any axioms",
+      "'CPUDiagnosis.latency_ambiguity' does not depend on any axioms",
+      "'CPUDiagnosis.divzero_incomplete' does not depend on any axioms",
+      "'CPUDiagnosis.x0_incomplete' does not depend on any axioms",
+      "'CPUDiagnosis.reset_contradiction' does not depend on any axioms",
+      "'CPUDiagnosis.progress_contradiction' does not depend on any axioms",
+      "'CPUDiagnosis.revised_projection_determined' does not depend on any axioms",
+      "'CaseCPU.no_forward_counterexample' depends on axioms: [propext, Quot.sound]",
+      "'CaseCPU.divide_zero_counterexample' depends on axioms: [propext, Quot.sound]",
+      "'CaseCPU.stalled_retirement_counterexample' depends on axioms: [propext, Quot.sound]",
+      "'CaseCPU.corrected_refinement' depends on axioms: [propext, Quot.sound]"
+    ],
+    "replay_seconds": 10.712
+  },
+  "cosimulation": {
+    "status": "passed",
+    "counts": {
+      "cycles": 16925,
+      "resets": 26,
+      "discarded_by_reset": 5,
+      "full_pipeline_cycles": 1623,
+      "wb_backpressure_cycles": 1956,
+      "multicycle_hold_cycles": 2584,
+      "accepted": 1778,
+      "retired": 1773,
+      "invalid_words_rejected": 131
+    },
+    "retired_by_opcode": {
+      "addi": 58,
+      "add": 176,
+      "sub": 47,
+      "sll": 72,
+      "slt": 46,
+      "sltu": 47,
+      "xor": 69,
+      "srl": 66,
+      "sra": 69,
+      "or": 53,
+      "and": 45,
+      "mul": 55,
+      "mulh": 55,
+      "mulhsu": 63,
+      "mulhu": 51,
+      "div": 67,
+      "divu": 70,
+      "rem": 60,
+      "remu": 56,
+      "slti": 50,
+      "sltiu": 47,
+      "xori": 43,
+      "ori": 60,
+      "andi": 70,
+      "slli": 61,
+      "srli": 45,
+      "srai": 58,
+      "lui": 60,
+      "auipc": 54
+    },
+    "stall_masks": {
+      "0": 4604,
+      "16": 2022,
+      "20": 577,
+      "26": 190,
+      "18": 600,
+      "17": 561,
+      "24": 573,
+      "21": 157,
+      "28": 189,
+      "4": 1057,
+      "14": 108,
+      "8": 1081,
+      "6": 353,
+      "9": 334,
+      "12": 340,
+      "22": 166,
+      "1": 1129,
+      "3": 313,
+      "5": 325,
+      "2": 1062,
+      "23": 48,
+      "10": 307,
+      "29": 42,
+      "25": 180,
+      "11": 103,
+      "19": 168,
+      "13": 84,
+      "30": 56,
+      "7": 97,
+      "15": 28,
+      "27": 51,
+      "31": 20
+    },
+    "seed": "0x20261020",
+    "all_32_registers_observed_after_each_drain": true
+  },
+  "corrections": [
+    {
+      "name": "missing_forwarding",
+      "first_failing_cycle": 68,
+      "faulty_status": "counterexample_in_simulation",
+      "repaired_status": "all_vectors_pass",
+      "repaired_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "repair_kind": "scripted_local_rule"
+    },
+    {
+      "name": "oldest_writer_wins",
+      "first_failing_cycle": 68,
+      "faulty_status": "counterexample_in_simulation",
+      "repaired_status": "all_vectors_pass",
+      "repaired_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "repair_kind": "scripted_local_rule"
+    },
+    {
+      "name": "divide_zero_returns_zero",
+      "first_failing_cycle": 626,
+      "faulty_status": "counterexample_in_simulation",
+      "repaired_status": "all_vectors_pass",
+      "repaired_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "repair_kind": "scripted_local_rule"
+    },
+    {
+      "name": "ignore_writeback_stall",
+      "first_failing_cycle": 6,
+      "faulty_status": "counterexample_in_simulation",
+      "repaired_status": "all_vectors_pass",
+      "repaired_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "repair_kind": "scripted_local_rule"
+    },
+    {
+      "name": "add_substitution",
+      "first_failing_cycle": 70,
+      "faulty_status": "counterexample_in_simulation",
+      "repaired_status": "all_vectors_pass",
+      "repaired_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "repair_kind": "scripted_local_rule"
+    },
+    {
+      "name": "logical_signed_shift",
+      "first_failing_cycle": 1663,
+      "faulty_status": "counterexample_in_simulation",
+      "repaired_status": "all_vectors_pass",
+      "repaired_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "repair_kind": "scripted_local_rule"
+    }
+  ],
+  "pdr": {
+    "sanity": {
+      "task": "sanity",
+      "engine": "Yosys/ABC PDR",
+      "pdr_seconds": 60,
+      "rtl_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "miter_sha256": "6a3714fae160f2cec8cd728619afd248528b0d9a05898f3b0ae404e714df98dc",
+      "reference_sha256": "4a6d1aad4ac203dcf1edc9d3794ee6699137538e449ed42ba4a96804a1bccc8e",
+      "assumptions": [
+        "first edge reset",
+        "two-state synchronous semantics"
+      ],
+      "fairness_assumptions": [],
+      "auxiliary_invariants": [],
+      "versions": {
+        "yosys": "Yosys 0.51+41 (git sha1 0c689091e, g++ 11.4.0-1ubuntu1~22.04 -fPIC -O3)",
+        "abc": "ABC command line: \"version\".\n\nUC Berkeley, ABC 1.01 (compiled Mar 19 2025 01:57:47)"
+      },
+      "synthesis": {
+        "command": [
+          "yosys",
+          "-Q",
+          "-T",
+          "-s",
+          "/home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-sanity/synthesis.ys"
+        ],
+        "seconds": 0.818,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/20261020T104208402433Z/pdr-sanity/yosys.log"
+      },
+      "aiger": {
+        "max_variable": 1885,
+        "inputs": 1114,
+        "latches": 52,
+        "outputs": 0,
+        "ands": 719,
+        "bad": 3,
+        "constraints": 1
+      },
+      "pdr": {
+        "command": [
+          "/usr/local/bin/yosys-abc",
+          "-c",
+          "read_aiger /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-sanity/design.aig; fold; strash; orpos; pdr -v -T 60; write_cex -a /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-sanity/counterexample.aiw"
+        ],
+        "seconds": 0.114,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/20261020T104208402433Z/pdr-sanity/abc.log"
+      },
+      "status": "proved"
+    },
+    "order": {
+      "task": "order",
+      "engine": "Yosys/ABC PDR",
+      "pdr_seconds": 60,
+      "rtl_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "miter_sha256": "6a3714fae160f2cec8cd728619afd248528b0d9a05898f3b0ae404e714df98dc",
+      "reference_sha256": "4a6d1aad4ac203dcf1edc9d3794ee6699137538e449ed42ba4a96804a1bccc8e",
+      "assumptions": [
+        "first edge reset",
+        "two-state synchronous semantics"
+      ],
+      "fairness_assumptions": [],
+      "auxiliary_invariants": [],
+      "versions": {
+        "yosys": "Yosys 0.51+41 (git sha1 0c689091e, g++ 11.4.0-1ubuntu1~22.04 -fPIC -O3)",
+        "abc": "ABC command line: \"version\".\n\nUC Berkeley, ABC 1.01 (compiled Mar 19 2025 01:57:47)"
+      },
+      "synthesis": {
+        "command": [
+          "yosys",
+          "-Q",
+          "-T",
+          "-s",
+          "/home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-order/synthesis.ys"
+        ],
+        "seconds": 1.971,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/20261020T104208402433Z/pdr-order/yosys.log"
+      },
+      "aiger": {
+        "max_variable": 6564,
+        "inputs": 1403,
+        "latches": 343,
+        "outputs": 0,
+        "ands": 4818,
+        "bad": 3,
+        "constraints": 1
+      },
+      "pdr": {
+        "command": [
+          "/usr/local/bin/yosys-abc",
+          "-c",
+          "read_aiger /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-order/design.aig; fold; strash; orpos; pdr -v -T 60; write_cex -a /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-order/counterexample.aiw"
+        ],
+        "seconds": 13.097,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/20261020T104208402433Z/pdr-order/abc.log"
+      },
+      "status": "proved"
+    },
+    "full": {
+      "task": "full",
+      "engine": "Yosys/ABC PDR",
+      "pdr_seconds": 60,
+      "rtl_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "miter_sha256": "6a3714fae160f2cec8cd728619afd248528b0d9a05898f3b0ae404e714df98dc",
+      "reference_sha256": "4a6d1aad4ac203dcf1edc9d3794ee6699137538e449ed42ba4a96804a1bccc8e",
+      "assumptions": [
+        "first edge reset",
+        "two-state synchronous semantics"
+      ],
+      "fairness_assumptions": [],
+      "auxiliary_invariants": [],
+      "versions": {
+        "yosys": "Yosys 0.51+41 (git sha1 0c689091e, g++ 11.4.0-1ubuntu1~22.04 -fPIC -O3)",
+        "abc": "ABC command line: \"version\".\n\nUC Berkeley, ABC 1.01 (compiled Mar 19 2025 01:57:47)"
+      },
+      "synthesis": {
+        "command": [
+          "yosys",
+          "-Q",
+          "-T",
+          "-s",
+          "/home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-full/synthesis.ys"
+        ],
+        "seconds": 49.367,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/20261020T104208402433Z/pdr-full/yosys.log"
+      },
+      "aiger": {
+        "max_variable": 176427,
+        "inputs": 3707,
+        "latches": 2655,
+        "outputs": 0,
+        "ands": 170065,
+        "bad": 11,
+        "constraints": 1
+      },
+      "pdr": {
+        "command": [
+          "/usr/local/bin/yosys-abc",
+          "-c",
+          "read_aiger /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-full/design.aig; fold; strash; orpos; pdr -v -T 60; write_cex -a /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-full/counterexample.aiw"
+        ],
+        "seconds": 60.549,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/20261020T104208402433Z/pdr-full/abc.log"
+      },
+      "status": "pdr_timeout"
+    }
+  },
+  "supplementary_stall_repair_pdr": {
+    "mutant": {
+      "result": "evidence/pdr-stall-mutant/result.json",
+      "task": "sanity",
+      "engine": "Yosys/ABC PDR",
+      "pdr_seconds": 30,
+      "rtl_sha256": "e2326e81cadd1cda4fceb182725c0d591f992c88a8fdd54dd314b90c680de709",
+      "miter_sha256": "6a3714fae160f2cec8cd728619afd248528b0d9a05898f3b0ae404e714df98dc",
+      "reference_sha256": "4a6d1aad4ac203dcf1edc9d3794ee6699137538e449ed42ba4a96804a1bccc8e",
+      "assumptions": [
+        "first edge reset",
+        "two-state synchronous semantics"
+      ],
+      "fairness_assumptions": [],
+      "auxiliary_invariants": [],
+      "versions": {
+        "yosys": "Yosys 0.51+41 (git sha1 0c689091e, g++ 11.4.0-1ubuntu1~22.04 -fPIC -O3)",
+        "abc": "ABC command line: \"version\".\n\nUC Berkeley, ABC 1.01 (compiled Mar 19 2025 01:57:47)"
+      },
+      "synthesis": {
+        "command": [
+          "yosys",
+          "-Q",
+          "-T",
+          "-s",
+          "/home/usr/leansilicon/case_cpu/evidence/pdr-stall-mutant/synthesis.ys"
+        ],
+        "seconds": 0.817,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/pdr-stall-mutant/yosys.log"
+      },
+      "aiger": {
+        "max_variable": 1884,
+        "inputs": 1114,
+        "latches": 52,
+        "outputs": 0,
+        "ands": 718,
+        "bad": 3,
+        "constraints": 1
+      },
+      "pdr": {
+        "command": [
+          "/usr/local/bin/yosys-abc",
+          "-c",
+          "read_aiger /home/usr/leansilicon/case_cpu/evidence/pdr-stall-mutant/design.aig; fold; strash; orpos; pdr -v -T 30; write_cex -a /home/usr/leansilicon/case_cpu/evidence/pdr-stall-mutant/counterexample.aiw"
+        ],
+        "seconds": 0.115,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/pdr-stall-mutant/abc.log"
+      },
+      "status": "counterexample"
+    },
+    "repaired": {
+      "result": "evidence/pdr-stall-repaired/result.json",
+      "task": "sanity",
+      "engine": "Yosys/ABC PDR",
+      "pdr_seconds": 30,
+      "rtl_sha256": "5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6",
+      "miter_sha256": "6a3714fae160f2cec8cd728619afd248528b0d9a05898f3b0ae404e714df98dc",
+      "reference_sha256": "4a6d1aad4ac203dcf1edc9d3794ee6699137538e449ed42ba4a96804a1bccc8e",
+      "assumptions": [
+        "first edge reset",
+        "two-state synchronous semantics"
+      ],
+      "fairness_assumptions": [],
+      "auxiliary_invariants": [],
+      "versions": {
+        "yosys": "Yosys 0.51+41 (git sha1 0c689091e, g++ 11.4.0-1ubuntu1~22.04 -fPIC -O3)",
+        "abc": "ABC command line: \"version\".\n\nUC Berkeley, ABC 1.01 (compiled Mar 19 2025 01:57:47)"
+      },
+      "synthesis": {
+        "command": [
+          "yosys",
+          "-Q",
+          "-T",
+          "-s",
+          "/home/usr/leansilicon/case_cpu/evidence/pdr-stall-repaired/synthesis.ys"
+        ],
+        "seconds": 0.767,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/pdr-stall-repaired/yosys.log"
+      },
+      "aiger": {
+        "max_variable": 1885,
+        "inputs": 1114,
+        "latches": 52,
+        "outputs": 0,
+        "ands": 719,
+        "bad": 3,
+        "constraints": 1
+      },
+      "pdr": {
+        "command": [
+          "/usr/local/bin/yosys-abc",
+          "-c",
+          "read_aiger /home/usr/leansilicon/case_cpu/evidence/pdr-stall-repaired/design.aig; fold; strash; orpos; pdr -v -T 30; write_cex -a /home/usr/leansilicon/case_cpu/evidence/pdr-stall-repaired/counterexample.aiw"
+        ],
+        "seconds": 0.114,
+        "exit_code": 0,
+        "timeout": false,
+        "log": "evidence/pdr-stall-repaired/abc.log"
+      },
+      "status": "proved"
+    }
+  },
+  "limits": [
+    "No unbounded SystemVerilog-to-Lean-cycle equivalence certificate.",
+    "No liveness/fairness proof; arbitrary permanent stalls are allowed.",
+    "No independent LLM clarification or blind repair experiment.",
+    "No controlled speedup or stall-specific hardness claim."
+  ]
+}

@@ -1,0 +1,309 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+# **Design a Load Store Unit**
+
+In a classic five-stage pipelined processor, the five pipeline stages are:
+
+1. **Instruction Fetch (IF):** The next instruction is fetched from the instruction cache.
+2. **Instruction Decode (ID):** The instruction is decoded, and registers are fetched from the register file.
+3. **Execute (EX):** The ALU operates on the operands from the register file.
+4. **Memory Access (MA):** Accesses the processor's data cache. Data cache latency depends on whether it's a hit or miss.
+5. **Writeback (WB):** Writes ALU results or data cache values back to the register file.
+
+Develop a SystemVerilog RTL module named `load_store_unit` for a Load Store Unit (LSU) that manages load and store operations, serving as a memory access stage, interfacing between the execute stage and the data-cache memory. The module reads from and writes to a 32-bit, byte-addressable memory, where each address corresponds to a single byte. It supports accesses of varying sizes: byte (1 byte), halfword (2 bytes), and word (4 bytes). 
+
+---
+
+## **Ports**
+
+### **Clock and Reset**
+| **Signal** | **Direction** | **Width** | **Description**                                                                     |
+|------------|---------------|-----------|-------------------------------------------------------------------------------------|
+| `clk`      | Input         | 1-bit     | System clock signal. The design is synchronized to the positive edge of this clock. |
+| `rst_n`    | Input         | 1-bit     | Active-low asynchronous reset signal.                                               |
+
+### **Data-Cache Interface**
+| **Signal**               | **Direction** | **Width**  | **Description**                                                                 |
+|--------------------------|---------------|------------|---------------------------------------------------------------------------------|
+| `dmem_req_o`             | Output        | 1-bit      | Active-high signal indicating a load/store transaction request to data-cache.   |
+| `dmem_gnt_i`             | Input         | 1-bit      | Active-high grant signal from memory, indicating acceptance of the transaction. |
+| `dmem_req_addr_o[31:0]`  | Output        | 32-bit     | Memory address for the transaction.                                             |
+| `dmem_req_we_o`          | Output        | 1-bit      | Active-high write enable indicating it's a write request.                       |
+| `dmem_req_be_o[3:0]`     | Output        | 4-bit      | Byte enable signals for memory transactions.                                    |
+| `dmem_req_wdata_o[31:0]` | Output        | 32-bit     | Data to write to memory.                                                        |
+| `dmem_rvalid_i`          | Input         | 1-bit      | Active-high signal indicating that the data read from memory is valid.          |
+| `dmem_rsp_rdata_i[31:0]` | Input         | 32-bit     | Data read from memory.                                                          |
+
+### **Execution Stage Interface**
+| **Signal**                 | **Direction** | **Width**  | **Description**                                                                       |
+|----------------------------|---------------|------------|---------------------------------------------------------------------------------------|
+| `ex_if_req_i`              | Input         | 1-bit      | Active-high data request signal from the EX stage.                                    |
+| `ex_if_we_i`               | Input         | 1-bit      | Active-high write enable signal from the EX stage. Asserted along with `ex_if_req_i`. |
+| `ex_if_type_i[1:0]`        | Input         | 2-bit      | Data type: word (`0'b10`), half-word (`0'b01`), or byte (`0'b00`).                    |
+| `ex_if_wdata_i[31:0]`      | Input         | 32-bit     | Data to write to memory from the EX stage.                                            |
+| `ex_if_addr_base_i[31:0]`  | Input         | 32-bit     | Base address for the transaction.                                                     |
+| `ex_if_addr_offset_i[31:0]`| Input         | 32-bit     | Offset for the transaction address.                                                   |
+| `ex_if_ready_o`            | Output        | 1-bit      | Active-high signal indicating that the LSU is ready to handle new requests.           |
+
+### **Writeback Interface**
+| **Signal**               | **Direction** | **Width**  | **Description**                                            |
+|--------------------------|---------------|------------|------------------------------------------------------------|
+| `wb_if_rdata_o[31:0]`    | Output        | 32-bit     | Data read from memory.                                     |
+| `wb_if_rvalid_o`         | Output        | 1-bit      | Active-high signal indicating that the data read is valid. |
+
+---
+
+## **Module Behavior:**
+
+### **On Reset (`rst_n = 0`):**
+- Clears all pending requests and responses.
+- Resets all outputs to their default states:
+  - The execution stage interface is signaled as ready for new requests (`ex_if_ready_o` is asserted).
+  - No requests are sent to the data memory (`dmem_req_o` and `dmem_req_we_o` are deasserted and `dmem_req_addr_o`,  `dmem_req_be_o`, and `dmem_req_wdata_o` are cleared to zero.)
+  - No valid data is provided to the writeback stage (`wb_if_rvalid_o` is deasserted and `wb_if_rdata_o` is cleared to zero ).
+
+---
+
+### **Transaction address and byte enable:**
+- The transaction address is calculated **combinationally** as the sum of `ex_if_addr_base_i` and `ex_if_addr_offset_i`.
+- The data type (word, half-word, byte) determines the byte enable signals and the number of bytes to access:
+  - For byte access (`ex_if_type_i = 0x0`), the corresponding single byte is enabled in the byte enable mask based on the effective address's least significant bits two bits (LSBs).
+  - For halfword access (`ex_if_type_i = 0x1`), two consecutive bytes are enabled in the byte enable mask. The effective address must be aligned to 2 bytes (LSBs = 0b00 or 0b10) otherwise it's a misaligned access. LSBs = 0b00 selects the first two (least significant ) bytes, and 0b10 selects the last two (most significant) bytes.
+  - For word access (`ex_if_type_i = 0x2`), all four bytes are enabled. The effective address must be aligned to 4 bytes (LSBs = 0b00) otherwise it's a misaligned access.
+  - Any other value for `ex_if_type_i`  and unaligned effective addresses are considered as misaligned access and discarded
+---
+
+### **Processing execute stage request (`ex_if_req_i = 1`):**
+`ex_if_req_i = 1` will only be asserted when `ex_if_ready_o` is high. The module accepts the request if `ex_if_ready_o` and `ex_if_req_i = 1` are asserted and the access address is aligned. For accepted requests, the LSU initiates a request to the data cache and deasserts `ex_if_ready_o` to indicate that it is handling an outstanding transaction with a **one-cycle latency** after the execute unit request is received.
+Note: If both `ex_if_req_i` and `ex_if_we_i` are asserted it indicates a store transaction, if only `ex_if_req_i` is asserted it indicates a load transaction. 
+
+The protocol used to communicate with data cache memory works as follows:
+- The LSU provides a valid transaction address on `dmem_req_addr_o`, the control information on `dmem_req_we_o`, `dmem_req_be_o` (as well as write data on `dmem_req_wdata_o` in case of a store) and sets `dmem_req_o` high. These signals are updated at the next positive edge of the clock after the triggering load/store request.
+- The memory sets `dmem_gnt_i` high as soon as it is ready to serve the request. This may happen at any time after the request is sent. 
+- After a request has been granted:
+    - The LSU deasserts `dmem_req_o` and `dmem_req_we_o` at the next positive edge of the clock.  `dmem_req_addr_o`,`dmem_req_be_o` , and  `dmem_req_wdata_o` are also cleared to 0.
+    - For store transactions, when`dmem_req_we_o = 1'b1` and `dmem_gnt_i=1`: the memory is assumed to already have processed and completed the transaction.
+    - For load transaction, After granting a request, the memory answers with a `dmem_rvalid_i` set high if `dmem_rsp_rdata_i` is valid for **one clock cycle**. This may happen one or more cycles after the request has been granted.
+
+The following diagram shows an example timing diagram of the protocol for a store then a load transactions.
+
+
+```wavedrom
+{
+  "signal": [
+    { "name": "clk", "wave": "p............." },
+    { "name": "rst_n", "wave": "0............." },
+    { "name": "dmem_req_o", "wave": "0.1...0.1..0..", "data": ["Request"] },
+    { "name": "dmem_req_addr_o", "wave": "x.3...x.3..x..", "data": ["0x0004", "0x0004"] },
+    { "name": "dmem_req_we_o", "wave": "0.1...0.......", "data": ["Write"] },
+    { "name": "dmem_req_be_o", "wave": "x.3...x.3..x..", "data": ["0xF","0x1"] },
+    { "name": "dmem_req_wdata_o", "wave": "x.3...x.......", "data": ["0xDEADBEEF"] },
+    { "name": "dmem_gnt_i", "wave": "0....10...10..", "data": ["Grant"] },
+    { "name": "dmem_rvalid_i", "wave": "0...........10", "data": ["Valid"] },
+    { "name": "dmem_rsp_rdata_i", "wave": "x...........3x", "data": ["0xEF"] }
+  ]
+}
+
+```
+
+After the transaction is completed, (`dmem_gnt_i = 1` for store and `dmem_rvalid_i = 1` for load) the module reasserts `ex_if_ready_o`, signaling readiness to handle new requests with a **one-cycle latency**.
+
+---
+
+### **Response to Writeback Stage:**
+- For Load Transactions:
+  - After the data memory transaction is completed (`dmem_rvalid_i = 1`), the load/store unit asserts `wb_if_rvalid_o` and updates `wb_if_rdata_o` with the read data from `dmem_rsp_rdata_i`.
+  - The response is provided to the writeback stage with a **one-cycle latency** after the data memory response is received.
+  - The read data validity (`wb_if_rvalid_o`) will remain active on writeback bus for **just one cycle** as `dmem_rvalid_i` is high for one cycle.  `wb_if_rdata_o` value will be maintained until the update from next load instruction.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Named module interface binding
+
+Module: load_store_unit.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- rst_n: input; 1 bits in the concrete formal instance.
+- dmem_gnt_i: input; 1 bits in the concrete formal instance.
+- dmem_rvalid_i: input; 1 bits in the concrete formal instance.
+- dmem_rsp_rdata_i: input; 32 bits in the concrete formal instance.
+- ex_if_req_i: input; 1 bits in the concrete formal instance.
+- ex_if_we_i: input; 1 bits in the concrete formal instance.
+- ex_if_type_i: input; 2 bits in the concrete formal instance.
+- ex_if_wdata_i: input; 32 bits in the concrete formal instance.
+- ex_if_addr_base_i: input; 32 bits in the concrete formal instance.
+- ex_if_addr_offset_i: input; 32 bits in the concrete formal instance.
+- dmem_req_o: output; 1 bits in the concrete formal instance.
+- dmem_req_addr_o: output; 32 bits in the concrete formal instance.
+- dmem_req_we_o: output; 1 bits in the concrete formal instance.
+- dmem_req_be_o: output; 4 bits in the concrete formal instance.
+- dmem_req_wdata_o: output; 32 bits in the concrete formal instance.
+- ex_if_ready_o: output; 1 bits in the concrete formal instance.
+- wb_if_rdata_o: output; 32 bits in the concrete formal instance.
+- wb_if_rvalid_o: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly load_store_unit. It is a SystemVerilog load/store unit serving as the memory-access stage between the execute stage and a 32-bit, byte-addressable data-cache memory, where each address denotes one byte. It supports byte, halfword, and word transfers of one, two, and four bytes. There are no public parameters.
+
+Certain integration answer Q47 states exactly: "The confirmed named boundary is clk input 1 bit, rst_n input 1 bit, dmem_req_o output 1 bit, dmem_gnt_i input 1 bit, dmem_req_addr_o output 32 bits, dmem_req_we_o output 1 bit, dmem_req_be_o output 4 bits, dmem_req_wdata_o output 32 bits, dmem_rvalid_i input 1 bit, dmem_rsp_rdata_i input 32 bits, ex_if_req_i input 1 bit, ex_if_we_i input 1 bit, ex_if_type_i input 2 bits, ex_if_wdata_i input 32 bits, ex_if_addr_base_i input 32 bits, ex_if_addr_offset_i input 32 bits, ex_if_ready_o output 1 bit, wb_if_rdata_o output 32 bits, and wb_if_rvalid_o output 1 bit; connections are by name, positional declaration order is unverified, and no public parameters, symbolic ranges, or additional verification bindings are established."
+
+The exact named boundary is: clk input 1 bit; rst_n input 1 bit; dmem_req_o output 1 bit; dmem_gnt_i input 1 bit; dmem_req_addr_o output 32 bits; dmem_req_we_o output 1 bit; dmem_req_be_o output 4 bits; dmem_req_wdata_o output 32 bits; dmem_rvalid_i input 1 bit; dmem_rsp_rdata_i input 32 bits; ex_if_req_i input 1 bit; ex_if_we_i input 1 bit; ex_if_type_i input 2 bits; ex_if_wdata_i input 32 bits; ex_if_addr_base_i input 32 bits; ex_if_addr_offset_i input 32 bits; ex_if_ready_o output 1 bit; wb_if_rdata_o output 32 bits; and wb_if_rvalid_o output 1 bit.
+
+These named connections are normative portable consumer guidance. Positional declaration order is unverified, so this document guarantees no positional order. This is not an RTL restriction: a caller possessing the actual module declaration may instantiate it positionally in that declaration's order.
+
+3. Reset.
+
+rst_n is active low and asynchronous. Whenever rst_n=0, independently of clk and all other inputs, pending requests and responses are cleared and every output has its reset value: dmem_req_o=0, dmem_req_addr_o=0, dmem_req_we_o=0, dmem_req_be_o=0, dmem_req_wdata_o=0, ex_if_ready_o=1, wb_if_rdata_o=0, and wb_if_rvalid_o=0. Reset has priority over every simultaneous request, grant, or response. Every stored request field, the outstanding-load indication, retained writeback data, and writeback-valid state are cleared.
+
+When rst_n returns to 1, the reset-established values persist until a specified rising-edge action. A legal request may be accepted on the first rising edge after release. If reset interrupts a transaction or writeback-valid pulse, it cancels that transaction or pulse; after release there is no pending request or response, retained writeback data is zero, and the LSU is ready.
+
+Implementation choice C1: only before rst_n has ever been asserted, the concrete verification instance starts with dmem_req_o=0, dmem_req_addr_o=0, dmem_req_we_o=0, dmem_req_be_o=0, dmem_req_wdata_o=0, ex_if_ready_o=1, wb_if_rdata_o=0, wb_if_rvalid_o=0, and no pending transaction. The source establishes these values during reset, not at hardware power-up. C1 is a compatible implementation decision for the finite model, not a source-derived power-up guarantee. It neither requires reset before use nor suppresses ordinary rising-edge behavior before reset; from this chosen initial state, the normal laws apply immediately while rst_n=1.
+
+The concrete table represents every relevant reset assertion with a settled rst_n=0 observation; outputs respond immediately and the following transition records cleared state. The RTL contract remains genuinely asynchronous between sampled edges.
+
+Example erratum E1: in the source-labeled example timing diagram only, replace the exact erroneous excerpt `{ "name": "rst_n", "wave": "0............." }` with `{ "name": "rst_n", "wave": "1............." }`. The exact example label is `The following diagram shows an example timing diagram of the protocol for a store then a load transactions.` The unchanged governing rules are `Active-low asynchronous reset signal.` and `No requests are sent to the data memory (`dmem_req_o` and `dmem_req_we_o` are deasserted and `dmem_req_addr_o`,  `dmem_req_be_o`, and `dmem_req_wdata_o` are cleared to zero.)`. Conflict witness: the original row holds reset low throughout while the illustrated request later rises, directly contradicting those rules; the previous `01............` repair also left the initial reset-low segment overlapping `x` annotations for address, byte enable, and write data. The replacement releases reset before every illustrated `x` segment and request. E1 applies only to this illustrative reset row; every normative reset, protocol, timing, and input-domain rule is unchanged.
+
+4. Timing.
+
+Except for asynchronous reset, all transaction, readiness, and writeback state changes occur on the positive edge of clk. Effective address, access classification, alignment, and byte enable are computed from the execute operands present at the acceptance edge; public request and readiness outputs are registered.
+
+Request acceptance: E0 is a rising edge whose pre-edge values have ex_if_ready_o=1, ex_if_req_i=1, a supported type, and an aligned effective address. Those pre-E0 operands determine all registered post-E0 request outputs. After the completed interval beginning at E0, the next pre-edge observation has dmem_req_o=1, ex_if_ready_o=0, and the accepted address, write-enable, byte-enable, and applicable write data. They remain stable through each later completed interval without grant.
+
+Grant: E0 is a rising edge whose pre-edge state has dmem_req_o=1 and whose pre-edge dmem_gnt_i=1. The pre-E0 pending request determines the action; same-edge execute operands cannot replace it. A store completes at E0. At the next pre-edge observation, after the interval beginning at E0, dmem_req_o, dmem_req_addr_o, dmem_req_we_o, dmem_req_be_o, and dmem_req_wdata_o are zero. For a store, ex_if_ready_o is then 1. For a load, it remains 0 while waiting for the later response.
+
+Load response: E0 is a rising edge whose pre-edge state is a previously granted load awaiting data and whose pre-edge dmem_rvalid_i=1. Pre-E0 dmem_rsp_rdata_i determines the registered post-E0 data. At the next pre-edge observation, after the interval beginning at E0, wb_if_rdata_o equals all 32 response bits, wb_if_rvalid_o=1, and ex_if_ready_o=1. wb_if_rvalid_o is high for exactly one cycle and becomes zero after the next rising edge. wb_if_rdata_o is retained until a later completed load or reset. A response occurs one or more cycles after load grant. No periodic output is specified.
+
+The worked trace uses full-cycle pre-transition observations: row k samples out(s[k], i[k]) before the active edge, then step computes s[k+1]. Row k denotes k multiplied by timing.step_ns after settling and is sampled at timing.sample_offset_ns. The supplied interface does not state numeric values for these fields; no implicit 10 ns tick is assumed. This observation convention is separate from the actual circuit clock period, asynchronous reset behavior, and cycle-latency laws.
+
+5. Behaviour.
+
+The environment asserts ex_if_req_i only when ex_if_ready_o=1. A request is accepted when both are 1, the type is supported, and the effective address is aligned. A misaligned request or ex_if_type_i=2'b11 is discarded, creates no memory request, and leaves the LSU ready.
+
+The effective address is the unsigned 32-bit result of unsigned 32-bit ex_if_addr_base_i plus unsigned 32-bit ex_if_addr_offset_i. The addition is evaluated in the 32-bit result context and carry beyond bit 31 is discarded only at this documented boundary: effective address = (ex_if_addr_base_i + ex_if_addr_offset_i) mod 2^32.
+
+For ex_if_type_i=2'b00, all addresses are aligned and address bits [1:0] 00, 01, 10, and 11 produce dmem_req_be_o=4'b0001, 4'b0010, 4'b0100, and 4'b1000. For 2'b01, bits 00 and 10 produce 4'b0011 and 4'b1100; 01 and 11 are misaligned. For 2'b10, only bits 00 are aligned and produce 4'b1111. Value 2'b11 is unsupported.
+
+An accepted request sets dmem_req_o=1, dmem_req_addr_o to the effective address, dmem_req_we_o to ex_if_we_i, dmem_req_be_o to the applicable mask, and ex_if_ready_o=0 with the timing above. ex_if_we_i=1 denotes a store and 0 denotes a load. A store captures and holds all 32 ex_if_wdata_i bits until grant.
+
+Implementation choice C2: for an accepted load, dmem_req_wdata_o is concretely zero and remains zero while the load request awaits grant. The source requires write data only "in case of a store" and neither the source nor any certain answer fixes this non-result load phase. C2 is a compatible implementation decision confined to that phase; it does not affect store data, request controls, load results, completion, or retained writeback data and does not authorize X.
+
+The request and every request field remain stable until a rising edge with dmem_gnt_i=1. Memory accepts it on that edge and the fields clear as stated above. A store completes at grant. A load grant ends only its request phase; readiness remains low until a later valid response completes the load.
+
+For a previously granted load, dmem_rvalid_i=1 makes dmem_rsp_rdata_i valid for that cycle. The entire 32-bit value is published on wb_if_rdata_o, wb_if_rvalid_o pulses for exactly one cycle, and readiness returns according to the response timeline. Neither input changes writeback state without a previously granted load awaiting response.
+
+Implementation choice C3: inputs outside the source protocol have no effect. A grant without dmem_req_o=1 is ignored. A response is accepted only after a load grant; therefore an unsolicited response, a response simultaneous with that load's grant, and repeated responses are ignored. An execute request while ex_if_ready_o=0 is ignored. This compatible completion changes no legal transaction and imposes no new input restriction. After a completion makes ex_if_ready_o=1, a new request can first be accepted on a later rising edge at which that pre-edge ready value is 1.
+
+Event-sensitivity audit: rst_n assertion acts asynchronously and dominates every overlap; reset release alone neither accepts a request nor publishes data. Request acceptance, grant, and response publication occur only on positive clk edges under their pre-edge guards. Falling edges and stable clock levels do not advance state. Low grant delays request acceptance by memory; low response-valid delays load response. Execute operands affect state only on acceptance, and response data affects state only on an accepted response. Request-field clearing does not advance or stall the independent load-response wait.
+
+No answer with confidence `unclear` amends or weakens the source and no hardware X is introduced. Certain answer Q47 is integration-scoped and agrees with the original named boundary. Thus there is no certain-answer amendment; E1 is a separately authorized example erratum, and C1–C3 are compatible implementation choices rather than source facts.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete decided verification instance, including C1, C2, C3, and E1. It uses the observation convention above and creates no hardware power-up guarantee.
+
+### stimulus 0
+| cycle | rst_n | dmem_gnt_i | dmem_rvalid_i | dmem_rsp_rdata_i | ex_if_req_i | ex_if_we_i | ex_if_type_i | ex_if_wdata_i | ex_if_addr_base_i | ex_if_addr_offset_i | dmem_req_o | dmem_req_addr_o | dmem_req_we_o | dmem_req_be_o | dmem_req_wdata_o | ex_if_ready_o | wb_if_rdata_o | wb_if_rvalid_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 1 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h1 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 2 | 1 | 0 | 0 | 32'h0 | 1 | 0 | 2'b00 | 32'h80000000 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 3 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h0 | 0 | 4'b0001 | 32'h0 | 0 | 32'h0 | 0 |
+| 4 | 1 | 1 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h0 | 0 | 4'b0001 | 32'h0 | 0 | 32'h0 | 0 |
+| 5 | 1 | 0 | 1 | 32'h80000000 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 0 | 32'h0 | 0 |
+| 6 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h80000000 | 1 |
+
+### stimulus 1
+| cycle | rst_n | dmem_gnt_i | dmem_rvalid_i | dmem_rsp_rdata_i | ex_if_req_i | ex_if_we_i | ex_if_type_i | ex_if_wdata_i | ex_if_addr_base_i | ex_if_addr_offset_i | dmem_req_o | dmem_req_addr_o | dmem_req_we_o | dmem_req_be_o | dmem_req_wdata_o | ex_if_ready_o | wb_if_rdata_o | wb_if_rvalid_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 1 | 1 | 0 | 0 | 32'h0 | 1 | 1 | 2'b00 | 32'hffffffff | 32'h3 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 2 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h3 | 1 | 4'b1000 | 32'hffffffff | 0 | 32'h0 | 0 |
+| 3 | 1 | 1 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h3 | 1 | 4'b1000 | 32'hffffffff | 0 | 32'h0 | 0 |
+| 4 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 5 | 1 | 0 | 0 | 32'h0 | 1 | 1 | 2'b00 | 32'h1 | 32'h1 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 6 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h1 | 1 | 4'b0010 | 32'h1 | 0 | 32'h0 | 0 |
+| 7 | 1 | 1 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h1 | 1 | 4'b0010 | 32'h1 | 0 | 32'h0 | 0 |
+| 8 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+
+### stimulus 2
+| cycle | rst_n | dmem_gnt_i | dmem_rvalid_i | dmem_rsp_rdata_i | ex_if_req_i | ex_if_we_i | ex_if_type_i | ex_if_wdata_i | ex_if_addr_base_i | ex_if_addr_offset_i | dmem_req_o | dmem_req_addr_o | dmem_req_we_o | dmem_req_be_o | dmem_req_wdata_o | ex_if_ready_o | wb_if_rdata_o | wb_if_rvalid_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 1 | 1 | 0 | 0 | 32'h0 | 1 | 0 | 2'b01 | 32'h0 | 32'h2 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 2 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h2 | 0 | 4'b1100 | 32'h0 | 0 | 32'h0 | 0 |
+| 3 | 1 | 1 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h2 | 0 | 4'b1100 | 32'h0 | 0 | 32'h0 | 0 |
+| 4 | 1 | 0 | 1 | 32'h12345678 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 0 | 32'h0 | 0 |
+| 5 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h12345678 | 1 |
+
+### stimulus 3
+| cycle | rst_n | dmem_gnt_i | dmem_rvalid_i | dmem_rsp_rdata_i | ex_if_req_i | ex_if_we_i | ex_if_type_i | ex_if_wdata_i | ex_if_addr_base_i | ex_if_addr_offset_i | dmem_req_o | dmem_req_addr_o | dmem_req_we_o | dmem_req_be_o | dmem_req_wdata_o | ex_if_ready_o | wb_if_rdata_o | wb_if_rvalid_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 1 | 1 | 0 | 0 | 32'h0 | 1 | 0 | 2'b01 | 32'h0 | 32'h1 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 2 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+
+### stimulus 4
+| cycle | rst_n | dmem_gnt_i | dmem_rvalid_i | dmem_rsp_rdata_i | ex_if_req_i | ex_if_we_i | ex_if_type_i | ex_if_wdata_i | ex_if_addr_base_i | ex_if_addr_offset_i | dmem_req_o | dmem_req_addr_o | dmem_req_we_o | dmem_req_be_o | dmem_req_wdata_o | ex_if_ready_o | wb_if_rdata_o | wb_if_rvalid_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 1 | 1 | 0 | 0 | 32'h0 | 1 | 1 | 2'b10 | 32'h13579bdf | 32'hfffffffc | 32'h4 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 2 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h0 | 1 | 4'b1111 | 32'h13579bdf | 0 | 32'h0 | 0 |
+| 3 | 1 | 1 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h0 | 1 | 4'b1111 | 32'h13579bdf | 0 | 32'h0 | 0 |
+| 4 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+
+### stimulus 5
+| cycle | rst_n | dmem_gnt_i | dmem_rvalid_i | dmem_rsp_rdata_i | ex_if_req_i | ex_if_we_i | ex_if_type_i | ex_if_wdata_i | ex_if_addr_base_i | ex_if_addr_offset_i | dmem_req_o | dmem_req_addr_o | dmem_req_we_o | dmem_req_be_o | dmem_req_wdata_o | ex_if_ready_o | wb_if_rdata_o | wb_if_rvalid_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 1 | 1 | 0 | 0 | 32'h0 | 1 | 0 | 2'b10 | 32'h0 | 32'h2 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 2 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+
+### stimulus 6
+| cycle | rst_n | dmem_gnt_i | dmem_rvalid_i | dmem_rsp_rdata_i | ex_if_req_i | ex_if_we_i | ex_if_type_i | ex_if_wdata_i | ex_if_addr_base_i | ex_if_addr_offset_i | dmem_req_o | dmem_req_addr_o | dmem_req_we_o | dmem_req_be_o | dmem_req_wdata_o | ex_if_ready_o | wb_if_rdata_o | wb_if_rvalid_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 1 | 1 | 0 | 0 | 32'h0 | 1 | 0 | 2'b11 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 2 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+
+### stimulus 7
+| cycle | rst_n | dmem_gnt_i | dmem_rvalid_i | dmem_rsp_rdata_i | ex_if_req_i | ex_if_we_i | ex_if_type_i | ex_if_wdata_i | ex_if_addr_base_i | ex_if_addr_offset_i | dmem_req_o | dmem_req_addr_o | dmem_req_we_o | dmem_req_be_o | dmem_req_wdata_o | ex_if_ready_o | wb_if_rdata_o | wb_if_rvalid_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 1 | 1 | 0 | 0 | 32'h0 | 1 | 0 | 2'b10 | 32'h0 | 32'h4 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 2 | 1 | 0 | 0 | 32'h0 | 1 | 1 | 2'b00 | 32'h0 | 32'h7 | 32'h0 | 1 | 32'h4 | 0 | 4'b1111 | 32'h0 | 0 | 32'h0 | 0 |
+| 3 | 0 | 1 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 4 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 5 | 1 | 0 | 0 | 32'h0 | 1 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 6 | 1 | 1 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h0 | 0 | 4'b0001 | 32'h0 | 0 | 32'h0 | 0 |
+| 7 | 1 | 0 | 1 | 32'h1 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 0 | 32'h0 | 0 |
+| 8 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h1 | 1 |
+
+### stimulus 8
+| cycle | rst_n | dmem_gnt_i | dmem_rvalid_i | dmem_rsp_rdata_i | ex_if_req_i | ex_if_we_i | ex_if_type_i | ex_if_wdata_i | ex_if_addr_base_i | ex_if_addr_offset_i | dmem_req_o | dmem_req_addr_o | dmem_req_we_o | dmem_req_be_o | dmem_req_wdata_o | ex_if_ready_o | wb_if_rdata_o | wb_if_rvalid_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 1 | 1 | 0 | 0 | 32'h0 | 1 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 2 | 1 | 1 | 1 | 32'hffffffff | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h0 | 0 | 4'b0001 | 32'h0 | 0 | 32'h0 | 0 |
+| 3 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 0 | 32'h0 | 0 |
+
+### stimulus 9
+| cycle | rst_n | dmem_gnt_i | dmem_rvalid_i | dmem_rsp_rdata_i | ex_if_req_i | ex_if_we_i | ex_if_type_i | ex_if_wdata_i | ex_if_addr_base_i | ex_if_addr_offset_i | dmem_req_o | dmem_req_addr_o | dmem_req_we_o | dmem_req_be_o | dmem_req_wdata_o | ex_if_ready_o | wb_if_rdata_o | wb_if_rvalid_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 1 | 1 | 0 | 1 | 32'h13579bdf | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 2 | 1 | 0 | 0 | 32'h0 | 1 | 1 | 2'b10 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 3 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h0 | 1 | 4'b1111 | 32'h0 | 0 | 32'h0 | 0 |
+| 4 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h0 | 1 | 4'b1111 | 32'h0 | 0 | 32'h0 | 0 |
+| 5 | 1 | 1 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 1 | 32'h0 | 1 | 4'b1111 | 32'h0 | 0 | 32'h0 | 0 |
+| 6 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+
+### stimulus 10
+| cycle | rst_n | dmem_gnt_i | dmem_rvalid_i | dmem_rsp_rdata_i | ex_if_req_i | ex_if_we_i | ex_if_type_i | ex_if_wdata_i | ex_if_addr_base_i | ex_if_addr_offset_i | dmem_req_o | dmem_req_addr_o | dmem_req_we_o | dmem_req_be_o | dmem_req_wdata_o | ex_if_ready_o | wb_if_rdata_o | wb_if_rvalid_o |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 32'h0 | 1 | 0 | 2'b11 | 32'hffffffff | 32'h80000000 | 32'h1 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |
+| 1 | 1 | 0 | 0 | 32'h0 | 0 | 0 | 2'b00 | 32'h0 | 32'h0 | 32'h0 | 0 | 32'h0 | 0 | 4'b0000 | 32'h0 | 1 | 32'h0 | 0 |

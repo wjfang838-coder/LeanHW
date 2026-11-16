@@ -1,0 +1,44 @@
+# Named asset sets.  A profile lists the sets it grants; nothing else reaches the workspace.
+#
+# This file exists because asset selection used to be a `case "$BENCH"` branch inside
+# make_workspace.sh, which meant "which benchmark" and "how much help" were the same knob.
+# RTLLM/VerilogEval therefore ran bare for months while CVDP/RealBench ran fully equipped,
+# and the two were compared and summed.  Assets are now chosen independently of the design set.
+
+sets:
+  core:
+    description: The Lean DSL and language manual only. Nothing accumulated.
+    paths: []            # framework/ is always present; this set adds nothing
+
+  lib:
+    description: Proof-engineering library grown from earlier benchmarks.
+    paths: [lib/]
+
+  skills:
+    description: 61 distilled notes — patterns, tactics, principles, process.
+    paths: [skills/]
+
+  core-md:
+    description: The capability manual (what the framework can and cannot express).
+    paths: [instructions/CORE.md]
+
+  rules:
+    description: Authoring hard rules, including adjudication discipline.
+    paths: [instructions/HARD_RULES.md]
+
+  roles:
+    description: >
+      The two serial-authorship role cards: S writes the specification, D implements it and
+      proves the implementation correct.  There were four (S / R / A / P) when two authors wrote
+      spec and implementation blind of each other and a third adjudicated between their readings.
+      Adjudication answered "which of two readings of the prose is right", and that question is
+      settled upstream now, so A has no work and R and P are one author with a freeze between
+      them.
+    paths: [roles/]
+
+  f2:
+    description: >
+      The parametric-emission route (ParamModule + `pverilog`).  Granting this means the
+      workspace gets an empty param registry to register into and a bb.py that knows the
+      route.  Without it an underdetermined width can only be guessed, never quantified.
+    paths: []            # realised by harness/stage.py, not by copying files

@@ -1,0 +1,281 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Create a SystemVerilog module named `cvdp_prbs_gen` that functions as both a PRBS (Pseudo-Random Binary Sequence) generator and checker. The module should be parameterizable and capable of operating in two modes:
+
+- **Generator Mode (`CHECK_MODE = 0`):** Generates a PRBS pattern using a Linear Feedback Shift Register (LFSR) structure.
+- **Checker Mode (`CHECK_MODE = 1`):** Loads incoming data into PRBS registers and compares it with a locally generated PRBS pattern to detect errors.
+
+ A LFSR is a sequential circuit used to generate a sequence of bits based on linear feedback logic. It consists of a series of flip-flops connected in a shift register configuration, where the input of the first flip-flop is driven by a linear function (typically XOR or XNOR) of selected outputs (taps) of the shift register. 
+ 
+ A PRBS is a deterministic sequence of binary values that exhibits properties similar to a random sequence. By configuring the LFSR with appropriate feedback taps, the PRBS generator produces a maximal-length sequence that cycles through all possible non-zero states before repeating, ensuring comprehensive test coverage.
+
+**Additional Specifications:**
+
+- **Polynomial Details:**
+  - The PRBS generation should be based on a configurable polynomial defined by the parameters.
+  - The polynomial length and taps are defined by `POLY_LENGTH` and `POLY_TAP`, representing the positions in the shift register that are XORed together. The XORed bit is set as the most significant bit (msb) of the PRBS for the next stage calculation.
+  - **Example Polynomial:**
+    - For a 31-bit PRBS: \( x^{31} + x^{3} + 1 \), where taps are at positions 31 (POLY_LENGTH) and 3(POLY_TAP).
+
+- **Seed Details:**
+  - The PRBS registers initialize to all ones on reset.
+
+**Module Parameters:**
+
+- `CHECK_MODE` (default: 0)
+  - **Type:** Integer parameter
+  - **Description:** Mode selection. `0` for generator mode, `1` for checker mode.
+- `POLY_LENGTH` (default: 31)
+  - **Type:** Integer parameter
+  - **Description:** Length of the polynomial (number of shift register stages in the LFSR).
+- `POLY_TAP` (default: 3)
+  - **Type:** Integer parameter or array
+  - **Description:** Positions of the tap in the shift register that is XORed with bit at `POLY_LENGTH` to generate the feedback bit.
+- `WIDTH` (default: 16)
+  - **Type:** Integer parameter
+  - **Description:** Bit width of the `data_in` and `data_out` buses.
+
+**Module Interface:**
+
+- **Inputs:**
+  - `clk`
+    - **Width:** 1 bit
+    - **Description:** Clock input signal. All operations are synchronized on the **rising edge**.
+  - `rst`
+    - **Width:** 1 bit
+    - **Active High**
+    - **Description:** Synchronous reset signal. When asserted high, resets internal states and outputs to their initial values.
+  - `data_in [WIDTH-1]`
+    - **Description:** Input data bus. In checker mode, it receives data to be compared with the PRBS pattern. In generator mode, it is tied to 0.
+
+- **Outputs:**
+  - `data_out [WIDTH-1]`
+    - **Description:**
+      - **Generator Mode:** Outputs the generated PRBS pattern.
+      - **Checker Mode:** Outputs the result of the error checking. A non-zero value indicates a discrepancy between `data_in` and the expected PRBS pattern.
+
+**Behavioral Description:**
+
+- **Reset Behavior:**
+  -  If `rst` is asserted high:
+    - The PRBS shift registers are initialized to all ones (`1`).
+    - `data_out` is set to all ones (`1`).
+- **Generator Mode (`CHECK_MODE = 0`):**
+  - Implements an LFSR to generate the PRBS pattern.
+  - For each bit position `i` (from `0` to `WIDTH-1`):
+    - Calculates the XOR of the bits at positions `POLY_TAP` and `POLY_LENGTH` of the current PRBS register.
+	- In generator mode, the data_in is expected to be set to all 0.
+    - Updates the PRBS register by shifting right and inserting the XORed bit at the most significant bit (MSB).
+- **Checker Mode (`CHECK_MODE = 1`):**
+  - For each bit position `i` (from `0` to `WIDTH-1`):
+    - Generates the expected PRBS bit as in generator mode.
+    - Compares the input bit and generated bit by XORing `data_in[i]` with internally generated PRBS.
+
+**Timing and Synchronization:**
+
+- **Latency Considerations:**
+  - The module updates outputs every clock cycle when enabled.
+  - There is a one-clock-cycle latency from input to output due to synchronous operation.
+
+**Constraints and Edge Cases:**
+
+- **Parameter Constraints:**
+  - `POLY_LENGTH` must be greater than or equal to the tap position specified in `POLY_TAP`.
+  - `POLY_TAP` must be a positive integer.
+  - `WIDTH` must be a positive integer.
+- **Error Detection:**
+  - In checker mode, any non-zero value on `data_out` indicates an error between `data_in` and the expected PRBS pattern.
+  
+** Assumptions:**
+- In Generator mode, the PRBS data will be generated at every clock cycle after the reset is deasserted.
+- In Checker mode, data_in should be available and updated at every clock cycle as soon as the reset is deasserted.
+
+**Summary:**
+
+Design a configurable PRBS generator and checker module in SystemVerilog, adhering to the specifications above. The module should efficiently handle PRBS generation and error checking based on the selected mode and 
+LFSR configuration, while being flexible enough to accommodate various polynomial lengths, taps, and data widths. Ensure that the design is robust, well-documented, and thoroughly tested.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Create a SystemVerilog module named `cvdp_prbs_gen` that functions as both a PRBS (Pseudo-Random Binary Sequence) generator and checker. The module should be parameterizable and capable of operating in two modes:
+
+Named module interface binding
+
+Module: cvdp_prbs_gen.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- rst: input; 1 bits in the concrete formal instance.
+- data_in: input; 16 bits in the concrete formal instance.
+- data_out: output; 16 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+- Verification-visible parameter `CHECK_MODE` (not an additional port): Harness-visible non-port parameter selecting generator value 0 or checker value 1; the original specifies integer default 0, while the harness verifies the name and overridden values, not the default or declaration type.
+- Verification-visible parameter `POLY_LENGTH` (not an additional port): Harness-visible non-port parameter giving the LFSR length and data-state symbolic extent; the original specifies integer default 31, while the harness verifies the name and overridden values, not the default or declaration type.
+- Verification-visible parameter `POLY_TAP` (not an additional port): Harness-visible non-port scalar tap-position parameter; the original specifies integer default 3, while the harness converts it to one integer and verifies the name and overridden scalar values, not the default or declaration type.
+- Verification-visible parameter `WIDTH` (not an additional port): Harness-visible non-port parameter defining data_in and data_out range [WIDTH-1:0]; the original specifies integer default 16, while the harness verifies the name and overridden values, not the default or declaration type.
+
+1. Module and ports.
+
+The module name is `cvdp_prbs_gen`. The public parameters are integer `CHECK_MODE` with default 0, integer `POLY_LENGTH` with default 31, scalar integer `POLY_TAP` with default 3, and integer `WIDTH` with default 16. The named interface is input `clk`, 1 bit; input `rst`, 1 bit; input `data_in`, `[WIDTH-1:0]`; and output `data_out`, `[WIDTH-1:0]`. These spellings, directions, defaults, and symbolic ranges are normative. Positional declaration order was not verified. Named wiring is portable consumer guidance; a caller possessing the actual module declaration may instantiate it in that declaration's order.
+
+3. Reset.
+
+`rst` is active high and synchronous. A rising edge sampling `rst=1` has priority over data input and mode operation, publishes all ones on `data_out` immediately after the edge, and establishes the POLY_LENGTH-bit sequence state as all ones. A PRE-edge sample at that edge sees the prior output. Repeated reset edges repeat the reset action. Changes in `rst`, including reset release, have no specified effect between rising edges. The first reset-low rising edge performs the first transaction from the all-ones seed and publishes the first generator word or, in checker mode, the XOR of the input word sampled on that edge and the first expected word.
+
+Implementation choice C1: before the first rising edge, the concrete finite model initializes its 31-bit sequence register and 16-bit `data_out` register to zero. This choice is limited to genuinely unconstrained power-up state and the pre-first-edge output. It is a compatible implementation decision, not a fact established by the source and not a hardware power-up guarantee. It imposes no reset-before-use restriction: a reset-low first rising edge performs a normal transaction from this chosen state. The choice initializes no memory or other state.
+
+4. Timing.
+
+Only a rising edge accepts a transaction, advances sequence state, and publishes `data_out`. Holding `clk` high or low and falling edges have no specified effect. `data_out` is registered and holds between rising edges. There is no separate enable, completion pulse, timeout, cancellation, idle interval, or terminal state. Every rising edge performs reset when `rst=1`, or exactly one selected-mode transaction when `rst=0`.
+
+For each transaction, E0 is its accepting rising edge. At E0, the sequence state before the edge determines the registered `data_out` immediately after E0, and the sequence advances by WIDTH serial steps for the next transaction. In checker mode, the pre-edge sequence state and `data_in` sampled at E0 determine that post-edge result. Zero completed subsequent clock intervals elapse before publication. This is the stated one-clock-cycle synchronous input-to-output relationship: the PRE-edge observation at E0 still shows the result published by the preceding rising edge; the post-edge value is the transaction accepted at E0. The next rising edge E1 accepts and publishes the next transaction. No later action edge is specified.
+
+The concrete SpecIR interface has no physical clock input. Its full-cycle scenario treats each step as one active rising edge: row k observes the settled pre-edge output and then computes the state after that edge. A row with `rst=1` represents reset held through that active edge. Neither `timing.step_ns` nor `timing.sample_offset_ns` is present in the interface, so the trace establishes no wall-clock spacing and has no implicit 10 ns tick. This projection does not represent between-edge events and does not narrow the synchronous-reset RTL contract.
+
+5. Behaviour.
+
+Let S_0[0..POLY_LENGTH-1] be the current unsigned sequence state listed from numeric MSB to numeric LSB. Positions are one-based. For i=0..WIDTH-1, define `F_i = S_i[POLY_TAP-1] XOR S_i[POLY_LENGTH-1]` and `S_(i+1) = [F_i, S_i[0], ..., S_i[POLY_LENGTH-2]]`. The feedback is inserted as the numeric MSB. Pack the generated word by `data_out[i]=F_i`, so F_0 occupies integer bit 0 and F_(WIDTH-1) occupies integer bit WIDTH-1. The next transaction starts from S_WIDTH. Both tap operands and their XOR are unsigned one-bit values. Each state shift is evaluated in the POLY_LENGTH-bit context and truncates only at that state boundary; packing is evaluated in the WIDTH-bit context and retains exactly the WIDTH feedback bits.
+
+In generator mode (`CHECK_MODE=0`), `data_in` has no effect for any value, including consecutive nonzero values. Each reset-low rising edge publishes the generated word and advances the sequence by WIDTH substeps.
+
+In checker mode (`CHECK_MODE=1`), each reset-low rising edge independently samples one input word and publishes `data_out[i]=data_in[i] XOR F_i` for every i. The expected sequence advances autonomously by exactly WIDTH substeps regardless of matches or errors; `data_in` is never loaded into or otherwise changes the future expected state. Consecutive input words are accepted on consecutive rising edges. A nonzero checker comparison result indicates a mismatch. The all-ones reset output is not a comparison result and does not indicate a mismatch.
+
+The legal parameter domain is `CHECK_MODE` equal to 0 or 1, `WIDTH > 0`, `POLY_TAP > 0`, and `POLY_LENGTH >= POLY_TAP`. `POLY_TAP` is one scalar integer. When `POLY_TAP = POLY_LENGTH`, the same state bit is XORed with itself and every feedback bit is zero. Polynomial selections appropriate for maximal-length operation retain the source's maximal-length requirement; the defined equality endpoint is not claimed to be maximal-length.
+
+For default parameters and the all-ones reset seed, F_0 through F_15 are 0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,1, and the first generated word is `16'h8e38`.
+
+Amendment Q5-A. The exact original clause is “In generator mode, the data_in is expected to be set to all 0.” Only within Q5's generator-mode data-input effect and enable scope, it is superseded by this exact certain-answer law: “When CHECK_MODE=0, data_in has no effect on data_out or the generated sequence for any value, including consecutive nonzero values. When CHECK_MODE=1 and rst=0 is sampled on a rising edge, each data_in[i] sampled at that edge is compared with expected bit F_i and the resulting output bit is data_in[i] XOR F_i; data_in does not alter the future expected-pattern sequence, which advances autonomously by WIDTH substeps. With rst=1, reset has priority and data_in has no effect. Consecutive checker edges independently sample consecutive input words; there is no hold or enable condition based on data_in.”
+
+Amendment Q5-B. The exact original clause is “In generator mode, it is tied to 0.” Only within Q5's generator-mode data-input effect and enable scope, it is superseded by this exact certain-answer law: “When CHECK_MODE=0, data_in has no effect on data_out or the generated sequence for any value, including consecutive nonzero values. When CHECK_MODE=1 and rst=0 is sampled on a rising edge, each data_in[i] sampled at that edge is compared with expected bit F_i and the resulting output bit is data_in[i] XOR F_i; data_in does not alter the future expected-pattern sequence, which advances autonomously by WIDTH substeps. With rst=1, reset has priority and data_in has no effect. Consecutive checker edges independently sample consecutive input words; there is no hold or enable condition based on data_in.”
+
+Amendment Q8-A. The exact original clause is “The polynomial length and taps are defined by `POLY_LENGTH` and `POLY_TAP`, representing the positions in the shift register that are XORed together.” Only within Q8's position-to-index mapping and equality scope, it is superseded by this exact certain-answer law: “Polynomial positions are one-based: position POLY_TAP maps to state-list index POLY_TAP-1 and position POLY_LENGTH maps to index POLY_LENGTH-1, where index 0 is the numeric MSB and index POLY_LENGTH-1 is the numeric LSB. Each serial feedback bit is the XOR of those two indexed bits. POLY_TAP==POLY_LENGTH is defined by this reference law and produces feedback 0 because a bit is XORed with itself; it is therefore supported by the model provided both mapped indices exist.”
+
+Amendment Q8-B. The exact original clause is “Calculates the XOR of the bits at positions `POLY_TAP` and `POLY_LENGTH` of the current PRBS register.” Only within Q8's position-to-index mapping and equality scope, it is superseded by this exact certain-answer law: “Polynomial positions are one-based: position POLY_TAP maps to state-list index POLY_TAP-1 and position POLY_LENGTH maps to index POLY_LENGTH-1, where index 0 is the numeric MSB and index POLY_LENGTH-1 is the numeric LSB. Each serial feedback bit is the XOR of those two indexed bits. POLY_TAP==POLY_LENGTH is defined by this reference law and produces feedback 0 because a bit is XORed with itself; it is therefore supported by the model provided both mapped indices exist.”
+
+Amendment Q8-C. The exact original clause is “`POLY_LENGTH` must be greater than or equal to the tap position specified in `POLY_TAP`.” Only within Q8's equality endpoint and position mapping scope, it is superseded by this exact certain-answer law: “Polynomial positions are one-based: position POLY_TAP maps to state-list index POLY_TAP-1 and position POLY_LENGTH maps to index POLY_LENGTH-1, where index 0 is the numeric MSB and index POLY_LENGTH-1 is the numeric LSB. Each serial feedback bit is the XOR of those two indexed bits. POLY_TAP==POLY_LENGTH is defined by this reference law and produces feedback 0 because a bit is XORed with itself; it is therefore supported by the model provided both mapped indices exist.” The original inequality remains unchanged outside the equality interpretation supplied here.
+
+Amendment Q9. The exact original clause is “**Type:** Integer parameter or array”. Only within Q9's parameter-form scope, it is superseded by this exact certain-answer law: “POLY_TAP is a single scalar positive integer in the authorized reference model and parameter binding. Arrays are not defined: the harness converts POLY_TAP to one integer and the recurrence uses exactly that one position, XORed with position POLY_LENGTH. Therefore no array declaration, per-element constraint, or multi-tap XOR-reduction law is authorized.” Concrete source-versus-candidate witness: under the superseded source alternative, `POLY_TAP={3,2}` is a two-element array and requires two selected tap positions plus a multi-tap reduction. Under the corrected candidate contract, `POLY_TAP` accepts exactly one integer; `{3,2}` cannot bind to it, and the recurrence consumes exactly that one position together with POLY_LENGTH. Thus the source array alternative and candidate scalar law produce structurally different legal inputs and computations. Only the array alternative is superseded; the positive-integer constraint and scalar default 3 remain normative.
+
+Amendment Q10. The exact original clause is “Loads incoming data into PRBS registers and compares it with a locally generated PRBS pattern to detect errors.” Only within Q10's checker-state transition scope, it is superseded by this exact certain-answer law: “For CHECK_MODE=1 on every rst=0 rising edge, form the expected WIDTH-bit word by the same autonomous serial recurrence as generator mode and set data_out[i]=sampled data_in[i] XOR expected[i] for every i. After comparison, the expected-pattern state advances by exactly WIDTH recurrence steps regardless of matches or errors. data_in is never loaded into and never otherwise changes the state used for future expected words; consecutive differing input words affect only their own comparison results.”
+
+Amendment Q11. The exact original clause is “The module updates outputs every clock cycle when enabled.” Only within Q11's enable-predicate scope, it is superseded by this exact certain-answer law: “There is no separate enable input. On every rising edge the module acts: rst=1 selects the reset action, and rst=0 is the exact predicate for performing one generator or checker transaction. Thus there is no reachable rising-edge case in which an enable predicate is false and state/data_out merely hold; data_in being zero or nonzero does not disable either mode. Between rising edges, data_out holds its last published value.”
+
+Amendment Q12-A. The exact original clauses are “`data_out` is set to all ones (`1`).” and “In checker mode, any non-zero value on `data_out` indicates an error between `data_in` and the expected PRBS pattern.” Only within Q12's checker reset-output interval, their relationship is superseded by this exact certain-answer law: “In CHECK_MODE=1, a rising edge sampling rst=1 publishes {WIDTH{1'b1}} as the reset value. This reset-output interval is an explicit exception to the checker-error interpretation: its nonzero value does not indicate a data mismatch. The rule that nonzero data_out indicates an error applies only to checker comparison results published by rising edges that sample rst=0; reset has priority over comparison.”
+
+Amendment Q12-B. The exact original clause is “A non-zero value indicates a discrepancy between `data_in` and the expected PRBS pattern.” Only within Q12's checker reset-output interval, it is superseded by this exact certain-answer law: “In CHECK_MODE=1, a rising edge sampling rst=1 publishes {WIDTH{1'b1}} as the reset value. This reset-output interval is an explicit exception to the checker-error interpretation: its nonzero value does not indicate a data mismatch. The rule that nonzero data_out indicates an error applies only to checker comparison results published by rising edges that sample rst=0; reset has priority over comparison.” Outside that reset interval, the original checker comparison interpretation remains normative.
+
+Event audit: only a physical rising edge samples reset or checker input, accepts a transaction, advances sequence state, and publishes output. Following reset edge R0, state and output are all ones. At the first three reset-low edges R1, R2, and R3, the sequence state before each edge supplies the word published immediately after that edge, while the next state independently advances WIDTH substeps. Reset on any of those edges repeats the reset action instead. Reset release, falling edges, stable or changing inputs between rising edges, and observation create no transition. Every reset-low edge accepts its word, including consecutive requests; none is ignored, postponed, canceled, or restarted.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete default generator instance and Implementation choice C1. It covers `CHECK_MODE=0`, `POLY_LENGTH=31`, `POLY_TAP=3`, and `WIDTH=16`; it does not replace the parameterized contract or claim to evaluate checker mode.
+
+### stimulus 0
+| cycle | rst | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 16'h0 | 16'h0 |
+| 1 | 0 | 16'h1 | 16'hffff |
+| 2 | 0 | 16'hffff | 16'h8e38 |
+| 3 | 0 | 16'h8000 | 16'hb8e3 |
+
+### stimulus 1
+| cycle | rst | data_in | data_out |
+|---|---|---|---|
+| 0 | 0 | 16'h0 | 16'h0 |
+| 1 | 1 | 16'h1234 | 16'h0 |
+| 2 | 0 | 16'habcd | 16'hffff |
+| 3 | 0 | 16'h0 | 16'h8e38 |
+
+### stimulus 2
+| cycle | rst | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 16'hffff | 16'h0 |
+| 1 | 1 | 16'h1 | 16'hffff |
+| 2 | 0 | 16'h8000 | 16'hffff |
+| 3 | 0 | 16'h1234 | 16'h8e38 |
+| 4 | 0 | 16'h0 | 16'hb8e3 |
+
+### stimulus 3
+| cycle | rst | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 16'h0 | 16'h0 |
+| 1 | 0 | 16'h0 | 16'hffff |
+| 2 | 0 | 16'h0 | 16'h8e38 |
+| 3 | 0 | 16'h0 | 16'hb8e3 |
+| 4 | 0 | 16'h0 | 16'h1b91 |
+| 5 | 0 | 16'h0 | 16'h51b9 |
+
+### stimulus 4
+| cycle | rst | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 16'h0 | 16'h0 |
+| 1 | 0 | 16'h1 | 16'hffff |
+| 2 | 0 | 16'h2 | 16'h8e38 |
+| 3 | 1 | 16'h3 | 16'hb8e3 |
+| 4 | 0 | 16'h4 | 16'hffff |
+| 5 | 0 | 16'h5 | 16'h8e38 |
+
+### stimulus 5
+| cycle | rst | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 16'h1234 | 16'h0 |
+| 1 | 0 | 16'h1234 | 16'hffff |
+| 2 | 0 | 16'h1234 | 16'h8e38 |
+| 3 | 0 | 16'h1234 | 16'hb8e3 |
+| 4 | 0 | 16'h1234 | 16'h1b91 |
+| 5 | 0 | 16'h1234 | 16'h51b9 |
+| 6 | 0 | 16'h1234 | 16'ha51a |
+| 7 | 0 | 16'h1234 | 16'hfa51 |
+
+### stimulus 6
+| cycle | rst | data_in | data_out |
+|---|---|---|---|
+| 0 | 1 | 16'h0 | 16'h0 |
+| 1 | 0 | 16'h101 | 16'hffff |
+| 2 | 0 | 16'h202 | 16'h8e38 |
+| 3 | 0 | 16'h303 | 16'hb8e3 |
+| 4 | 0 | 16'h404 | 16'h1b91 |
+| 5 | 0 | 16'h505 | 16'h51b9 |
+| 6 | 0 | 16'h606 | 16'ha51a |
+| 7 | 0 | 16'h707 | 16'hfa51 |
+| 8 | 0 | 16'h808 | 16'h505a |
+| 9 | 0 | 16'h909 | 16'h2afa |
+| 10 | 0 | 16'ha0a | 16'hfa4c |
+| 11 | 0 | 16'hb0b | 16'hb42a |
+| 12 | 0 | 16'hc0c | 16'h2afb |
+| 13 | 0 | 16'hd0d | 16'he7b4 |
+| 14 | 0 | 16'he0e | 16'hb42a |
+| 15 | 0 | 16'hf0f | 16'hd4e7 |
+| 16 | 0 | 16'h1010 | 16'h184b |
+| 17 | 0 | 16'h1111 | 16'h732b |
+| 18 | 0 | 16'h1212 | 16'hc896 |
+| 19 | 0 | 16'h1313 | 16'h7cb |
+| 20 | 0 | 16'h1414 | 16'h72d3 |
+| 21 | 0 | 16'h1515 | 16'hc956 |
+| 22 | 0 | 16'h1616 | 16'h7d7 |
+| 23 | 0 | 16'h1717 | 16'h8d33 |
+| 24 | 0 | 16'h1818 | 16'hc957 |
+| 25 | 0 | 16'h1919 | 16'h1ba7 |
+| 26 | 0 | 16'h1a1a | 16'h8d33 |
+| 27 | 0 | 16'h1b1b | 16'hc8af |
+| 28 | 0 | 16'h1c1c | 16'h1ba7 |
+| 29 | 0 | 16'h1d1d | 16'h8d2f |
+| 30 | 0 | 16'h1e1e | 16'hc8af |
+| 31 | 0 | 16'h1f1f | 16'he459 |
+| 32 | 0 | 16'h2020 | 16'h72d0 |
+| 33 | 0 | 16'h2121 | 16'h4697 |
+| 34 | 0 | 16'h2222 | 16'h5cba |
+| 35 | 0 | 16'h2323 | 16'h6941 |
+
+### stimulus 7
+| cycle | rst | data_in | data_out |
+|---|---|---|---|
+| 0 | 0 | 16'h0 | 16'h0 |
+| 1 | 0 | 16'h1 | 16'h0 |
+| 2 | 0 | 16'hffff | 16'h0 |
+| 3 | 0 | 16'h8000 | 16'h0 |
+| 4 | 0 | 16'h1234 | 16'h0 |

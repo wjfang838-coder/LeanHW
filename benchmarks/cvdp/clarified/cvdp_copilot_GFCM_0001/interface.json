@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_GFCM_0001",
+  "toplevel": "glitch_free_mux",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

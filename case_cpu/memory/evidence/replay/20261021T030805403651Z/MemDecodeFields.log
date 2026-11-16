@@ -1,0 +1,9 @@
+'CaseCPUMem.Source.decode_shapes' depends on axioms: [propext, Quot.sound]
+'CaseCPUMem.Source.memory_immediate' depends on axioms: [propext, Quot.sound]
+'CaseCPUMem.Source.base_calculate_immediate' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CaseCPU.Bridge.code_I._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_U._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_table._native.native_decide.ax_1_1,
+ base_opcode._native.bv_decide.ax_1_35]

@@ -1,0 +1,161 @@
+Module and integration contract
+
+Module: fsm.
+Ports below are in exact declaration order:
+- IN: input 1 bit.
+- MATCH: output 1 bit.
+- CLK: input 1 bit.
+- RST: input 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  s0: default = 3'b000.
+-  s1: default = 3'b001.
+-  s2: default = 3'b010.
+-  s3: default = 3'b011.
+-  s4: default = 3'b100.
+-  s5: default = 3'b101.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+RST is active high and asynchronous for MATCH. Whenever RST is high, MATCH is 0 regardless of IN or CLK. Assertion immediately discards all sampled prefix history and forces MATCH low, including when assertion coincides with a CLK rising edge. While RST remains high, IN and CLK have no effect on the matching history. Releasing RST alone leaves MATCH low and leaves the tracked history at no prefix. On the first CLK rising edge after release, IN is sampled from that no-prefix state.
+
+At power-up, before reset has ever been asserted, MATCH is 0; this is the same value as during reset. The tracked prefix history initially represents no prefix.
+
+Timing
+
+MATCH is a combinational Mealy output of the tracked history and current IN. It has zero-cycle latency from the current IN once prior rising-edge samples have established prefix 1001. MATCH is high during the completion-edge row before that rising edge updates the history, and it clears immediately after that edge. Each assertion is a pulse one clock cycle wide unless RST truncates it.
+
+Each trace row is an observation after inputs settle and before the corresponding active CLK rising edge; row k denotes k full clock cycles after settling. This observation convention is distinct from physical clock period and propagation delay. The interface provides no numeric clock period, step duration, sample offset, or propagation delay, so none is specified.
+
+Behaviour
+
+Only the low bit of each one-bit input is significant. While RST is low, each CLK rising edge samples IN and updates the longest suffix that is also a prefix of 10011 according to the following complete law: from no prefix, 0 leads to no prefix and 1 leads to prefix 1; from prefix 1, 0 leads to prefix 10 and 1 remains prefix 1; from prefix 10, 0 leads to prefix 100 and 1 leads to prefix 1; from prefix 100, 0 leads to no prefix and 1 leads to prefix 1001; from prefix 1001, 0 leads to prefix 10 and 1 completes 10011; after completion, 0 leaves prefix 10 and 1 leaves prefix 1. These suffix-preserving transitions provide continuous and overlapping detection, including interrupted and repeated sequences.
+
+With RST low, MATCH is 1 exactly when the rising-edge-sampled input history since the most recent reset has established prefix 1001 and current IN is 1; otherwise MATCH is 0. Between CLK rising edges, IN does not alter retained history, but it changes MATCH immediately when the retained prefix is 1001. The rising edge that samples the completing 1 advances the history and consequently clears MATCH. CLK falling edges and steady CLK levels do not update history. Every CLK rising edge performs exactly one sample. If RST assertion and a CLK rising edge coincide, reset takes priority.
+
+RST assertion immediately makes IN ineffective, forces MATCH low, and discards all prior prefix history. While RST is high, no input activity establishes a match. Release does not restore discarded history or assert MATCH; detection restarts from no prefix on subsequent CLK rising-edge samples.
+
+MATCH is not retained after completion. Interruptions follow the same prefix law, and every later assertion requires prefix 1001 to be established again before current IN is 1.
+
+Worked trace
+
+The evaluated trace below is normative. Rows sample outputs before the active transition.
+
+### stimulus 0
+| cycle | IN | RST | MATCH |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 1 |
+| 6 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | IN | RST | MATCH |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | IN | RST | MATCH |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 0 | 1 |
+
+### stimulus 3
+| cycle | IN | RST | MATCH |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 1 |
+
+### stimulus 4
+| cycle | IN | RST | MATCH |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 0 | 1 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 0 | 0 | 0 |
+| 9 | 1 | 0 | 0 |
+| 10 | 1 | 0 | 1 |
+
+### stimulus 5
+| cycle | IN | RST | MATCH |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 1 |
+
+### stimulus 6
+| cycle | IN | RST | MATCH |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | IN | RST | MATCH |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 1 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 1 | 0 | 1 |
+
+### stimulus 8
+| cycle | IN | RST | MATCH |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 1 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 1 | 0 | 1 |
+| 10 | 0 | 0 | 0 |
+| 11 | 0 | 0 | 0 |
+| 12 | 1 | 0 | 0 |
+| 13 | 1 | 0 | 1 |
+| 14 | 0 | 0 | 0 |
+| 15 | 0 | 0 | 0 |
+| 16 | 1 | 0 | 0 |
+| 17 | 1 | 0 | 1 |

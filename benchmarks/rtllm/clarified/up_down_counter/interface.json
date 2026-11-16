@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "up_down_counter",
+  "toplevel": "up_down_counter",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

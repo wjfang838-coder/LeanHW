@@ -1,0 +1,2 @@
+[(MemoryDiagnosis.Ctx.endian, [68]), (MemoryDiagnosis.Ctx.signedHalf, [4294934528]), (MemoryDiagnosis.Ctx.partialStore, [2864434193]), (MemoryDiagnosis.Ctx.resetRam, [17]), (MemoryDiagnosis.Ctx.faultPriority, [2]), (MemoryDiagnosis.Ctx.sampledDelay, [1]), (MemoryDiagnosis.Ctx.haltedYounger, [0]), (MemoryDiagnosis.Ctx.blockedForever, [0])]
+'MemoryDiagnosis.revised_determined' does not depend on any axioms

@@ -1,0 +1,119 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- in: input [31:0].
+- out: output [31:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+Reset is active high and synchronous to the rising edge of clk. Merely asserting or releasing reset between rising edges has no immediate effect.
+
+Before any rising edge with reset asserted has occurred, out is unknown. The implementation must leave this state uninitialised: no initial block or declaration initializer may give out a power-up value. A non-reset rising edge first establishes a previous sample of in; once two successive input samples are available, falling transitions can determine the captured result.
+
+At every rising edge on which reset is high, out is cleared to 32'h00000000. The same edge samples in. Repeated reset edges keep out at zero and replace the saved comparison sample with the current value of in. On the first rising edge after reset is released, normal capture applies using the in value sampled on the last reset edge. Thus, in the row immediately after that first released edge, out contains every 1-to-0 transition between those two samples and zero in every other bit.
+
+Timing
+
+out is a 32-bit registered output updated only on rising edges of clk. A low or high clock level without an edge, and a falling edge, do not update it. Each update caused by a rising edge is observable after that edge and therefore in the following pre-edge trace row. There are no output pulses or autonomous periodic outputs.
+
+The evaluated full-cycle trace samples out before each active edge and then applies that row's reset and in values at the rising edge. Consequently, row k is the settled observation at k times the interface step interval; this observation convention does not imply a 10 ns clock or any other physical clock period. The interface provides no numeric step or sample offset, and the circuit imposes no physical delay law.
+
+Behaviour
+
+At every rising edge, in is sampled. For each bit position independently, when reset is low, the next value of out is its retained value OR the condition that the preceding rising-edge sample of that bit of in was 1 and the current sample is 0. Equivalently, across all 32 bits, `out_next = out_previous | (in_previous & ~in_current)`, with all operands unsigned 32-bit vectors and the complement confined to 32 bits.
+
+Reset has priority over capture on every rising edge at which reset is high. Although capture is suppressed and out is cleared on that edge, in is still sampled for the first comparison after release. Once any bit of out becomes 1, it remains 1 through every later non-reset edge. There is no completion clear, restart, cancellation, or disabled-input mode; only a later rising edge sampling reset high clears captured bits. All possible 32-bit values of in obey the same per-bit law.
+
+Only a rising edge of clk updates out: it samples reset and in simultaneously, repeated rising edges repeat the same update rule, and a low level, high level without an edge, or falling edge has no effect on out.
+
+Reset is synchronous and active high: when sampled high on a rising clk edge it takes priority and clears out to zero, repeated asserted edges keep out zero while continuing to sample in for the first post-release comparison, and assertion or release away from a rising edge has no immediate effect while a sampled low reset permits normal capture.
+
+At every rising clk edge in is sampled, and when reset is low each out bit is set if that input bit was 1 at the preceding rising edge and is 0 at the current edge and otherwise retains its prior value; sampling continues while reset is high for the comparison on the first rising edge after release, although reset has priority over capture on asserted edges.
+
+With rows sampled before the active edge, each row shows the result of the preceding rising clk edge: out is initially undefined, becomes zero in the row after a rising edge sampling reset high, and after each rising edge sampling reset low appears in the next row with every newly sampled 1-to-0 input transition ORed into its retained value, with no completion clear or restart other than a later reset edge.
+
+Worked trace
+
+The following evaluated trace is normative. Each row follows the sampling convention stated above.
+
+### stimulus 0
+| cycle | reset | in | out |
+|---|---|---|---|
+| 0 | 1 | 32'h0 | 32'x |
+| 1 | 0 | 32'h1 | 32'h0 |
+| 2 | 0 | 32'h0 | 32'h0 |
+| 3 | 0 | 32'h0 | 32'h1 |
+
+### stimulus 1
+| cycle | reset | in | out |
+|---|---|---|---|
+| 0 | 1 | 32'hffffffff | 32'x |
+| 1 | 0 | 32'h0 | 32'h0 |
+| 2 | 0 | 32'h0 | 32'hffffffff |
+
+### stimulus 2
+| cycle | reset | in | out |
+|---|---|---|---|
+| 0 | 1 | 32'h0 | 32'x |
+| 1 | 1 | 32'h80000000 | 32'h0 |
+| 2 | 0 | 32'h80000000 | 32'h0 |
+| 3 | 0 | 32'h0 | 32'h0 |
+| 4 | 0 | 32'h80000000 | 32'h80000000 |
+| 5 | 0 | 32'h0 | 32'h80000000 |
+
+### stimulus 3
+| cycle | reset | in | out |
+|---|---|---|---|
+| 0 | 1 | 32'h0 | 32'x |
+| 1 | 0 | 32'h12345678 | 32'h0 |
+| 2 | 0 | 32'h12345678 | 32'h0 |
+| 3 | 0 | 32'h0 | 32'h0 |
+
+### stimulus 4
+| cycle | reset | in | out |
+|---|---|---|---|
+| 0 | 1 | 32'h0 | 32'x |
+| 1 | 0 | 32'h3 | 32'h0 |
+| 2 | 0 | 32'h2 | 32'h0 |
+| 3 | 0 | 32'h3 | 32'h1 |
+| 4 | 0 | 32'h1 | 32'h1 |
+| 5 | 0 | 32'h0 | 32'h3 |
+
+### stimulus 5
+| cycle | reset | in | out |
+|---|---|---|---|
+| 0 | 1 | 32'h0 | 32'x |
+| 1 | 0 | 32'hffffffff | 32'h0 |
+| 2 | 0 | 32'h0 | 32'h0 |
+| 3 | 0 | 32'hffffffff | 32'hffffffff |
+| 4 | 0 | 32'h0 | 32'hffffffff |
+
+### stimulus 6
+| cycle | reset | in | out |
+|---|---|---|---|
+| 0 | 1 | 32'h1 | 32'x |
+| 1 | 0 | 32'h1 | 32'h0 |
+| 2 | 0 | 32'h0 | 32'h0 |
+| 3 | 1 | 32'hffffffff | 32'h1 |
+| 4 | 0 | 32'hffffffff | 32'h0 |
+| 5 | 0 | 32'h0 | 32'h0 |
+
+### stimulus 7
+| cycle | reset | in | out |
+|---|---|---|---|
+| 0 | 0 | 32'hffffffff | 32'x |
+| 1 | 0 | 32'h0 | 32'x |
+| 2 | 0 | 32'h1 | 32'hffffffff |
+| 3 | 0 | 32'h0 | 32'hffffffff |

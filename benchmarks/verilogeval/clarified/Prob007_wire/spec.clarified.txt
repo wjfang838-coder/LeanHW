@@ -1,0 +1,89 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input or reset behavior. The design has no stored state beyond the stateless unit state, which remains unchanged on every step. Consequently, there is no reset assertion, reset edge, or reset release, and no special first step after release.
+
+At power-up, before any step has occurred, out is not unknown or uninitialised: it continuously equals the current one-bit input in. No reset edge is required before out has this value.
+
+4. Timing.
+
+out is combinational. A change of the current one-bit input in changes out immediately to the same value, with zero clock-cycle latency. There are no registered outputs, pulses, periodic outputs, clock-dependent delays, capture edges, or observation edges.
+
+The evaluated trace uses full-cycle observations. After inputs settle, row k denotes the observation at k times the interface step interval; it is not an implicit 10 ns clock tick. The interface specifies no numerical step interval or sample offset. This observation convention does not impose any circuit period or delay law: the circuit is an immediate combinational wire.
+
+5. Behaviour.
+
+For every possible value of the one-bit input in, out continuously equals in. Thus out is 0 when in is 0 and out is 1 when in is 1.
+
+At all times, either level or any change of in immediately sets out to the same value. This law has no modes, inactive level, event priority, interruption behavior, transaction boundary, or history dependence.
+
+The output out continuously equals the current input in without reset behavior, capture or observation edges, latency, holding, clearing, completion, or restart, so each pre-transition trace row observes the input value present in that row.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | out |
+|---|---|---|
+| 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | in | out |
+|---|---|---|
+| 0 | 1 | 1 |
+
+### stimulus 2
+| cycle | in | out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 1 |
+
+### stimulus 3
+| cycle | in | out |
+|---|---|---|
+| 0 | 1 | 1 |
+| 1 | 0 | 0 |
+
+### stimulus 4
+| cycle | in | out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 0 | 0 |
+| 2 | 1 | 1 |
+
+### stimulus 5
+| cycle | in | out |
+|---|---|---|
+| 0 | 1 | 1 |
+| 1 | 1 | 1 |
+| 2 | 0 | 0 |
+
+### stimulus 6
+| cycle | in | out |
+|---|---|---|
+| 0 | 0 | 0 |
+| 1 | 1 | 1 |
+| 2 | 0 | 0 |
+
+### stimulus 7
+| cycle | in | out |
+|---|---|---|
+| 0 | 1 | 1 |
+| 1 | 0 | 0 |
+| 2 | 1 | 1 |

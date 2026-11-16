@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_static_branch_predict_0001",
+  "toplevel": "static_branch_predict",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

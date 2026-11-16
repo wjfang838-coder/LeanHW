@@ -1,0 +1,106 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- out_and: output 1 bit.
+- out_or: output 1 bit.
+- out_xor: output 1 bit.
+- out_nand: output 1 bit.
+- out_nor: output 1 bit.
+- out_xnor: output 1 bit.
+- out_anotb: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+TopModule has no reset input and no state elements. Every output is defined directly by the current inputs at power-up, including before any edge or reset event; no reset edge is required and no output has an uninitialised interval. Because the circuit has no state, the notion of a first step after reset release does not apply.
+
+4. Timing
+
+Every output is combinational with zero clock-cycle latency from a and b. There is no clock, capture edge, observation edge, pulse, periodic signal, state transition, completion event, or restart event. A trace row observes the inputs present at that sampling time before a no-op model step. Successive full-cycle rows are observation steps only; they do not specify an implicit clock tick, circuit period, duty cycle, or propagation delay.
+
+5. Behaviour
+
+Inputs a and b are one-bit values, so the following laws cover all four possible input combinations.
+
+At all times, a contributes directly to out_and=a AND b, out_or=a OR b, out_xor=a XOR b, out_nand=NOT(a AND b), out_nor=NOT(a OR b), out_xnor=NOT(a XOR b), and out_anotb=a AND NOT b, with no modes, inactive level, event priority, interruption, or transaction history.
+
+At all times, b contributes directly to out_and=a AND b, out_or=a OR b, out_xor=a XOR b, out_nand=NOT(a AND b), out_nor=NOT(a OR b), out_xnor=NOT(a XOR b), and out_anotb=a AND NOT b, with no modes, inactive level, event priority, interruption, or transaction history.
+
+out_and continuously equals a AND b, so it has no reset, capture or observation edge, initialization, hold or clear interval, completion, or restart, and a pre-edge row simply observes the inputs present at that sampling time.
+
+out_or continuously equals a OR b, so it has no reset, capture or observation edge, initialization, hold or clear interval, completion, or restart, and a pre-edge row simply observes the inputs present at that sampling time.
+
+out_xor continuously equals a XOR b, so it has no reset, capture or observation edge, initialization, hold or clear interval, completion, or restart, and a pre-edge row simply observes the inputs present at that sampling time.
+
+out_nand continuously equals NOT (a AND b), so it has no reset, capture or observation edge, initialization, hold or clear interval, completion, or restart, and a pre-edge row simply observes the inputs present at that sampling time.
+
+out_nor continuously equals NOT (a OR b), so it has no reset, capture or observation edge, initialization, hold or clear interval, completion, or restart, and a pre-edge row simply observes the inputs present at that sampling time.
+
+out_xnor continuously equals NOT (a XOR b), so it has no reset, capture or observation edge, initialization, hold or clear interval, completion, or restart, and a pre-edge row simply observes the inputs present at that sampling time.
+
+out_anotb continuously equals a AND NOT b, so it has no reset, capture or observation edge, initialization, hold or clear interval, completion, or restart, and a pre-edge row simply observes the inputs present at that sampling time.
+
+Equivalently, for (a,b) equal to (0,0), the outputs in normative declaration order are 0, 0, 0, 1, 1, 1, 0; for (0,1), they are 0, 1, 1, 1, 0, 0, 0; for (1,0), they are 0, 1, 1, 1, 0, 0, 1; and for (1,1), they are 1, 1, 0, 0, 0, 1, 0.
+
+6. Worked trace
+
+The evaluated trace below is normative.
+
+### stimulus 0
+| cycle | a | b | out_and | out_or | out_xor | out_nand | out_nor | out_xnor | out_anotb |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 0 |
+
+### stimulus 1
+| cycle | a | b | out_and | out_or | out_xor | out_nand | out_nor | out_xnor | out_anotb |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | a | b | out_and | out_or | out_xor | out_nand | out_nor | out_xnor | out_anotb |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | a | b | out_and | out_or | out_xor | out_nand | out_nor | out_xnor | out_anotb |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 4
+| cycle | a | b | out_and | out_or | out_xor | out_nand | out_nor | out_xnor | out_anotb |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 0 |
+| 1 | 1 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 1 |
+| 2 | 1 | 1 | 1 | 1 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | a | b | out_and | out_or | out_xor | out_nand | out_nor | out_xnor | out_anotb |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 0 | 0 | 0 | 1 | 0 |
+| 1 | 0 | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 0 |
+
+### stimulus 6
+| cycle | a | b | out_and | out_or | out_xor | out_nand | out_nor | out_xnor | out_anotb |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 1 |
+| 2 | 0 | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | a | b | out_and | out_or | out_xor | out_nand | out_nor | out_xnor | out_anotb |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 1 |
+| 1 | 0 | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 1 |

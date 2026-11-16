@@ -1,0 +1,125 @@
+Module and integration contract
+
+Module: pe.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- a: input [31:0].
+- b: input [31:0].
+- c: output [31:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is active high and asynchronous. Whenever rst is asserted, c immediately becomes 32'h00000000, regardless of clk, a, or b, and an asserted reset dominates a simultaneous rising edge. c remains zero throughout the assertion, including across repeated clock edges. Deasserting rst does not itself change c: on the first step after release, c remains zero until a subsequent rising edge performs an accumulation.
+
+At power-up before reset has ever been asserted, c is unknown. It remains unknown through rising edges until an asserted reset establishes zero, including when the sampled product is zero. The implementation must leave this power-up value uninitialised, with no initial block or declaration initialiser that gives it a defined value.
+
+4. Timing
+
+c is registered. While rst is low, a and b are sampled on each rising edge of clk, and the updated c is observable immediately after that edge; equivalently, in the normative pre-edge trace, inputs in row k affect c in row k+1. c holds between rising edges. Falling edges and steady clk levels have no effect. Reset assertion is the asynchronous exception described above, and reset release alone has no effect.
+
+Each accumulation result persists until another rising edge or reset assertion. There is no completion pulse or periodic output.
+
+The evaluated trace uses full-cycle observations. Row k denotes k × step_ns after settling, rather than an implicit 10 ns clock tick. This observation convention is separate from the circuit law: it does not impose an absolute circuit clock period or reset delay, and the available interface supplies no numeric step_ns or sample_offset_ns value to restate.
+
+5. Behaviour
+
+For every possible 32-bit encoding of a and b, both operands are unsigned. When rst is low and c has previously been defined by reset, every rising edge updates c according to the law c = (previous c + unsigned(a) * unsigned(b)) modulo 2^32. The multiplication is a full unsigned 32-by-32-bit product in the expression context, the addition includes that full product, and truncation occurs at the final 32-bit c boundary. Thus only the low 32 bits of the accumulated sum are retained; for example, 32'h00010000 times 32'h00010000 contributes zero modulo 2^32.
+
+While rst is low, every rising edge of clk captures one transaction and updates c to (previous c + unsigned a*b) modulo 2^32; repeated rising edges accumulate repeatedly, falling edges and steady clk levels have no effect, and an asserted rst overrides a simultaneous rising edge and interrupts accumulation by clearing c asynchronously.
+
+Asserting active-high rst immediately clears c to 32'h00000000 regardless of clk, a, or b and dominates a simultaneous rising clock edge; keeping rst high keeps c cleared across repeated edges, while deasserting rst causes no update and accumulation resumes only on a subsequent rising edge.
+
+When rst is low, a is interpreted as an unsigned 32-bit operand and its value at each rising clk edge contributes the low 32 bits of a*b to c; changes between rising edges have no effect, repeated edges resample it, and while rst is asserted it has no effect.
+
+When rst is low, b is interpreted as an unsigned 32-bit operand and its value at each rising clk edge contributes the low 32 bits of a*b to c; changes between rising edges have no effect, repeated edges resample it, and while rst is asserted it has no effect.
+
+With rows sampled before the active edge, row k shows the value established before that edge, the rst-low a and b presented in row k are accumulated at the following rising edge and become observable immediately after that edge (therefore at row k+1), c holds between events and accumulates again on every later rising edge, asynchronous rst assertion immediately clears and holds it at zero, and reset release alone does not change it.
+
+If c has never been defined by reset, accumulation cannot make it known. Reset assertion cancels that unknown history by setting c to zero. There is no transaction-enable input: every rising edge while rst is low accumulates once, including consecutive edges and zero-valued operands.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance and uses the observation convention stated above.
+
+### stimulus 0
+| cycle | rst | a | b | c |
+|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 32'h0 | 32'h0 |
+| 1 | 0 | 32'h1 | 32'h1 | 32'h0 |
+| 2 | 0 | 32'h2 | 32'h3 | 32'h1 |
+| 3 | 0 | 32'h4 | 32'h5 | 32'h7 |
+
+### stimulus 1
+| cycle | rst | a | b | c |
+|---|---|---|---|---|
+| 0 | 0 | 32'h1 | 32'h1 | 32'x |
+| 1 | 1 | 32'h7 | 32'h9 | 32'h0 |
+| 2 | 0 | 32'h3 | 32'h5 | 32'h0 |
+| 3 | 0 | 32'h0 | 32'hffffffff | 32'hf |
+
+### stimulus 2
+| cycle | rst | a | b | c |
+|---|---|---|---|---|
+| 0 | 1 | 32'hffffffff | 32'h1 | 32'h0 |
+| 1 | 0 | 32'hffffffff | 32'h1 | 32'h0 |
+| 2 | 0 | 32'h1 | 32'h1 | 32'hffffffff |
+| 3 | 0 | 32'h1 | 32'h0 | 32'h0 |
+
+### stimulus 3
+| cycle | rst | a | b | c |
+|---|---|---|---|---|
+| 0 | 1 | 32'h80000000 | 32'h0 | 32'h0 |
+| 1 | 0 | 32'h80000000 | 32'h1 | 32'h0 |
+| 2 | 0 | 32'h0 | 32'h80000000 | 32'h80000000 |
+| 3 | 0 | 32'h12345678 | 32'h1 | 32'h80000000 |
+
+### stimulus 4
+| cycle | rst | a | b | c |
+|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 32'hffffffff | 32'h0 |
+| 1 | 0 | 32'h1 | 32'hffffffff | 32'h0 |
+| 2 | 0 | 32'hffffffff | 32'hffffffff | 32'hffffffff |
+| 3 | 0 | 32'h80000000 | 32'h80000000 | 32'h0 |
+
+### stimulus 5
+| cycle | rst | a | b | c |
+|---|---|---|---|---|
+| 0 | 1 | 32'h2 | 32'h3 | 32'h0 |
+| 1 | 0 | 32'h2 | 32'h3 | 32'h0 |
+| 2 | 0 | 32'h2 | 32'h3 | 32'h6 |
+| 3 | 0 | 32'h2 | 32'h3 | 32'hc |
+| 4 | 0 | 32'h2 | 32'h3 | 32'h12 |
+
+### stimulus 6
+| cycle | rst | a | b | c |
+|---|---|---|---|---|
+| 0 | 1 | 32'hb | 32'hd | 32'h0 |
+| 1 | 0 | 32'hb | 32'hd | 32'h0 |
+| 2 | 1 | 32'h11 | 32'h13 | 32'h0 |
+| 3 | 0 | 32'h17 | 32'h1d | 32'h0 |
+| 4 | 0 | 32'h1f | 32'h25 | 32'h29b |
+
+### stimulus 7
+| cycle | rst | a | b | c |
+|---|---|---|---|---|
+| 0 | 0 | 32'h0 | 32'h0 | 32'x |
+| 1 | 0 | 32'h1 | 32'h1 | 32'x |
+| 2 | 0 | 32'hffffffff | 32'h2 | 32'x |
+| 3 | 0 | 32'h12345678 | 32'h9abcdef0 | 32'x |
+
+### stimulus 8
+| cycle | rst | a | b | c |
+|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 32'h0 | 32'h0 |
+| 1 | 0 | 32'h10000 | 32'h10000 | 32'h0 |
+| 2 | 0 | 32'h0 | 32'h0 | 32'h0 |

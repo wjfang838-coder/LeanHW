@@ -1,0 +1,752 @@
+ABC command line: "read_aiger case_cpu/memory/evidence/pdr-sanity/design.aig; fold; strash; pdr -a -v -T 30".
+
+Warning: The last output is interpreted as a constraint.
+VarMax = 300. FrameMax = 10000. QueMax = 0. TimeMax = 30. MonoCNF = no. SkipGen = no. SolveAll = yes.
+Frame Clauses                                                     Max Queue Flops Time
+Output   0 was asserted in frame  0 ( 0) (solved   1 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output   1 was asserted in frame  0 ( 0) (solved   2 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output   2 was asserted in frame  0 ( 0) (solved   3 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output   3 was asserted in frame  0 ( 0) (solved   4 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output   4 was asserted in frame  0 ( 0) (solved   5 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output   5 was asserted in frame  0 ( 0) (solved   6 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output   6 was asserted in frame  0 ( 0) (solved   7 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output   7 was asserted in frame  0 ( 0) (solved   8 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output   8 was asserted in frame  0 ( 0) (solved   9 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output   9 was asserted in frame  0 ( 0) (solved  10 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  10 was asserted in frame  0 ( 0) (solved  11 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  11 was asserted in frame  0 ( 0) (solved  12 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  12 was asserted in frame  0 ( 0) (solved  13 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  13 was asserted in frame  0 ( 0) (solved  14 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  14 was asserted in frame  0 ( 0) (solved  15 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  15 was asserted in frame  0 ( 0) (solved  16 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  16 was asserted in frame  0 ( 0) (solved  17 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  17 was asserted in frame  0 ( 0) (solved  18 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  18 was asserted in frame  0 ( 0) (solved  19 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  19 was asserted in frame  0 ( 0) (solved  20 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  20 was asserted in frame  0 ( 0) (solved  21 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  21 was asserted in frame  0 ( 0) (solved  22 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  22 was asserted in frame  0 ( 0) (solved  23 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  23 was asserted in frame  0 ( 0) (solved  24 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  24 was asserted in frame  0 ( 0) (solved  25 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  25 was asserted in frame  0 ( 0) (solved  26 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  26 was asserted in frame  0 ( 0) (solved  27 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  27 was asserted in frame  0 ( 0) (solved  28 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  28 was asserted in frame  0 ( 0) (solved  29 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  29 was asserted in frame  0 ( 0) (solved  30 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  30 was asserted in frame  0 ( 0) (solved  31 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  31 was asserted in frame  0 ( 0) (solved  32 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  32 was asserted in frame  0 ( 0) (solved  33 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  33 was asserted in frame  0 ( 0) (solved  34 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  34 was asserted in frame  0 ( 0) (solved  35 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  35 was asserted in frame  0 ( 0) (solved  36 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  36 was asserted in frame  0 ( 0) (solved  37 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  37 was asserted in frame  0 ( 0) (solved  38 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  38 was asserted in frame  0 ( 0) (solved  39 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  39 was asserted in frame  0 ( 0) (solved  40 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  40 was asserted in frame  0 ( 0) (solved  41 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  41 was asserted in frame  0 ( 0) (solved  42 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  42 was asserted in frame  0 ( 0) (solved  43 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  43 was asserted in frame  0 ( 0) (solved  44 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  44 was asserted in frame  0 ( 0) (solved  45 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  45 was asserted in frame  0 ( 0) (solved  46 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  46 was asserted in frame  0 ( 0) (solved  47 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  47 was asserted in frame  0 ( 0) (solved  48 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  48 was asserted in frame  0 ( 0) (solved  49 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  49 was asserted in frame  0 ( 0) (solved  50 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  50 was asserted in frame  0 ( 0) (solved  51 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  51 was asserted in frame  0 ( 0) (solved  52 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  52 was asserted in frame  0 ( 0) (solved  53 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  53 was asserted in frame  0 ( 0) (solved  54 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  54 was asserted in frame  0 ( 0) (solved  55 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  55 was asserted in frame  0 ( 0) (solved  56 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  56 was asserted in frame  0 ( 0) (solved  57 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  57 was asserted in frame  0 ( 0) (solved  58 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  58 was asserted in frame  0 ( 0) (solved  59 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  59 was asserted in frame  0 ( 0) (solved  60 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  60 was asserted in frame  0 ( 0) (solved  61 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  61 was asserted in frame  0 ( 0) (solved  62 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  62 was asserted in frame  0 ( 0) (solved  63 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  63 was asserted in frame  0 ( 0) (solved  64 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  64 was asserted in frame  0 ( 0) (solved  65 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  65 was asserted in frame  0 ( 0) (solved  66 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  66 was asserted in frame  0 ( 0) (solved  67 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  67 was asserted in frame  0 ( 0) (solved  68 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  68 was asserted in frame  0 ( 0) (solved  69 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  69 was asserted in frame  0 ( 0) (solved  70 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  70 was asserted in frame  0 ( 0) (solved  71 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  71 was asserted in frame  0 ( 0) (solved  72 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  72 was asserted in frame  0 ( 0) (solved  73 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  73 was asserted in frame  0 ( 0) (solved  74 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  74 was asserted in frame  0 ( 0) (solved  75 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  75 was asserted in frame  0 ( 0) (solved  76 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  76 was asserted in frame  0 ( 0) (solved  77 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  77 was asserted in frame  0 ( 0) (solved  78 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  78 was asserted in frame  0 ( 0) (solved  79 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  79 was asserted in frame  0 ( 0) (solved  80 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  80 was asserted in frame  0 ( 0) (solved  81 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  81 was asserted in frame  0 ( 0) (solved  82 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  82 was asserted in frame  0 ( 0) (solved  83 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  83 was asserted in frame  0 ( 0) (solved  84 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  84 was asserted in frame  0 ( 0) (solved  85 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  85 was asserted in frame  0 ( 0) (solved  86 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  86 was asserted in frame  0 ( 0) (solved  87 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  87 was asserted in frame  0 ( 0) (solved  88 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  88 was asserted in frame  0 ( 0) (solved  89 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  89 was asserted in frame  0 ( 0) (solved  90 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  90 was asserted in frame  0 ( 0) (solved  91 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  91 was asserted in frame  0 ( 0) (solved  92 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  92 was asserted in frame  0 ( 0) (solved  93 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  93 was asserted in frame  0 ( 0) (solved  94 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  94 was asserted in frame  0 ( 0) (solved  95 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  95 was asserted in frame  0 ( 0) (solved  96 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  96 was asserted in frame  0 ( 0) (solved  97 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  97 was asserted in frame  0 ( 0) (solved  98 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  98 was asserted in frame  0 ( 0) (solved  99 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output  99 was asserted in frame  0 ( 0) (solved 100 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 100 was asserted in frame  0 ( 0) (solved 101 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 101 was asserted in frame  0 ( 0) (solved 102 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 102 was asserted in frame  0 ( 0) (solved 103 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 103 was asserted in frame  0 ( 0) (solved 104 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 104 was asserted in frame  0 ( 0) (solved 105 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 105 was asserted in frame  0 ( 0) (solved 106 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 106 was asserted in frame  0 ( 0) (solved 107 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 107 was asserted in frame  0 ( 0) (solved 108 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 108 was asserted in frame  0 ( 0) (solved 109 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 109 was asserted in frame  0 ( 0) (solved 110 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 110 was asserted in frame  0 ( 0) (solved 111 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 111 was asserted in frame  0 ( 0) (solved 112 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 112 was asserted in frame  0 ( 0) (solved 113 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 113 was asserted in frame  0 ( 0) (solved 114 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 114 was asserted in frame  0 ( 0) (solved 115 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 115 was asserted in frame  0 ( 0) (solved 116 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 116 was asserted in frame  0 ( 0) (solved 117 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 117 was asserted in frame  0 ( 0) (solved 118 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 118 was asserted in frame  0 ( 0) (solved 119 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 119 was asserted in frame  0 ( 0) (solved 120 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 120 was asserted in frame  0 ( 0) (solved 121 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 121 was asserted in frame  0 ( 0) (solved 122 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 122 was asserted in frame  0 ( 0) (solved 123 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 123 was asserted in frame  0 ( 0) (solved 124 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 124 was asserted in frame  0 ( 0) (solved 125 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 125 was asserted in frame  0 ( 0) (solved 126 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 126 was asserted in frame  0 ( 0) (solved 127 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 127 was asserted in frame  0 ( 0) (solved 128 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 128 was asserted in frame  0 ( 0) (solved 129 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 129 was asserted in frame  0 ( 0) (solved 130 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 130 was asserted in frame  0 ( 0) (solved 131 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 131 was asserted in frame  0 ( 0) (solved 132 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 132 was asserted in frame  0 ( 0) (solved 133 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 133 was asserted in frame  0 ( 0) (solved 134 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 134 was asserted in frame  0 ( 0) (solved 135 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 135 was asserted in frame  0 ( 0) (solved 136 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 136 was asserted in frame  0 ( 0) (solved 137 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 137 was asserted in frame  0 ( 0) (solved 138 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 138 was asserted in frame  0 ( 0) (solved 139 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 139 was asserted in frame  0 ( 0) (solved 140 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 140 was asserted in frame  0 ( 0) (solved 141 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 141 was asserted in frame  0 ( 0) (solved 142 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 142 was asserted in frame  0 ( 0) (solved 143 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 143 was asserted in frame  0 ( 0) (solved 144 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 144 was asserted in frame  0 ( 0) (solved 145 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 145 was asserted in frame  0 ( 0) (solved 146 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 146 was asserted in frame  0 ( 0) (solved 147 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 147 was asserted in frame  0 ( 0) (solved 148 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 148 was asserted in frame  0 ( 0) (solved 149 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 149 was asserted in frame  0 ( 0) (solved 150 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 150 was asserted in frame  0 ( 0) (solved 151 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 151 was asserted in frame  0 ( 0) (solved 152 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 152 was asserted in frame  0 ( 0) (solved 153 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 153 was asserted in frame  0 ( 0) (solved 154 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 154 was asserted in frame  0 ( 0) (solved 155 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 155 was asserted in frame  0 ( 0) (solved 156 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 156 was asserted in frame  0 ( 0) (solved 157 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 157 was asserted in frame  0 ( 0) (solved 158 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 158 was asserted in frame  0 ( 0) (solved 159 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 159 was asserted in frame  0 ( 0) (solved 160 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 160 was asserted in frame  0 ( 0) (solved 161 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 161 was asserted in frame  0 ( 0) (solved 162 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 162 was asserted in frame  0 ( 0) (solved 163 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 163 was asserted in frame  0 ( 0) (solved 164 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 164 was asserted in frame  0 ( 0) (solved 165 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 165 was asserted in frame  0 ( 0) (solved 166 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 166 was asserted in frame  0 ( 0) (solved 167 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 167 was asserted in frame  0 ( 0) (solved 168 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 168 was asserted in frame  0 ( 0) (solved 169 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 169 was asserted in frame  0 ( 0) (solved 170 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 170 was asserted in frame  0 ( 0) (solved 171 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 171 was asserted in frame  0 ( 0) (solved 172 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 172 was asserted in frame  0 ( 0) (solved 173 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 173 was asserted in frame  0 ( 0) (solved 174 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 174 was asserted in frame  0 ( 0) (solved 175 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 175 was asserted in frame  0 ( 0) (solved 176 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 176 was asserted in frame  0 ( 0) (solved 177 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 177 was asserted in frame  0 ( 0) (solved 178 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 178 was asserted in frame  0 ( 0) (solved 179 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 179 was asserted in frame  0 ( 0) (solved 180 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 180 was asserted in frame  0 ( 0) (solved 181 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 181 was asserted in frame  0 ( 0) (solved 182 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 182 was asserted in frame  0 ( 0) (solved 183 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 183 was asserted in frame  0 ( 0) (solved 184 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 184 was asserted in frame  0 ( 0) (solved 185 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 185 was asserted in frame  0 ( 0) (solved 186 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 186 was asserted in frame  0 ( 0) (solved 187 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 187 was asserted in frame  0 ( 0) (solved 188 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 188 was asserted in frame  0 ( 0) (solved 189 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 189 was asserted in frame  0 ( 0) (solved 190 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 190 was asserted in frame  0 ( 0) (solved 191 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 191 was asserted in frame  0 ( 0) (solved 192 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 192 was asserted in frame  0 ( 0) (solved 193 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 193 was asserted in frame  0 ( 0) (solved 194 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 194 was asserted in frame  0 ( 0) (solved 195 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 195 was asserted in frame  0 ( 0) (solved 196 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 196 was asserted in frame  0 ( 0) (solved 197 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 197 was asserted in frame  0 ( 0) (solved 198 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 198 was asserted in frame  0 ( 0) (solved 199 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 199 was asserted in frame  0 ( 0) (solved 200 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 200 was asserted in frame  0 ( 0) (solved 201 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 201 was asserted in frame  0 ( 0) (solved 202 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 202 was asserted in frame  0 ( 0) (solved 203 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 203 was asserted in frame  0 ( 0) (solved 204 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 204 was asserted in frame  0 ( 0) (solved 205 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 205 was asserted in frame  0 ( 0) (solved 206 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 206 was asserted in frame  0 ( 0) (solved 207 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 207 was asserted in frame  0 ( 0) (solved 208 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 208 was asserted in frame  0 ( 0) (solved 209 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 209 was asserted in frame  0 ( 0) (solved 210 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 210 was asserted in frame  0 ( 0) (solved 211 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 211 was asserted in frame  0 ( 0) (solved 212 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 212 was asserted in frame  0 ( 0) (solved 213 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 213 was asserted in frame  0 ( 0) (solved 214 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 214 was asserted in frame  0 ( 0) (solved 215 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 215 was asserted in frame  0 ( 0) (solved 216 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 216 was asserted in frame  0 ( 0) (solved 217 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 217 was asserted in frame  0 ( 0) (solved 218 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 218 was asserted in frame  0 ( 0) (solved 219 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 219 was asserted in frame  0 ( 0) (solved 220 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 220 was asserted in frame  0 ( 0) (solved 221 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 221 was asserted in frame  0 ( 0) (solved 222 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 222 was asserted in frame  0 ( 0) (solved 223 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 223 was asserted in frame  0 ( 0) (solved 224 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 224 was asserted in frame  0 ( 0) (solved 225 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 225 was asserted in frame  0 ( 0) (solved 226 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 226 was asserted in frame  0 ( 0) (solved 227 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 227 was asserted in frame  0 ( 0) (solved 228 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 228 was asserted in frame  0 ( 0) (solved 229 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 229 was asserted in frame  0 ( 0) (solved 230 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 230 was asserted in frame  0 ( 0) (solved 231 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 231 was asserted in frame  0 ( 0) (solved 232 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 232 was asserted in frame  0 ( 0) (solved 233 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 233 was asserted in frame  0 ( 0) (solved 234 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 234 was asserted in frame  0 ( 0) (solved 235 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 235 was asserted in frame  0 ( 0) (solved 236 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 236 was asserted in frame  0 ( 0) (solved 237 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 237 was asserted in frame  0 ( 0) (solved 238 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 238 was asserted in frame  0 ( 0) (solved 239 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 239 was asserted in frame  0 ( 0) (solved 240 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 240 was asserted in frame  0 ( 0) (solved 241 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 241 was asserted in frame  0 ( 0) (solved 242 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 242 was asserted in frame  0 ( 0) (solved 243 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 243 was asserted in frame  0 ( 0) (solved 244 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 244 was asserted in frame  0 ( 0) (solved 245 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 245 was asserted in frame  0 ( 0) (solved 246 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 246 was asserted in frame  0 ( 0) (solved 247 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 247 was asserted in frame  0 ( 0) (solved 248 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 248 was asserted in frame  0 ( 0) (solved 249 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 249 was asserted in frame  0 ( 0) (solved 250 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 250 was asserted in frame  0 ( 0) (solved 251 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 251 was asserted in frame  0 ( 0) (solved 252 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 252 was asserted in frame  0 ( 0) (solved 253 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 253 was asserted in frame  0 ( 0) (solved 254 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 254 was asserted in frame  0 ( 0) (solved 255 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 255 was asserted in frame  0 ( 0) (solved 256 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 256 was asserted in frame  0 ( 0) (solved 257 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 257 was asserted in frame  0 ( 0) (solved 258 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 258 was asserted in frame  0 ( 0) (solved 259 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 259 was asserted in frame  0 ( 0) (solved 260 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 260 was asserted in frame  0 ( 0) (solved 261 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 261 was asserted in frame  0 ( 0) (solved 262 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 262 was asserted in frame  0 ( 0) (solved 263 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 263 was asserted in frame  0 ( 0) (solved 264 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 264 was asserted in frame  0 ( 0) (solved 265 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 265 was asserted in frame  0 ( 0) (solved 266 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 266 was asserted in frame  0 ( 0) (solved 267 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 267 was asserted in frame  0 ( 0) (solved 268 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 268 was asserted in frame  0 ( 0) (solved 269 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 269 was asserted in frame  0 ( 0) (solved 270 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 270 was asserted in frame  0 ( 0) (solved 271 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 271 was asserted in frame  0 ( 0) (solved 272 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 272 was asserted in frame  0 ( 0) (solved 273 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 273 was asserted in frame  0 ( 0) (solved 274 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 274 was asserted in frame  0 ( 0) (solved 275 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 275 was asserted in frame  0 ( 0) (solved 276 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 276 was asserted in frame  0 ( 0) (solved 277 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 277 was asserted in frame  0 ( 0) (solved 278 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 278 was asserted in frame  0 ( 0) (solved 279 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 279 was asserted in frame  0 ( 0) (solved 280 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 280 was asserted in frame  0 ( 0) (solved 281 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 281 was asserted in frame  0 ( 0) (solved 282 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 282 was asserted in frame  0 ( 0) (solved 283 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 283 was asserted in frame  0 ( 0) (solved 284 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 284 was asserted in frame  0 ( 0) (solved 285 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 285 was asserted in frame  0 ( 0) (solved 286 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 286 was asserted in frame  0 ( 0) (solved 287 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 287 was asserted in frame  0 ( 0) (solved 288 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 288 was asserted in frame  0 ( 0) (solved 289 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 289 was asserted in frame  0 ( 0) (solved 290 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 290 was asserted in frame  0 ( 0) (solved 291 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 291 was asserted in frame  0 ( 0) (solved 292 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 292 was asserted in frame  0 ( 0) (solved 293 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 293 was asserted in frame  0 ( 0) (solved 294 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 294 was asserted in frame  0 ( 0) (solved 295 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 295 was asserted in frame  0 ( 0) (solved 296 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 296 was asserted in frame  0 ( 0) (solved 297 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 297 was asserted in frame  0 ( 0) (solved 298 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 298 was asserted in frame  0 ( 0) (solved 299 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 299 was asserted in frame  0 ( 0) (solved 300 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 300 was asserted in frame  0 ( 0) (solved 301 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 301 was asserted in frame  0 ( 0) (solved 302 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 302 was asserted in frame  0 ( 0) (solved 303 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 303 was asserted in frame  0 ( 0) (solved 304 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 304 was asserted in frame  0 ( 0) (solved 305 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 305 was asserted in frame  0 ( 0) (solved 306 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 306 was asserted in frame  0 ( 0) (solved 307 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 307 was asserted in frame  0 ( 0) (solved 308 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 308 was asserted in frame  0 ( 0) (solved 309 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 309 was asserted in frame  0 ( 0) (solved 310 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 310 was asserted in frame  0 ( 0) (solved 311 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 311 was asserted in frame  0 ( 0) (solved 312 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 312 was asserted in frame  0 ( 0) (solved 313 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 313 was asserted in frame  0 ( 0) (solved 314 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 314 was asserted in frame  0 ( 0) (solved 315 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 315 was asserted in frame  0 ( 0) (solved 316 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 316 was asserted in frame  0 ( 0) (solved 317 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 317 was asserted in frame  0 ( 0) (solved 318 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 318 was asserted in frame  0 ( 0) (solved 319 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 319 was asserted in frame  0 ( 0) (solved 320 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 320 was asserted in frame  0 ( 0) (solved 321 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 321 was asserted in frame  0 ( 0) (solved 322 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 322 was asserted in frame  0 ( 0) (solved 323 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 323 was asserted in frame  0 ( 0) (solved 324 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 324 was asserted in frame  0 ( 0) (solved 325 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 325 was asserted in frame  0 ( 0) (solved 326 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 326 was asserted in frame  0 ( 0) (solved 327 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 327 was asserted in frame  0 ( 0) (solved 328 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 328 was asserted in frame  0 ( 0) (solved 329 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 329 was asserted in frame  0 ( 0) (solved 330 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 330 was asserted in frame  0 ( 0) (solved 331 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 331 was asserted in frame  0 ( 0) (solved 332 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 332 was asserted in frame  0 ( 0) (solved 333 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 333 was asserted in frame  0 ( 0) (solved 334 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 334 was asserted in frame  0 ( 0) (solved 335 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 335 was asserted in frame  0 ( 0) (solved 336 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 336 was asserted in frame  0 ( 0) (solved 337 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 337 was asserted in frame  0 ( 0) (solved 338 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 338 was asserted in frame  0 ( 0) (solved 339 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 339 was asserted in frame  0 ( 0) (solved 340 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 340 was asserted in frame  0 ( 0) (solved 341 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 341 was asserted in frame  0 ( 0) (solved 342 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 342 was asserted in frame  0 ( 0) (solved 343 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 343 was asserted in frame  0 ( 0) (solved 344 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 344 was asserted in frame  0 ( 0) (solved 345 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 345 was asserted in frame  0 ( 0) (solved 346 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 346 was asserted in frame  0 ( 0) (solved 347 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 347 was asserted in frame  0 ( 0) (solved 348 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+Output 348 was asserted in frame  0 ( 0) (solved 349 out of 407 outputs).
+Frame Clauses                                                     Max Queue Flops Time
+  1 : 0 14                                                                1    14      2.09 sec  CEX = 349
+  2 : 0 15 151                                                            2   182      5.15 sec  CEX = 349
+  2 : 0 15 201                                                            2   252      5.51 sec  CEX = 349
+  2 : 0 15 251                                                            2   334      5.89 sec  CEX = 349
+  2 : 0 15 301                                                            2   416      6.27 sec  CEX = 349
+  2 : 0 15 351                                                            2   484      6.67 sec  CEX = 349
+  2 : 0 15 401                                                            2   562      7.07 sec  CEX = 349
+  2 : 0 15 451                                                            2   636      7.50 sec  CEX = 349
+  2 : 0 15 501                                                            2   704      7.94 sec  CEX = 349
+  2 : 0 15 551                                                            2   768      8.40 sec  CEX = 349
+  2 : 0 15 601                                                            2   834      8.88 sec  CEX = 349
+  2 : 0 15 651                                                            2   902      9.38 sec  CEX = 349
+  2 : 0 15 701                                                            2   972      9.90 sec  CEX = 349
+  2 : 0 15 751                                                            2  1026     10.45 sec  CEX = 349
+  2 : 0 15 801                                                            2  1092     11.03 sec  CEX = 349
+  2 : 0 15 851                                                            2  1140     11.64 sec  CEX = 349
+  2 : 0 15 901                                                            2  1186     12.27 sec  CEX = 349
+  2 : 0 15 951                                                            2  1250     12.93 sec  CEX = 349
+  2 : 0 15 1001                                                           2  1310     13.63 sec  CEX = 349
+  2 : 0 15 1051                                                           2  1356     14.37 sec  CEX = 349
+  2 : 0 15 1101                                                           2  1418     15.13 sec  CEX = 349
+  2 : 0 15 1151                                                           2  1462     15.93 sec  CEX = 349
+  2 : 0 15 1201                                                           2  1508     16.92 sec  CEX = 349
+  2 : 0 15 1251                                                           2  1568     17.87 sec  CEX = 349
+  2 : 0 15 1301                                                           2  1618     18.98 sec  CEX = 349
+  2 : 0 15 1351                                                           2  1668     20.01 sec  CEX = 349
+  2 : 0 15 1401                                                           2  1708     21.00 sec  CEX = 349
+  2 : 0 15 1451                                                           2  1738     22.00 sec  CEX = 349
+  2 : 0 15 1501                                                           2  1796     23.04 sec  CEX = 349
+  2 : 0 15 1551                                                           2  1838     24.11 sec  CEX = 349
+  2 : 0 15 1601                                                           2  1882     25.24 sec  CEX = 349
+  2 : 0 15 1651                                                           2  1924     26.42 sec  CEX = 349
+  2 : 0 15 1701                                                           2  1944     27.56 sec  CEX = 349
+  2 : 0 15 1751                                                           2  1972     28.74 sec  CEX = 349
+  2 : 0 15 1801                                                           2  1996     29.96 sec  CEX = 349
+  2 : 0 15 1803                                                           2  1996     30.01 sec  CEX = 349
+Reached timeout (30 seconds) in frame 2.
+Block =  393  Oblig =  3944  Clause =  1818  Call =  9434 (sat=60.4%)  Cex =   0  Start =  29
+SAT solving =     4.76 sec ( 15.83 %)
+  unsat     =     0.02 sec (  0.06 %)
+  sat       =     4.74 sec ( 15.77 %)
+Generalize  =    17.24 sec ( 57.39 %)
+Push clause =     0.05 sec (  0.18 %)
+Ternary sim =    14.06 sec ( 46.79 %)
+Containment =     0.03 sec (  0.10 %)
+CNF compute =     0.07 sec (  0.23 %)
+Refinement  =     0.00 sec (  0.00 %)
+TOTAL       =    30.04 sec (100.00 %)
+Properties:  All = 407. Proved = 0. Disproved = 349. Undecided = 58.   Time =    30.16 sec

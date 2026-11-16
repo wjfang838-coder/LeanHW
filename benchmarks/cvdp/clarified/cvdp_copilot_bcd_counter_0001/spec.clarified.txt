@@ -1,0 +1,228 @@
+Original implementation instruction (verbatim):
+
+Design a System Verilog module named `bcd_counter` that implements a 24-hour clock using Binary-Coded Decimal (BCD) counters. The clock should display hours, minutes, and seconds in a 24-hour format (`00:00:00` to `23:59:59`) and reset automatically.
+
+Named module interface binding
+
+Module: bcd_counter.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- rst: input; 1 bits in the concrete formal instance.
+- ms_hr: output; 4 bits in the concrete formal instance.
+- ls_hr: output; 4 bits in the concrete formal instance.
+- ms_min: output; 4 bits in the concrete formal instance.
+- ls_min: output; 4 bits in the concrete formal instance.
+- ms_sec: output; 4 bits in the concrete formal instance.
+- ls_sec: output; 4 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The implementation shall be a SystemVerilog module named exactly bcd_counter. No public parameter is established by the requirements.
+
+The ports are clk, input, 1 bit; rst, input, 1 bit; ms_hr, output, 4 bits; ls_hr, output, 4 bits; ms_min, output, 4 bits; ls_min, output, 4 bits; ms_sec, output, 4 bits; and ls_sec, output, 4 bits. These spellings, directions, and widths are exact. Connections shall be made by name. Positional declaration order is not established, so no declaration order is normative and the module must be instantiated by name.
+
+clk synchronizes the counters. rst is the active-high reset. ms_hr and ls_hr are the tens and units BCD digits of hours; ms_min and ls_min are the tens and units BCD digits of minutes; ms_sec and ls_sec are the tens and units BCD digits of seconds.
+
+3. Reset.
+
+rst is an active-high asynchronous reset for the required observable behavior: asserting rst does not wait for a clk edge. Whenever rst is high, all six counters and all six outputs shall be 00:00:00; ms_hr, ls_hr, ms_min, ls_min, ms_sec, and ls_sec shall each read 4'b0000. Reset has priority over counting, including when assertion coincides with a positive edge of clk.
+
+Before rst is first asserted, the source specifies no power-up value for any stored digit or output. This is an unresolved obligation, not permission to drive X and not a don't-care. A normal positive edge with rst low still applies the ordinary counting law to any valid 24-hour BCD state; absence of a prior reset does not disable counting. The source does not define recovery from a power-up encoding that is not a valid 24-hour BCD time.
+
+After rst has established 00:00:00, deasserting rst alone does not advance time. The first positive edge of clk with rst low advances the display to 00:00:01. Reasserting rst makes every output zero while rst remains high; after release, counting restarts from 00:00:00 under the same rule.
+
+The finite evaluated model and worked trace begin in the state reached after an asserted reset has established 00:00:00. This is solely the table/model setup. It is not a hardware power-up guarantee, does not impose a reset-before-use input restriction, and does not define the unspecified power-up values.
+
+4. Timing.
+
+All six outputs are registered BCD time digits with asynchronous active-high clearing. Each positive edge of clk while rst is low advances the represented time by exactly one second. The resulting digits are observable after that edge and remain unchanged until the next positive edge or asserted reset. There is no additional pipeline cycle. There are no pulse outputs and no independently periodic outputs. The physical clk period, duty cycle, propagation delay, and reset release delay are not specified by the source.
+
+For the worked trace, each row samples all outputs before that row's modeled full-cycle transition, and the next row observes its result. Row k denotes k interface step intervals after settling and is sampled at the interface sample offset. The interface supplies no numeric step_ns or sample_offset_ns values. This observation convention is separate from the circuit's actual clock period and delay laws and does not imply a 10 ns clock tick.
+
+5. Behaviour.
+
+Whenever the six stored digits form a valid 24-hour BCD time, they display a value from 00:00:00 through 23:59:59. This law applies whether that valid state was established by reset, by earlier ordinary clock edges, or otherwise.
+
+At each positive edge of clk with rst low, add exactly one elapsed second. ls_sec advances from 0 through 9. When ls_sec is 9, it becomes 0 and ms_sec advances by one. Seconds advance from 00 through 59; from HH:MM:59, both second digits become 00 and the minute advances by one.
+
+Minutes advance in BCD from 00 through 59. From HH:59:59, both minute digits and both second digits become 00 and the hour advances by one.
+
+Hours advance in 24-hour BCD form from 00 through 23. From 23:59:59, all six digits become 0, producing 00:00:00. Counting continues under the same law across every later midnight and after every reset and release.
+
+Equivalently, from any valid time T, after N positive edges with rst low and no intervening asserted reset, the displayed time is T plus N seconds modulo 86400. For elapsed-second index E from 0 through 86399, ms_hr and ls_hr are the tens and units digits of floor(E / 3600); ms_min and ls_min are the tens and units digits of floor((E modulo 3600) / 60); and ms_sec and ls_sec are the tens and units digits of E modulo 60.
+
+The registered display does not advance merely because clk is low or on a falling edge. The source does not define recovery from any six-digit encoding outside valid 24-hour BCD time; that unresolved case does not weaken the complete law over valid states. There are no start, enable, transaction, completion, cancellation, disabled-mode, or retained-result controls beyond clk and rst.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete reset-established verification instance described in section 3. It does not specify hardware power-up behavior.
+
+### stimulus 0
+| cycle | rst | ms_hr | ls_hr | ms_min | ls_min | ms_sec | ls_sec |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 2 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 |
+
+### stimulus 1
+| cycle | rst | ms_hr | ls_hr | ms_min | ls_min | ms_sec | ls_sec |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 3 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 |
+
+### stimulus 2
+| cycle | rst | ms_hr | ls_hr | ms_min | ls_min | ms_sec | ls_sec |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 3 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+
+### stimulus 3
+| cycle | rst | ms_hr | ls_hr | ms_min | ls_min | ms_sec | ls_sec |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 1 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 3 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+
+### stimulus 4
+| cycle | rst | ms_hr | ls_hr | ms_min | ls_min | ms_sec | ls_sec |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 3 | 1 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 4 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 5 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+
+### stimulus 5
+| cycle | rst | ms_hr | ls_hr | ms_min | ls_min | ms_sec | ls_sec |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 3 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 |
+| 4 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 |
+| 5 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 |
+| 6 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 |
+| 7 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0110 |
+| 8 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0111 |
+| 9 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b1000 |
+| 10 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b1001 |
+| 11 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0000 |
+| 12 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0001 |
+
+### stimulus 6
+| cycle | rst | ms_hr | ls_hr | ms_min | ls_min | ms_sec | ls_sec |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 3 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 |
+| 4 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 |
+| 5 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 |
+| 6 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 |
+| 7 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0110 |
+| 8 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0111 |
+| 9 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b1000 |
+| 10 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b1001 |
+| 11 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0000 |
+| 12 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0001 |
+| 13 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0010 |
+| 14 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0011 |
+| 15 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0100 |
+| 16 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0101 |
+| 17 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0110 |
+| 18 | 1 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 19 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 20 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 21 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 |
+| 22 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 |
+| 23 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 |
+| 24 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 |
+| 25 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0110 |
+| 26 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0111 |
+| 27 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b1000 |
+| 28 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b1001 |
+| 29 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0000 |
+| 30 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0001 |
+| 31 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0010 |
+| 32 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0011 |
+| 33 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0100 |
+| 34 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0101 |
+| 35 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0110 |
+
+### stimulus 7
+| cycle | rst | ms_hr | ls_hr | ms_min | ls_min | ms_sec | ls_sec |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 1 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 |
+| 2 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 |
+| 3 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 |
+| 4 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 |
+| 5 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 |
+| 6 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 |
+| 7 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0110 |
+| 8 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0111 |
+| 9 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b1000 |
+| 10 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b1001 |
+| 11 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0000 |
+| 12 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0001 |
+| 13 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0010 |
+| 14 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0011 |
+| 15 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0100 |
+| 16 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0101 |
+| 17 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0110 |
+| 18 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0111 |
+| 19 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b1000 |
+| 20 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b1001 |
+| 21 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 4'b0000 |
+| 22 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 4'b0001 |
+| 23 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 4'b0010 |
+| 24 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 4'b0011 |
+| 25 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 4'b0100 |
+| 26 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 4'b0101 |
+| 27 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 4'b0110 |
+| 28 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 4'b0111 |
+| 29 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 4'b1000 |
+| 30 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0010 | 4'b1001 |
+| 31 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 4'b0000 |
+| 32 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 4'b0001 |
+| 33 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 4'b0010 |
+| 34 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 4'b0011 |
+| 35 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 4'b0100 |
+| 36 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 4'b0101 |
+| 37 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 4'b0110 |
+| 38 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 4'b0111 |
+| 39 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 4'b1000 |
+| 40 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0011 | 4'b1001 |
+| 41 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 4'b0000 |
+| 42 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 4'b0001 |
+| 43 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 4'b0010 |
+| 44 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 4'b0011 |
+| 45 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 4'b0100 |
+| 46 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 4'b0101 |
+| 47 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 4'b0110 |
+| 48 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 4'b0111 |
+| 49 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 4'b1000 |
+| 50 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0100 | 4'b1001 |
+| 51 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 4'b0000 |
+| 52 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 4'b0001 |
+| 53 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 4'b0010 |
+| 54 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 4'b0011 |
+| 55 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 4'b0100 |
+| 56 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 4'b0101 |
+| 57 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 4'b0110 |
+| 58 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 4'b0111 |
+| 59 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 4'b1000 |
+| 60 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0101 | 4'b1001 |
+| 61 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0000 |
+| 62 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0001 |
+| 63 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0010 |
+| 64 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0011 |
+| 65 | 0 | 4'b0000 | 4'b0000 | 4'b0000 | 4'b0001 | 4'b0000 | 4'b0100 |

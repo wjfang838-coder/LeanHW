@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_hamming_code_tx_and_rx_0001",
+  "toplevel": "hamming_code_tx_for_4bit",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

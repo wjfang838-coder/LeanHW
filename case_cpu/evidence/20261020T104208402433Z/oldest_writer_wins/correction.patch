@@ -1,0 +1,15 @@
+--- faulty.sv
++++ repaired.sv
+@@ -145,10 +145,10 @@
+       a=(r1==0) ? 0 : n_regs[32*r1 +:32];
+       b=(r2==0) ? 0 : n_regs[32*r2 +:32];
+       // WB is older, MEM is younger: apply in this order.
++      if (n_wv && n_wi[11:7]!=0 && n_wi[11:7]==r1) a=n_wval;
++      if (n_wv && n_wi[11:7]!=0 && n_wi[11:7]==r2) b=n_wval;
+       if (n_mv && n_mi[11:7]!=0 && n_mi[11:7]==r1) a=n_mval;
+       if (n_mv && n_mi[11:7]!=0 && n_mi[11:7]==r2) b=n_mval;
+-      if (n_wv && n_wi[11:7]!=0 && n_wi[11:7]==r1) a=n_wval;
+-      if (n_wv && n_wi[11:7]!=0 && n_wi[11:7]==r2) b=n_wval;
+       projected_pc=n_pc+(n_wv ? 4 : 0)+(n_mv ? 4 : 0);
+       n_xval=alu(op,a,b,immediate(n_di),projected_pc);
+       n_xi=n_di; n_xpc=projected_pc; n_xv=1; n_dv=0;

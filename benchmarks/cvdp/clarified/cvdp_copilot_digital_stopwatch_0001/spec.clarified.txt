@@ -1,0 +1,306 @@
+Module and integration contract
+
+Module: dig_stopwatch.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- start_stop: input 1 bit.
+- seconds: output [5:0].
+- minutes: output [5:0].
+- hour: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- integer CLK_FREQ: default = 50_000_000.
+- Verification-visible signal `one_sec_pulse`: one_sec_pulse is asynchronously cleared by reset, is 1 during the cycle immediately following each CLK_FREQ-th accumulated rising clk edge with start_stop high, and is otherwise cleared on every reset-low rising clk edge, including paused edges; because a row is sampled before its active edge, assertion or clearing caused by that edge is observed in the following row.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+reset is active high and asynchronous. Whenever reset is asserted, seconds, minutes, hour, accumulated partial-second timing progress, and the verification-visible one_sec_pulse are immediately zero, regardless of clk or start_stop. Holding or repeatedly asserting reset keeps that cleared condition. If reset is asserted coincident with a rising clk edge, reset takes priority.
+
+Deasserting reset causes no immediate change. The displayed value remains 0 hours, 0 minutes, and 0 seconds until later enabled rising clk edges complete an interval. The first such completed interval increments seconds to 1 under the ordinary counting law.
+
+Before reset has ever been asserted, seconds, minutes, and hour have no established values. Reset-low clk and start_stop activity does not establish them. Assertion of reset exits this condition immediately and establishes all three displayed values as zero. This pre-first-reset unknown condition does not apply after reset has established the state.
+
+4. Timing.
+
+All stopwatch state changes occur on rising edges of clk, except that assertion of reset acts immediately and asynchronously. A falling edge, a steady clk level, or a change of start_stop without a rising clk edge has no effect.
+
+With reset low and start_stop high, each rising clk edge contributes one count toward a one-second interval. Every CLK_FREQ-th accumulated enabled rising clk edge completes the interval and applies exactly one stopwatch tick. Paused edges do not contribute, and already accumulated partial progress is preserved across a pause. Thus a tick occurs after exactly CLK_FREQ enabled rising clk edges, which corresponds to one second when CLK_FREQ correctly denotes the input frequency.
+
+seconds, minutes, and hour are registered outputs. A tick caused by a rising clk edge updates them for observation during the following clk cycle; otherwise they retain their prior values. Reset is the asynchronous exception and makes them zero immediately.
+
+The verification-visible one_sec_pulse is asynchronously cleared by reset, is 1 for exactly one clk cycle immediately following every CLK_FREQ-th accumulated rising clk edge with start_stop high, and is cleared on every other reset-low rising clk edge, including paused edges. It is a one-input-clock-period pulse, not a continuous 1 Hz clock. Its advancement is independent of whether the displayed outputs have already reached their terminal value: enabled completed intervals continue to assert it after hour is 1, while the displayed time remains frozen.
+
+For the evaluated autonomous Lean trace, row k denotes the settled observation at k times timing.step_ns, with any timing.sample_offset_ns applied as defined by the interface. A row samples outputs before that row's active-edge transition, and the resulting state is visible in the next row. This trace observation convention is separate from the physical circuit law: the actual stopwatch tick cadence is CLK_FREQ enabled rising clk edges and one_sec_pulse lasts one input-clock cycle. The supplied interface contains no numeric timing.step_ns or timing.sample_offset_ns values, so this document does not invent them.
+
+5. Behaviour.
+
+The deliverable shall be a SystemVerilog implementation of the digital stopwatch module dig_stopwatch. CLK_FREQ denotes the input clock frequency in hertz. It shall be an integer frequency strictly greater than 1 Hz; its default is 50,000,000 Hz. Behavior for settings outside that stated constraint need not be provided.
+
+With reset low, start_stop high makes rising clk edges accumulate toward a completed interval and every CLK_FREQ-th accumulated enabled edge applies one stopwatch tick. start_stop low prevents accumulation and holds seconds, minutes, and hour while preserving partial timing progress, so a later high level resumes rather than restarts the interval. Reset overrides start_stop. Repeated high intervals continue counting; repeated low intervals remain paused. Because start_stop is one bit, 0 and 1 are its complete set of encodings.
+
+On a completed enabled interval, if hour is 0 and seconds is less than 59, seconds becomes its pre-edge value plus one while minutes and hour hold. If hour is 0, seconds is 59, and minutes is less than 59, seconds becomes 0, minutes becomes its pre-edge value plus one, and hour holds. If hour is 0 and seconds and minutes are both 59, seconds and minutes both become 0 and hour becomes 1.
+
+Asserting reset asynchronously makes seconds 0. After reset release, seconds remains 0 until the CLK_FREQ-th enabled rising clk edge; on each completed interval it increments unless its pre-edge value is 59, in which case it becomes 0. It holds between completed intervals, throughout pauses, and after hour is 1.
+
+Asserting reset asynchronously makes minutes 0. Reset release causes no immediate change. On a completed enabled interval, minutes increments from its pre-edge value only when pre-edge seconds is 59 and pre-edge hour is 0, wrapping from 59 to 0. It holds on all other rising edges, throughout pauses, and after hour is 1.
+
+Asserting reset asynchronously makes hour 0. Reset release causes no immediate change. hour changes to 1 only on a completed enabled interval whose pre-edge seconds and minutes are both 59 and whose pre-edge hour is 0. It otherwise holds through inactive edges, pauses, ordinary ticks, and all later completed intervals.
+
+Once hour is 1, the displayed stopwatch is terminal at 1 hour, 0 minutes, and 0 seconds. Further completed intervals do not change seconds, minutes, or hour. Only reset clears the terminal value and permits the displayed stopwatch to restart; the independently specified one_sec_pulse continues to follow its own enabling and cadence law.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete sampled instance and uses the pre-transition row convention stated above.
+
+### stimulus 0
+| cycle | reset | start_stop | seconds | minutes | hour |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 0 | 1 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 0 | 0 | 6'b000001 | 6'b000000 | 0 |
+| 3 | 0 | 1 | 6'b000001 | 6'b000000 | 0 |
+
+### stimulus 1
+| cycle | reset | start_stop | seconds | minutes | hour |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 0 | 1 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 0 | 1 | 6'b000001 | 6'b000000 | 0 |
+
+### stimulus 2
+| cycle | reset | start_stop | seconds | minutes | hour |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'x | 6'x | x |
+| 1 | 0 | 1 | 6'x | 6'x | x |
+| 2 | 0 | 0 | 6'x | 6'x | x |
+
+### stimulus 3
+| cycle | reset | start_stop | seconds | minutes | hour |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 0 | 1 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 1 | 1 | 6'b000000 | 6'b000000 | 0 |
+| 3 | 0 | 1 | 6'b000000 | 6'b000000 | 0 |
+
+### stimulus 4
+| cycle | reset | start_stop | seconds | minutes | hour |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 0 | 1 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 0 | 0 | 6'b000001 | 6'b000000 | 0 |
+| 3 | 0 | 0 | 6'b000001 | 6'b000000 | 0 |
+| 4 | 0 | 1 | 6'b000001 | 6'b000000 | 0 |
+
+### stimulus 5
+| cycle | reset | start_stop | seconds | minutes | hour |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 0 | 1 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 0 | 1 | 6'b000001 | 6'b000000 | 0 |
+| 3 | 0 | 1 | 6'b000010 | 6'b000000 | 0 |
+| 4 | 0 | 1 | 6'b000011 | 6'b000000 | 0 |
+| 5 | 0 | 1 | 6'b000100 | 6'b000000 | 0 |
+| 6 | 0 | 1 | 6'b000101 | 6'b000000 | 0 |
+| 7 | 0 | 1 | 6'b000110 | 6'b000000 | 0 |
+| 8 | 0 | 1 | 6'b000111 | 6'b000000 | 0 |
+| 9 | 0 | 1 | 6'b001000 | 6'b000000 | 0 |
+| 10 | 0 | 1 | 6'b001001 | 6'b000000 | 0 |
+| 11 | 0 | 1 | 6'b001010 | 6'b000000 | 0 |
+| 12 | 0 | 1 | 6'b001011 | 6'b000000 | 0 |
+| 13 | 0 | 1 | 6'b001100 | 6'b000000 | 0 |
+| 14 | 0 | 1 | 6'b001101 | 6'b000000 | 0 |
+| 15 | 0 | 1 | 6'b001110 | 6'b000000 | 0 |
+| 16 | 0 | 1 | 6'b001111 | 6'b000000 | 0 |
+| 17 | 0 | 1 | 6'b010000 | 6'b000000 | 0 |
+| 18 | 0 | 1 | 6'b010001 | 6'b000000 | 0 |
+| 19 | 0 | 1 | 6'b010010 | 6'b000000 | 0 |
+| 20 | 0 | 1 | 6'b010011 | 6'b000000 | 0 |
+| 21 | 0 | 1 | 6'b010100 | 6'b000000 | 0 |
+| 22 | 0 | 1 | 6'b010101 | 6'b000000 | 0 |
+| 23 | 0 | 1 | 6'b010110 | 6'b000000 | 0 |
+| 24 | 0 | 1 | 6'b010111 | 6'b000000 | 0 |
+| 25 | 0 | 1 | 6'b011000 | 6'b000000 | 0 |
+| 26 | 0 | 1 | 6'b011001 | 6'b000000 | 0 |
+| 27 | 0 | 1 | 6'b011010 | 6'b000000 | 0 |
+| 28 | 0 | 1 | 6'b011011 | 6'b000000 | 0 |
+| 29 | 0 | 1 | 6'b011100 | 6'b000000 | 0 |
+| 30 | 0 | 1 | 6'b011101 | 6'b000000 | 0 |
+| 31 | 0 | 1 | 6'b011110 | 6'b000000 | 0 |
+| 32 | 0 | 1 | 6'b011111 | 6'b000000 | 0 |
+| 33 | 0 | 1 | 6'b100000 | 6'b000000 | 0 |
+| 34 | 0 | 1 | 6'b100001 | 6'b000000 | 0 |
+| 35 | 0 | 1 | 6'b100010 | 6'b000000 | 0 |
+| 36 | 0 | 1 | 6'b100011 | 6'b000000 | 0 |
+| 37 | 0 | 1 | 6'b100100 | 6'b000000 | 0 |
+| 38 | 0 | 1 | 6'b100101 | 6'b000000 | 0 |
+| 39 | 0 | 1 | 6'b100110 | 6'b000000 | 0 |
+| 40 | 0 | 1 | 6'b100111 | 6'b000000 | 0 |
+| 41 | 0 | 1 | 6'b101000 | 6'b000000 | 0 |
+| 42 | 0 | 1 | 6'b101001 | 6'b000000 | 0 |
+| 43 | 0 | 1 | 6'b101010 | 6'b000000 | 0 |
+| 44 | 0 | 1 | 6'b101011 | 6'b000000 | 0 |
+| 45 | 0 | 1 | 6'b101100 | 6'b000000 | 0 |
+| 46 | 0 | 1 | 6'b101101 | 6'b000000 | 0 |
+| 47 | 0 | 1 | 6'b101110 | 6'b000000 | 0 |
+| 48 | 0 | 1 | 6'b101111 | 6'b000000 | 0 |
+| 49 | 0 | 1 | 6'b110000 | 6'b000000 | 0 |
+| 50 | 0 | 1 | 6'b110001 | 6'b000000 | 0 |
+| 51 | 0 | 1 | 6'b110010 | 6'b000000 | 0 |
+| 52 | 0 | 1 | 6'b110011 | 6'b000000 | 0 |
+| 53 | 0 | 1 | 6'b110100 | 6'b000000 | 0 |
+| 54 | 0 | 1 | 6'b110101 | 6'b000000 | 0 |
+| 55 | 0 | 1 | 6'b110110 | 6'b000000 | 0 |
+| 56 | 0 | 1 | 6'b110111 | 6'b000000 | 0 |
+| 57 | 0 | 1 | 6'b111000 | 6'b000000 | 0 |
+| 58 | 0 | 1 | 6'b111001 | 6'b000000 | 0 |
+| 59 | 0 | 1 | 6'b111010 | 6'b000000 | 0 |
+| 60 | 0 | 1 | 6'b111011 | 6'b000000 | 0 |
+| 61 | 0 | 1 | 6'b000000 | 6'b000001 | 0 |
+| 62 | 0 | 1 | 6'b000001 | 6'b000001 | 0 |
+| 63 | 0 | 1 | 6'b000010 | 6'b000001 | 0 |
+| 64 | 0 | 1 | 6'b000011 | 6'b000001 | 0 |
+| 65 | 0 | 1 | 6'b000100 | 6'b000001 | 0 |
+| 66 | 0 | 1 | 6'b000101 | 6'b000001 | 0 |
+| 67 | 0 | 1 | 6'b000110 | 6'b000001 | 0 |
+| 68 | 0 | 1 | 6'b000111 | 6'b000001 | 0 |
+| 69 | 0 | 1 | 6'b001000 | 6'b000001 | 0 |
+| 70 | 0 | 1 | 6'b001001 | 6'b000001 | 0 |
+| 71 | 0 | 1 | 6'b001010 | 6'b000001 | 0 |
+| 72 | 0 | 1 | 6'b001011 | 6'b000001 | 0 |
+| 73 | 0 | 1 | 6'b001100 | 6'b000001 | 0 |
+| 74 | 0 | 1 | 6'b001101 | 6'b000001 | 0 |
+| 75 | 0 | 1 | 6'b001110 | 6'b000001 | 0 |
+| 76 | 0 | 1 | 6'b001111 | 6'b000001 | 0 |
+| 77 | 0 | 1 | 6'b010000 | 6'b000001 | 0 |
+| 78 | 0 | 1 | 6'b010001 | 6'b000001 | 0 |
+| 79 | 0 | 1 | 6'b010010 | 6'b000001 | 0 |
+| 80 | 0 | 1 | 6'b010011 | 6'b000001 | 0 |
+| 81 | 0 | 1 | 6'b010100 | 6'b000001 | 0 |
+| 82 | 0 | 1 | 6'b010101 | 6'b000001 | 0 |
+| 83 | 0 | 1 | 6'b010110 | 6'b000001 | 0 |
+| 84 | 0 | 1 | 6'b010111 | 6'b000001 | 0 |
+| 85 | 0 | 1 | 6'b011000 | 6'b000001 | 0 |
+| 86 | 0 | 1 | 6'b011001 | 6'b000001 | 0 |
+| 87 | 0 | 1 | 6'b011010 | 6'b000001 | 0 |
+| 88 | 0 | 1 | 6'b011011 | 6'b000001 | 0 |
+| 89 | 0 | 1 | 6'b011100 | 6'b000001 | 0 |
+| 90 | 0 | 1 | 6'b011101 | 6'b000001 | 0 |
+| 91 | 0 | 1 | 6'b011110 | 6'b000001 | 0 |
+| 92 | 0 | 1 | 6'b011111 | 6'b000001 | 0 |
+| 93 | 0 | 1 | 6'b100000 | 6'b000001 | 0 |
+| 94 | 0 | 1 | 6'b100001 | 6'b000001 | 0 |
+| 95 | 0 | 1 | 6'b100010 | 6'b000001 | 0 |
+| 96 | 0 | 1 | 6'b100011 | 6'b000001 | 0 |
+| 97 | 0 | 1 | 6'b100100 | 6'b000001 | 0 |
+| 98 | 0 | 1 | 6'b100101 | 6'b000001 | 0 |
+| 99 | 0 | 1 | 6'b100110 | 6'b000001 | 0 |
+| 100 | 0 | 1 | 6'b100111 | 6'b000001 | 0 |
+| 101 | 0 | 1 | 6'b101000 | 6'b000001 | 0 |
+| 102 | 0 | 1 | 6'b101001 | 6'b000001 | 0 |
+| 103 | 0 | 1 | 6'b101010 | 6'b000001 | 0 |
+| 104 | 0 | 1 | 6'b101011 | 6'b000001 | 0 |
+| 105 | 0 | 1 | 6'b101100 | 6'b000001 | 0 |
+| 106 | 0 | 1 | 6'b101101 | 6'b000001 | 0 |
+| 107 | 0 | 1 | 6'b101110 | 6'b000001 | 0 |
+| 108 | 0 | 1 | 6'b101111 | 6'b000001 | 0 |
+| 109 | 0 | 1 | 6'b110000 | 6'b000001 | 0 |
+| 110 | 0 | 1 | 6'b110001 | 6'b000001 | 0 |
+| 111 | 0 | 1 | 6'b110010 | 6'b000001 | 0 |
+| 112 | 0 | 1 | 6'b110011 | 6'b000001 | 0 |
+| 113 | 0 | 1 | 6'b110100 | 6'b000001 | 0 |
+| 114 | 0 | 1 | 6'b110101 | 6'b000001 | 0 |
+| 115 | 0 | 1 | 6'b110110 | 6'b000001 | 0 |
+| 116 | 0 | 1 | 6'b110111 | 6'b000001 | 0 |
+| 117 | 0 | 1 | 6'b111000 | 6'b000001 | 0 |
+| 118 | 0 | 1 | 6'b111001 | 6'b000001 | 0 |
+| 119 | 0 | 1 | 6'b111010 | 6'b000001 | 0 |
+| 120 | 0 | 1 | 6'b111011 | 6'b000001 | 0 |
+| 121 | 0 | 1 | 6'b000000 | 6'b000010 | 0 |
+| 122 | 0 | 1 | 6'b000001 | 6'b000010 | 0 |
+| 123 | 0 | 1 | 6'b000010 | 6'b000010 | 0 |
+| 124 | 0 | 1 | 6'b000011 | 6'b000010 | 0 |
+| 125 | 0 | 1 | 6'b000100 | 6'b000010 | 0 |
+| 126 | 0 | 1 | 6'b000101 | 6'b000010 | 0 |
+| 127 | 0 | 1 | 6'b000110 | 6'b000010 | 0 |
+| 128 | 0 | 1 | 6'b000111 | 6'b000010 | 0 |
+| 129 | 0 | 1 | 6'b001000 | 6'b000010 | 0 |
+| 130 | 0 | 1 | 6'b001001 | 6'b000010 | 0 |
+| 131 | 0 | 1 | 6'b001010 | 6'b000010 | 0 |
+| 132 | 0 | 1 | 6'b001011 | 6'b000010 | 0 |
+| 133 | 0 | 1 | 6'b001100 | 6'b000010 | 0 |
+| 134 | 0 | 1 | 6'b001101 | 6'b000010 | 0 |
+| 135 | 0 | 1 | 6'b001110 | 6'b000010 | 0 |
+| 136 | 0 | 1 | 6'b001111 | 6'b000010 | 0 |
+| 137 | 0 | 1 | 6'b010000 | 6'b000010 | 0 |
+| 138 | 0 | 1 | 6'b010001 | 6'b000010 | 0 |
+| 139 | 0 | 1 | 6'b010010 | 6'b000010 | 0 |
+| 140 | 0 | 1 | 6'b010011 | 6'b000010 | 0 |
+| 141 | 0 | 1 | 6'b010100 | 6'b000010 | 0 |
+| 142 | 0 | 1 | 6'b010101 | 6'b000010 | 0 |
+| 143 | 0 | 1 | 6'b010110 | 6'b000010 | 0 |
+| 144 | 0 | 1 | 6'b010111 | 6'b000010 | 0 |
+| 145 | 0 | 1 | 6'b011000 | 6'b000010 | 0 |
+| 146 | 0 | 1 | 6'b011001 | 6'b000010 | 0 |
+| 147 | 0 | 1 | 6'b011010 | 6'b000010 | 0 |
+| 148 | 0 | 1 | 6'b011011 | 6'b000010 | 0 |
+| 149 | 0 | 1 | 6'b011100 | 6'b000010 | 0 |
+| 150 | 0 | 1 | 6'b011101 | 6'b000010 | 0 |
+| 151 | 0 | 1 | 6'b011110 | 6'b000010 | 0 |
+| 152 | 0 | 1 | 6'b011111 | 6'b000010 | 0 |
+| 153 | 0 | 1 | 6'b100000 | 6'b000010 | 0 |
+| 154 | 0 | 1 | 6'b100001 | 6'b000010 | 0 |
+| 155 | 0 | 1 | 6'b100010 | 6'b000010 | 0 |
+| 156 | 0 | 1 | 6'b100011 | 6'b000010 | 0 |
+| 157 | 0 | 1 | 6'b100100 | 6'b000010 | 0 |
+| 158 | 0 | 1 | 6'b100101 | 6'b000010 | 0 |
+| 159 | 0 | 1 | 6'b100110 | 6'b000010 | 0 |
+| 160 | 0 | 1 | 6'b100111 | 6'b000010 | 0 |
+| 161 | 0 | 1 | 6'b101000 | 6'b000010 | 0 |
+| 162 | 0 | 1 | 6'b101001 | 6'b000010 | 0 |
+| 163 | 0 | 1 | 6'b101010 | 6'b000010 | 0 |
+| 164 | 0 | 1 | 6'b101011 | 6'b000010 | 0 |
+| 165 | 0 | 1 | 6'b101100 | 6'b000010 | 0 |
+| 166 | 0 | 1 | 6'b101101 | 6'b000010 | 0 |
+| 167 | 0 | 1 | 6'b101110 | 6'b000010 | 0 |
+| 168 | 0 | 1 | 6'b101111 | 6'b000010 | 0 |
+| 169 | 0 | 1 | 6'b110000 | 6'b000010 | 0 |
+| 170 | 0 | 1 | 6'b110001 | 6'b000010 | 0 |
+| 171 | 0 | 1 | 6'b110010 | 6'b000010 | 0 |
+| 172 | 0 | 1 | 6'b110011 | 6'b000010 | 0 |
+| 173 | 0 | 1 | 6'b110100 | 6'b000010 | 0 |
+| 174 | 0 | 1 | 6'b110101 | 6'b000010 | 0 |
+| 175 | 0 | 1 | 6'b110110 | 6'b000010 | 0 |
+| 176 | 0 | 1 | 6'b110111 | 6'b000010 | 0 |
+| 177 | 0 | 1 | 6'b111000 | 6'b000010 | 0 |
+| 178 | 0 | 1 | 6'b111001 | 6'b000010 | 0 |
+| 179 | 0 | 1 | 6'b111010 | 6'b000010 | 0 |
+| 180 | 0 | 1 | 6'b111011 | 6'b000010 | 0 |
+| 181 | 0 | 1 | 6'b000000 | 6'b000011 | 0 |
+| 182 | 0 | 1 | 6'b000001 | 6'b000011 | 0 |
+| 183 | 0 | 1 | 6'b000010 | 6'b000011 | 0 |
+| 184 | 0 | 1 | 6'b000011 | 6'b000011 | 0 |
+
+### stimulus 6
+| cycle | reset | start_stop | seconds | minutes | hour |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 0 | 0 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 0 | 1 | 6'b000000 | 6'b000000 | 0 |
+| 3 | 0 | 1 | 6'b000001 | 6'b000000 | 0 |
+
+### stimulus 7
+| cycle | reset | start_stop | seconds | minutes | hour |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 0 | 1 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 0 | 0 | 6'b000001 | 6'b000000 | 0 |
+| 3 | 0 | 1 | 6'b000001 | 6'b000000 | 0 |
+| 4 | 0 | 0 | 6'b000010 | 6'b000000 | 0 |
+| 5 | 0 | 1 | 6'b000010 | 6'b000000 | 0 |

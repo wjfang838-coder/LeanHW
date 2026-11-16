@@ -1,0 +1,299 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a System Verilog module that performs division using the restoring division algorithm. The restoring division algorithm is a method used for binary division in computer architecture. It involves repeatedly subtracting the divisor from the dividend and restoring the partial remainder if the result is negative. The module efficiently handles division between two unsigned integers (dividend and divisor) and provides outputs for both quotient and remainder. The design supports varying input widths specified by the WIDTH parameter.
+
+
+### Interface: `restoring_division`
+
+### Parameter:
+- `WIDTH` (default value = 6): Defines the bit-width of the dividend and divisor.
+
+### Inputs:
+- `clk`: Clock signal. All operations are synchronized with the rising edge of the clock.
+- `rst`: Reset signal (active-low asynchronous reset).
+- `start`: Start signal (active-high) to initiate the division process.
+- `[WIDTH-1:0] dividend`: The dividend input, `WIDTH` bits wide.
+- `[WIDTH-1:0] divisor`: The divisor input, `WIDTH` bits wide.
+
+### Outputs:
+- `[WIDTH-1:0] quotient`: The quotient of the division process;  `WIDTH` bits wide.
+- `[WIDTH-1:0] remainder`: The remainder of the division process, `WIDTH` bits wide.
+- `valid`: Valid signal (active-high) indicating the completion of the division operation.
+
+---
+
+## Specifications
+
+### Control Logic:
+The module processes a new pair of dividend and divisor inputs in each division cycle. New inputs can be supplied along with `start` signal only when the previous outputs have been provided, indicated by the `valid` going high for one clock cycles.
+
+### Division Process:
+
+#### Initialization:
+At the start of the division process:
+- The dividend is registered internally.
+- The remainder is initialized to zero.
+
+#### Shift and Subtract:
+1. At each iteration, the remainder is shifted left by one bit, and the next MSB of the dividend is appended to the remainder.
+2. The divisor is subtracted from the remainder to check if it can fit.
+   - If the most significant bit (MSB) of the subtraction result is 0, the quotient bit for this step is set to 1, and the result of the subtraction is kept as the new remainder.
+   - If the most significant bit (MSB) of the subtraction result is 1, the quotient bit for this step is set to 0, and the original remainder is restored by discarding the quotient bit.
+
+#### Completion:
+The division process must finish within `WIDTH` clock cycles if `WIDTH` is a power of 2 (2^n) to ensuring all data is processed; otherwise (if WIDTH is not a power of 2), it will take `WIDTH+1` clock cycles.
+
+### Reset Behavior:
+When `rst` is asserted (active-low asynchronous reset), the outputs clear to zero.
+
+### Output Validity:
+The correctness of the quotient and remainder is guaranteed for all valid inputs within the specified bit-width. 
+
+---
+
+## Edge Conditions:
+- The dividend must be strictly greater than or equal to the divisor.
+- Both dividend and divisor must be non-zero.
+
+---
+
+## Example
+**Parameters**:
+- WIDTH = 3
+
+- Dividend = 3'd7 (binary: 111)
+
+- Divisor = 3'd5 (binary: 101)
+
+**Initialization**:
+
+- Remainder = 000 (set to 0 initially)
+
+- Dividend = 111
+
+- Quotient is initially unknown and will be calculated over 3 iterations.
+
+- The division starts from the MSB of the dividend.
+
+**Iteration 1**:
+- Shift remainder left, append MSB of dividend (1):  
+  - Remainder = 001  
+  - Subtract 101: result is negative.  
+  - Quotient = 0-- (set bit to 0).
+
+**Iteration 2**:
+- Shift remainder left, append next dividend bit (1):  
+  - Remainder = 0011  
+  - Subtract 101: result is negative.  
+  - Quotient = 00- (set bit to 0).
+
+**Iteration 3**:
+- Shift remainder left, append final dividend bit (1):  
+  - Remainder = 0111  
+  - Subtract 101: result is positive.  
+  - Remainder = 0010  
+  - Quotient = 001 (set bit to 1).
+
+**Final Output**:
+- Quotient = 3'd1 (binary: 001)
+- Remainder = 3'd2 (binary: 010)
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a System Verilog module that performs division using the restoring division algorithm. The restoring division algorithm is a method used for binary division in computer architecture. It involves repeatedly subtracting the divisor from the dividend and restoring the partial remainder if the result is negative. The module efficiently handles division between two unsigned integers (dividend and divisor) and provides outputs for both quotient and remainder. The design supports varying input widths specified by the WIDTH parameter.
+
+Module and integration contract
+
+Module: restoring_division.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- start: input 1 bit.
+- dividend: input [WIDTH-1:0].
+- divisor: input [WIDTH-1:0].
+- quotient: output [WIDTH-1:0].
+- remainder: output [WIDTH-1:0].
+- valid: output 1 bit.
+
+Public parameters:
+-  WIDTH: default = 6.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+`rst` is active low and asynchronous. Assertion has priority over every other input and immediately makes `quotient` and `remainder` zero and `valid` low. Holding `rst` low preserves those values, cancels any transaction, and establishes idle state, zero processing position, zero captured operands, zero working arithmetic state, and low completion state. Reset release is not an update event and leaves the reset-established state and outputs unchanged.
+
+Before the first reset assertion, Q11 states exactly: "Before reset has ever been asserted, quotient has no established value and is hardware-unknown." Q14 states exactly: "Before reset has ever been asserted, remainder has no established value and is hardware-unknown." Q15 states exactly: "Before reset has ever been asserted, valid has no established value and is hardware-unknown." These scoped hardware-unknown requirements end when reset is first asserted. Thereafter all outputs are concrete, and release does not restore unknown values. On the first rising edge after release, an idle high `start` is accepted as E0; without such acceptance, the reset values remain.
+
+The WIDTH=6 table/model starts each stimulus from its declared power-up state. Stimuli beginning with asserted reset reach the model's reset state through that assertion before normal operation. Stimulus 3 deliberately observes the pre-reset state first. This finite setup neither imposes reset-before-use nor promises initialized hardware at power-up.
+
+A concrete reset/release witness is: before any reset assertion with `rst=1`, all three outputs are hardware-unknown under Q11, Q14, and Q15; asynchronous assertion `rst:1→0` immediately makes them `quotient=0`, `remainder=0`, and `valid=0` under the source reset clause and Q23; release `rst:0→1` changes none of them under Q18 and Q23. If `start=1` at the first later rising edge E0, that edge accepts the pre-edge operands and keeps all outputs zero. The next three rising edges E1, E2, and E3 perform the first three processing steps; `valid` remains low, public `remainder` remains zero, and `quotient` exposes the respective accumulated prefix. If `start=0` at E0, no transaction begins and all reset values remain. Thus reset assertion, release, and the first three active edges are distinct events.
+
+4. Timing.
+
+All ordinary state and output changes occur on rising `clk` edges; asynchronous active-low reset assertion is the sole exception. `quotient`, `remainder`, and `valid` are registered. Let E0 be a rising edge at which `rst` is high, `start` is high, and no transaction is in progress. E0 accepts the operands present before the edge, clears both result outputs, and makes `valid` low. E1 through EWIDTH are the WIDTH subsequent rising processing edges, representing WIDTH completed clock intervals after E0. Immediately after EWIDTH, the completed quotient, completed remainder, and high `valid` are published. Each registered post-edge value is computed from the operands, quotient, working remainder, and processing position that existed before that edge; advancement of the processing position on the same edge does not select the published value.
+
+`valid` is high for exactly one full clock cycle, from immediately after EWIDTH until EWIDTH+1. At EWIDTH+1 it becomes low. If `start` is high at EWIDTH+1, that idle edge is also E0 for a new transaction and clears the old results. A high `start` at E1 through EWIDTH, including the completion edge, is ignored and does not pause, restart, replace, or cancel the current transaction.
+
+Amendment under Q27, Q28, and Q29. The exact original clause is: "The division process must finish within `WIDTH` clock cycles if `WIDTH` is a power of 2 (2^n) to ensuring all data is processed; otherwise (if WIDTH is not a power of 2), it will take `WIDTH+1` clock cycles." Q27's certain answer law states exactly: "Active-low reset asynchronously sets quotient to zero; with pre-edge rows an accepted start clears it after the capture row, each of the next WIDTH rising edges appends one unsigned quotient bit, the completed quotient is first observable in the row after the final edge, remains held through completion and idle, and is cleared by reset or the edge accepting a restart." Q28's certain answer law states exactly: "Active-low reset asynchronously sets remainder to zero; with pre-edge rows an accepted start clears it after the capture row, it stays at that prior-port value throughout the WIDTH processing edges, the unsigned remainder is first observable in the row after the final edge, remains held through idle, and is cleared by reset or the edge accepting a restart." Q29's certain answer law states exactly: "Active-low rst asynchronously makes valid low, and release alone leaves it low. With rst high, let E0 be the rising clk edge accepting a request: valid is low immediately after E0. It remains low immediately after processing edges E1 through EWIDTH-1, becomes high immediately after the final processing edge EWIDTH, and returns low immediately after the next rising edge EWIDTH+1 unless reset is asserted; therefore a pre-edge row before EWIDTH sees low, the next pre-edge row sees high, and the row after EWIDTH+1 sees low. The high interval is one full clock cycle. Starts at E1 through EWIDTH are ignored and do not change this schedule; after EWIDTH, a request may be accepted at EWIDTH+1 if start is high, which clears the old pulse and begins the same timeline again, with its next high appearing after that new request's WIDTH processing edges." Within those answer scopes, the corrected law supersedes the original power-of-two distinction only for result publication and its completion indication: for every supported WIDTH, quotient, remainder, and `valid` complete after exactly WIDTH processing edges E1 through EWIDTH. Arithmetic, interface, reset, parameterization, and source legal-input conditions are unchanged.
+
+The finite Lean model is the concrete WIDTH=6 instance. Its interface has no physical clock input, and its full-cycle timebase represents one rising-edge opportunity per step. Row k is sampled after settling and before the represented transition; it denotes k times the interface `step_ns` after settling, using the interface `sample_offset_ns`, if those timing quantities are supplied, and never an implicit 10 ns tick. The transition after a row produces the state observed in the next row. A row with `rst` low models reset asserted and held through that observation and represented edge. This active-edge scenario does not represent every between-edge instant and does not restrict legal reset pulses or weaken the asynchronous reset obligation.
+
+5. Behaviour.
+
+Operands and arithmetic are unsigned. E0 captures the current WIDTH-bit `dividend` and `divisor`, initializes the WIDTH+1-bit working remainder to zero, and clears public quotient and remainder. Operand changes without an accepted idle `start`, during processing, during reset, or accompanying an ignored busy `start` have no effect on the transaction.
+
+At each processing edge, beginning with the captured dividend's MSB and proceeding toward its LSB, shift the WIDTH+1-bit unsigned working remainder left by one and append the selected dividend bit. In that WIDTH+1-bit expression context, subtract the zero-extended WIDTH-bit unsigned divisor. If the result is nonnegative, append one to the low end of the WIDTH-bit quotient and store the low WIDTH bits of the subtraction result as the next working remainder. Otherwise append zero and store the low WIDTH bits of the pre-subtraction shifted value. Truncation to WIDTH bits occurs only at those storage boundaries; the shift and comparison are not prematurely truncated to WIDTH bits.
+
+After E1 through EWIDTH, `quotient` exposes the accumulated quotient bits. It reaches the complete quotient at EWIDTH and retains it while idle until reset or the next accepted E0 clears it. Public `remainder` remains at the value established by reset or accepted E0 through EWIDTH-1, changes to the completed remainder at EWIDTH, and retains it while idle until reset or the next accepted E0 clears it.
+
+Amendment under Q9 and Q27. The exact original example clause is: "- Quotient is initially unknown and will be calculated over 3 iterations." Q9's certain answer law states exactly: "While valid is low, quotient is zeroed when a request is accepted, accumulates one unsigned quotient bit on each subsequent processing edge, retains the completed quotient while idle, and is zeroed by reset or the next accepted request." Q27's certain answer law states exactly: "Active-low reset asynchronously sets quotient to zero; with pre-edge rows an accepted start clears it after the capture row, each of the next WIDTH rising edges appends one unsigned quotient bit, the completed quotient is first observable in the row after the final edge, remains held through completion and idle, and is cleared by reset or the edge accepting a restart." Only within the example's quotient-initialization coordinate, the corrected law supersedes “initially unknown”: before E0 the power-up law may make quotient unknown, but immediately after the example's accepted E0 quotient is zero, after which its bits accumulate over the three processing iterations. The example operands, iteration arithmetic, and final result are unchanged.
+
+For the source-legal domain, both operands are nonzero and `dividend` is greater than or equal to `divisor`. Completion obeys unsigned Euclidean division: `dividend = quotient * divisor + remainder` and `remainder < divisor`. Certain scoped answers additionally determine behavior outside that source legal domain without changing the legal-domain restriction: an accepted dividend smaller than a nonzero divisor runs for WIDTH processing edges, publishes quotient zero and remainder equal to the dividend, and pulses `valid`; an accepted zero divisor runs for WIDTH processing edges and pulses `valid`, while the restoring law treats every subtraction by zero as fitting and therefore produces an all-ones WIDTH-bit quotient and a remainder equal to the dividend.
+
+Input and output laws follow. `clk`: with `rst` inactive, only rising edges accept or advance transactions; low and falling levels have no effect, while asynchronous reset assertion remains effective without a rising edge. `rst`: low has priority, asynchronously clears all outputs and cancels processing; holding low preserves reset state, and release alone has no output effect. `start`: high at an idle rising edge is E0 and accepts current operands; low has no acceptance effect; high at E1 through EWIDTH is ignored, including at completion; a new high may be accepted at EWIDTH+1. `dividend` and `divisor`: each is sampled only at E0 and otherwise has no effect; zero divisor retains the same WIDTH-edge cadence.
+
+`quotient`: reset or accepted E0 clears it, each processing edge appends one unsigned quotient bit computed from pre-edge state, EWIDTH publishes the completed value, and idle retains it. `remainder`: reset or accepted E0 clears it, its public value stays cleared during processing, EWIDTH publishes the completed unsigned remainder computed from pre-edge state, and idle retains it. `valid`: reset makes it low, release leaves it low, E0 through EWIDTH-1 leave it low, EWIDTH makes it high for one full cycle, and EWIDTH+1 makes it low; ignored busy starts do not alter that schedule.
+
+6. Worked trace.
+
+The evaluated trace is normative for its concrete WIDTH=6 active-edge scenarios and the pre-edge observation convention stated above.
+
+### stimulus 0
+| cycle | rst | start | dividend | divisor | quotient | remainder | valid |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000001 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 1 | 1 | 6'b111111 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 1 | 0 | 6'b111111 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+| 3 | 1 | 0 | 6'b111111 | 6'b000001 | 6'b000001 | 6'b000000 | 0 |
+| 4 | 1 | 0 | 6'b111111 | 6'b000001 | 6'b000011 | 6'b000000 | 0 |
+| 5 | 1 | 0 | 6'b111111 | 6'b000001 | 6'b000111 | 6'b000000 | 0 |
+| 6 | 1 | 0 | 6'b111111 | 6'b000001 | 6'b001111 | 6'b000000 | 0 |
+| 7 | 1 | 0 | 6'b111111 | 6'b000001 | 6'b011111 | 6'b000000 | 0 |
+| 8 | 1 | 0 | 6'b111111 | 6'b000001 | 6'b111111 | 6'b000000 | 1 |
+| 9 | 1 | 0 | 6'b000000 | 6'b100000 | 6'b111111 | 6'b000000 | 0 |
+| 10 | 1 | 1 | 6'b011111 | 6'b000011 | 6'b111111 | 6'b000000 | 0 |
+| 11 | 1 | 0 | 6'b011111 | 6'b000011 | 6'b000000 | 6'b000000 | 0 |
+
+### stimulus 1
+| cycle | rst | start | dividend | divisor | quotient | remainder | valid |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 6'b000000 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 1 | 1 | 6'b100000 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 1 | 0 | 6'b100000 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 3 | 1 | 0 | 6'b100000 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 4 | 1 | 0 | 6'b100000 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 5 | 1 | 0 | 6'b100000 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 6 | 1 | 0 | 6'b100000 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 7 | 1 | 0 | 6'b100000 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 8 | 1 | 0 | 6'b100000 | 6'b100000 | 6'b000001 | 6'b000000 | 1 |
+| 9 | 1 | 1 | 6'b100101 | 6'b000101 | 6'b000001 | 6'b000000 | 0 |
+| 10 | 1 | 0 | 6'b100101 | 6'b000101 | 6'b000000 | 6'b000000 | 0 |
+| 11 | 1 | 0 | 6'b100101 | 6'b000101 | 6'b000000 | 6'b000000 | 0 |
+| 12 | 1 | 0 | 6'b100101 | 6'b000101 | 6'b000000 | 6'b000000 | 0 |
+| 13 | 1 | 0 | 6'b100101 | 6'b000101 | 6'b000000 | 6'b000000 | 0 |
+| 14 | 1 | 0 | 6'b100101 | 6'b000101 | 6'b000001 | 6'b000000 | 0 |
+| 15 | 1 | 0 | 6'b100101 | 6'b000101 | 6'b000011 | 6'b000000 | 0 |
+| 16 | 1 | 0 | 6'b100101 | 6'b000101 | 6'b000111 | 6'b000010 | 1 |
+| 17 | 1 | 0 | 6'b000001 | 6'b111111 | 6'b000111 | 6'b000010 | 0 |
+
+### stimulus 2
+| cycle | rst | start | dividend | divisor | quotient | remainder | valid |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 6'b000000 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 1 | 1 | 6'b010001 | 6'b000011 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 1 | 0 | 6'b010001 | 6'b000011 | 6'b000000 | 6'b000000 | 0 |
+| 3 | 1 | 1 | 6'b111111 | 6'b000111 | 6'b000000 | 6'b000000 | 0 |
+| 4 | 1 | 0 | 6'b010001 | 6'b000011 | 6'b000000 | 6'b000000 | 0 |
+| 5 | 1 | 0 | 6'b010001 | 6'b000011 | 6'b000000 | 6'b000000 | 0 |
+| 6 | 1 | 0 | 6'b010001 | 6'b000011 | 6'b000001 | 6'b000000 | 0 |
+| 7 | 1 | 0 | 6'b010001 | 6'b000011 | 6'b000010 | 6'b000000 | 0 |
+| 8 | 1 | 0 | 6'b010001 | 6'b000011 | 6'b000101 | 6'b000010 | 1 |
+| 9 | 1 | 0 | 6'b010001 | 6'b000011 | 6'b000101 | 6'b000010 | 0 |
+
+### stimulus 3
+| cycle | rst | start | dividend | divisor | quotient | remainder | valid |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 6'b010101 | 6'b000100 | 6'x | 6'x | x |
+| 1 | 0 | 0 | 6'b010110 | 6'b000101 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 1 | 0 | 6'b010111 | 6'b000110 | 6'b000000 | 6'b000000 | 0 |
+| 3 | 1 | 1 | 6'b010111 | 6'b000110 | 6'b000000 | 6'b000000 | 0 |
+| 4 | 1 | 0 | 6'b010111 | 6'b000110 | 6'b000000 | 6'b000000 | 0 |
+| 5 | 0 | 1 | 6'b111111 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+| 6 | 1 | 0 | 6'b000001 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+| 7 | 1 | 1 | 6'b000001 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+
+### stimulus 4
+| cycle | rst | start | dividend | divisor | quotient | remainder | valid |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 6'b000000 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 1 | 1 | 6'b000000 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 1 | 0 | 6'b000000 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+| 3 | 1 | 0 | 6'b000000 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+| 4 | 1 | 0 | 6'b000000 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+| 5 | 1 | 0 | 6'b000000 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+| 6 | 1 | 0 | 6'b000000 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+| 7 | 1 | 0 | 6'b000000 | 6'b000001 | 6'b000000 | 6'b000000 | 0 |
+| 8 | 1 | 0 | 6'b000000 | 6'b000001 | 6'b000000 | 6'b000000 | 1 |
+
+### stimulus 5
+| cycle | rst | start | dividend | divisor | quotient | remainder | valid |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 6'b000000 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 1 | 1 | 6'b000001 | 6'b000000 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 1 | 0 | 6'b000001 | 6'b000000 | 6'b000000 | 6'b000000 | 0 |
+| 3 | 1 | 0 | 6'b000001 | 6'b000000 | 6'b000001 | 6'b000000 | 0 |
+| 4 | 1 | 0 | 6'b000001 | 6'b000000 | 6'b000011 | 6'b000000 | 0 |
+| 5 | 1 | 0 | 6'b000001 | 6'b000000 | 6'b000111 | 6'b000000 | 0 |
+| 6 | 1 | 0 | 6'b000001 | 6'b000000 | 6'b001111 | 6'b000000 | 0 |
+| 7 | 1 | 0 | 6'b000001 | 6'b000000 | 6'b011111 | 6'b000000 | 0 |
+| 8 | 1 | 0 | 6'b000001 | 6'b000000 | 6'b111111 | 6'b000001 | 1 |
+
+### stimulus 6
+| cycle | rst | start | dividend | divisor | quotient | remainder | valid |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 6'b000000 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 1 | 1 | 6'b000001 | 6'b111111 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 1 | 0 | 6'b000001 | 6'b111111 | 6'b000000 | 6'b000000 | 0 |
+| 3 | 1 | 0 | 6'b000001 | 6'b111111 | 6'b000000 | 6'b000000 | 0 |
+| 4 | 1 | 0 | 6'b000001 | 6'b111111 | 6'b000000 | 6'b000000 | 0 |
+| 5 | 1 | 0 | 6'b000001 | 6'b111111 | 6'b000000 | 6'b000000 | 0 |
+| 6 | 1 | 0 | 6'b000001 | 6'b111111 | 6'b000000 | 6'b000000 | 0 |
+| 7 | 1 | 0 | 6'b000001 | 6'b111111 | 6'b000000 | 6'b000000 | 0 |
+| 8 | 1 | 0 | 6'b000001 | 6'b111111 | 6'b000000 | 6'b000001 | 1 |
+
+### stimulus 7
+| cycle | rst | start | dividend | divisor | quotient | remainder | valid |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 6'b000000 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 1 | 1 | 6'b101101 | 6'b000110 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 1 | 0 | 6'b101101 | 6'b000110 | 6'b000000 | 6'b000000 | 0 |
+| 3 | 1 | 0 | 6'b101101 | 6'b000110 | 6'b000000 | 6'b000000 | 0 |
+| 4 | 1 | 0 | 6'b101101 | 6'b000110 | 6'b000000 | 6'b000000 | 0 |
+| 5 | 1 | 0 | 6'b101101 | 6'b000110 | 6'b000000 | 6'b000000 | 0 |
+| 6 | 1 | 0 | 6'b101101 | 6'b000110 | 6'b000001 | 6'b000000 | 0 |
+| 7 | 1 | 0 | 6'b101101 | 6'b000110 | 6'b000011 | 6'b000000 | 0 |
+| 8 | 1 | 0 | 6'b101101 | 6'b000110 | 6'b000111 | 6'b000011 | 1 |
+| 9 | 1 | 0 | 6'b011111 | 6'b001001 | 6'b000111 | 6'b000011 | 0 |
+
+### stimulus 8
+| cycle | rst | start | dividend | divisor | quotient | remainder | valid |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 6'b111111 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 1 | 1 | 1 | 6'b111111 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 2 | 1 | 0 | 6'b111111 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 3 | 1 | 0 | 6'b111111 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 4 | 1 | 0 | 6'b111111 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 5 | 1 | 0 | 6'b111111 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 6 | 1 | 0 | 6'b111111 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 7 | 1 | 0 | 6'b111111 | 6'b100000 | 6'b000000 | 6'b000000 | 0 |
+| 8 | 1 | 0 | 6'b111111 | 6'b100000 | 6'b000001 | 6'b011111 | 1 |

@@ -1,0 +1,88 @@
+Module and integration contract
+
+Module: comparator_4bit.
+Ports below are in exact declaration order:
+- A: input [3:0].
+- B: input [3:0].
+- A_greater: output 1 bit.
+- A_equal: output 1 bit.
+- A_less: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+The module has no reset input and no state elements. At power-up, including before any edge or reset event has occurred, all three outputs are already the defined combinational comparison of the current inputs: `A_greater` is 1 exactly when unsigned `A` is greater than unsigned `B`; `A_equal` is 1 exactly when `A` equals `B`; and `A_less` is 1 exactly when unsigned `A` is less than unsigned `B`. There is no first step after reset release because reset does not exist.
+
+Timing
+
+`A_greater`, `A_equal`, and `A_less` are combinational outputs with zero clock-cycle latency from both `A` and `B`. No output is a pulse or periodic signal, and the circuit has no clock, cycle period, or duty cycle. Its physical combinational propagation delay is not specified.
+
+The evaluated trace uses the interface observation timebase. Row k denotes k times `timing.step_ns` after settling, with the interface's `timing.sample_offset_ns`; it does not imply a 10 ns circuit clock. This observation convention does not create a circuit period or alter the combinational delay law.
+
+Behaviour
+
+Treat `A` and `B` as unsigned 4-bit binary values. For every possible pair of input values, `A_greater` is 1 exactly when `A > B` and is otherwise 0. For every possible pair, `A_equal` is 1 exactly when `A = B` and is otherwise 0. For every possible pair, `A_less` is 1 exactly when `A < B` and is otherwise 0.
+
+Exactly one of `A_greater`, `A_equal`, and `A_less` is 1 for every input pair. Both inputs have an immediate combinational effect with no mode or inactive level. Simultaneous changes, interruptions, and repeated transactions simply recompute all three relations from the current inputs. There is no capture, completion, hold, clear, restart, disabled-input behavior, result validity state, or retained result.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | A | B | A_greater | A_equal | A_less |
+|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b0000 | 0 | 1 | 0 |
+
+### stimulus 1
+| cycle | A | B | A_greater | A_equal | A_less |
+|---|---|---|---|---|---|
+| 0 | 4'b0001 | 4'b0000 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | A | B | A_greater | A_equal | A_less |
+|---|---|---|---|---|---|
+| 0 | 4'b0000 | 4'b0001 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | A | B | A_greater | A_equal | A_less |
+|---|---|---|---|---|---|
+| 0 | 4'b1111 | 4'b1111 | 0 | 1 | 0 |
+
+### stimulus 4
+| cycle | A | B | A_greater | A_equal | A_less |
+|---|---|---|---|---|---|
+| 0 | 4'b1111 | 4'b1000 | 1 | 0 | 0 |
+
+### stimulus 5
+| cycle | A | B | A_greater | A_equal | A_less |
+|---|---|---|---|---|---|
+| 0 | 4'b1000 | 4'b1111 | 0 | 0 | 1 |
+
+### stimulus 6
+| cycle | A | B | A_greater | A_equal | A_less |
+|---|---|---|---|---|---|
+| 0 | 4'b1000 | 4'b1000 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | A | B | A_greater | A_equal | A_less |
+|---|---|---|---|---|---|
+| 0 | 4'b0101 | 4'b0110 | 0 | 0 | 1 |
+
+### stimulus 8
+| cycle | A | B | A_greater | A_equal | A_less |
+|---|---|---|---|---|---|
+| 0 | 4'b0110 | 4'b0101 | 1 | 0 | 0 |
+
+### stimulus 9
+| cycle | A | B | A_greater | A_equal | A_less |
+|---|---|---|---|---|---|
+| 0 | 4'b0111 | 4'b0111 | 0 | 1 | 0 |

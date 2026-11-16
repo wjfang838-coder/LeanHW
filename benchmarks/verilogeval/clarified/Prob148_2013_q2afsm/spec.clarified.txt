@@ -1,0 +1,142 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- resetn: input 1 bit.
+- r: input [2:0].
+- g: output [2:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+-  C: default = 2.
+-  D: default = 3.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+resetn is an active-low synchronous reset, sampled only on a rising edge of clk. A rising edge that samples resetn low sets g to 3'b000 after that edge, regardless of r and regardless of the previous grant. Holding resetn low repeats this result on every rising edge. Asserting or releasing resetn between rising edges has no immediate effect.
+
+At power-up, before any rising edge has sampled resetn low, g is 3'bxxx. The implementation must leave this registered value uninitialised: it must not be given an initial block value or a declaration initialiser. Rising edges that sample resetn high before any reset edge preserve this unknown value.
+
+After reset has been sampled low, g is 3'b000. If resetn is then released, g remains 3'b000 until the first rising edge after release. That edge performs the normal request selection stated below; thus its post-edge value is 3'b001, 3'b010, 3'b100, or 3'b000 according to r. There is no other state element visible in this behavioral contract.
+
+4. Timing
+
+g is a registered output. It changes only after a rising edge of clk. Each rising edge samples resetn and r, and the resulting g is visible after that edge. Equivalently, a request sampled at an edge affects g with one edge-to-post-edge update latency; in the normative worked trace, which samples before each transition, that result appears in the next row. Changes of resetn or r at falling edges or static clock levels have no effect by themselves.
+
+The concrete object uses a full-cycle observation timebase. Row k denotes the settled pre-edge observation at k times the interface step interval, with the interface sample offset applied; it does not imply a 10 ns clock tick. The interface does not provide numeric step_ns or sample_offset_ns values. This observation convention is separate from the circuit law: the circuit responds on every rising edge of clk, and no absolute clock period or propagation delay is specified.
+
+g is not a pulse or a periodic signal. A nonzero grant remains asserted for any number of cycles while its matching request is sampled high, subject to reset.
+
+5. Behaviour
+
+Only the low three bits of r and the low bit of resetn participate in the concrete sampled behavior.
+
+On every rising edge, reset has priority. If resetn is low, the post-edge value of g is 3'b000.
+
+With resetn high and g equal to 3'b000, request priority is r[0], then r[1], then r[2]. The post-edge result is 3'b001 if r[0] is high; otherwise 3'b010 if r[1] is high; otherwise 3'b100 if r[2] is high; otherwise 3'b000. This law covers all eight encodings of r, including simultaneous requests.
+
+While requester 0 holds the grant, g is 3'b001 for every r value until a rising edge samples r[0] low. If r[0] is high at the edge, the post-edge value remains 3'b001. If r[0] is low, the post-edge value becomes 3'b000 regardless of r[1] and r[2].
+
+While requester 1 holds the grant, g is 3'b010 for every r value until a rising edge samples r[1] low. If r[1] is high at the edge, the post-edge value remains 3'b010. If r[1] is low, the post-edge value becomes 3'b000 regardless of r[0] and r[2].
+
+While requester 2 holds the grant, g is 3'b100 for every r value until a rising edge samples r[2] low. If r[2] is high at the edge, the post-edge value remains 3'b100. If r[2] is low, the post-edge value becomes 3'b000 regardless of r[0] and r[1].
+
+Clearing an existing grant never grants a different requester on the same edge. A new request can acquire the resource only on a later rising edge that begins with g equal to 3'b000. Every repeated rising edge applies these laws anew. Reset interrupts acquisition or retention with priority. Between rising edges, g retains the result of the most recent effective edge and is independent of instantaneous changes in r.
+
+6. Worked trace
+
+The following evaluated trace is normative. Each row observes g before that row's rising-edge transition; row k is the observation at k times the configured full-cycle step interval after settling, subject to the configured sample offset.
+
+### stimulus 0
+| cycle | resetn | r | g |
+|---|---|---|---|
+| 0 | 0 | 3'b000 | 3'x |
+| 1 | 1 | 3'b001 | 3'b000 |
+| 2 | 1 | 3'b000 | 3'b001 |
+| 3 | 1 | 3'b000 | 3'b000 |
+
+### stimulus 1
+| cycle | resetn | r | g |
+|---|---|---|---|
+| 0 | 0 | 3'b111 | 3'x |
+| 1 | 1 | 3'b010 | 3'b000 |
+| 2 | 1 | 3'b010 | 3'b010 |
+| 3 | 1 | 3'b000 | 3'b010 |
+| 4 | 1 | 3'b000 | 3'b000 |
+
+### stimulus 2
+| cycle | resetn | r | g |
+|---|---|---|---|
+| 0 | 0 | 3'b000 | 3'x |
+| 1 | 1 | 3'b100 | 3'b000 |
+| 2 | 1 | 3'b100 | 3'b100 |
+| 3 | 1 | 3'b000 | 3'b100 |
+| 4 | 1 | 3'b000 | 3'b000 |
+
+### stimulus 3
+| cycle | resetn | r | g |
+|---|---|---|---|
+| 0 | 0 | 3'b000 | 3'x |
+| 1 | 1 | 3'b011 | 3'b000 |
+| 2 | 1 | 3'b011 | 3'b001 |
+| 3 | 1 | 3'b010 | 3'b001 |
+| 4 | 1 | 3'b000 | 3'b000 |
+
+### stimulus 4
+| cycle | resetn | r | g |
+|---|---|---|---|
+| 0 | 0 | 3'b000 | 3'x |
+| 1 | 1 | 3'b101 | 3'b000 |
+| 2 | 1 | 3'b100 | 3'b001 |
+| 3 | 1 | 3'b000 | 3'b000 |
+
+### stimulus 5
+| cycle | resetn | r | g |
+|---|---|---|---|
+| 0 | 0 | 3'b000 | 3'x |
+| 1 | 1 | 3'b110 | 3'b000 |
+| 2 | 1 | 3'b010 | 3'b010 |
+| 3 | 1 | 3'b000 | 3'b010 |
+
+### stimulus 6
+| cycle | resetn | r | g |
+|---|---|---|---|
+| 0 | 0 | 3'b000 | 3'x |
+| 1 | 1 | 3'b111 | 3'b000 |
+| 2 | 1 | 3'b111 | 3'b001 |
+| 3 | 1 | 3'b000 | 3'b001 |
+
+### stimulus 7
+| cycle | resetn | r | g |
+|---|---|---|---|
+| 0 | 0 | 3'b001 | 3'x |
+| 1 | 1 | 3'b001 | 3'b000 |
+| 2 | 0 | 3'b010 | 3'b001 |
+| 3 | 1 | 3'b010 | 3'b000 |
+| 4 | 1 | 3'b000 | 3'b010 |
+
+### stimulus 8
+| cycle | resetn | r | g |
+|---|---|---|---|
+| 0 | 0 | 3'b000 | 3'x |
+| 1 | 1 | 3'b001 | 3'b000 |
+| 2 | 1 | 3'b000 | 3'b001 |
+| 3 | 1 | 3'b001 | 3'b000 |
+| 4 | 1 | 3'b000 | 3'b001 |
+| 5 | 1 | 3'b000 | 3'b000 |
+
+### stimulus 9
+| cycle | resetn | r | g |
+|---|---|---|---|
+| 0 | 1 | 3'b000 | 3'x |
+| 1 | 1 | 3'b100 | 3'x |
+| 2 | 1 | 3'b000 | 3'x |
+| 3 | 1 | 3'b010 | 3'x |

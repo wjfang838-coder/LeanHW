@@ -1,0 +1,110 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- load: input 1 bit.
+- ena: input [1:0].
+- data: input [99:0].
+- q: output [99:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+The module has no reset input and no reset behavior. At power-up, before any rising clock edge with load asserted has occurred, q is unknown. It remains unknown across rising edges that request hold or rotation while the prior value is unknown. The implementation must leave q uninitialised: no initial block or declaration initialiser may give it a defined power-up value. The first rising clock edge with load=1 defines q by capturing data; there is no reset-release step or separate first-step behavior.
+
+4. Timing
+
+clk is the clock, and only its rising edge changes q. Static clock levels and falling edges have no effect. load, ena, and data are synchronous inputs: changing any of them away from a rising edge has no immediate effect.
+
+q is a registered output. Each rising edge computes its new value from load, ena, data, and the value of q immediately before that edge. The new q is observable immediately after that edge and remains unchanged until a later rising edge. Thus a load has one edge-to-state-update latency and no additional pipeline-cycle latency. There are no pulse outputs, completion phases, periodic outputs, or autonomous delay laws.
+
+For the normative evaluated trace below, each row samples q before the rising-edge transition represented by that row, and the next row shows the result of that transition. Rows represent successive full-cycle rising-edge opportunities; they do not imply an arbitrary 10 ns clock period. The interface does not specify a physical clock period, step duration, or sampling offset.
+
+5. Behaviour
+
+On every rising edge, load has priority over ena. If load=1, q becomes the current 100-bit data value regardless of ena. Consecutive rising edges with load=1 each capture the data value present at that edge, and a loaded edge interrupts any sequence of rotations.
+
+If load=0 and ena=2'b01, q rotates right by exactly one bit: prior q[0] becomes new q[99], and each prior q bit from q[99:1] moves to new q[98:0]. Repeated eligible rising edges repeat this rotation.
+
+If load=0 and ena=2'b10, q rotates left by exactly one bit: prior q[99] becomes new q[0], and each prior q bit from q[98:0] moves to new q[99:1]. Repeated eligible rising edges repeat this rotation.
+
+If load=0 and ena is 2'b00 or 2'b11, q retains its prior value. These four encodings exhaust every value of ena. When load=0, data has no effect for any ena value. When load=1, ena has no effect for any ena value.
+
+Before q has first been defined by a loaded rising edge, a hold or either rotation leaves q unknown. After q is defined, it remains defined through every load, hold, and rotation. Every rising edge independently applies the then-current inputs, so repeated operations require no restart and any operation may be interrupted by load. There is no completion signal, clear interval, transaction state, cancellation phase, or terminal state.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete 100-bit sampled instance and uses the pre-edge observation convention stated above.
+
+### stimulus 0
+| cycle | load | ena | data | q |
+|---|---|---|---|---|
+| 0 | 0 | 2'b00 | 100'h0 | 100'x |
+| 1 | 1 | 2'b00 | 100'h0 | 100'x |
+| 2 | 0 | 2'b01 | 100'h0 | 100'h0 |
+| 3 | 0 | 2'b10 | 100'h0 | 100'h0 |
+| 4 | 0 | 2'b11 | 100'h0 | 100'h0 |
+
+### stimulus 1
+| cycle | load | ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b00 | 100'h1 | 100'x |
+| 1 | 0 | 2'b01 | 100'h0 | 100'h1 |
+| 2 | 0 | 2'b01 | 100'h0 | 100'h8000000000000000000000000 |
+| 3 | 0 | 2'b00 | 100'h0 | 100'h4000000000000000000000000 |
+
+### stimulus 2
+| cycle | load | ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b00 | 100'h1 | 100'x |
+| 1 | 0 | 2'b10 | 100'h0 | 100'h1 |
+| 2 | 0 | 2'b10 | 100'h0 | 100'h2 |
+| 3 | 0 | 2'b11 | 100'h0 | 100'h4 |
+
+### stimulus 3
+| cycle | load | ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b00 | 100'hfffffffffffffffffffffffff | 100'x |
+| 1 | 0 | 2'b01 | 100'h0 | 100'hfffffffffffffffffffffffff |
+| 2 | 0 | 2'b10 | 100'h0 | 100'hfffffffffffffffffffffffff |
+
+### stimulus 4
+| cycle | load | ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b00 | 100'h8000000000000000000000000 | 100'x |
+| 1 | 0 | 2'b01 | 100'h0 | 100'h8000000000000000000000000 |
+| 2 | 0 | 2'b10 | 100'h0 | 100'h4000000000000000000000000 |
+
+### stimulus 5
+| cycle | load | ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b00 | 100'h1e8abfd59a61083ddaadf1330 | 100'x |
+| 1 | 0 | 2'b00 | 100'h0 | 100'h1e8abfd59a61083ddaadf1330 |
+| 2 | 0 | 2'b11 | 100'h0 | 100'h1e8abfd59a61083ddaadf1330 |
+
+### stimulus 6
+| cycle | load | ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b01 | 100'h1 | 100'x |
+| 1 | 1 | 2'b10 | 100'h8000000000000000000000000 | 100'h1 |
+| 2 | 0 | 2'b01 | 100'h0 | 100'h8000000000000000000000000 |
+| 3 | 0 | 2'b10 | 100'h0 | 100'h4000000000000000000000000 |
+
+### stimulus 7
+| cycle | load | ena | data | q |
+|---|---|---|---|---|
+| 0 | 1 | 2'b00 | 100'h5 | 100'x |
+| 1 | 0 | 2'b01 | 100'h0 | 100'h5 |
+| 2 | 0 | 2'b01 | 100'h0 | 100'h8000000000000000000000002 |
+| 3 | 1 | 2'b00 | 100'ha | 100'h4000000000000000000000001 |
+| 4 | 0 | 2'b10 | 100'h0 | 100'ha |
+| 5 | 0 | 2'b10 | 100'h0 | 100'h14 |

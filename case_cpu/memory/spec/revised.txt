@@ -1,0 +1,105 @@
+Native-memory five-stage CPU: frozen case contract (revision 1)
+
+R01 Scope. A positive-edge, two-state RV32 arithmetic/load-store stream processor.
+There is data RAM, but no instruction RAM, branch/jump, CSR, cache, MMIO, interrupts,
+virtual memory or multiple outstanding memory operations. This is an explicitly
+bounded ISA subset, not a complete compliant RISC-V processor. Instructions enter
+through a valid/ready interface. The instruction PC is the logical in-order PC;
+each successful instruction advances it by four modulo 2^32.
+
+R02 Instructions (38). ADD SUB SLL SLT SLTU XOR SRL SRA OR AND; ADDI SLTI SLTIU
+XORI ORI ANDI SLLI SRLI SRAI LUI AUIPC; MUL MULH MULHSU MULHU DIV DIVU REM REMU;
+LB LH LW LBU LHU SB SH SW FENCE. Strict decoding rejects unsupported encodings:
+ready is zero, with no acceptance or architectural effect. FENCE accepts opcode
+0x0f, funct3=0, rd=0, rs1=0 and ignores the remaining fence fields. It performs the
+serialization of R08 and has no data or register effect. No FENCE.I is supported.
+
+R03 Registers/arithmetic. There are 32 32-bit registers; x0 always reads zero and
+writes to it are discarded. reg_init packs register r at [32*r +:32]. Operations
+wrap to 32 bits; shifts use five bits. Signed operations use two's complement.
+DIV/DIVU by zero return all ones; REM/REMU return the dividend. Signed min/-1
+returns min for DIV and zero for REM. AUIPC uses this instruction's logical PC.
+The arithmetic semantics are the original case_cpu ISA semantics, unchanged.
+
+R04 Data memory. A native 256-word x 32-bit RAM represents byte addresses 0..1023.
+Initial words are arbitrary. Byte order is little endian. Effective address is
+rs1+sign-extended immediate modulo 2^32. LB/LH sign extend 8/16 bits; LBU/LHU zero
+extend; LW returns all 32 bits. SB/SH/SW update exactly 1/2/4 bytes. Every other
+byte and every other word is preserved. Byte lanes are selected by address[1:0].
+A store changes RAM only on its successful WB retirement edge; a load samples
+RAM on its MEM-to-WB transfer edge. All RAM reads on an edge observe pre-edge
+contents; the write becomes visible after that edge. debug_mem_addr indexes a
+word, not a byte. Unaligned accesses never cross words: they fault under R05.
+
+R05 Precise access faults. Code 0 means no fault. Misaligned halfword/word load
+has code 1; misaligned halfword/word store code 2. Otherwise, address >=1024 has
+code 3 for a load and 4 for a store. Alignment takes priority over range. Byte
+accesses have no alignment fault. A faulting packet retires once with trap_valid,
+its cause, no register/RAM update, no PC increment, and zero result. It sets a
+sticky halt/cause and aborts every younger accepted packet. Halt stops acceptance
+and retirement until reset. There is no exception handler or privileged trap PC.
+The retained arch_pc is the faulting instruction's PC.
+
+R06 Reset. Synchronous reset has priority over retirement, stores, traps and
+acceptance. It empties all stages, zeros PC/cause/counters and both countdowns,
+reloads registers from reg_init with x0 forced zero, and preserves every RAM word.
+A store that had not retired before the reset edge is aborted. Reset may recur
+at any time. The formal initial relation relates the ISA RAM to the same arbitrary
+native RAM, rather than assuming the RAM is zero.
+
+R07 Stages and edge order. IF holds the input encoding; ID holds a decoded-ready
+encoding; EX holds the packet and an execution countdown; MEM holds the packet
+and memory countdown; WB holds retirement data. In one edge: retire old WB,
+advance MEM, advance EX, dispatch ID, move IF to ID, then accept input, each using
+the space freed by earlier phases. Each stage holds at most one packet. Inactive
+payload bits have no architectural meaning. Fresh acceptance never executes on
+the same edge. Nonblocking assignments implement the resulting next state.
+
+R08 Hazards and serialization. Arithmetic operations overlap. Dispatch forwards
+older WB then younger MEM results and uses the forwarded logical PC. Loads,
+stores and FENCE dispatch only when EX/MEM/WB are empty, and any such packet in
+the backend prevents younger dispatch until it retires. IF/ID can still buffer
+work. This interlock ensures a load's anticipated value in the abstract cycle
+spec remains the same as the later physical MEM read. No store queue or memory
+bypass is claimed. Fault retirement flushes all younger work.
+
+R09 Stalls/latency. Five independent inputs stall their named source stages.
+stall_fetch prevents acceptance; stall_decode prevents ID dispatch;
+stall_execute freezes EX progress/departure; stall_memory freezes MEM progress/
+departure; stall_writeback prevents retirement. Downstream backpressure propagates
+through full stages; free stages can absorb work. EX latency L is 3 for multiply,
+34 for divide/remainder, 1 otherwise. Dispatch stores L-1; later unblocked EX
+edges decrement a positive count, or transfer if the old count is zero and MEM
+is free. The ALU itself is combinational; countdowns do not implement iterative
+arithmetic. On a barrier's EX-to-MEM transfer, memory_delay is sampled once into
+a four-bit counter. Later unblocked MEM edges decrement it; transfer occurs when
+the old count is zero and WB is free. Later changes to memory_delay do not alter
+an existing request. Arithmetic uses zero MEM delay.
+
+R10 Interface observations. Acceptance is insn_valid && insn_ready. Retirement
+signals describe the old WB packet before the committing edge. Reset or halt
+suppresses retire_valid; writeback stall suppresses it too. A trapping packet
+also asserts retire_valid. retire_store is true only for successful stores;
+retire_address/data/mask are meaningful for memory operations, with data/mask
+as the aligned 32-bit shifted word lanes. Non-memory address/data diagnostics
+are not architectural ISA results. Store/FENCE/trap retire_rd and retire_value
+are zero; loads and ALU expose their decoded destination and result (including
+an ignored write to x0). debug_reg_data observes the committed RF with x0 zero.
+occupancy uses bits IF/ID/EX/MEM/WB. No architectural theorem about unspecified
+inactive or non-memory diagnostics is implied.
+
+R11 Counters. Twelve wrapping 32-bit diagnostic counters, reset to zero:
+0 cycles (every nonreset edge, including halt); 1 retired; 2 successful loads;
+3 successful stores; 4 traps; 5..9 valid-stage edges with the corresponding
+external fetch/decode/execute/memory/writeback stall; 10 valid MEM edges with
+nonzero memory countdown; 11 otherwise dispatchable ID edges blocked by the
+serialization rule. debug_counter_addr 12..15 returns zero. These counters do
+not affect instruction execution. Simulation checks them; the ISA refinement
+projects them away. Their cycle equations are present in the imported RTL AST.
+
+R12 Proof contract. Safety refinement allows arbitrary stall/delay/data/encoding
+streams and repeated reset. No fairness or unconditional completion bound is
+assumed. Accepted work may stay blocked forever. After a fault, younger work is
+explicitly aborted; reset also aborts outstanding work. Transaction-level proof
+must be distinguished from actual imported-RTL refinement. PDR is the separate
+Yosys/ABC pdr baseline; timeout, synthesis failure and proof are distinct outcomes.

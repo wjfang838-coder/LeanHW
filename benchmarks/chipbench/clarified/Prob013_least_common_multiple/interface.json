@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob013_least_common_multiple",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_comparator_0001",
+  "toplevel": "signed_unsigned_comparator",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

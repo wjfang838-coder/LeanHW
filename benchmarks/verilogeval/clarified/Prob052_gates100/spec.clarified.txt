@@ -1,0 +1,81 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input [99:0].
+- out_and: output 1 bit.
+- out_or: output 1 bit.
+- out_xor: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+The module has no reset input and no state elements. From power-up, including before any edge or other event has occurred, every output has its definite combinational value for the current input. There is no reset assertion, reset edge, or reset release, so no output has a distinct reset or first-step-after-release value.
+
+Timing
+
+All three outputs are combinational and continuously reflect the current 100-bit input `in` with zero clock-cycle latency. There is no clock, capture edge, pulse, periodic output, hold interval, or completion event.
+
+The evaluated trace uses the interface observation cadence: row k denotes k × `timing.step_ns` after settling, with sampling at `timing.sample_offset_ns`. This observation convention does not imply a 10 ns clock tick and is separate from the circuit itself, which has no clock period or sequential delay law.
+
+Behaviour
+
+At all times, every bit of the 100-bit input `in` participates simultaneously in all three reductions. There are no inactive levels, modes, transactions, interruptions, cancellations, retained effects, or restart behavior.
+
+`out_and` is the reduction AND of all 100 bits of `in`: it is 1 exactly when every bit of `in` is 1, and it is 0 otherwise. It continuously reflects the current input with no reset, capture edge, observation latency, hold interval, or clear interval.
+
+`out_or` is the reduction OR of all 100 bits of `in`: it is 1 exactly when at least one bit of `in` is 1, and it is 0 exactly when every bit is 0. It continuously reflects the current input with no reset, capture edge, observation latency, hold interval, or clear interval.
+
+`out_xor` is the reduction XOR of all 100 bits of `in`: it is 1 exactly when `in` contains an odd number of 1 bits, and it is 0 when that count is even. It continuously reflects the current input with no reset, capture edge, observation latency, hold interval, or clear interval.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | out_and | out_or | out_xor |
+|---|---|---|---|---|
+| 0 | 100'h0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | in | out_and | out_or | out_xor |
+|---|---|---|---|---|
+| 0 | 100'h1 | 0 | 1 | 1 |
+
+### stimulus 2
+| cycle | in | out_and | out_or | out_xor |
+|---|---|---|---|---|
+| 0 | 100'hfffffffffffffffffffffffff | 1 | 1 | 0 |
+
+### stimulus 3
+| cycle | in | out_and | out_or | out_xor |
+|---|---|---|---|---|
+| 0 | 100'h8000000000000000000000000 | 0 | 1 | 1 |
+
+### stimulus 4
+| cycle | in | out_and | out_or | out_xor |
+|---|---|---|---|---|
+| 0 | 100'h2a | 0 | 1 | 1 |
+
+### stimulus 5
+| cycle | in | out_and | out_or | out_xor |
+|---|---|---|---|---|
+| 0 | 100'h3 | 0 | 1 | 0 |
+
+### stimulus 6
+| cycle | in | out_and | out_or | out_xor |
+|---|---|---|---|---|
+| 0 | 100'hffffffffffffffffffffffffe | 0 | 1 | 1 |
+
+### stimulus 7
+| cycle | in | out_and | out_or | out_xor |
+|---|---|---|---|---|
+| 0 | 100'h8000000000000000000000001 | 0 | 1 | 0 |

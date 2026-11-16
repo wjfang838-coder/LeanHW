@@ -1,0 +1,29 @@
+RV32 arithmetic CPU: two-level refinement certificate
+Evidence: evidence/bridge/20261020T115530796334Z
+RTL SHA-256: 5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6
+Status: PROVED (unbounded safety over arbitrary finite traces).
+
+Fresh Yosys/symbolic import: exact text match with the proved AST.
+341 combinational nodes; 19 state groups / 1419 state bits.
+All five choice ports (210 bits) remain arbitrary and universally quantified.
+One initial synchronous reset; arbitrary later words, seeds, stalls and resets.
+
+rtl_cycle_refinement: real imported core.step -> frozen cycle LeanSpec.
+rtl_isa_refinement: compose cycle model -> transaction ISA.
+rtl_isa_physical_events: ISA reference consumes actual RTL retirement outputs.
+rtl_conservation: physical retirements + pending = initial pending + physical acceptances.
+rtl_drained_refinement: execute exactly all physically accepted instructions once drained.
+Retirement PC/result and architectural PC/debug observations are connected to real ports.
+
+Full certificate replay: 330.907s; this excludes proof-development time.
+Native certificate dependencies in the audited theorem set: 18.
+No sorryAx, assumed step equivalence, fixed program, fixed choices or simulation premises.
+Trust: Lean/standard axioms; native LRAT/finite checks; Yosys/symbolic frontend.
+This is explicitly NOT a native-axiom-free or frontend-correctness proof.
+
+Unchanged ABC PDR full result: pdr_timeout at its recorded budget.
+The Lean proof does not change PDR timeout into PDR success.
+No liveness/fairness theorem or fair speedup comparison is claimed.
+
+Reproduce: python3 case_cpu/scripts/bridge.py
+Verify this summary: python3 case_cpu/scripts/bridge_report.py

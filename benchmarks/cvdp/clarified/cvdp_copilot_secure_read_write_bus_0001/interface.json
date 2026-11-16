@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_secure_read_write_bus_0001",
+  "toplevel": "secure_read_write_bus_interface",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

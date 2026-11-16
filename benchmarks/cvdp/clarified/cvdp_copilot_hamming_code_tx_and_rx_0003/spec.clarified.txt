@@ -1,0 +1,115 @@
+Original implementation instruction (verbatim):
+
+Design a SystemVerilog module named `hamming_code_receiver` that decodes an 8-bit input signal and detects single-bit errors using Hamming code principles. The receiver performs "even parity checks" to identify any single-bit errors in `data_in` and provides corrected 4-bit data to output port `data_out[3:0]` 
+
+Named module interface binding
+
+Module: hamming_code_receiver.
+Connect ports by name. The enumeration below does not establish positional order.
+- data_in: input; 8 bits in the concrete formal instance.
+- data_out: output; 4 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is hamming_code_receiver. There are no public parameters.
+
+The ports are listed below in the declaration presentation order recorded by the original prose and iface.json:
+
+data_in: input, 8 bits, spelled data_in[7:0].
+data_out: output, 4 bits, spelled data_out[3:0].
+
+The integration answer confirms the exact names, directions, and widths and requires named boundary connections. It does not verify positional declaration order. Therefore, port order is not normative, and the module must be instantiated by name.
+
+3. Reset.
+
+There is no reset port and no stored state, so reset polarity, synchronization, assertion, release, and a first step after release do not apply. At power-up, including before any reset or clock edge has occurred, data_out is the combinational result for the current data_in as defined below. It has no separate initialization value.
+
+4. Timing.
+
+data_out is combinational, has zero clock-cycle latency from data_in, and updates immediately when data_in changes. The module has no pulses, periodic outputs, clock, circuit period, or duty cycle.
+
+The worked trace uses the interface's full-cycle observation convention only as a sampling grid. Row k observes the settled combinational result for that row's input before the stateless step. The interface specifies neither timing.step_ns nor timing.sample_offset_ns, so the grid does not imply a 10 ns clock tick, circuit period, or propagation delay. The unclear answers' observation at 10 ns does not override the original immediate combinational timing law.
+
+5. Behaviour.
+
+data_in[7:1] is the seven-bit Hamming word. data_in[0] is the extra redundant bit; it is not checked, corrected, or included in data_out. Positions 1, 2, and 4 are parity bits data_in[1], data_in[2], and data_in[4]. Positions 3, 5, 6, and 7 are data bits data_in[3], data_in[5], data_in[6], and data_in[7], in that order.
+
+The three even-parity checks are:
+
+c3 = data_in[1] XOR data_in[3] XOR data_in[5] XOR data_in[7].
+c2 = data_in[2] XOR data_in[3] XOR data_in[6] XOR data_in[7].
+c1 = data_in[4] XOR data_in[5] XOR data_in[6] XOR data_in[7].
+
+Each check result is 1 when its checked group has odd parity and 0 when that group has even parity. Interpret {c1,c2,c3} as a three-bit binary position, with c1 most significant and c3 least significant. Complete syndrome 000 means no error in positions 1 through 7, so those positions pass unchanged. Each complete nonzero syndrome from 001 through 111 selects the identically numbered position from 1 through 7; invert that selected bit and leave every other position unchanged. Thus parity-bit errors at positions 1, 2, and 4 are corrected without changing the extracted data, and data-bit errors at positions 3, 5, 6, and 7 are corrected before extraction.
+
+After correction, data_out[0] is position 3, data_out[1] is position 5, data_out[2] is position 6, and data_out[3] is position 7. Equivalently, from most significant to least significant bit, data_out is {corrected data_in[7], corrected data_in[6], corrected data_in[5], corrected data_in[3]}. When the complete syndrome is 000, these data bits mirror the corresponding input bits unchanged.
+
+For every 8-bit data_in, these equations and the complete-syndrome correction rule determine data_out immediately and independently of earlier input values. This includes bit patterns that are not valid single-error corruptions. The correction guarantee assumes the input contains only a single-bit error; no correction guarantee is made for multiple-bit corruption. An uncorrupted word remains covered by the explicit complete-syndrome 000 case.
+
+The unclear rule@input.data_in answer proposes a different generated-codeword layout that conflicts with the original bit placement, so it establishes no alternate layout or exception. The unclear rule@output.data_out answer establishes no registered latency, initialization, hold, clearing, interruption, or behavior outside its sampled observation. Neither unclear answer authorizes an unknown output; the original laws above control those scopes.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete 8-bit interface instance and uses the observation convention stated in section 4.
+
+### stimulus 0
+| cycle | data_in | data_out |
+|---|---|---|
+| 0 | 8'b00000000 | 4'b0000 |
+| 1 | 8'b00000001 | 4'b0000 |
+
+### stimulus 1
+| cycle | data_in | data_out |
+|---|---|---|
+| 0 | 8'b00000010 | 4'b0000 |
+| 1 | 8'b00000011 | 4'b0000 |
+
+### stimulus 2
+| cycle | data_in | data_out |
+|---|---|---|
+| 0 | 8'b00000100 | 4'b0000 |
+| 1 | 8'b00000101 | 4'b0000 |
+
+### stimulus 3
+| cycle | data_in | data_out |
+|---|---|---|
+| 0 | 8'b00001000 | 4'b0000 |
+| 1 | 8'b00001001 | 4'b0000 |
+
+### stimulus 4
+| cycle | data_in | data_out |
+|---|---|---|
+| 0 | 8'b00010000 | 4'b0000 |
+| 1 | 8'b00010001 | 4'b0000 |
+
+### stimulus 5
+| cycle | data_in | data_out |
+|---|---|---|
+| 0 | 8'b00100000 | 4'b0000 |
+| 1 | 8'b00100001 | 4'b0000 |
+
+### stimulus 6
+| cycle | data_in | data_out |
+|---|---|---|
+| 0 | 8'b01000000 | 4'b0000 |
+| 1 | 8'b01000001 | 4'b0000 |
+
+### stimulus 7
+| cycle | data_in | data_out |
+|---|---|---|
+| 0 | 8'b10000000 | 4'b0000 |
+| 1 | 8'b10000001 | 4'b0000 |
+
+### stimulus 8
+| cycle | data_in | data_out |
+|---|---|---|
+| 0 | 8'b11111111 | 4'b1111 |
+| 1 | 8'b11111110 | 4'b1111 |
+
+### stimulus 9
+| cycle | data_in | data_out |
+|---|---|---|
+| 0 | 8'b10100101 | 4'b1010 |
+| 1 | 8'b01011010 | 4'b0101 |

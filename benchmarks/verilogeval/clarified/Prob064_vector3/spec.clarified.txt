@@ -1,0 +1,111 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input [4:0].
+- b: input [4:0].
+- c: input [4:0].
+- d: input [4:0].
+- e: input [4:0].
+- f: input [4:0].
+- w: output [7:0].
+- x: output [7:0].
+- y: output [7:0].
+- z: output [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and there are no state elements. At power-up, before any sampling step, every output is already determined combinationally by the current inputs according to the Behaviour section; no output is unknown or uninitialised. The first step and every later step have no special reset or release behavior and do not change any stored state.
+
+4. Timing.
+
+Each of `w`, `x`, `y`, and `z` is combinational, with zero clock-cycle latency from all input bits on which it depends. There are no clocks, registered outputs, pulses, or periodic signals.
+
+For the evaluated full-cycle trace, row k is the settled observation at k times the interface `step_ns`, at the interface `sample_offset_ns`; this observation convention does not imply a 10 ns clock. The circuit itself has no clock period or delay law: each row observes the outputs for the inputs present at that same sampling instant, before the stateless transition.
+
+5. Behaviour.
+
+Treat `a`, `b`, `c`, `d`, `e`, and `f` as unsigned five-bit vectors. At all times, the 32-bit concatenation `{w, x, y, z}` equals `{a, b, c, d, e, f, 2'b11}`. Equivalently, the complete output function is:
+
+`w = {a[4:0], b[4:2]}`.
+
+`x = {b[1:0], c[4:0], d[4]}`.
+
+`y = {d[3:0], e[4:1]}`.
+
+`z = {e[0], f[4:0], 2'b11}`.
+
+At all times a[4:0] directly determines w[7:3], with w[7:3] = a[4:0], and has no effect on any other output bit; there is no inactive level, mode, clock, reset, transaction, interruption, or retained state, so simultaneous or repeated changes are reflected combinationally.
+
+At all times b[4:2] directly determines w[2:0] and b[1:0] directly determines x[7:6], with no effect on any other output bit; there is no inactive level, mode, clock, reset, transaction, interruption, or retained state, so simultaneous or repeated changes are reflected combinationally.
+
+At all times c[4:0] directly determines x[5:1], with x[5:1] = c[4:0], and has no effect on any other output bit; there is no inactive level, mode, clock, reset, transaction, interruption, or retained state, so simultaneous or repeated changes are reflected combinationally.
+
+At all times d[4] directly determines x[0] and d[3:0] directly determines y[7:4], with no effect on any other output bit; there is no inactive level, mode, clock, reset, transaction, interruption, or retained state, so simultaneous or repeated changes are reflected combinationally.
+
+At all times e[4:1] directly determines y[3:0] and e[0] directly determines z[7], with no effect on any other output bit; there is no inactive level, mode, clock, reset, transaction, interruption, or retained state, so simultaneous or repeated changes are reflected combinationally.
+
+At all times f[4:0] directly determines z[6:2], with z[6:2] = f[4:0], and has no effect on any other output bit; there is no inactive level, mode, clock, reset, transaction, interruption, or retained state, so simultaneous or repeated changes are reflected combinationally.
+
+w is continuously and combinationally equal to {a[4:0], b[4:2]}; it has no reset, capture edge, first-result latency, hold/clear interval, completion, or restart behavior, and a pre-edge row observes the value for the inputs present at that same pre-edge sampling instant.
+
+x is continuously and combinationally equal to {b[1:0], c[4:0], d[4]}; it has no reset, capture edge, first-result latency, hold/clear interval, completion, or restart behavior, and a pre-edge row observes the value for the inputs present at that same pre-edge sampling instant.
+
+y is continuously and combinationally equal to {d[3:0], e[4:1]}; it has no reset, capture edge, first-result latency, hold/clear interval, completion, or restart behavior, and a pre-edge row observes the value for the inputs present at that same pre-edge sampling instant.
+
+z is continuously and combinationally equal to {e[0], f[4:0], 2'b11}; it has no reset, capture edge, first-result latency, hold/clear interval, completion, or restart behavior, and a pre-edge row observes the value for the inputs present at that same pre-edge sampling instant.
+
+These laws cover every value of every declared input vector. There are no reserved input encodings and no disabled, cancellation, transaction, first-result, repeated-start, completion, or retained-data cases.
+
+6. Worked trace.
+
+The evaluated trace below is normative.
+
+### stimulus 0
+| cycle | a | b | c | d | e | f | w | x | y | z |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+
+### stimulus 1
+| cycle | a | b | c | d | e | f | w | x | y | z |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 5'b00001 | 5'b00001 | 5'b00001 | 5'b00001 | 5'b00001 | 5'b00001 | 8'b00001000 | 8'b01000010 | 8'b00010000 | 8'b10000111 |
+
+### stimulus 2
+| cycle | a | b | c | d | e | f | w | x | y | z |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 5'b11111 | 5'b11111 | 5'b11111 | 5'b11111 | 5'b11111 | 5'b11111 | 8'b11111111 | 8'b11111111 | 8'b11111111 | 8'b11111111 |
+
+### stimulus 3
+| cycle | a | b | c | d | e | f | w | x | y | z |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 5'b10000 | 5'b10000 | 5'b10000 | 5'b10000 | 5'b10000 | 5'b10000 | 8'b10000100 | 8'b00100001 | 8'b00001000 | 8'b01000011 |
+
+### stimulus 4
+| cycle | a | b | c | d | e | f | w | x | y | z |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 5'b00111 | 5'b01011 | 5'b01101 | 5'b10011 | 5'b10101 | 5'b11010 | 8'b00111010 | 8'b11011011 | 8'b00111010 | 8'b11101011 |
+
+### stimulus 5
+| cycle | a | b | c | d | e | f | w | x | y | z |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 5'b11111 | 5'b00000 | 5'b11111 | 5'b00000 | 5'b11111 | 5'b00000 | 8'b11111000 | 8'b00111110 | 8'b00001111 | 8'b10000011 |
+
+### stimulus 6
+| cycle | a | b | c | d | e | f | w | x | y | z |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 5'b00000 | 5'b11111 | 5'b00000 | 5'b11111 | 5'b00000 | 5'b11111 | 8'b00000111 | 8'b11000001 | 8'b11110000 | 8'b01111111 |
+
+### stimulus 7
+| cycle | a | b | c | d | e | f | w | x | y | z |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 5'b00001 | 5'b00010 | 5'b00100 | 5'b01000 | 5'b10000 | 5'b00011 | 8'b00001000 | 8'b10001000 | 8'b10001000 | 8'b00001111 |

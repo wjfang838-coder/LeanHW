@@ -1,0 +1,257 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a Verilog module named `enhanced_fsm_signal_processor` that uses a finite state machine (FSM) to manage signal processing operations, handle fault conditions, and report the FSM's current status.  
+
+### **Inputs**  
+- `i_clk`: Clock signal for sequential operation.  
+- `i_rst_n`: Active-low reset signal that resets the FSM and clears outputs.  
+- `i_enable`(1 bit): Enable signal to start processing; when low, the FSM remains in IDLE.  
+- `i_clear`(1 bit): Signal to clear outputs and reset the fault state.  
+- `i_ack`(1 bit): Acknowledgment signal to transition the FSM from READY to IDLE after processing is complete. It will be a pulse of 1 clock cycle. 
+- `i_fault`(1 bit): Signal indicating a fault condition during operation.  
+- `i_vector_1`: 5-bit input vector.  
+- `i_vector_2`: 5-bit input vector.  
+- `i_vector_3`: 5-bit input vector.  
+- `i_vector_4`: 5-bit input vector.  
+- `i_vector_5`: 5-bit input vector.  
+- `i_vector_6`: 5-bit input vector.  
+
+### **Outputs**  
+- `o_ready`(1 bit): Signal that indicates when outputs are valid and processing is complete. Default 0.
+- `o_error`(1 bit): Signal that asserts when a fault condition is detected. Default 0.
+- `o_fsm_status`(2 bits): Current FSM state, encoded as a 2-bit signal, representing one of the FSM states: IDLE(00), PROCESS(01), READY(10), or FAULT(11). Default is IDLE.
+- `o_vector_1`: 8-bit output vector. Default 0.
+- `o_vector_2`: 8-bit output vector. Default 0.
+- `o_vector_3`: 8-bit output vector. Default 0.
+- `o_vector_4`: 8-bit output vector. Default 0.
+
+---
+
+## **FSM States and Functionality**  
+
+### **States**  
+1. **IDLE**:  
+   - Default state. 
+   - FSM waits for `i_enable` to assert high to transition to PROCESS. 
+   - If `i_fault` is detected, FSM transitions to FAULT.  
+
+2. **PROCESS**:  
+   - Concatenates six 5-bit input vectors into a single 30-bit bus, appends two `1` bits at the LSB to form a 32-bit bus, and splits it into four 8-bit output vectors.  
+   - `o_vector_1` to `o_vector_4` maps from MSB to LSB of concatenation bus.
+   - If `i_fault` is detected during this state, FSM transitions to FAULT.  
+
+3. **READY**:  
+   - Indicates processing is complete by asserting `o_ready`.  
+   - FSM waits for `i_ack` to transition back to IDLE.  
+   - If `i_fault` is detected, FSM transitions to FAULT.  
+
+4. **FAULT**:  
+   - Asserts `o_error` to indicate a fault condition.  
+   - Outputs are set to default.
+   - FSM transitions to IDLE only when `i_clear` is asserted and `i_fault` is deasserted.
+
+---
+
+## **Operational Rules**  
+- The FSM must progress through states sequentially, synchronized to `i_clk`.  
+- When `i_rst_n` is low, FSM resets to IDLE, clears outputs, and resets the fault state.  
+- When in FAULT, the `i_clear` signal must clear the fault condition and reset the FSM to IDLE.  
+- Outputs (`o_vector_1`, `o_vector_2`, `o_vector_3`, `o_vector_4`) must strictly adhere to the concatenation and splitting logic specified.  
+- Fault handling (`o_error` and FAULT state) must take precedence over other operations.  
+- All the outputs are synchronous to `i_clk`.
+- `i_fault` always take precedence over any other input except `i_clk` and `i_rst_n`.
+- All the input are synchronous to `i_clk`.
+
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a Verilog module named `enhanced_fsm_signal_processor` that uses a finite state machine (FSM) to manage signal processing operations, handle fault conditions, and report the FSM's current status.  
+
+Module and integration contract
+
+Module: enhanced_fsm_signal_processor.
+Ports below are in exact declaration order:
+- i_clk: input 1 bit.
+- i_rst_n: input 1 bit.
+- i_enable: input 1 bit.
+- i_clear: input 1 bit.
+- i_ack: input 1 bit.
+- i_fault: input 1 bit.
+- i_vector_1: input [4:0].
+- i_vector_2: input [4:0].
+- i_vector_3: input [4:0].
+- i_vector_4: input [4:0].
+- i_vector_5: input [4:0].
+- i_vector_6: input [4:0].
+- o_ready: output 1 bit.
+- o_error: output 1 bit.
+- o_fsm_status: output [1:0].
+- o_vector_1: output [7:0].
+- o_vector_2: output [7:0].
+- o_vector_3: output [7:0].
+- o_vector_4: output [7:0].
+
+Public parameters:
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+i_rst_n is active low. Assertion is asynchronous and has priority over every synchronous action: taking i_rst_n low immediately publishes IDLE (2'b00), clears all four vector outputs to 8'b0, and makes o_ready and o_error 0, independently of i_clk and every other input. Those values persist while reset is low. Release is not an update event and retains the reset state. The first later rising edge applies the ordinary IDLE rules and may accept an armed enable.
+
+Before i_rst_n has ever been asserted low, all seven outputs are hardware-unknown. Synchronous input changes without a rising edge do not initialize them. A fault-sampling rising edge can establish FAULT, error, ready, and cleared vectors without a preceding reset; a clearing rising edge can establish cleared vector values. This pre-reset rule imposes no reset-before-use restriction.
+
+Amendment A1. The exact original clause “- All the outputs are synchronous to `i_clk`.” is superseded only for immediate active-low reset assertion by question Q31's certain answer law: “i_rst_n assertion is asynchronous: taking i_rst_n low immediately sets status to IDLE and clears all four vector outputs, with ready and error consequently 0, independent of i_clk and all other inputs. While low these values persist. Deassertion is not itself state-changing; operation resumes only at later i_clk posedges from IDLE, with a fresh enable acceptance permitted.” All non-reset output changes remain synchronous to rising edges.
+
+Amendment A2. The exact original clause “- All the input are synchronous to `i_clk`.” is superseded only for assertion of i_rst_n by question Q31's certain answer law: “i_rst_n assertion is asynchronous: taking i_rst_n low immediately sets status to IDLE and clears all four vector outputs, with ready and error consequently 0, independent of i_clk and all other inputs. While low these values persist. Deassertion is not itself state-changing; operation resumes only at later i_clk posedges from IDLE, with a fresh enable acceptance permitted.” Every other input remains synchronous, and reset release is not state-changing.
+
+Amendment A3. The exact original clause “- `o_ready`(1 bit): Signal that indicates when outputs are valid and processing is complete. Default 0.” is superseded only before reset has ever been asserted by question Q8's certain answer law: “Before i_rst_n has ever been asserted low, the synthetic reference leaves the state comparison that determines o_ready hardware-unknown; synchronous input changes without a rising edge or reset do not initialize it.” The original zero requirement remains effective during reset and in every specified initialized non-READY state.
+
+Amendment A4. The exact original clause “- `o_error`(1 bit): Signal that asserts when a fault condition is detected. Default 0.” is superseded only before reset has ever been asserted by question Q2's certain answer law: “Before i_rst_n has ever been asserted low, the synthetic reference leaves the state that determines o_error uninitialized, so o_error is hardware-unknown; changing the listed synchronous controls without a rising edge or reset does not initialize it.” The original zero requirement remains effective during reset and in every specified initialized non-FAULT state.
+
+Amendment A5. The exact original clause “- `o_fsm_status`(2 bits): Current FSM state, encoded as a 2-bit signal, representing one of the FSM states: IDLE(00), PROCESS(01), READY(10), or FAULT(11). Default is IDLE.” is superseded only before reset has ever been asserted by question Q5's certain answer law: “Before i_rst_n has ever been asserted low, the synthetic reference leaves o_fsm_status hardware-unknown; synchronous input changes without a rising edge or reset do not initialize it.” The IDLE default remains effective upon reset and afterward wherever the state law specifies IDLE.
+
+Amendment A6. The exact original clause “- `o_vector_1`: 8-bit output vector. Default 0.” is superseded only before reset has ever been asserted by question Q13's certain answer law: “Before i_rst_n has ever been asserted low, o_vector_1 is hardware-unknown. It remains so until an asynchronous reset, a clearing rising edge, or a PROCESS-state rising-edge capture assigns it.” The zero default remains effective when reset, clear, or fault clears this output.
+
+Amendment A7. The exact original clause “- `o_vector_2`: 8-bit output vector. Default 0.” is superseded only before reset has ever been asserted by question Q18's certain answer law: “Before i_rst_n has ever been asserted low, o_vector_2 is hardware-unknown. It remains so until an asynchronous reset, a clearing rising edge, or a PROCESS-state rising-edge capture assigns it.” The zero default remains effective when reset, clear, or fault clears this output.
+
+Amendment A8. The exact original clause “- `o_vector_3`: 8-bit output vector. Default 0.” is superseded only before reset has ever been asserted by question Q23's certain answer law: “Before i_rst_n has ever been asserted low, o_vector_3 is hardware-unknown. It remains so until an asynchronous reset, a clearing rising edge, or a PROCESS-state rising-edge capture assigns it.” The zero default remains effective when reset, clear, or fault clears this output.
+
+Amendment A9. The exact original clause “- `o_vector_4`: 8-bit output vector. Default 0.” is superseded only before reset has ever been asserted by question Q28's certain answer law: “Before i_rst_n has ever been asserted low, o_vector_4 is hardware-unknown. It remains so until an asynchronous reset, a clearing rising edge, or a PROCESS-state rising-edge capture assigns it.” The zero default remains effective when reset, clear, or fault clears this output.
+
+4. Timing.
+
+The active synchronous event is the rising edge of i_clk. Except for asynchronous reset assertion, neither a falling edge nor a steady clock level changes state. All outputs are registered.
+
+Let E0 be a rising edge in IDLE that accepts an armed high i_enable. Immediately after E0, o_fsm_status is PROCESS, o_ready is 0, and all vectors retain their pre-E0 values. After the first completed subsequent interval, E1 samples the pre-edge PROCESS operands and publishes the first vector capture; status remains PROCESS and ready remains 0. After the second completed subsequent interval, E2 samples the then-current pre-edge PROCESS operands, publishes the final result, changes status to READY, and makes ready 1. Thus the later action is exactly E2, two rising edges after acceptance. Pre-edge observations at E0, E1, and E2 see IDLE, PROCESS, and PROCESS respectively; the first pre-edge observation after E2 sees READY and the E2 result.
+
+o_ready is a registered level held high for every cycle spent in READY, not a pulse. It becomes 0 immediately after a READY edge accepting i_ack. o_error is a registered level that rises immediately after an edge sampling fault, remains high in FAULT, and falls immediately after the clearing edge that exits FAULT. o_fsm_status and each vector output are registered. i_ack is specified as a one-clock-cycle input pulse. There are no periodic outputs.
+
+The finite Lean object has a full-cycle timebase and no physical i_clk field; each step denotes one active rising edge. Row k observes settled out(s[k],i[k]) before that edge and denotes k * timing.step_ns after settling, with timing.sample_offset_ns as the observation offset. This is an observation convention, not a 10 ns circuit-period law. A reset-low row includes reset held through the represented edge; the output override also represents immediate asynchronous assertion. The finite scenario does not enumerate every between-edge reset pulse and does not narrow the RTL reset obligation.
+
+5. Behaviour.
+
+The encodings are IDLE=2'b00, PROCESS=2'b01, READY=2'b10, and FAULT=2'b11.
+
+At every rising edge with reset high, i_fault has first priority. If high, it makes or keeps FAULT, clears all four vectors, makes o_error 1, and makes o_ready 0. Deasserting fault alone does not leave FAULT. A FAULT edge with fault low and clear high returns to IDLE and keeps the vectors cleared; otherwise FAULT persists.
+
+In IDLE, high i_enable is accepted only when armed. Reset initially permits one acceptance. Acceptance disarms it until a later rising edge samples i_enable low, which rearms it in any mode. Consequently, continuously high i_enable cannot retrigger. i_enable has no state-transition effect in PROCESS, READY, or FAULT.
+
+At each rising edge whose pre-edge state is PROCESS, with fault and clear both low, the unsigned 32-bit concatenation is {i_vector_1[4:0],i_vector_2[4:0],i_vector_3[4:0],i_vector_4[4:0],i_vector_5[4:0],i_vector_6[4:0],2'b11}. The registered post-edge equations, using operands sampled before that edge, are o_vector_1={i_vector_1[4:0],i_vector_2[4:2]}, o_vector_2={i_vector_2[1:0],i_vector_3[4:0],i_vector_4[4]}, o_vector_3={i_vector_4[3:0],i_vector_5[4:1]}, and o_vector_4={i_vector_5[0],i_vector_6[4:0],2'b11}. E1 captures while retaining PROCESS; E2 simultaneously captures from its own pre-edge operands and advances to READY. The same-edge state advance does not select later operands or suppress the E2 result.
+
+At every rising edge, high i_clear clears all four vectors. Outside FAULT it does not alter IDLE, PROCESS, or READY progression. Thus clear at E1 clears data but does not cancel or postpone completion: E2 still completes and either captures its E2 operands when clear and fault are low or clears the vectors when clear is high. Fault overrides clear.
+
+READY holds status, ready, and captured vectors while ack is low. A READY edge with ack high returns to IDLE, lowers ready, and retains vectors unless simultaneous clear clears them. Fault overrides acknowledgment. Ack outside READY has no immediate or deferred effect.
+
+The vector inputs are resampled independently at E1 and E2 and have no effect outside an eligible PROCESS capture. Captured data is retained through READY, acknowledgment, and later IDLE until reset, fault, clear, or a later eligible capture changes it. After an acknowledgment, the retained result therefore remains visible in IDLE. Repeated transactions follow the same E0–E1–E2 timeline after enable has been rearmed.
+
+Audit laws: i_clk advances synchronous behavior only on its rising edge. i_rst_n assertion asynchronously resets every public output and state. i_enable requires a sampled-low rearm after acceptance. i_clear clears every vector without cancelling PROCESS. i_ack exits READY only at a READY rising edge. i_fault has priority and enters or retains FAULT while clearing vectors. i_vector_1 supplies o_vector_1[7:3]. i_vector_2 supplies o_vector_1[2:0] and o_vector_2[7:6]. i_vector_3 supplies o_vector_2[5:1]. i_vector_4 supplies o_vector_2[0] and o_vector_3[7:4]. i_vector_5 supplies o_vector_3[3:0] and o_vector_4[7]. i_vector_6 supplies o_vector_4[6:2], while o_vector_4[1:0]=2'b11. o_ready becomes 1 after E2 and remains 1 through READY. o_error becomes 1 after a fault edge and remains 1 through FAULT. o_fsm_status follows IDLE–PROCESS–PROCESS–READY absent reset or fault. o_vector_1 retains before E1, captures at E1 and E2, and retains its E2 value after completion. o_vector_2 retains before E1, captures at E1 and E2, and retains its E2 value after completion. o_vector_3 retains before E1, captures at E1 and E2, and retains its E2 value after completion. o_vector_4 retains before E1, captures at E1 and E2, and retains its E2 value after completion.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete interface instance and supplied scenarios under the pre-edge observation convention.
+
+### stimulus 0
+| cycle | i_rst_n | i_enable | i_clear | i_ack | i_fault | i_vector_1 | i_vector_2 | i_vector_3 | i_vector_4 | i_vector_5 | i_vector_6 | o_ready | o_error | o_fsm_status | o_vector_1 | o_vector_2 | o_vector_3 | o_vector_4 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 5'b11111 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 5'b00001 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 2 | 1 | 1 | 0 | 0 | 0 | 5'b10000 | 5'b00001 | 5'b11111 | 5'b00111 | 5'b01100 | 5'b10111 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 3 | 1 | 0 | 0 | 0 | 0 | 5'b00011 | 5'b10000 | 5'b00001 | 5'b11111 | 5'b01001 | 5'b00100 | 0 | 0 | 2'b01 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 4 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b01 | 8'b00011100 | 8'b00000011 | 8'b11110100 | 8'b10010011 |
+| 5 | 1 | 0 | 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 1 | 0 | 2'b10 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+| 6 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+
+### stimulus 1
+| cycle | i_rst_n | i_enable | i_clear | i_ack | i_fault | i_vector_1 | i_vector_2 | i_vector_3 | i_vector_4 | i_vector_5 | i_vector_6 | o_ready | o_error | o_fsm_status | o_vector_1 | o_vector_2 | o_vector_3 | o_vector_4 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | x | x | 2'x | 8'x | 8'x | 8'x | 8'x |
+| 1 | 1 | 0 | 0 | 0 | 1 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | x | x | 2'x | 8'x | 8'x | 8'x | 8'x |
+| 2 | 1 | 0 | 1 | 0 | 1 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 1 | 2'b11 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 3 | 1 | 0 | 1 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 1 | 2'b11 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 4 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+
+### stimulus 2
+| cycle | i_rst_n | i_enable | i_clear | i_ack | i_fault | i_vector_1 | i_vector_2 | i_vector_3 | i_vector_4 | i_vector_5 | i_vector_6 | o_ready | o_error | o_fsm_status | o_vector_1 | o_vector_2 | o_vector_3 | o_vector_4 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 1 | 1 | 1 | 0 | 0 | 1 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 2 | 1 | 0 | 1 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 1 | 2'b11 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 3 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+
+### stimulus 3
+| cycle | i_rst_n | i_enable | i_clear | i_ack | i_fault | i_vector_1 | i_vector_2 | i_vector_3 | i_vector_4 | i_vector_5 | i_vector_6 | o_ready | o_error | o_fsm_status | o_vector_1 | o_vector_2 | o_vector_3 | o_vector_4 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 1 | 1 | 1 | 0 | 0 | 0 | 5'b00001 | 5'b11111 | 5'b10000 | 5'b01011 | 5'b00000 | 5'b00110 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 2 | 1 | 0 | 0 | 0 | 1 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b11111 | 0 | 0 | 2'b01 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 3 | 1 | 0 | 1 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 1 | 2'b11 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 4 | 1 | 1 | 0 | 0 | 0 | 5'b11111 | 5'b10000 | 5'b00001 | 5'b00000 | 5'b10011 | 5'b01000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 5 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b01 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 6 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b01 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+| 7 | 1 | 0 | 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 1 | 0 | 2'b10 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+
+### stimulus 4
+| cycle | i_rst_n | i_enable | i_clear | i_ack | i_fault | i_vector_1 | i_vector_2 | i_vector_3 | i_vector_4 | i_vector_5 | i_vector_6 | o_ready | o_error | o_fsm_status | o_vector_1 | o_vector_2 | o_vector_3 | o_vector_4 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 1 | 1 | 1 | 0 | 0 | 0 | 5'b10000 | 5'b00000 | 5'b11111 | 5'b00001 | 5'b01110 | 5'b11110 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 2 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b01 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 3 | 1 | 0 | 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b01 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+| 4 | 1 | 1 | 0 | 0 | 0 | 5'b00101 | 5'b10000 | 5'b00000 | 5'b11111 | 5'b00001 | 5'b10101 | 1 | 0 | 2'b10 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+| 5 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 1 | 0 | 2'b10 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+| 6 | 1 | 0 | 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 1 | 0 | 2'b10 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+| 7 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+
+### stimulus 5
+| cycle | i_rst_n | i_enable | i_clear | i_ack | i_fault | i_vector_1 | i_vector_2 | i_vector_3 | i_vector_4 | i_vector_5 | i_vector_6 | o_ready | o_error | o_fsm_status | o_vector_1 | o_vector_2 | o_vector_3 | o_vector_4 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 1 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 1 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 2 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+
+### stimulus 6
+| cycle | i_rst_n | i_enable | i_clear | i_ack | i_fault | i_vector_1 | i_vector_2 | i_vector_3 | i_vector_4 | i_vector_5 | i_vector_6 | o_ready | o_error | o_fsm_status | o_vector_1 | o_vector_2 | o_vector_3 | o_vector_4 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 1 | 1 | 1 | 0 | 0 | 0 | 5'b00111 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 2 | 1 | 0 | 1 | 0 | 0 | 5'b10011 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b01 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 3 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b01 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 4 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 1 | 0 | 2'b10 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+
+### stimulus 7
+| cycle | i_rst_n | i_enable | i_clear | i_ack | i_fault | i_vector_1 | i_vector_2 | i_vector_3 | i_vector_4 | i_vector_5 | i_vector_6 | o_ready | o_error | o_fsm_status | o_vector_1 | o_vector_2 | o_vector_3 | o_vector_4 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 1 | 1 | 1 | 0 | 0 | 0 | 5'b11111 | 5'b11111 | 5'b11111 | 5'b11111 | 5'b11111 | 5'b11111 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 2 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b01 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 3 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b01 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+| 4 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 1 | 0 | 2'b10 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+
+### stimulus 8
+| cycle | i_rst_n | i_enable | i_clear | i_ack | i_fault | i_vector_1 | i_vector_2 | i_vector_3 | i_vector_4 | i_vector_5 | i_vector_6 | o_ready | o_error | o_fsm_status | o_vector_1 | o_vector_2 | o_vector_3 | o_vector_4 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 1 | 1 | 1 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 2 | 0 | 1 | 0 | 0 | 1 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 3 | 1 | 1 | 0 | 0 | 0 | 5'b00001 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b00 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 4 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b01 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000000 |
+| 5 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 0 | 0 | 2'b01 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 8'b00000011 |
+
+### stimulus 9
+| cycle | i_rst_n | i_enable | i_clear | i_ack | i_fault | i_vector_1 | i_vector_2 | i_vector_3 | i_vector_4 | i_vector_5 | i_vector_6 | o_ready | o_error | o_fsm_status | o_vector_1 | o_vector_2 | o_vector_3 | o_vector_4 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 0 | 5'b10000 | 5'b00001 | 5'b11111 | 5'b01101 | 5'b00010 | 5'b11101 | x | x | 2'x | 8'x | 8'x | 8'x | 8'x |
+| 1 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | x | x | 2'x | 8'x | 8'x | 8'x | 8'x |
+| 2 | 1 | 0 | 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | x | x | 2'x | 8'x | 8'x | 8'x | 8'x |
+| 3 | 1 | 0 | 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | 5'b00000 | x | x | 2'x | 8'x | 8'x | 8'x | 8'x |

@@ -1,0 +1,336 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+I would like you to implement a module named TopModule with the following
+interface. All input and output ports are one bit unless otherwise
+specified.
+
+ - input  clk
+ - input  rst_n
+ - input  A (8 bits)
+ - input  B (8 bits)
+ - input  vld_in
+ - output lcm_out (16 bits)
+ - output mcd_out (8 bits)
+ - output vld_out
+
+Design a sequential circuit that takes two unsigned numbers as input and
+outputs their least common multiple (LCM) and greatest common divisor (GCD).
+The bit width can be determined by parameter DATA_W. For this implementation,
+DATA_W is 8, so A, B, and mcd_out are 8 bits while lcm_out is 16 bits.
+
+The circuit should operate as follows:
+- When vld_in is asserted, the input data A and B are valid and should be
+  processed
+- The circuit computes both the LCM and GCD of the two input numbers
+- When the computation is complete, vld_out should be asserted to indicate
+  that the output data is valid
+- The rst_n signal is an active-low reset signal
+
+Assume all sequential logic is triggered on the positive edge of the clock.
+
+Clarification: After the iterative reduction detects A==B, the FSM spends one additional dedicated Finish cycle in which the result output is latched to the converged value and vld_out is pulsed high for exactly that one cycle - the result and the valid pulse appear one clock cycle after equality is reached, not in the same cycle.
+
+
+Explicit local benchmark revision: zero arithmetic and Finish timing (v1).
+The original text above is retained except for the individually scoped amendments below. This is a corrected benchmark, not an unchanged upstream problem.
+
+LB1 (zero results): The unsigned-number LCM/GCD promise includes zero operands. An accepted (0,b) or (a,0) returns LCM=0 and GCD equal to the nonzero operand. For (0,0), this revised benchmark explicitly defines both results as zero. These requests complete; subtracting zero indefinitely is not permitted. For either zero case, accepting edge E0 captures the operands, E1 enters the dedicated Finish interval, and E2 publishes the numeric result and one-cycle vld_out=1. The zero bypass must not change positive-operand reduction behavior.
+
+LB2 (the final clarification's equality/Finish timing): The original phrase "the result and the valid pulse appear one clock cycle after equality is reached" is replaced by this precise edge law. For positive operands, each reduction edge performs at most one subtraction. If equality first becomes true immediately after edge R, the next edge R+1 detects that pre-edge equality and enters Finish; edge R+2 latches GCD to the converged value, publishes LCM=A*B/GCD, and raises vld_out for exactly one interval. If the accepted positive operands are already equal, R is E0, so completion is E2. "Result output latched to the converged value" refers to mcd_out; lcm_out is the mathematical LCM, not the GCD. This replaces only the ambiguous equality/publication phrase and singular-output interpretation.
+
+LB3 (parameter family): DATA_W is a positive integer, default 8; A, B and mcd_out have DATA_W bits and lcm_out has 2*DATA_W bits. The three public integral encoding parameters IDLE=0, lcm1=1 and Finish=2 may be overridden to pairwise distinct integer values in 0..3. This explicit domain matches the two-bit state storage; it is not an assumption inferred by a candidate. All unsigned input encodings, including zero, remain supported.
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- A: input [DATA_W-1:0].
+- B: input [DATA_W-1:0].
+- vld_in: input 1 bit.
+- rst_n: input 1 bit.
+- clk: input 1 bit.
+- lcm_out: output [DATA_W*2-1:0].
+- mcd_out: output [DATA_W-1:0].
+- vld_out: output 1 bit.
+
+Public parameters:
+-  DATA_W: default = 8.
+-  IDLE: default = 'd0.
+-  lcm1: default = 'd1.
+-  Finish: default = 'd2.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+3. Reset.
+rst_n is an active-low asynchronous reset. Its assertion immediately abandons any pending transaction, establishes availability, makes lcm_out all Z, mcd_out zero and vld_out zero, and dominates simultaneous rising-edge acceptance or publication. These outputs persist while reset is low; no requests are accepted. Reset release alone changes no output and starts no transaction. The first subsequent rising edge accepts the current A and B if vld_in=1; otherwise availability and the reset outputs persist.
+
+Before any reset event or first rising edge, all three outputs are hardware X, as explicitly established by certain answers Q1, Q8, Q15 and Q26-Q28. If never reset, the first rising edge establishes availability and the non-result outputs (lcm_out all Z, mcd_out=0, vld_out=0), accepting no request even if vld_in=1. Later available edges may accept normally. This is not a reset-before-use restriction. No unknown value is propagated into an accepted result.
+
+Reset discards the validity of any pending calculation and published result. Captured operands and reduction data have no required reset numeric value: their old contents cannot affect a new transaction because acceptance captures both operands and establishes both reduction values. Likewise, previous numeric result contents are unobservable after reset. The finite model retains these irrelevant contents and does not claim reset initializes them. Its stored data at initial state have separate invalid flags, rather than numeric power-up guarantees. There are no additional initialization implementation choices.
+
+For a reset held through a rising edge, release preserves the reset outputs. If the first subsequent rising edge accepts equal or zero operands, that edge is acceptance E0, the second enters Finish at E1, and the third publishes at E2. For unequal positive operands, the second and third edges instead apply the reduction/detection rules below. If reset interrupts any of these edges, the transaction is abandoned and the reset outputs take priority.
+
+4. Timing.
+clk advances transactions only on its rising edge; its falling edge and either stable level do not capture requests, advance reduction, or publish results. Asynchronous reset assertion acts independently of clk. All three normal-operation outputs are registered with respect to accepted A and B; current operand changes have no combinational effect. Reset assertion is an immediate asynchronous override.
+
+Let E0 be the accepting rising edge, with captured unsigned operands a and b. For positive operands, define the mathematical reduction pair immediately after E0 as (a,b). Each subsequent reduction edge subtracts the smaller member from the larger exactly once when they differ. The smaller member is unchanged. Let N be the number of such subtraction edges required to reach equality, including N=0 for initially equal operands. Equality first holds immediately after EN. E(N+1) examines that pre-edge equality and enters the dedicated Finish interval; E(N+2), denoted C, publishes the results. Thus publication follows N+2 completed intervals after acceptance, not the subtraction edge that first produces equality. For either zero operand, E1 enters Finish and E2=C publishes. There is no additional publication delay.
+
+At C, the post-edge mcd_out is computed from the pre-edge converged reduction value, or the captured nonzero operand in a zero case; post-edge lcm_out is computed from the captured original operands and that GCD. The same edge makes vld_out=1 and restores availability. Operand capture is not performed on C. A transition into Finish does not yet publish a result. Advancing the phase on C does not change which pre-edge data determine the published result.
+
+lcm_out is all Z and mcd_out and vld_out are zero after acceptance and until C. Immediately after C, lcm_out is the numeric LCM, mcd_out is the numeric GCD, and vld_out is one. Immediately after C+1, lcm_out returns to all Z, mcd_out clears to zero, and vld_out clears to zero, whether or not a fresh request is accepted. The result and valid pulse last exactly one rising-edge interval, unless interrupted by reset. There is no periodic output requirement.
+
+The finite model is the default DATA_W=8 active-edge scenario. Each row observes settled output BEFORE its corresponding rising edge, then the transition computes the state for the next row. The pre-edge row at E0 therefore sees the preceding outputs; the pre-edge row at C+1 sees the published results, and the row at C+2 sees the cleared outputs. Reset stimulus rows represent assertion held through the corresponding active edge, with the asynchronous output override already settled before observation. This projection does not represent arbitrary between-edge reset pulses and does not weaken the circuit's asynchronous reset obligation. No physical clock period, step_ns or sample_offset_ns value is supplied by the interface; no 10 ns period is implied by a row.
+
+5. Behaviour.
+Integration mapping clarification (Q29, frozen scope module@header): the certain answer identifies the reference declaration as "RefModule(A, B, vld_in, rst_n, clk, lcm_out, mcd_out, vld_out)" and states "The reference header fixes the exact module and port spelling and order; positional instantiation depends on this order." RefModule is the reference-module identifier; the implementation requested by the original source and this task is TopModule. The reference interface is mapped to TopModule by changing only that module identifier. Every port spelling, declaration order, direction, symbolic width, parameter declaration and default remains exactly as supplied by Q29 and the interface contract. The declaration order is normative for TopModule. This explicit reference-to-target mapping does not amend the source's required name TopModule or change behavior. It does not require an additional public module or port.
+
+A and B are unsigned DATA_W-bit operands, captured only on an available rising edge with rst_n=1 and vld_in=1. Changes to either operand during computation, on publication, or when vld_in=0 do not affect the pending calculation or outputs. Reduction continues on every rising edge regardless of vld_in after acceptance; a low vld_in does not pause, cancel, or clear the transaction. Reset is the transaction-cancellation event.
+
+Availability begins after reset and resumes immediately after publication C. All vld_in assertions during computation and on C itself are ignored, without queuing or replacing operands. At C+1, a high vld_in accepts a fresh request and a low vld_in leaves the circuit available. Continuously high vld_in therefore produces successive transactions, capturing current operands at each available acceptance edge. Outside accepting rising edges, vld_in level changes have no output effect.
+
+For every unsigned input encoding, let g be the mathematical GCD of the captured operands. For positive operands, the reduction converges to g. gcd(0,b)=b, gcd(a,0)=a, and gcd(0,0)=0. The published mcd_out is g. The published lcm_out is a*b/g when g>0 and zero when g=0. In particular, either zero operand produces LCM=0; both-zero operands produce both results zero. Zero transactions complete at E2 and do not repeatedly subtract zero. The multiplication preserves the full unsigned 2*DATA_W-bit product before division; there is no DATA_W-bit product truncation. Final results are represented in DATA_W bits for GCD and 2*DATA_W bits for LCM. These widths represent every result over the entire legal operand domain.
+
+The public parameter family remains DATA_W positive integer, default 8, with IDLE=0, lcm1=1, Finish=2 by default. Their integral encodings may be overridden to any pairwise distinct values in 0..3. Every supported encoding preserves the same transaction behavior. The finite instance does not impose an additional parameter restriction.
+
+Amendment A1 — acceptance scope of the source clause "- When vld_in is asserted, the input data A and B are valid and should be
+  processed". Frozen question rule@input.vld_in, answer Q25, states: "All vld_in assertions through the computation and on C itself are ignored, with no queue or replacement." It also states: "At C+1, vld_in=1 accepts a fresh request, including when held continuously high; vld_in=0 leaves the circuit available." These certain scoped laws supersede an unconditional processing interpretation only for busy edges and the publication edge; the source's valid-operand requirement remains in force at accepting edges. For the never-reset first-edge recovery scope, frozen question lcm_out@overlap_lcm, answer Q7, states: "Without a prior reset, the first rising edge recovers availability and accepts no request; the following available rising edge may accept." This supersedes unconditional acceptance only at that first recovery edge, consistently with Q1, Q8, Q15 and Q26-Q28. This is an amendment, not a claim that the source originally excluded those requests.
+
+Source amendments already present in the supplied authority: LB1 defines zero results and E2 publication. LB2 supersedes the earlier phrase "the result and the valid pulse appear one clock cycle after equality is reached" and the singular-output interpretation "the result output is latched to the converged value". Its exact corrected law is: "If equality first becomes true immediately after edge R, the next edge R+1 detects that pre-edge equality and enters Finish; edge R+2 latches GCD to the converged value, publishes LCM=A*B/GCD, and raises vld_out for exactly one interval." It further states: ""Result output latched to the converged value" refers to mcd_out; lcm_out is the mathematical LCM, not the GCD." This notice concerns only the source's explicitly superseded timing phrase and singular-output interpretation; the positive subtraction behavior remains unchanged. LB3 fixes the parameter family. These are supplied source amendments, not new answer-derived amendments.
+
+6. Worked trace.
+The following evaluated trace is normative within the finite observation domain stated above.
+### stimulus 0
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00100101 | 8'b00010011 | 0 | 1 | 16'x | 8'x | x |
+| 1 | 8'b11111111 | 8'b10000000 | 1 | 0 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b00000001 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b00000001 | 8'b00000001 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 4 | 8'b01011101 | 8'b00111001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 5 | 8'b01011101 | 8'b00111001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 6 | 8'b01011101 | 8'b00111001 | 0 | 1 | 16'h1 | 8'b00000001 | 1 |
+| 7 | 8'b01011101 | 8'b00111001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 8 | 8'b01011101 | 8'b00111001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 9 | 8'b01011101 | 8'b00111001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+
+### stimulus 1
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 0 | 0 | 16'z | 8'b00000000 | 0 |
+| 1 | 8'b00000000 | 8'b00100101 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b11111111 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b11111111 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 4 | 8'b11111111 | 8'b00000001 | 0 | 1 | 16'h0 | 8'b00100101 | 1 |
+| 5 | 8'b11111111 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 6 | 8'b11111111 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 7 | 8'b11111111 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 8 | 8'b11111111 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+
+### stimulus 2
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 0 | 0 | 16'z | 8'b00000000 | 0 |
+| 1 | 8'b10000000 | 8'b00000000 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b00000001 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b00000001 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 4 | 8'b00000001 | 8'b11111111 | 0 | 1 | 16'h0 | 8'b10000000 | 1 |
+| 5 | 8'b00000001 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 6 | 8'b00000001 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 7 | 8'b00000001 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 8 | 8'b00000001 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+
+### stimulus 3
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 0 | 0 | 16'z | 8'b00000000 | 0 |
+| 1 | 8'b00000000 | 8'b00000000 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b00100101 | 8'b01011101 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b00100101 | 8'b01011101 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 4 | 8'b00100101 | 8'b01011101 | 0 | 1 | 16'h0 | 8'b00000000 | 1 |
+| 5 | 8'b00100101 | 8'b01011101 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 6 | 8'b00100101 | 8'b01011101 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 7 | 8'b00100101 | 8'b01011101 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 8 | 8'b00100101 | 8'b01011101 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+
+### stimulus 4
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 0 | 0 | 16'z | 8'b00000000 | 0 |
+| 1 | 8'b11111111 | 8'b11111111 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 4 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'hff | 8'b11111111 | 1 |
+| 5 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 6 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 7 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 8 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+
+### stimulus 5
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 0 | 0 | 16'z | 8'b00000000 | 0 |
+| 1 | 8'b10000000 | 8'b10000000 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b00000001 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b00000001 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 4 | 8'b00000001 | 8'b00000001 | 0 | 1 | 16'h80 | 8'b10000000 | 1 |
+| 5 | 8'b00000001 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 6 | 8'b00000001 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 7 | 8'b00000001 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 8 | 8'b00000001 | 8'b00000001 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+
+### stimulus 6
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 0 | 0 | 16'z | 8'b00000000 | 0 |
+| 1 | 8'b00001100 | 8'b00010010 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 4 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 5 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 6 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'h24 | 8'b00000110 | 1 |
+| 7 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 8 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 9 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 10 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 11 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 12 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 13 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+
+### stimulus 7
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 0 | 0 | 16'z | 8'b00000000 | 0 |
+| 1 | 8'b00100101 | 8'b00010011 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 4 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 5 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 6 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 7 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 8 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 9 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 10 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 11 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 12 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 13 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 14 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 15 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 16 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 17 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 18 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 19 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 20 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 21 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 22 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 23 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'h2bf | 8'b00000001 | 1 |
+| 24 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 25 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 26 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 27 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 28 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 29 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 30 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 31 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 32 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 33 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 34 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 35 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 36 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 37 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 38 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 39 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 40 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 41 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 42 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 43 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 44 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 45 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 46 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 47 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 48 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 49 | 8'b00000000 | 8'b11111111 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+
+### stimulus 8
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 0 | 0 | 16'z | 8'b00000000 | 0 |
+| 1 | 8'b00000001 | 8'b00000001 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 4 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'h1 | 8'b00000001 | 1 |
+| 5 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 6 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 7 | 8'b00000000 | 8'b11111111 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 8 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 9 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 10 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'h0 | 8'b11111111 | 1 |
+| 11 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 12 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 13 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+
+### stimulus 9
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 0 | 0 | 16'z | 8'b00000000 | 0 |
+| 1 | 8'b11111111 | 8'b00000001 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b00100101 | 8'b01011101 | 1 | 0 | 16'z | 8'b00000000 | 0 |
+| 4 | 8'b00000000 | 8'b00000001 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 5 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 6 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 7 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'h0 | 8'b00000001 | 1 |
+| 8 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 9 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 10 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 11 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+
+### stimulus 10
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 | 0 | 0 | 16'z | 8'b00000000 | 0 |
+| 1 | 8'b00001100 | 8'b00010010 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b00000001 | 8'b00000001 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 4 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 5 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 6 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'h24 | 8'b00000110 | 1 |
+| 7 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 8 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 9 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 10 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 11 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 12 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+
+### stimulus 11
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b00000001 | 8'b00000001 | 1 | 1 | 16'x | 8'x | x |
+| 1 | 8'b00000001 | 8'b00000001 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b00000001 | 8'b00000001 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b00000001 | 8'b00000001 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 4 | 8'b00000001 | 8'b00000001 | 1 | 1 | 16'h1 | 8'b00000001 | 1 |
+| 5 | 8'b11111111 | 8'b00000000 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 6 | 8'b11111111 | 8'b00000000 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 7 | 8'b11111111 | 8'b00000000 | 1 | 1 | 16'h1 | 8'b00000001 | 1 |
+| 8 | 8'b11111111 | 8'b00000000 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 9 | 8'b11111111 | 8'b00000000 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 10 | 8'b11111111 | 8'b00000000 | 1 | 1 | 16'h0 | 8'b11111111 | 1 |
+| 11 | 8'b11111111 | 8'b00000000 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 12 | 8'b11111111 | 8'b00000000 | 1 | 1 | 16'z | 8'b00000000 | 0 |
+| 13 | 8'b11111111 | 8'b00000000 | 1 | 1 | 16'h0 | 8'b11111111 | 1 |
+
+### stimulus 12
+| cycle | A | B | vld_in | rst_n | lcm_out | mcd_out | vld_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 8'b11111111 | 8'b10000000 | 0 | 1 | 16'x | 8'x | x |
+| 1 | 8'b00000001 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 2 | 8'b00100101 | 8'b01011101 | 0 | 1 | 16'z | 8'b00000000 | 0 |
+| 3 | 8'b00000000 | 8'b00000000 | 0 | 1 | 16'z | 8'b00000000 | 0 |

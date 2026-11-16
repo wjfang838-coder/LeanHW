@@ -1,0 +1,75 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input [7:0].
+- parity: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset behavior. The module has no state elements. From power-up, before any observation or hypothetical edge, parity is already determined by the current value of in; it is not uninitialised and does not wait for reset.
+
+Timing
+
+parity is combinational with zero clock-cycle latency from in. There is no physical clock, capture edge, pulse, periodic signal, circuit period, or state-dependent delay law.
+
+For the evaluated autonomous trace, row k denotes the settled observation at k × timing.step_ns, sampled using timing.sample_offset_ns. This trace observation convention is separate from circuit timing and does not create an implicit 10 ns clock tick or impose a circuit period or propagation delay.
+
+Behaviour
+
+For every possible 8-bit value of in, parity continuously equals the exclusive-OR reduction of all eight bits of in. Equivalently, parity is 1 exactly when in contains an odd number of 1 bits, and is 0 exactly when it contains an even number of 1 bits.
+
+Every simultaneous change of in takes effect combinationally. There is no inactive level or mode, transaction state, retained effect, reset, capture edge, observation latency, hold or clear interval, completion event, cancellation behavior, or restart protocol. Interruption and repeated input changes simply replace the presently observed result. Consequently, the first observation and every later observation use the same law, and a pre-edge row observes the reduction of in as it exists before that edge.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | parity |
+|---|---|---|
+| 0 | 8'b00000000 | 0 |
+
+### stimulus 1
+| cycle | in | parity |
+|---|---|---|
+| 0 | 8'b00000001 | 1 |
+
+### stimulus 2
+| cycle | in | parity |
+|---|---|---|
+| 0 | 8'b11111111 | 0 |
+
+### stimulus 3
+| cycle | in | parity |
+|---|---|---|
+| 0 | 8'b10000000 | 1 |
+
+### stimulus 4
+| cycle | in | parity |
+|---|---|---|
+| 0 | 8'b01011010 | 0 |
+
+### stimulus 5
+| cycle | in | parity |
+|---|---|---|
+| 0 | 8'b01111111 | 1 |
+
+### stimulus 6
+| cycle | in | parity |
+|---|---|---|
+| 0 | 8'b10000001 | 0 |
+
+### stimulus 7
+| cycle | in | parity |
+|---|---|---|
+| 0 | 8'b10101010 | 0 |

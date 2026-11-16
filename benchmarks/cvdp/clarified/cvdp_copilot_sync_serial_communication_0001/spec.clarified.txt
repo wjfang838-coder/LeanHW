@@ -1,0 +1,417 @@
+Module and integration contract
+
+Module: sync_serial_communication_tx_rx.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset_n: input 1 bit.
+- data_in: input [63:0].
+- sel: input [2:0].
+- data_out: output [63:0].
+- done: output 1 bit.
+
+Public parameters:
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Create an RTL design with SystemVerilog, consisting of modules `sync_serial_communication_top`, `tx_block` and `rx_block` for transmitting and receiving data between transmitter and receiver blocks. The module must operate according to the following specifications.
+
+The design `sync_serial_communication_top` consists of 2 modules:
+- `tx_block` which is responsible for transmitting the data based on the `sel` input
+- `rx_block` which will reconstruct the `data_out` based on the `sel` input
+
+##  RTL Module Requirements:
+### 1.Transmitter block(`tx_block`):
+  Convert parallel data into a serial format based on the `sel` input.
+### Inputs:
+- `clk(1-bit)`: Clock signal that runs at a 50:50 duty cycle. 
+- `reset_n(1-bit)`: Active LOW asynchronous reset. When LOW, `serial_out`, `done` and `serial_clk` will maintain zero
+- `data_in ([63:0])`: Input data for the transmitter (TX).
+- `sel ([2:0])`: Controls the data width for the transmitter (TX):
+    - `3'h0`: 0 bits. No transmission happens
+    - `3'h1`: 8 bits. `data_in [7:0]` is the valid data to be transmitted.
+    - `3'h2`: 16 bits. `data_in [15:0]` is the valid data to be transmitted.
+    - `3'h3`: 32 bits. `data_in [31:0]` is the valid data to be transmitted.
+    - `3'h4`: 64 bits. `data_in [63:0]` is the valid data to be transmitted.
+    - Default: 0 bits
+### Outputs:
+- `serial_out(1-bit)`: Output data.
+- `done (1-bit)`: A HIGH on this signal indicates the availability of a stable result; wait for the `done` signal HIGH from the rx_block. The default value is 1'b0
+- `serial_clk`: It is gated when no data is transmitted
+### Behaviour:
+- The transmitter(TX) and receiver (RX) operate synchronously, driven by the same clock signal (`clk`) and reset (`reset_n`).
+- Upon reset (`reset_n`), all internal counters and registers are reset to their initial values.
+- The transmitter (TX) is responsible for serializing 8, 16, 32, or 64-bit data input based on the `sel` signal and produces serial data. 
+- During data transfer, a gated clock signal `serial_clk` which operates at the frequency of `clk` has to be transmitted to the receiver (RX) alongside the serial data. When no data is transmitted, it remains at a fixed logic state of either HIGH or LOW
+- The transmitter (TX) generates the serial clock signal `serial_clk` that is used by both the transmitter (TX) and receiver (RX) for synchronized communication to transmit and receive one bit each during the positive edge of the clock
+
+### 2.Receiver block(`rx_block):
+Capture incoming serial data and reconstruct it into the specified parallel data based on the `sel` input.
+### Inputs:
+- `clk(1-bit)`: Clock signal that runs at a 50:50 duty cycle. 
+- `reset_n(1-bit)`: Active LOW asynchronous reset. When LOW, the outputs `data_out` and `done` will maintain zero
+- `data_in (1-bit)`: Serial input data.
+- `sel ([2:0])`: Controls the data width for the Receiver(RX):
+    - `3'h0`: 0 bits. No data reception.
+    - `3'h1`: 8 bits
+    - `3'h2`: 16 bits
+    - `3'h3`: 32 bits
+    - `3'h4`: 64 bits
+    - Default: 0 bits
+- `serial_clk(1-bit)`: Clk captures serial data.
+### Outputs:
+- `data_out([63:0])`: Output data from the receiver (RX).
+- `done (1-bit)`: A HIGH in this signal for one clock cycle represents the availability of the stable result of the receiver (RX), default value is 1'b0.
+### Behaviour:
+- Data sampling in the receiver (RX) is valid whenever `serial_clk` is active.
+- The `sel` in the RX module receives the same value of `sel` maintained by the TX module
+- The receiver (RX) receives the serial data from the transmitter (TX) and reconstructs it into a 64-bit parallel output (`data_out`). The `data_out` will have the following data based on the `sel` value
+  - If `sel` is 000, `data_out` = 64'h0
+  - If `sel` is 001, `data_out` = {56'h0,data_in[7:0]}
+  - If `sel` is 010, `data_out` = {48'h0,data_in[15:0]}
+  - If `sel` is 011, `data_out` = {32'h0,data_in[31:0]}
+  - If `sel` is 100, `data_out` = data_in[63:0]
+  - default: 64'h0
+- The `done` signal  High indicates the valid output.
+### 3. Sync_serial_communication_top:
+The top-level module integrates the `tx_block` and `rx_block` modules. 
+### Inputs:
+- `clk(1-bit)`: Clock signal that runs at a 50:50 duty cycle. 
+- `reset_n(1-bit)`: Active LOW asynchronous reset.
+- `data_in ([63:0])`: Input data to the transmitter (TX).
+- `sel ([2:0])`: Controls the data width for the transmitter (TX):
+    - `3'h0`: 0 bits
+    - `3'h1`: 8 bits
+    - `3'h2`: 16 bits
+    - `3'h3`: 32 bits
+    - `3'h4`: 64 bits
+    - Default: 0 bits
+### Outputs:
+- `data_out([63:0])`: Output data from the receiver (RX).
+- `done (1-bit)`: A HIGH in this signal for one clock cycle represents the availability of the stable result of the receiver (RX), default value is 1'b0.
+#### Behaviour:
+-#### Transmission: The TX block accepts a 64-bit parallel `data_in`, serializes it, and transmits it via the `serial_out` . It also provides a `serial_clk` for synchronizing the RX block.
+-#### Reception: The `RX block` receives serialized data through `serial_out` and uses `serial_clk` to clock the data. Once reception completes, it outputs a 64-bit data_out and asserts the `done` signal.
+
+#### . Edge cases:
+- The module should ensure that no data is transmitted or received if `sel` is set to any value other than the valid cases (000, 001, 010, 011, 100).
+- The `done` signal is set to LOW during transmission or reception and only goes to HIGH when the operation completes.
+- Changes in the `sel` value during data transfer from transmitter(TX) to receiver (RX) will not be acknowledged and it need not be considered as a valid case.
+- After each transaction, `reset_n` has to be set to active LOW to reset the required internal signals and achieve the correct `data_out` as a new `data_in` is driven
+
+#### Example
+
+````wavedrom
+
+{"signal": [
+  {"name": "clk", "wave": "P............................................."},
+  {"name": "reset_n", "wave": "..nh.............l.nh.....................l.nh."},
+  { "name": "sel[2:0]",  "wave": "x..=...............=.=......................x.", "data": ["001","000","010"] },
+  { "name": "data_in[63:0]",  "wave": "x..=...............==.......................x.", "data": ["0000000000000074","16'h0","0000000000000081"] },
+  { "name": "data_out[63:0]",  "wave": "x..=............==.......................==...x", "data": ["0000000000000000","74","00000000000000000","81","00000000000000000"] },
+  { "name": "serial_clk",  "wave": "L......P.......l........P...............l....."},
+    {"name": "done", "wave": "0...............Hl.......................Hl...."}
+],
+  "head": {
+    "text": "Module:: SYNC_SERIAL_COMMUNICATION, data_in and data_out represented in hex format"
+  }
+}
+
+``````
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Decisions and clarifications
+
+Authority and amendments
+
+The original requirements retained by the driver remain normative except for the exact, individually scoped amendments below. All unaffected requirements remain binding.
+
+Amendment Q9-A, limited to the top-level module name, external header, and packaging: the exact original clause "Create an RTL design with SystemVerilog, consisting of modules `sync_serial_communication_top`, `tx_block` and `rx_block` for transmitting and receiving data between transmitter and receiver blocks. The module must operate according to the following specifications." is superseded only as to names and packaging. Q9's certain answer law is exactly: "The module header is sync_serial_communication_tx_rx with ports in the exact order clk input 1 bit, reset_n input 1 bit, data_in input 64 bits, sel input 3 bits, data_out output 64 bits, and done output 1 bit, with no public parameters or symbolic ranges, and positional instantiation depends on this spelling and order." The functional requirements introduced by the original clause remain binding.
+
+Amendment Q9-B, limited to integration structure and names: the exact original clause "The design `sync_serial_communication_top` consists of 2 modules:
+- `tx_block` which is responsible for transmitting the data based on the `sel` input
+- `rx_block` which will reconstruct the `data_out` based on the `sel` input" is superseded by Q9's certain answer law exactly: "The module header is sync_serial_communication_tx_rx with ports in the exact order clk input 1 bit, reset_n input 1 bit, data_in input 64 bits, sel input 3 bits, data_out output 64 bits, and done output 1 bit, with no public parameters or symbolic ranges, and positional instantiation depends on this spelling and order." Serialization and reconstruction remain required functions of the integrated module; only the separate-child packaging is removed.
+
+Amendment Q9-C, limited to the top-level name and integration statement: the exact original clauses "### 3. Sync_serial_communication_top:" and "The top-level module integrates the `tx_block` and `rx_block` modules." are superseded by Q9's certain answer law exactly: "The module header is sync_serial_communication_tx_rx with ports in the exact order clk input 1 bit, reset_n input 1 bit, data_in input 64 bits, sel input 3 bits, data_out output 64 bits, and done output 1 bit, with no public parameters or symbolic ranges, and positional instantiation depends on this spelling and order." The following original top-level functional laws apply to `sync_serial_communication_tx_rx`.
+
+Amendment Q9-D, limited to the transmitter's separate-module identity: the exact original clause "### 1.Transmitter block(`tx_block`):" is superseded by Q9's certain answer law exactly: "The module header is sync_serial_communication_tx_rx with ports in the exact order clk input 1 bit, reset_n input 1 bit, data_in input 64 bits, sel input 3 bits, data_out output 64 bits, and done output 1 bit, with no public parameters or symbolic ranges, and positional instantiation depends on this spelling and order." Every following transmitter function remains binding within the integrated module.
+
+Amendment Q9-E, limited to the receiver's separate-module identity: the exact original clause "### 2.Receiver block(`rx_block):" is superseded by Q9's certain answer law exactly: "The module header is sync_serial_communication_tx_rx with ports in the exact order clk input 1 bit, reset_n input 1 bit, data_in input 64 bits, sel input 3 bits, data_out output 64 bits, and done output 1 bit, with no public parameters or symbolic ranges, and positional instantiation depends on this spelling and order." Every following receiver function remains binding within the integrated module.
+
+Amendment Q4, limited to restart after a completed uninterrupted valid transaction: the exact original clause "After each transaction, `reset_n` has to be set to active LOW to reset the required internal signals and achieve the correct `data_out` as a new `data_in` is driven" is superseded in that scope. Q4's certain answer law is exactly: "A low reset_n asynchronously aborts any transfer and clears data_out and done to zero, continued low reset_n holds those observable values at zero, and releasing reset_n does not itself change them but permits a valid sel transfer to start on the next falling clk edge and repeated transfers thereafter." Reset remains the abort and clear event but is not required between completed valid transactions.
+
+Amendment Q6, limited to `sel` changes during an active transfer: the exact original clause "Changes in the `sel` value during data transfer from transmitter(TX) to receiver (RX) will not be acknowledged and it need not be considered as a valid case." is superseded by Q6's certain answer law exactly: "At an idle falling clk edge sel values 3'b001, 3'b010, 3'b011, and 3'b100 start 8-, 16-, 32-, and 64-bit transfers respectively, whereas other values start nothing and leave data_out unchanged with done low; during an active transfer sel does not alter its transmitted length, but every rising sampling edge requires sel to remain valid and the first accepted sample fixes the receive length, so an invalid mid-transfer sel pauses acceptance while transfer progression continues and a changed valid sel after the first accepted sample does not change that receive length, with the current sel applied afresh to each repeated transaction."
+
+Amendment Q7-A, limited to an 8-bit completion after a prior accumulated result exists: the exact original clause "If `sel` is 001, `data_out` = {56'h0,data_in[7:0]}" is superseded. Q7's certain answer law is exactly: "data_out is asynchronously cleared when reset_n falls and remains zero through reset and release until a transfer completes; a transfer captured on a falling clk edge updates data_out on its final rising clk edge after 8, 16, 32, or 64 accepted samples, replacing the selected low-order bits with the transferred bits while retaining higher accumulated bits, and data_out then holds through completion, idle spacing, invalid sel intervals, and repeated transfers until another completion or reset; because row k is sampled before its active edge, an update caused by row k's rising edge is observable starting in the following row sample." Zero extension still results when the retained upper 56 bits are zero.
+
+Amendment Q7-B, limited to a 16-bit completion after a prior accumulated result exists: the exact original clause "If `sel` is 010, `data_out` = {48'h0,data_in[15:0]}" is superseded. Q7's certain answer law is exactly: "data_out is asynchronously cleared when reset_n falls and remains zero through reset and release until a transfer completes; a transfer captured on a falling clk edge updates data_out on its final rising clk edge after 8, 16, 32, or 64 accepted samples, replacing the selected low-order bits with the transferred bits while retaining higher accumulated bits, and data_out then holds through completion, idle spacing, invalid sel intervals, and repeated transfers until another completion or reset; because row k is sampled before its active edge, an update caused by row k's rising edge is observable starting in the following row sample." The upper 48 accumulated bits are retained; zero extension still results when they are zero.
+
+Amendment Q7-C, limited to a 32-bit completion after a prior accumulated result exists: the exact original clause "If `sel` is 011, `data_out` = {32'h0,data_in[31:0]}" is superseded. Q7's certain answer law is exactly: "data_out is asynchronously cleared when reset_n falls and remains zero through reset and release until a transfer completes; a transfer captured on a falling clk edge updates data_out on its final rising clk edge after 8, 16, 32, or 64 accepted samples, replacing the selected low-order bits with the transferred bits while retaining higher accumulated bits, and data_out then holds through completion, idle spacing, invalid sel intervals, and repeated transfers until another completion or reset; because row k is sampled before its active edge, an update caused by row k's rising edge is observable starting in the following row sample." The upper 32 accumulated bits are retained; zero extension still results when they are zero.
+
+Amendment Q7-D, limited to the observable `data_out` after a completed result while current `sel` is 3'b000: the exact original clause "If `sel` is 000, `data_out` = 64'h0" is superseded by Q7's certain answer law exactly: "data_out is asynchronously cleared when reset_n falls and remains zero through reset and release until a transfer completes; a transfer captured on a falling clk edge updates data_out on its final rising clk edge after 8, 16, 32, or 64 accepted samples, replacing the selected low-order bits with the transferred bits while retaining higher accumulated bits, and data_out then holds through completion, idle spacing, invalid sel intervals, and repeated transfers until another completion or reset; because row k is sampled before its active edge, an update caused by row k's rising edge is observable starting in the following row sample." Before any completion after reset the value remains zero; after completion it retains that result.
+
+Amendment Q7-E, limited to the observable `data_out` after a completed result while current `sel` has any unsupported encoding: the exact original clause "default: 64'h0" is superseded by Q7's certain answer law exactly: "data_out is asynchronously cleared when reset_n falls and remains zero through reset and release until a transfer completes; a transfer captured on a falling clk edge updates data_out on its final rising clk edge after 8, 16, 32, or 64 accepted samples, replacing the selected low-order bits with the transferred bits while retaining higher accumulated bits, and data_out then holds through completion, idle spacing, invalid sel intervals, and repeated transfers until another completion or reset; because row k is sampled before its active edge, an update caused by row k's rising edge is observable starting in the following row sample." Unsupported encodings still start and receive no transaction.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+`reset_n` is active low and asynchronous. Its assertion immediately aborts any transfer, discards its captured and partial data, and clears `data_out`, `done`, all positions and selected widths, active status, and pending completion. Continued assertion holds this reset state. Assertion has priority over either clock edge. Release is not an update event and changes nothing. The next valid falling edge may accept a transfer. On the first rising sampling edge after E0, bit zero is accepted; the next falling edge advances protocol without publishing completion; the second rising edge accepts bit one.
+
+Before the first reset assertion, `done` reads its specified default 1'b0 and `data_out` reads 64'h0000000000000000 for every `sel`. The zero result for `sel` 3'b000 is required by the source mapping. Unsupported selections start no transaction and keep `done` low. These output laws do not impose reset-before-use, and no X or Z behavior is required.
+
+Implementation choice C1: the finite Lean instance starts in the state reached after the documented asynchronous reset: all numeric fields and both outputs are zero and all activity/completion flags are false. This is a verification initialization, not a hardware power-up guarantee.
+
+Implementation choice C2: only for hardware power-up before the first reset assertion or result-producing ordinary event, `data_out` is concretely zero for valid and unsupported `sel` encodings not already fixed by the source's 3'b000 mapping. This compatible initialization completion does not require reset before use, does not change acceptance or transfer behavior, and is superseded by the first completed result or reset. `done` is not part of this choice because its default zero is source-required.
+
+4. Timing.
+
+`clk` has a 50:50 duty cycle. With reset released, a falling edge accepts a valid transaction, advances its transmit phase, asserts `done` after its final sample, or begins the next repeated transaction after the completion pulse. Rising edges accept serialized bits. A steady level has no effect. Reset assertion overrides either edge asynchronously.
+
+For N in {8,16,32,64}, E0 is the falling edge that captures the then-current `data_in` and valid `sel`. The first subsequent rising edge completes accepted interval 1 and samples bit 0. Accepted interval N ends at the Nth accepted rising edge, where `data_out` is published. The post-edge published bit is determined by the captured operand, accumulated result, and receive position before that edge; the receive position advances on the same edge but does not select the published bit. Invalid `sel` on a rising edge pauses acceptance, so that interval is not counted, although transmit progression continues.
+
+`data_out` is registered. It changes asynchronously to zero on reset assertion and otherwise only on the final accepted rising sample; it then retains the result. `done` remains low through E0 and every sample. It rises on the falling edge immediately after the final accepted rising sample and falls on the next falling edge, hence its asserted width is one falling-edge-to-falling-edge cycle. The current `sel` must be valid for `done` to be observably high; unsupported `sel` makes it zero. Publication and completion indication are distinct events.
+
+The finite model has no physical `clk` input. Each `.fullCycle` step composes the falling-edge action followed by the rising-edge sampling action with inputs held for that represented composition. Row k observes settled outputs before that step; its updates appear in row k+1. The interface gives neither `step_ns` nor `sample_offset_ns`, so the trace establishes ordering, not nanosecond spacing. Reset rows represent assertion held across the modeled step; this projection does not restrict asynchronous pulses or other between-edge behavior.
+
+5. Behaviour.
+
+Q1 completion law: With reset_n high, done is asserted on the falling clk edge immediately after the selected 8-, 16-, 32-, or 64-bit transfer has produced its last bit and remains asserted only until the next falling clk edge; it is zero at all other phases, for unsupported sel values, and while reset_n is low.
+
+Q2 result-retention law: data_out is cleared to 64'h0000000000000000 when reset_n is low, changes only when a valid selected transfer completes, and otherwise retains the most recently completed 64-bit accumulated result, so it remains zero throughout the represented pre-completion phases following reset.
+
+Q3 clock-event law: While reset_n is high, a falling clk edge starts a transfer when sel is valid, advances each active transfer, asserts done after its final sampled bit, or starts the next repeated transfer after the completion pulse, and rising clk edges sample successive transfer bits and update data_out on the final sample; a steady clk level has no effect, while reset assertion overrides either phase asynchronously.
+
+Q4 reset law: A low reset_n asynchronously aborts any transfer and clears data_out and done to zero, continued low reset_n holds those observable values at zero, and releasing reset_n does not itself change them but permits a valid sel transfer to start on the next falling clk edge and repeated transfers thereafter.
+
+Q5 capture law: On a falling clk edge that starts a valid transfer, data_in is captured and its least-significant 8, 16, 32, or 64 bits according to sel determine the successive least-significant-first bits incorporated into data_out at completion; later data_in changes during that transfer have no effect, while each automatically repeated transfer captures the then-current data_in anew, and reset discards an interrupted capture.
+
+Q6 selection law: At an idle falling clk edge sel values 3'b001, 3'b010, 3'b011, and 3'b100 start 8-, 16-, 32-, and 64-bit transfers respectively, whereas other values start nothing and leave data_out unchanged with done low; during an active transfer sel does not alter its transmitted length, but every rising sampling edge requires sel to remain valid and the first accepted sample fixes the receive length, so an invalid mid-transfer sel pauses acceptance while transfer progression continues and a changed valid sel after the first accepted sample does not change that receive length, with the current sel applied afresh to each repeated transaction.
+
+Q7 result-output law: data_out is asynchronously cleared when reset_n falls and remains zero through reset and release until a transfer completes; a transfer captured on a falling clk edge updates data_out on its final rising clk edge after 8, 16, 32, or 64 accepted samples, replacing the selected low-order bits with the transferred bits while retaining higher accumulated bits, and data_out then holds through completion, idle spacing, invalid sel intervals, and repeated transfers until another completion or reset; because row k is sampled before its active edge, an update caused by row k's rising edge is observable starting in the following row sample.
+
+Q8 completion-output law: done is asynchronously cleared when reset_n falls, remains low through reset, release, transfer start, and all bit-sampling edges, rises on the falling clk edge following the final rising sample of a valid 8-, 16-, 32-, or 64-bit transfer, and falls on the next falling clk edge as the next repeated transfer starts; invalid sel produces no pulse and reset interrupts and clears any pending or asserted pulse, and because row k is sampled before its active edge each edge-caused transition is first visible in the following row sample.
+
+At an idle falling edge, `sel` values 3'b001, 3'b010, 3'b011, and 3'b100 accept 8-, 16-, 32-, and 64-bit transfers. All other encodings start nothing, transmit and receive nothing, preserve `data_out`, and keep `done` low. E0 captures `data_in`; only its low N bits participate, least-significant bit first. Later `data_in` changes do not affect that transaction. Each repeated transaction captures its then-current `data_in`; reset discards an interrupted capture.
+
+The E0 selection fixes transmit length. During transfer, later `sel` changes do not change it. Every rising sample nevertheless requires a currently valid `sel`. An invalid value pauses receive acceptance while transmit progression continues. The first accepted sample fixes receive length, which later different valid encodings do not alter. Current `sel` is applied afresh to the next transaction.
+
+Each accepted bit replaces its corresponding low-order position in the accumulated 64-bit value. At completion, the low N bits equal the captured transaction's low N bits, bits above N retain their previous accumulated values, and N=64 replaces the whole value. The result holds through completion, idle and invalid-selection intervals, and repeated or incomplete transfers until another completion or reset.
+
+With reset high, `done` is asserted on the falling edge immediately after the final accepted rising sample and only until the next falling edge. It is zero at all other phases and whenever current `sel` is unsupported. Reset clears pending or asserted completion.
+
+The required gated serial clock follows `clk` at the same frequency during transfer, carrying one least-significant-first bit per positive edge. It is zero in reset and, while inactive, stays at either permitted fixed logic level. These serialization, transport, and reconstruction requirements remain obligations of the integrated module although their link signals are not public ports.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete finite verification instance and observation convention above.
+
+### stimulus 0
+| cycle | reset_n | data_in | sel | data_out | done |
+|---|---|---|---|---|---|
+| 0 | 0 | 64'h0 | 3'b000 | 64'h0 | 0 |
+| 1 | 1 | 64'h1 | 3'b000 | 64'h0 | 0 |
+| 2 | 1 | 64'hffffffffffffffff | 3'b000 | 64'h0 | 0 |
+
+### stimulus 1
+| cycle | reset_n | data_in | sel | data_out | done |
+|---|---|---|---|---|---|
+| 0 | 0 | 64'h0 | 3'b001 | 64'h0 | 0 |
+| 1 | 1 | 64'h74 | 3'b001 | 64'h0 | 0 |
+| 2 | 1 | 64'h81 | 3'b001 | 64'h0 | 0 |
+| 3 | 1 | 64'h80 | 3'b001 | 64'h0 | 0 |
+| 4 | 1 | 64'hff | 3'b001 | 64'h0 | 0 |
+| 5 | 1 | 64'h35 | 3'b001 | 64'h0 | 0 |
+| 6 | 1 | 64'h35 | 3'b001 | 64'h0 | 0 |
+| 7 | 1 | 64'h35 | 3'b001 | 64'h0 | 0 |
+| 8 | 1 | 64'h35 | 3'b001 | 64'h0 | 0 |
+| 9 | 1 | 64'h35 | 3'b001 | 64'h74 | 0 |
+| 10 | 1 | 64'h35 | 3'b001 | 64'h74 | 1 |
+| 11 | 1 | 64'h35 | 3'b001 | 64'h74 | 0 |
+
+### stimulus 2
+| cycle | reset_n | data_in | sel | data_out | done |
+|---|---|---|---|---|---|
+| 0 | 0 | 64'h0 | 3'b010 | 64'h0 | 0 |
+| 1 | 1 | 64'h1 | 3'b010 | 64'h0 | 0 |
+| 2 | 1 | 64'h8000 | 3'b010 | 64'h0 | 0 |
+| 3 | 1 | 64'hffff | 3'b010 | 64'h0 | 0 |
+| 4 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 5 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 6 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 7 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 8 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 9 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 10 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 11 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 12 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 13 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 14 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 15 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 16 | 1 | 64'h5aa5 | 3'b010 | 64'h0 | 0 |
+| 17 | 1 | 64'h5aa5 | 3'b010 | 64'h1 | 0 |
+| 18 | 1 | 64'h5aa5 | 3'b010 | 64'h1 | 1 |
+| 19 | 1 | 64'h5aa5 | 3'b010 | 64'h1 | 0 |
+
+### stimulus 3
+| cycle | reset_n | data_in | sel | data_out | done |
+|---|---|---|---|---|---|
+| 0 | 0 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 1 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 2 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 3 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 4 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 5 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 6 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 7 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 8 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 9 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 10 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 11 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 12 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 13 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 14 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 15 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 16 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 17 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 18 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 19 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 20 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 21 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 22 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 23 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 24 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 25 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 26 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 27 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 28 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 29 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 30 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 31 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 32 | 1 | 64'h80000001 | 3'b011 | 64'h0 | 0 |
+| 33 | 1 | 64'h80000001 | 3'b011 | 64'h80000001 | 0 |
+| 34 | 1 | 64'h80000001 | 3'b011 | 64'h80000001 | 1 |
+| 35 | 1 | 64'h80000001 | 3'b011 | 64'h80000001 | 0 |
+
+### stimulus 4
+| cycle | reset_n | data_in | sel | data_out | done |
+|---|---|---|---|---|---|
+| 0 | 0 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 1 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 2 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 3 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 4 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 5 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 6 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 7 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 8 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 9 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 10 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 11 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 12 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 13 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 14 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 15 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 16 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 17 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 18 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 19 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 20 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 21 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 22 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 23 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 24 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 25 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 26 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 27 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 28 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 29 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 30 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 31 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 32 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 33 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 34 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 35 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 36 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 37 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 38 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 39 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 40 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 41 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 42 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 43 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 44 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 45 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 46 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 47 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 48 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 49 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 50 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 51 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 52 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 53 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 54 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 55 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 56 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 57 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 58 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 59 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 60 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 61 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 62 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 63 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 64 | 1 | 64'h8000000000000001 | 3'b100 | 64'h0 | 0 |
+| 65 | 1 | 64'h8000000000000001 | 3'b100 | 64'h8000000000000001 | 0 |
+| 66 | 1 | 64'h8000000000000001 | 3'b100 | 64'h8000000000000001 | 1 |
+| 67 | 1 | 64'h8000000000000001 | 3'b100 | 64'h8000000000000001 | 0 |
+
+### stimulus 5
+| cycle | reset_n | data_in | sel | data_out | done |
+|---|---|---|---|---|---|
+| 0 | 0 | 64'hffffffffffffffff | 3'b101 | 64'h0 | 0 |
+| 1 | 1 | 64'hffffffffffffffff | 3'b101 | 64'h0 | 0 |
+| 2 | 1 | 64'h1 | 3'b110 | 64'h0 | 0 |
+| 3 | 1 | 64'h8000000000000000 | 3'b111 | 64'h0 | 0 |
+
+### stimulus 6
+| cycle | reset_n | data_in | sel | data_out | done |
+|---|---|---|---|---|---|
+| 0 | 0 | 64'h0 | 3'b001 | 64'h0 | 0 |
+| 1 | 1 | 64'ha5 | 3'b001 | 64'h0 | 0 |
+| 2 | 1 | 64'ha5 | 3'b001 | 64'h0 | 0 |
+| 3 | 1 | 64'ha5 | 3'b001 | 64'h0 | 0 |
+| 4 | 1 | 64'h5a | 3'b010 | 64'h0 | 0 |
+| 5 | 1 | 64'h5a | 3'b010 | 64'h0 | 0 |
+
+### stimulus 7
+| cycle | reset_n | data_in | sel | data_out | done |
+|---|---|---|---|---|---|
+| 0 | 0 | 64'h0 | 3'b001 | 64'h0 | 0 |
+| 1 | 1 | 64'h12 | 3'b001 | 64'h0 | 0 |
+| 2 | 1 | 64'h12 | 3'b001 | 64'h0 | 0 |
+| 3 | 0 | 64'h34 | 3'b001 | 64'h0 | 0 |
+| 4 | 1 | 64'h34 | 3'b001 | 64'h0 | 0 |
+| 5 | 1 | 64'h34 | 3'b001 | 64'h0 | 0 |
+
+### stimulus 8
+| cycle | reset_n | data_in | sel | data_out | done |
+|---|---|---|---|---|---|
+| 0 | 0 | 64'h0 | 3'b100 | 64'h0 | 0 |
+| 1 | 1 | 64'h0 | 3'b100 | 64'h0 | 0 |
+| 2 | 1 | 64'h1 | 3'b100 | 64'h0 | 0 |
+| 3 | 1 | 64'hffffffffffffffff | 3'b100 | 64'h0 | 0 |
+| 4 | 1 | 64'h8000000000000000 | 3'b100 | 64'h0 | 0 |
+| 5 | 1 | 64'h123456789abcdef0 | 3'b100 | 64'h0 | 0 |

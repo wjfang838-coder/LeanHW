@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_prbs_gen_0003",
+  "toplevel": "cvdp_prbs_gen",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

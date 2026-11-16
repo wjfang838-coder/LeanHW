@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_unpacker_one_hot_0001",
+  "toplevel": "unpack_one_hot",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

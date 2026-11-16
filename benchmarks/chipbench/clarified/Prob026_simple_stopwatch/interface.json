@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob026_simple_stopwatch",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

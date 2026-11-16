@@ -1,0 +1,30 @@
+Update: the RTL-to-cycle-to-ISA bridge is now proved; see BRIDGE_RESULTS.txt and evidence/bridge-latest.json.
+The results below record the original simulation/PDR run before that bridge was added.
+
+RV32 arithmetic CPU: actual execution results
+Evidence: evidence/20261020T104208402433Z
+RTL SHA-256: 5135732d440355055f5c99229c620c9b8f9d97e5ccce663c09b59b614a0af9c6
+
+Diagnosis: 3 ambiguity + 2 incompleteness + 2 contradiction witnesses certified.
+Revision: determined on the seven-context diagnostic projection.
+Lean: unbounded cycle-to-ISA refinement, ordered acceptance conservation,
+      drained execution of exactly the accepted program; no sorry/native axioms.
+Lean certificate replay: 10.712 seconds (not proof-development time).
+Co-simulation: 16925 edges; 1778 accepted; 1773 retired;
+               5 explicitly aborted by reset; all 29 instructions and 32 stall masks.
+Corrections: all 6 faulty implementations detected; all 6 local repairs pass all vectors.
+
+ABC PDR sanity: proved; synthesis=0.818s; PDR=0.114s wall; budget=60s.
+  AIGER: 719 ANDs, 52 latches, 3 bad outputs, 1 reset constraint; fold + orpos.
+ABC PDR order: proved; synthesis=1.971s; PDR=13.097s wall; budget=60s.
+  AIGER: 4818 ANDs, 343 latches, 3 bad outputs, 1 reset constraint; fold + orpos.
+ABC PDR full: pdr_timeout; synthesis=49.367s; PDR=60.549s wall; budget=60s.
+  AIGER: 170065 ANDs, 2655 latches, 11 bad outputs, 1 reset constraint; fold + orpos.
+
+Supplementary RTL PDR correction:
+  Ignoring WB stall: counterexample (see evidence/pdr-stall-mutant/abc.log).
+  Repaired source: sanity properties proved with the same miter.
+
+Historical proof scope of this original run: Lean cycle -> ISA. The later unbounded RTL bridge is recorded separately in BRIDGE_RESULTS.txt.
+A PDR timeout is an inconclusive resource-bounded outcome, not a failure of correctness or a proof of intrinsic hardness.
+All raw logs, commands, sources/hashes and intermediate development failures are retained in evidence/.

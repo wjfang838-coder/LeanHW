@@ -1,0 +1,108 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- d: input 1 bit.
+- q: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+TopModule has no reset input and no reset behavior. At power-up, before any rising edge of clk has occurred, q is unknown independently of d. The implementation must leave this stored value uninitialised: it must not give it a declaration initialiser or an initial-block value. The first rising edge captures d, and q then has that captured value. Because there is no reset, there is no reset assertion, reset edge, or reset release that changes q or any state.
+
+Timing
+
+q is registered. Each rising edge of clk captures the value of d present at that edge, and q reflects that captured value after the edge. Thus the capture latency from d at a rising edge to q is one sampled state transition; in the normative trace's pre-transition convention, it appears in the following row. q retains its captured value between rising edges. There are no pulses or periodic outputs.
+
+The concrete object uses full-cycle rows. Row k samples the settled output before transition k, and then transition k models one rising edge; row k+1 observes its result. The interface supplies no nanosecond step or sample-offset values, so the trace makes no implicit 10 ns assumption and does not specify an actual clock period or propagation delay. The circuit law is edge-based: steady clk levels and falling edges do not change the stored value.
+
+Behaviour
+
+Before the first rising edge of clk, q is unknown, independently of d.
+
+After at least one rising edge of clk, q equals the value of d captured at the most recent rising edge.
+
+Each rising edge of clk captures the value of d present at that edge for q, including on consecutive rising edges; a steady clk and falling edges have no effect, and there are no modes, reset, transaction interruptions, or inactive controls that alter this rule.
+
+The value of d present at each rising edge of clk is captured for q, while changes to d between rising edges have no effect until a later rising edge; every rising edge performs a new capture, with no modes, reset, inactive controls, or interruption behavior.
+
+q is unknown before the first rising edge, takes the d value captured at each rising edge after that edge, and retains that value until the next rising edge; because each table row is sampled before its active edge, the row observes the capture from the preceding rising edge, with no reset, completion, clear interval, or restart behavior.
+
+Both possible one-bit values of d obey the same capture law. There are no disabled modes, transactions, cancellation conditions, completion states, or repeated-start semantics. Every rising edge is a new capture, including the first edge and consecutive edges.
+
+Worked trace
+
+The evaluated trace below is normative. Each row reports outputs before that row's modeled rising-edge transition.
+
+### stimulus 0
+| cycle | d | q |
+|---|---|---|
+| 0 | 0 | x |
+| 1 | 1 | 0 |
+| 2 | 0 | 1 |
+| 3 | 1 | 0 |
+
+### stimulus 1
+| cycle | d | q |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 1 | 1 |
+| 2 | 0 | 1 |
+| 3 | 0 | 0 |
+
+### stimulus 2
+| cycle | d | q |
+|---|---|---|
+| 0 | 0 | x |
+| 1 | 0 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 1 |
+
+### stimulus 3
+| cycle | d | q |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 0 | 1 |
+| 2 | 1 | 0 |
+| 3 | 0 | 1 |
+
+### stimulus 4
+| cycle | d | q |
+|---|---|---|
+| 0 | 0 | x |
+| 1 | 1 | 0 |
+| 2 | 1 | 1 |
+| 3 | 0 | 1 |
+
+### stimulus 5
+| cycle | d | q |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 0 | 1 |
+| 2 | 0 | 0 |
+| 3 | 1 | 0 |
+
+### stimulus 6
+| cycle | d | q |
+|---|---|---|
+| 0 | 0 | x |
+| 1 | 0 | 0 |
+| 2 | 0 | 0 |
+| 3 | 1 | 0 |
+
+### stimulus 7
+| cycle | d | q |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 1 | 1 |
+| 2 | 1 | 1 |
+| 3 | 0 | 1 |

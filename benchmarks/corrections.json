@@ -1,0 +1,93 @@
+[
+  {
+    "kind": "revised_prompt",
+    "source": "benchmark_impact/purple-rerun-20261001/reference-revisions/rtllm-asyn-fifo-prompt-v2/benchmarks/rtllm/dataset/Memory/FIFO/asyn_fifo/design_description.txt",
+    "target": "corpus/corrected_benchmarks/rtllm/dataset/Memory/FIFO/asyn_fifo/design_description.txt",
+    "before_sha256": "26037554c6ccc19811444a1bbeb9bc811dd42e8f41de6a2503b906a35f2eab7b",
+    "after_sha256": "ae7f79aeac4985167fa50c891c7287eebddb474d4025a59ee0a9f73908614f10"
+  },
+  {
+    "kind": "revised_checker",
+    "source": "benchmark_impact/purple-rerun-20261001/reference-revisions/rtllm-asyn-fifo-prompt-v2/benchmarks/rtllm/dataset/Memory/FIFO/asyn_fifo/testbench.v",
+    "target": "corpus/corrected_benchmarks/rtllm/dataset/Memory/FIFO/asyn_fifo/testbench.v",
+    "before_sha256": "06b0bf2f03c887394ac21821afc24d374b11f15e7cc119981b9602d584924472",
+    "after_sha256": "06b0bf2f03c887394ac21821afc24d374b11f15e7cc119981b9602d584924472"
+  },
+  {
+    "kind": "reference",
+    "source": "benchmark_impact/purple-rerun-20261001/reference-revisions/rtllm-asyn-fifo-prompt-v2/benchmarks/rtllm/dataset/Memory/FIFO/asyn_fifo/verified_asyn_fifo.v",
+    "target": "corpus/corrected_benchmarks/rtllm/dataset/Memory/FIFO/asyn_fifo/verified_asyn_fifo.v",
+    "before_sha256": "a209fc65f57bcda0fa930944653f047a8cd530f3bde5f015e4bebb10c58b1a49",
+    "after_sha256": "bdfefa6df1d4be05191d455fd5472736e6ad890da6b29fc4daeb6d5004239352"
+  },
+  {
+    "kind": "private-answer-supplement-not-native-oracle",
+    "source": "benchmark_impact/purple-rerun-20261001/reference-revisions/cvdp-encoder-synthetic-v1/synthetic-golden.sv",
+    "target": "corpus/corrected_benchmarks/cvdp/private_answer_supplements/cvdp_copilot_convolutional_encoder_0001/synthetic-golden.sv",
+    "after_sha256": "b08ef8249366b2c807443aff628809d7ace28fb503a731b45a19a51dab6a0685"
+  },
+  {
+    "kind": "private-answer-supplement-not-native-oracle",
+    "source": "benchmark_impact/purple-rerun-20261001/reference-revisions/cvdp-encoder-synthetic-v1/synthetic-metadata.json",
+    "target": "corpus/corrected_benchmarks/cvdp/private_answer_supplements/cvdp_copilot_convolutional_encoder_0001/synthetic-metadata.json",
+    "after_sha256": "1257cb32afdf6d0047f68ef9756560098a66a7660124a78f3fd171710b234e70"
+  },
+  {
+    "kind": "declared-Hill-record-revision",
+    "design": "cvdp_copilot_hill_cipher_0001",
+    "source": "benchmark_impact/purple-rerun-20261001/reference-revisions/cvdp-hill-math-v1/benchmarks/cvdp/dataset",
+    "target": "corpus/corrected_benchmarks/cvdp/dataset",
+    "before_sha256": "fa2fd691d0b9f118afaff647ed35ca5c0a1c5d795a4e99c3f183ca037c0035a8",
+    "after_sha256": "9960d71bab789fc1c10a8e523f4e28e86df930c79534048bac160225eb7d2b0c"
+  },
+  {
+    "kind": "declared-Hill-record-revision",
+    "design": "cvdp_copilot_hill_cipher_0001",
+    "source": "benchmark_impact/purple-rerun-20261001/reference-revisions/cvdp-hill-math-v1/benchmarks/cvdp/harness",
+    "target": "corpus/corrected_benchmarks/cvdp/harness",
+    "before_sha256": "6601459b573158c4a83f7faa0bda93a5fb79bab5fea8aa36b597bfa3e78ac98c",
+    "after_sha256": "f3f5dc3acba8acefbe6f476889d60466c224d312e14ccab8ba411fe23df499f8"
+  },
+  {
+    "kind": "explicit-reset-checker",
+    "source": "benchmark_impact/purple-rerun-20261001/recoveries/chipbench-Prob003_non-overlapping_sequence_detect-oracle-v1/explicit-reset-checker.sv",
+    "target": "corpus/corrected_benchmarks/chipbench/dataset/dataset_self_contain/Prob003_non-overlapping_sequence_detect_test.sv",
+    "before_sha256": "401f9b3843a2157938cba253167a6feaf47bb79274e34c8025df2fa3addb5eb4",
+    "after_sha256": "c7aded94bed731f328ffdca3ee21215acd0459b3c3228ae3b4aafff589ab20c9"
+  },
+  {
+    "kind": "complete-ALU-reference-with-private-name",
+    "source": "benchmark_impact/purple-rerun-20261001/reference-revisions/chipbench-alu-complete-v2/complete-reference.v",
+    "target": "corpus/corrected_benchmarks/chipbench/dataset/dataset_not_self_contain/Prob005_8_bit_alu_ref.sv",
+    "before_sha256": "1a43c694c69e7929e22e87ceadbf4bf5c995fb4f035c81fd8b5892f3007319ae",
+    "after_sha256": "a11bb8a4101e1fd74de55f090b8d33e29dbbba61729fff5fd09bc77ca1d288f2",
+    "transformation": "TopModule declaration -> RefModule, once; helpers unchanged"
+  },
+  {
+    "kind": "revised_prompt",
+    "source": "benchmark_impact/purple-rerun-20261001/reference-revisions/chipbench-lcm-math-v1/benchmarks/chipbench/dataset/dataset_self_contain/Prob013_least_common_multiple_prompt.txt",
+    "target": "corpus/corrected_benchmarks/chipbench/dataset/dataset_self_contain/Prob013_least_common_multiple_prompt.txt",
+    "before_sha256": "e17120f2f6dec499dfbda76db5e531ed91d1abb5ccc114325b43d34e35251660",
+    "after_sha256": "91563f68cea4dfa745ed36a8e2f1e261f08f23371b2ebb305d1322abdf8ac419"
+  },
+  {
+    "kind": "revised_checker",
+    "source": "benchmark_impact/purple-rerun-20261001/reference-revisions/chipbench-lcm-math-v1/benchmarks/chipbench/dataset/dataset_self_contain/Prob013_least_common_multiple_test.sv",
+    "target": "corpus/corrected_benchmarks/chipbench/dataset/dataset_self_contain/Prob013_least_common_multiple_test.sv",
+    "before_sha256": "78698dd52dec060274fc7629bdf852e7a008b80c9e7bdb0e764c8350bc3cff40",
+    "after_sha256": "4d616f5059262cd61c870e9bda8bb5bfb76a30feb33156b4d970f579f4787430"
+  },
+  {
+    "kind": "reference",
+    "source": "benchmark_impact/purple-rerun-20261001/reference-revisions/chipbench-lcm-math-v1/benchmarks/chipbench/dataset/dataset_self_contain/Prob013_least_common_multiple_ref.sv",
+    "target": "corpus/corrected_benchmarks/chipbench/dataset/dataset_self_contain/Prob013_least_common_multiple_ref.sv",
+    "before_sha256": "99197feb7aba38c233f52615bdab44e8b93301864b99d51769ddcbd50301a5ad",
+    "after_sha256": "55f2dd23377ded7551fd399fd0d7dd1364dd4bd9c010741a7ea63912bc784642"
+  },
+  {
+    "kind": "private-Hill-reference-not-native-oracle",
+    "source": "benchmark_impact/purple-rerun-20261001/reference-revisions/cvdp-hill-math-v1/synthetic-golden.sv",
+    "target": "corpus/corrected_benchmarks/cvdp/private_answer_supplements/cvdp_copilot_hill_cipher_0001/synthetic-golden.sv",
+    "after_sha256": "d8ae75ac4d83b7963599b69ad66fafcbff755cfef39df146adc699474dff753a"
+  }
+]

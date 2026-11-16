@@ -1,0 +1,182 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+A **Data Bus Inversion (DBI) encoder** is a digital circuit used to reduce power consumption and electromagnetic interference (EMI) in high-speed digital buses. DBI encodes a group of data bits using an additional bit called a control bit, which indicates whether the current data bits should be transmitted over the bus as they are or in an inverted form.
+
+For example, in the case of a DBI encoder that processes a group of 40 data bits, the 40-bit data is divided into two 20-bit groups, and each 20-bit group is converted into a 21-bit codeword. If the number of bit toggles between the previous codeword and the current data in each 20-bit group exceeds 10, the control bit is set to 1, and the data bits are encoded in inverted form. Otherwise, the control bit is set to 0, and the data bits are transmitted unchanged.
+
+## Design Specification of `dbi_enc` module:
+
+### Interface:
+
+#### Inputs:
+- **`data_in`** (40-bits, [39:0]): Data input before DBI logic, that is data input that needed to be encoded.
+- **`clk`** (1-bit): Clock signal associated with the input data.
+- **`rst_n`**: An active-low asynchronous reset signal. When asserted, this signal resets the internal flip-flops, forcing the output to a known state that is `data_out` to 40'h00_0000_0000 and `dbi_cntrl` to 2'b00.
+#### Output:
+- **`data_out`** (40-bits, [39:0]): Data input after DBI logic.
+- **`dbi_cntrl`** (2-bits, [1:0]): The output signal synchronized to the destination clock domain.
+
+### Description of DBI Encoder Functionality:
+
+**Splitting Incoming Data `data_in`:**
+The DBI Encoder splits the 40-bit `data_in` into two 20-bit groups:
+- Group-1: The 20 most significant bits (MSBs).
+- Group-0: The 20 least significant bits (LSBs).
+
+**Comparison with Previous Data:**
+Each 20-bit group is compared with its corresponding previous 20-bit group.
+- If this is the first operation after a system reset or initialization, the groups are compared with 20-bits of zeroes.
+- Each bit in the current group is compared with the corresponding bit in the previous group to check whether they match or differ.
+
+**Control Signal (`dbi_cntrl`) Behavior:**
+- If more than 10 bits differ between the current and previous data in Group-1, `dbi_cntrl[1]` is set to high (1); otherwise, it is set to low (0).
+- Similarly, if more than 10 bits differ in Group-0, `dbi_cntrl[0]` is set to high (1); otherwise, it is set to low (0).
+
+**Generating `data_out`:**
+The `data_out` signal is generated based on the values of `dbi_cntrl`:
+- If `dbi_cntrl[1]` is high, the inverted version of Group-1 (MSBs) is assigned to `data_out[39:20]`.
+- If `dbi_cntrl[0]` is high, the inverted version of Group-0 (LSBs) is assigned to `data_out[19:0]`.
+- If neither control signal is high, the respective groups are passed through without inversion.
+
+**Updating Previous Data:**
+- For the next operation, the 40-bit `data_out` from the current cycle is stored as the "previous data" for comparison.
+
+**Reset Behavior (nrst):**
+- When the` rst_n` signal is de-asserted (active low):
+- All flip-flops in the encoder are reset to a known state (typically logic low).
+- The `data_out` signal is held at a known value (e.g., all zeroes) while the reset is active.
+### Summary:
+The DBI Encoder ensures that data is dynamically inverted for each group based on the bitwise differences between consecutive operations, optimizing the data encoding for transmission. The `dbi_cntrl` signals dictate whether the data groups are inverted, ensuring flexibility. Reset functionality ensures stable behavior during system initialization.
+
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Named module interface binding
+
+Module: dbi_enc.
+Connect ports by name. The enumeration below does not establish positional order.
+- data_in: input; 40 bits in the concrete formal instance.
+- clk: input; 1 bits in the concrete formal instance.
+- rst_n: input; 1 bits in the concrete formal instance.
+- data_out: output; 40 bits in the concrete formal instance.
+- dbi_cntrl: output; 2 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The certain integration answer Q16 establishes named connections for module `dbi_enc`: `data_in` is a 40-bit input, `clk` is a 1-bit input, `rst_n` is a 1-bit input, `data_out` is a 40-bit output, and `dbi_cntrl` is a 2-bit output. There are no public parameters. Named wiring is the portable consumer guidance. The evidence enumerates these names in original-document order but does not verify positional declaration order, so this specification makes no positional-order guarantee. A caller possessing the actual module declaration may instantiate it in that declaration's actual order.
+
+3. Reset.
+
+Source self-erratum S1 — frozen question Q17, scope `source@6b6636ef548afd17`. Original clause: “When the` rst_n` signal is de-asserted (active low):”. Replacement clause: “When the` rst_n` signal is asserted (active low):”. Scope: only the assertion term in this reset-action heading.
+
+The unchanged governing source rule is: “**`rst_n`**: An active-low asynchronous reset signal. When asserted, this signal resets the internal flip-flops, forcing the output to a known state that is `data_out` to 40'h00_0000_0000 and `dbi_cntrl` to 2'b00.” The following unchanged action lines occur under the corrected assertion heading: “All flip-flops in the encoder are reset to a known state (typically logic low).” and “The `data_out` signal is held at a known value (e.g., all zeroes) while the reset is active.” This source self-erratum changes only `de-asserted` to `asserted`; it changes no polarity, event, value, algorithm, or other wording.
+
+`rst_n` is active-low and asynchronous. A 1-to-0 transition asserts reset, and a 0-to-1 transition releases it. Assertion immediately resets all stored state to zero without waiting for `clk`, sets `data_out = 40'h00_0000_0000` and `dbi_cntrl = 2'b00`, and has priority over a simultaneous ordinary data edge. Those output values and reset state persist for the entire interval in which `rst_n = 0`. Release alone neither accepts `data_in` nor publishes or advances an ordinary result. The first ordinary edge after release compares its pre-edge input groups with the reset-established zero groups.
+
+Implementation choice C1 — initial-state scope only: at hardware power-up, before reset has ever been asserted, the stored previous comparison value, `data_out`, and `dbi_cntrl` are initialized to zero. Thus both outputs read their reset values before the first reset assertion. This is a compatible implementation choice, not a source-derived power-up fact. It imposes no reset-before-use restriction: an ordinary data edge before reset uses the initialized zero comparison value and establishes the normal specified result.
+
+4. Timing.
+
+Implementation choice C2 — unstated-clock-edge scope only: the rising edge of `clk` is the ordinary data edge. The source does not select rising versus falling. This compatible choice does not alter asynchronous reset assertion.
+
+Implementation choice C3 — compatible registered-publication completion only: `data_out` and `dbi_cntrl` are registered and publish on the same ordinary edge that accepts their operands. The source associates `clk` with `data_in` and makes the current encoded output the next operation's previous data, but does not state an additional publication delay. This choice preserves consecutive operations and adds no transaction exclusion.
+
+For every reset-inactive transaction, E0 is a rising edge. The pre-E0 `data_in` and pre-E0 stored previous encoded output determine both registered post-E0 outputs. Publication occurs immediately after E0, after zero completed subsequent clock intervals. Simultaneously at E0, the post-E0 encoded output becomes the stored comparison value for the next transaction; this advancement does not feed the result published at E0. Both outputs retain their post-E0 values until asynchronous reset assertion or the next rising edge. Every rising edge while reset is inactive accepts its pre-edge input, including consecutive or repeated inputs. Neither output is a pulse, timeout, serialized output, or periodic signal.
+
+The reset-to-operation timeline is: asynchronous assertion Ereset immediately establishes zero state and outputs; any selected rising edge while reset remains asserted preserves them; release changes no stored value; the first rising edge E0 after release compares the pre-E0 input with zero and publishes the result post-E0; E1, E2, and E3 each compare their pre-edge input with the encoded output published by the immediately preceding ordinary edge.
+
+The finite Lean interface has no physical `clk` field. Each `.fullCycle` step denotes one selected rising edge. Row k is sampled after settling and before that edge, and the step computes the state observed in row k+1. The interface specifies no `timing.step_ns` or `timing.sample_offset_ns`, so no nanosecond row spacing is claimed. A row with `rst_n = 0` models reset asserted and held through the sampled active edge. This active-edge projection cannot represent every between-edge reset assertion or release and does not restrict legal reset pulses or weaken the circuit's asynchronous-reset obligation.
+
+5. Behaviour.
+
+For every 40-bit `data_in`, Group-1 is `data_in[39:20]` and Group-0 is `data_in[19:0]`. Each current group is compared independently with the corresponding 20-bit group of the stored previous encoded `data_out`. Its difference count is the population count of the 20-bit bitwise XOR of those two groups.
+
+For Group-1, if the difference count is greater than 10, `dbi_cntrl[1] = 1` and `data_out[39:20]` is the 20-bit bitwise complement of `data_in[39:20]`; otherwise `dbi_cntrl[1] = 0` and `data_out[39:20] = data_in[39:20]`. Independently for Group-0, if its difference count is greater than 10, `dbi_cntrl[0] = 1` and `data_out[19:0]` is the 20-bit bitwise complement of `data_in[19:0]`; otherwise `dbi_cntrl[0] = 0` and `data_out[19:0] = data_in[19:0]`.
+
+Exactly 10 differences does not invert. Each complement is truncated to its 20-bit group. The two resulting groups form `data_out[39:0]`, and the two decisions form `dbi_cntrl[1:0]`. This covers every 40-bit input encoding.
+
+After every ordinary publication, the complete encoded `data_out`, rather than unencoded `data_in`, becomes the previous comparison value for the next operation. The result published after an edge uses the stored value from before that edge even though storage advances on the same edge. Reset assertion overrides and cancels a simultaneous ordinary update. Reset release consumes no ordinary publication edge.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete implementation choices and finite observation domain above. It supplements but does not replace the complete RTL requirements.
+
+### stimulus 0
+| cycle | data_in | rst_n | data_out | dbi_cntrl |
+|---|---|---|---|---|
+| 0 | 40'h123456789a | 1 | 40'h0 | 2'b00 |
+| 1 | 40'h0 | 0 | 40'h0 | 2'b00 |
+| 2 | 40'h1 | 0 | 40'h0 | 2'b00 |
+| 3 | 40'h1 | 1 | 40'h0 | 2'b00 |
+| 4 | 40'h8000000000 | 1 | 40'h1 | 2'b00 |
+| 5 | 40'hffffffffff | 1 | 40'h8000000000 | 2'b00 |
+
+### stimulus 1
+| cycle | data_in | rst_n | data_out | dbi_cntrl |
+|---|---|---|---|---|
+| 0 | 40'h0 | 0 | 40'h0 | 2'b00 |
+| 1 | 40'h0 | 1 | 40'h0 | 2'b00 |
+| 2 | 40'h3ff | 1 | 40'h0 | 2'b00 |
+| 3 | 40'h7ff | 1 | 40'h3ff | 2'b00 |
+| 4 | 40'h1 | 1 | 40'h7ff | 2'b00 |
+
+### stimulus 2
+| cycle | data_in | rst_n | data_out | dbi_cntrl |
+|---|---|---|---|---|
+| 0 | 40'h0 | 0 | 40'h0 | 2'b00 |
+| 1 | 40'h0 | 1 | 40'h0 | 2'b00 |
+| 2 | 40'h3ff00000 | 1 | 40'h0 | 2'b00 |
+| 3 | 40'h7ff00000 | 1 | 40'h3ff00000 | 2'b00 |
+| 4 | 40'h100000 | 1 | 40'h7ff00000 | 2'b00 |
+
+### stimulus 3
+| cycle | data_in | rst_n | data_out | dbi_cntrl |
+|---|---|---|---|---|
+| 0 | 40'h0 | 0 | 40'h0 | 2'b00 |
+| 1 | 40'h0 | 1 | 40'h0 | 2'b00 |
+| 2 | 40'hffffffffff | 1 | 40'h0 | 2'b00 |
+| 3 | 40'h0 | 1 | 40'h0 | 2'b11 |
+| 4 | 40'hffffffffff | 1 | 40'h0 | 2'b00 |
+| 5 | 40'h0 | 1 | 40'h0 | 2'b11 |
+
+### stimulus 4
+| cycle | data_in | rst_n | data_out | dbi_cntrl |
+|---|---|---|---|---|
+| 0 | 40'h0 | 0 | 40'h0 | 2'b00 |
+| 1 | 40'h55555aaaaa | 1 | 40'h0 | 2'b00 |
+| 2 | 40'haaaaa55555 | 1 | 40'h55555aaaaa | 2'b00 |
+| 3 | 40'h55555aaaaa | 1 | 40'h55555aaaaa | 2'b11 |
+| 4 | 40'haaaaa55555 | 1 | 40'h55555aaaaa | 2'b00 |
+
+### stimulus 5
+| cycle | data_in | rst_n | data_out | dbi_cntrl |
+|---|---|---|---|---|
+| 0 | 40'h0 | 0 | 40'h0 | 2'b00 |
+| 1 | 40'h123456789a | 1 | 40'h0 | 2'b00 |
+| 2 | 40'hfedcba9876 | 0 | 40'h0 | 2'b00 |
+| 3 | 40'h1111122222 | 1 | 40'h0 | 2'b00 |
+| 4 | 40'h3333344444 | 1 | 40'h1111122222 | 2'b00 |
+
+### stimulus 6
+| cycle | data_in | rst_n | data_out | dbi_cntrl |
+|---|---|---|---|---|
+| 0 | 40'h0 | 0 | 40'h0 | 2'b00 |
+| 1 | 40'h80000 | 1 | 40'h0 | 2'b00 |
+| 2 | 40'h8000000000 | 1 | 40'h80000 | 2'b00 |
+| 3 | 40'h1 | 1 | 40'h8000000000 | 2'b00 |
+| 4 | 40'h100000 | 1 | 40'h1 | 2'b00 |
+
+### stimulus 7
+| cycle | data_in | rst_n | data_out | dbi_cntrl |
+|---|---|---|---|---|
+| 0 | 40'h0 | 0 | 40'h0 | 2'b00 |
+| 1 | 40'habcde13579 | 1 | 40'h0 | 2'b00 |
+| 2 | 40'habcde13579 | 1 | 40'h5432113579 | 2'b10 |
+| 3 | 40'habcde13579 | 1 | 40'h5432113579 | 2'b10 |
+| 4 | 40'h246886420 | 1 | 40'h5432113579 | 2'b10 |
+| 5 | 40'h246886420 | 1 | 40'h246886420 | 2'b00 |

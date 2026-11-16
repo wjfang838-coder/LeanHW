@@ -1,0 +1,4 @@
+# Core Python tooling and local regression runner.
+PyYAML>=6
+pytest>=7
+# Optional: cocotb / cocotb-test for CVDP; pyslang in v2lean/requirements-slang.txt.

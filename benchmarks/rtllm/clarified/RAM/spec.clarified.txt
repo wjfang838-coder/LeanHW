@@ -1,0 +1,128 @@
+Module and integration contract
+
+Module: RAM.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- write_en: input 1 bit.
+- write_addr: input [7:0].
+- write_data: input [5:0].
+- read_en: input 1 bit.
+- read_addr: input [7:0].
+- read_data: output [5:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+rst_n is an active-low asynchronous reset. Asserting rst_n low asynchronously forces read_data to 6'b000000 and clears addresses 8'h00 through 8'h07, overriding every simultaneous read or write. Addresses 8'h08 through 8'h0b are not cleared by reset. While rst_n remains low, read_data remains 6'b000000 and the cleared addresses remain zero. Releasing rst_n alone changes neither read_data nor stored values. On the first rising edge after release, normal read and write behavior resumes; the value produced by that edge is visible after the edge.
+
+Before reset has ever been asserted or any rising edge has assigned read_data, read_data is unknown. The implementation must leave it uninitialised, with no initial block or declaration initialiser. Before reset, each address likewise has an unknown stored value until that address is written; reset gives 8'h00 through 8'h07 the defined value 6'b000000 but does not initialise 8'h08 through 8'h0b.
+
+Timing
+
+The read_data output is a registered result with one rising-edge latency from read_en and read_addr, except that asserting rst_n low forces it to 6'b000000 immediately. A write is captured on a rising edge when enabled. With reset inactive, only a rising edge performs a transaction: steady clock levels and falling edges do not change stored values or read_data. Repeated rising edges perform repeated transactions; there is no completion phase or completion pulse.
+
+The evaluated full-cycle trace samples row k before that row's active rising edge and then applies the transition that produces row k+1. Thus an enabled read at row k is first visible in row k+1. This is an observation convention, not a circuit period or propagation-delay requirement. The interface supplies no numeric step_ns or sample_offset_ns, so physical clock period, duty cycle, and delays are unspecified.
+
+Behaviour
+
+All address comparisons use the complete unsigned 8-bit address value; addresses do not wrap or alias.
+
+At each rising edge with rst_n high, write_en high performs a write, while write_en low leaves every stored value unchanged. For an enabled write, write_addr selects addresses 8'h00 through 8'h0b; addresses 8'h0c through 8'hff do not establish or change any readable stored value. An in-range enabled write stores the six bits of write_data at write_addr, replacing the prior value on every such edge. write_addr and write_data have no effect when write_en is low or reset is asserted.
+
+At each rising edge with rst_n high, read_en high captures the selected pre-edge stored value, while read_en low sets read_data to 6'b000000 rather than retaining its previous value. For an enabled read, read_addr selects addresses 8'h00 through 8'h0b, and an address from 8'h0c through 8'hff makes the captured read_data unknown. Reading an in-range address whose value has not been initialised by reset or a write also captures unknown. read_addr has no effect when read_en is low or reset is asserted.
+
+When read_en and write_en are both high on the same rising edge, both operations occur. If their addresses are equal and in range, the read captures that address's value from before the edge, while the new write_data becomes available to later reads. If their addresses differ, the read captures the selected pre-edge value and the enabled in-range write updates its independently selected address. The same pre-edge rule applies on every repeated transaction.
+
+Asserting rst_n low asynchronously forces read_data to 6'b000000 and clears addresses 8'h00 through 8'h07, overriding every simultaneous read or write. Reset interruption takes priority immediately; release merely permits later rising edges to resume the laws above.
+
+Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance and uses the observation convention stated above.
+
+### stimulus 0
+| cycle | rst_n | write_en | write_addr | write_data | read_en | read_addr | read_data |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000000 | 6'x |
+
+### stimulus 1
+| cycle | rst_n | write_en | write_addr | write_data | read_en | read_addr | read_data |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 8'b00000011 | 6'b111111 | 1 | 8'b00000011 | 6'b000000 |
+| 1 | 1 | 1 | 8'b00000011 | 6'b000001 | 1 | 8'b00000011 | 6'b000000 |
+| 2 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000011 | 6'b000000 |
+| 3 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000011 | 6'b000001 |
+
+### stimulus 2
+| cycle | rst_n | write_en | write_addr | write_data | read_en | read_addr | read_data |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b000000 |
+| 1 | 1 | 1 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b000000 |
+| 2 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000000 | 6'b000000 |
+| 3 | 1 | 0 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b000000 |
+
+### stimulus 3
+| cycle | rst_n | write_en | write_addr | write_data | read_en | read_addr | read_data |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b000000 |
+| 1 | 1 | 1 | 8'b00000001 | 6'b000001 | 0 | 8'b00000000 | 6'b000000 |
+| 2 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000001 | 6'b000000 |
+| 3 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000001 | 6'b000001 |
+
+### stimulus 4
+| cycle | rst_n | write_en | write_addr | write_data | read_en | read_addr | read_data |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b000000 |
+| 1 | 1 | 1 | 8'b00000111 | 6'b111111 | 0 | 8'b00000000 | 6'b000000 |
+| 2 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000111 | 6'b000000 |
+| 3 | 1 | 0 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b111111 |
+
+### stimulus 5
+| cycle | rst_n | write_en | write_addr | write_data | read_en | read_addr | read_data |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b000000 |
+| 1 | 1 | 1 | 8'b00000100 | 6'b100000 | 0 | 8'b00000000 | 6'b000000 |
+| 2 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000100 | 6'b000000 |
+| 3 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000100 | 6'b100000 |
+
+### stimulus 6
+| cycle | rst_n | write_en | write_addr | write_data | read_en | read_addr | read_data |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b000000 |
+| 1 | 1 | 1 | 8'b00000101 | 6'b010101 | 0 | 8'b00000000 | 6'b000000 |
+| 2 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000101 | 6'b000000 |
+| 3 | 1 | 1 | 8'b00000101 | 6'b101010 | 1 | 8'b00000101 | 6'b010101 |
+| 4 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000101 | 6'b010101 |
+
+### stimulus 7
+| cycle | rst_n | write_en | write_addr | write_data | read_en | read_addr | read_data |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b000000 |
+| 1 | 1 | 1 | 8'b00000010 | 6'b010101 | 0 | 8'b00000000 | 6'b000000 |
+| 2 | 1 | 1 | 8'b00000110 | 6'b101010 | 1 | 8'b00000010 | 6'b000000 |
+| 3 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000110 | 6'b010101 |
+| 4 | 1 | 0 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b101010 |
+
+### stimulus 8
+| cycle | rst_n | write_en | write_addr | write_data | read_en | read_addr | read_data |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b000000 |
+| 1 | 1 | 0 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b000000 |
+| 2 | 0 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000001 | 6'b000000 |
+| 3 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000001 | 6'b000000 |
+
+### stimulus 9
+| cycle | rst_n | write_en | write_addr | write_data | read_en | read_addr | read_data |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 6'b000000 | 0 | 8'b00000000 | 6'b000000 |
+| 1 | 1 | 1 | 8'b00000011 | 6'b010001 | 1 | 8'b00000011 | 6'b000000 |
+| 2 | 1 | 1 | 8'b00000011 | 6'b010001 | 1 | 8'b00000011 | 6'b000000 |
+| 3 | 1 | 0 | 8'b00000000 | 6'b000000 | 1 | 8'b00000011 | 6'b010001 |

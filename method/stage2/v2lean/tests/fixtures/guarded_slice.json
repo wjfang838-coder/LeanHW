@@ -1,0 +1,7 @@
+{
+  "sources": ["guarded_slice.v"],
+  "top": "guarded_slice",
+  "language": "systemverilog",
+  "semantics": "combinational_two_state",
+  "profile": "corpus"
+}

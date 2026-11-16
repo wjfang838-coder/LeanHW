@@ -1,0 +1,453 @@
+Module and integration contract
+
+Module: freq_div.
+Ports below are in exact declaration order:
+- CLK_in: input 1 bit.
+- CLK_50: output 1 bit.
+- CLK_10: output 1 bit.
+- CLK_1: output 1 bit.
+- RST: input 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+RST is an active-high asynchronous reset. Its assertion immediately sets CLK_50, CLK_10, and CLK_1 to 0 and restarts all three divider phases. Reset dominates a coincident rising edge of CLK_in. Every divider output and both phase-counting state elements remain 0 while RST is high. Deasserting RST has no immediate effect. On the first rising edge of CLK_in after release, CLK_50 changes from 0 to 1; CLK_10 remains 0 with one of its five rising edges counted; and CLK_1 remains 0 with one of its 50 rising edges counted.
+
+Before any assertion of RST has occurred, CLK_50, CLK_10, and CLK_1 are unknown. The implementation must leave their stored values and the phase-counting state uninitialised, with no initial block or declaration initializer. Reset assertion is what establishes all specified initial phases.
+
+4. Timing
+
+All three outputs are registered divider waveforms. With RST low, a rising edge of CLK_in updates their stored state; the resulting value is observable after that edge and is retained through falling edges and intervals between rising edges. RST assertion affects them asynchronously.
+
+CLK_50 toggles on every rising edge of CLK_in. It is low for one input-clock cycle and high for one input-clock cycle, giving a period of 2 input-clock cycles and a duty pattern of 1 low cycle followed by 1 high cycle.
+
+CLK_10 toggles on every fifth rising edge of CLK_in. It is low for 5 input-clock cycles and high for 5 input-clock cycles, giving a period of 10 input-clock cycles and a duty pattern of 5 low cycles followed by 5 high cycles.
+
+CLK_1 toggles on every 50th rising edge of CLK_in. It is low for 50 input-clock cycles and high for 50 input-clock cycles, giving a period of 100 input-clock cycles and a duty pattern of 50 low cycles followed by 50 high cycles.
+
+The specified CLK_in frequency is 100 MHz, whose circuit period is 10 ns. Consequently, the three output frequencies are 50 MHz, 10 MHz, and 1 MHz respectively. This circuit-period law is separate from trace observation: the autonomous decided model uses one full-cycle row per rising-edge step. Row k is observed before step k and denotes k * step_ns after settling, using timing.step_ns from the interface; it must not be interpreted as an implicit 10 ns sampling rule. Within each step, timing.sample_offset_ns from the interface determines the sampling offset.
+
+5. Behaviour
+
+RST is active high. Whenever RST is 1, CLK_50, CLK_10, and CLK_1 are immediately 0, every divider phase is restarted, and remaining in reset preserves that state. If reset assertion coincides with a rising edge of CLK_in, reset takes priority. Releasing reset does not itself advance any waveform; advancement resumes on subsequent rising edges.
+
+With RST low, every rising edge of CLK_in advances all three divider waveforms. A steady CLK_in level or a falling edge has no effect. There is no transaction-busy mode: rising edges continue the cadences indefinitely. An intervening reset cancels the current phases and restarts all three sequences.
+
+CLK_50 starts at 0 after reset and toggles after every rising edge, first changing from 0 to 1 on the first rising edge after release. It retains its current value at all other times.
+
+CLK_10 starts at 0 after reset and toggles after every fifth rising edge, first changing from 0 to 1 on the fifth rising edge after release and continuing to change every five rising edges. It retains its current value on the intervening four edges and at all other times.
+
+CLK_1 starts at 0 after reset and toggles after every 50th rising edge, first changing from 0 to 1 on the 50th rising edge after release and continuing to change every 50 rising edges. It retains its current value on the intervening 49 edges and at all other times.
+
+For the evaluated full-cycle trace, each row samples the outputs before that row's rising-edge transition. Therefore, a change caused by an edge appears in the following pre-edge row. This observation convention does not add a circuit pipeline stage or alter the periods above.
+
+6. Worked trace
+
+The following evaluated trace is normative for the concrete decided instance and its listed stimuli.
+
+### stimulus 0
+| cycle | RST | CLK_50 | CLK_10 | CLK_1 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | RST | CLK_50 | CLK_10 | CLK_1 |
+|---|---|---|---|---|
+| 0 | 0 | x | x | x |
+| 1 | 0 | x | x | x |
+| 2 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | RST | CLK_50 | CLK_10 | CLK_1 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 |
+
+### stimulus 3
+| cycle | RST | CLK_50 | CLK_10 | CLK_1 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 1 | 0 |
+| 7 | 0 | 0 | 1 | 0 |
+| 8 | 0 | 1 | 1 | 0 |
+| 9 | 0 | 0 | 1 | 0 |
+| 10 | 0 | 1 | 1 | 0 |
+| 11 | 0 | 0 | 0 | 0 |
+| 12 | 0 | 1 | 0 | 0 |
+| 13 | 0 | 0 | 0 | 0 |
+| 14 | 0 | 1 | 0 | 0 |
+| 15 | 0 | 0 | 0 | 0 |
+| 16 | 0 | 1 | 1 | 0 |
+| 17 | 0 | 0 | 1 | 0 |
+| 18 | 0 | 1 | 1 | 0 |
+| 19 | 0 | 0 | 1 | 0 |
+| 20 | 0 | 1 | 1 | 0 |
+| 21 | 0 | 0 | 0 | 0 |
+| 22 | 0 | 1 | 0 | 0 |
+| 23 | 0 | 0 | 0 | 0 |
+| 24 | 0 | 1 | 0 | 0 |
+| 25 | 0 | 0 | 0 | 0 |
+| 26 | 0 | 1 | 1 | 0 |
+| 27 | 0 | 0 | 1 | 0 |
+| 28 | 0 | 1 | 1 | 0 |
+| 29 | 0 | 0 | 1 | 0 |
+| 30 | 0 | 1 | 1 | 0 |
+| 31 | 0 | 0 | 0 | 0 |
+| 32 | 0 | 1 | 0 | 0 |
+| 33 | 0 | 0 | 0 | 0 |
+| 34 | 0 | 1 | 0 | 0 |
+| 35 | 0 | 0 | 0 | 0 |
+| 36 | 0 | 1 | 1 | 0 |
+| 37 | 0 | 0 | 1 | 0 |
+| 38 | 0 | 1 | 1 | 0 |
+| 39 | 0 | 0 | 1 | 0 |
+| 40 | 0 | 1 | 1 | 0 |
+| 41 | 0 | 0 | 0 | 0 |
+| 42 | 0 | 1 | 0 | 0 |
+| 43 | 0 | 0 | 0 | 0 |
+| 44 | 0 | 1 | 0 | 0 |
+| 45 | 0 | 0 | 0 | 0 |
+| 46 | 0 | 1 | 1 | 0 |
+| 47 | 0 | 0 | 1 | 0 |
+| 48 | 0 | 1 | 1 | 0 |
+| 49 | 0 | 0 | 1 | 0 |
+| 50 | 0 | 1 | 1 | 0 |
+| 51 | 0 | 0 | 0 | 1 |
+| 52 | 0 | 1 | 0 | 1 |
+| 53 | 0 | 0 | 0 | 1 |
+| 54 | 0 | 1 | 0 | 1 |
+| 55 | 0 | 0 | 0 | 1 |
+| 56 | 0 | 1 | 1 | 1 |
+| 57 | 0 | 0 | 1 | 1 |
+| 58 | 0 | 1 | 1 | 1 |
+| 59 | 0 | 0 | 1 | 1 |
+| 60 | 0 | 1 | 1 | 1 |
+| 61 | 0 | 0 | 0 | 1 |
+| 62 | 0 | 1 | 0 | 1 |
+| 63 | 0 | 0 | 0 | 1 |
+| 64 | 0 | 1 | 0 | 1 |
+| 65 | 0 | 0 | 0 | 1 |
+| 66 | 0 | 1 | 1 | 1 |
+| 67 | 0 | 0 | 1 | 1 |
+| 68 | 0 | 1 | 1 | 1 |
+| 69 | 0 | 0 | 1 | 1 |
+| 70 | 0 | 1 | 1 | 1 |
+| 71 | 0 | 0 | 0 | 1 |
+| 72 | 0 | 1 | 0 | 1 |
+| 73 | 0 | 0 | 0 | 1 |
+| 74 | 0 | 1 | 0 | 1 |
+| 75 | 0 | 0 | 0 | 1 |
+| 76 | 0 | 1 | 1 | 1 |
+| 77 | 0 | 0 | 1 | 1 |
+| 78 | 0 | 1 | 1 | 1 |
+| 79 | 0 | 0 | 1 | 1 |
+| 80 | 0 | 1 | 1 | 1 |
+| 81 | 0 | 0 | 0 | 1 |
+| 82 | 0 | 1 | 0 | 1 |
+| 83 | 0 | 0 | 0 | 1 |
+| 84 | 0 | 1 | 0 | 1 |
+| 85 | 0 | 0 | 0 | 1 |
+| 86 | 0 | 1 | 1 | 1 |
+| 87 | 0 | 0 | 1 | 1 |
+| 88 | 0 | 1 | 1 | 1 |
+| 89 | 0 | 0 | 1 | 1 |
+| 90 | 0 | 1 | 1 | 1 |
+| 91 | 0 | 0 | 0 | 1 |
+| 92 | 0 | 1 | 0 | 1 |
+| 93 | 0 | 0 | 0 | 1 |
+| 94 | 0 | 1 | 0 | 1 |
+| 95 | 0 | 0 | 0 | 1 |
+| 96 | 0 | 1 | 1 | 1 |
+| 97 | 0 | 0 | 1 | 1 |
+| 98 | 0 | 1 | 1 | 1 |
+| 99 | 0 | 0 | 1 | 1 |
+| 100 | 0 | 1 | 1 | 1 |
+| 101 | 0 | 0 | 0 | 0 |
+| 102 | 0 | 1 | 0 | 0 |
+| 103 | 0 | 0 | 0 | 0 |
+| 104 | 0 | 1 | 0 | 0 |
+| 105 | 0 | 0 | 0 | 0 |
+| 106 | 0 | 1 | 1 | 0 |
+| 107 | 0 | 0 | 1 | 0 |
+| 108 | 0 | 1 | 1 | 0 |
+| 109 | 0 | 0 | 1 | 0 |
+| 110 | 0 | 1 | 1 | 0 |
+| 111 | 0 | 0 | 0 | 0 |
+| 112 | 0 | 1 | 0 | 0 |
+| 113 | 0 | 0 | 0 | 0 |
+| 114 | 0 | 1 | 0 | 0 |
+| 115 | 0 | 0 | 0 | 0 |
+| 116 | 0 | 1 | 1 | 0 |
+| 117 | 0 | 0 | 1 | 0 |
+| 118 | 0 | 1 | 1 | 0 |
+| 119 | 0 | 0 | 1 | 0 |
+| 120 | 0 | 1 | 1 | 0 |
+| 121 | 0 | 0 | 0 | 0 |
+| 122 | 0 | 1 | 0 | 0 |
+| 123 | 0 | 0 | 0 | 0 |
+| 124 | 0 | 1 | 0 | 0 |
+| 125 | 0 | 0 | 0 | 0 |
+| 126 | 0 | 1 | 1 | 0 |
+| 127 | 0 | 0 | 1 | 0 |
+| 128 | 0 | 1 | 1 | 0 |
+| 129 | 0 | 0 | 1 | 0 |
+| 130 | 0 | 1 | 1 | 0 |
+| 131 | 0 | 0 | 0 | 0 |
+| 132 | 0 | 1 | 0 | 0 |
+| 133 | 0 | 0 | 0 | 0 |
+| 134 | 0 | 1 | 0 | 0 |
+| 135 | 0 | 0 | 0 | 0 |
+| 136 | 0 | 1 | 1 | 0 |
+| 137 | 0 | 0 | 1 | 0 |
+| 138 | 0 | 1 | 1 | 0 |
+| 139 | 0 | 0 | 1 | 0 |
+| 140 | 0 | 1 | 1 | 0 |
+| 141 | 0 | 0 | 0 | 0 |
+| 142 | 0 | 1 | 0 | 0 |
+| 143 | 0 | 0 | 0 | 0 |
+| 144 | 0 | 1 | 0 | 0 |
+| 145 | 0 | 0 | 0 | 0 |
+| 146 | 0 | 1 | 1 | 0 |
+| 147 | 0 | 0 | 1 | 0 |
+| 148 | 0 | 1 | 1 | 0 |
+| 149 | 0 | 0 | 1 | 0 |
+| 150 | 0 | 1 | 1 | 0 |
+| 151 | 0 | 0 | 0 | 1 |
+| 152 | 0 | 1 | 0 | 1 |
+| 153 | 0 | 0 | 0 | 1 |
+| 154 | 0 | 1 | 0 | 1 |
+| 155 | 0 | 0 | 0 | 1 |
+| 156 | 0 | 1 | 1 | 1 |
+| 157 | 0 | 0 | 1 | 1 |
+| 158 | 0 | 1 | 1 | 1 |
+| 159 | 0 | 0 | 1 | 1 |
+| 160 | 0 | 1 | 1 | 1 |
+| 161 | 0 | 0 | 0 | 1 |
+| 162 | 0 | 1 | 0 | 1 |
+| 163 | 0 | 0 | 0 | 1 |
+| 164 | 0 | 1 | 0 | 1 |
+| 165 | 0 | 0 | 0 | 1 |
+| 166 | 0 | 1 | 1 | 1 |
+| 167 | 0 | 0 | 1 | 1 |
+| 168 | 0 | 1 | 1 | 1 |
+| 169 | 0 | 0 | 1 | 1 |
+| 170 | 0 | 1 | 1 | 1 |
+| 171 | 0 | 0 | 0 | 1 |
+| 172 | 0 | 1 | 0 | 1 |
+| 173 | 0 | 0 | 0 | 1 |
+| 174 | 0 | 1 | 0 | 1 |
+| 175 | 0 | 0 | 0 | 1 |
+| 176 | 0 | 1 | 1 | 1 |
+| 177 | 0 | 0 | 1 | 1 |
+| 178 | 0 | 1 | 1 | 1 |
+| 179 | 0 | 0 | 1 | 1 |
+| 180 | 0 | 1 | 1 | 1 |
+| 181 | 0 | 0 | 0 | 1 |
+| 182 | 0 | 1 | 0 | 1 |
+| 183 | 0 | 0 | 0 | 1 |
+| 184 | 0 | 1 | 0 | 1 |
+| 185 | 0 | 0 | 0 | 1 |
+| 186 | 0 | 1 | 1 | 1 |
+| 187 | 0 | 0 | 1 | 1 |
+| 188 | 0 | 1 | 1 | 1 |
+| 189 | 0 | 0 | 1 | 1 |
+| 190 | 0 | 1 | 1 | 1 |
+| 191 | 0 | 0 | 0 | 1 |
+| 192 | 0 | 1 | 0 | 1 |
+| 193 | 0 | 0 | 0 | 1 |
+| 194 | 0 | 1 | 0 | 1 |
+| 195 | 0 | 0 | 0 | 1 |
+| 196 | 0 | 1 | 1 | 1 |
+| 197 | 0 | 0 | 1 | 1 |
+| 198 | 0 | 1 | 1 | 1 |
+| 199 | 0 | 0 | 1 | 1 |
+| 200 | 0 | 1 | 1 | 1 |
+| 201 | 0 | 0 | 0 | 0 |
+| 202 | 0 | 1 | 0 | 0 |
+| 203 | 0 | 0 | 0 | 0 |
+| 204 | 0 | 1 | 0 | 0 |
+| 205 | 0 | 0 | 0 | 0 |
+| 206 | 0 | 1 | 1 | 0 |
+| 207 | 0 | 0 | 1 | 0 |
+| 208 | 0 | 1 | 1 | 0 |
+| 209 | 0 | 0 | 1 | 0 |
+| 210 | 0 | 1 | 1 | 0 |
+| 211 | 0 | 0 | 0 | 0 |
+| 212 | 0 | 1 | 0 | 0 |
+| 213 | 0 | 0 | 0 | 0 |
+| 214 | 0 | 1 | 0 | 0 |
+| 215 | 0 | 0 | 0 | 0 |
+| 216 | 0 | 1 | 1 | 0 |
+| 217 | 0 | 0 | 1 | 0 |
+| 218 | 0 | 1 | 1 | 0 |
+| 219 | 0 | 0 | 1 | 0 |
+| 220 | 0 | 1 | 1 | 0 |
+| 221 | 0 | 0 | 0 | 0 |
+| 222 | 0 | 1 | 0 | 0 |
+| 223 | 0 | 0 | 0 | 0 |
+| 224 | 0 | 1 | 0 | 0 |
+| 225 | 0 | 0 | 0 | 0 |
+| 226 | 0 | 1 | 1 | 0 |
+| 227 | 0 | 0 | 1 | 0 |
+| 228 | 0 | 1 | 1 | 0 |
+| 229 | 0 | 0 | 1 | 0 |
+| 230 | 0 | 1 | 1 | 0 |
+| 231 | 0 | 0 | 0 | 0 |
+| 232 | 0 | 1 | 0 | 0 |
+| 233 | 0 | 0 | 0 | 0 |
+| 234 | 0 | 1 | 0 | 0 |
+| 235 | 0 | 0 | 0 | 0 |
+| 236 | 0 | 1 | 1 | 0 |
+| 237 | 0 | 0 | 1 | 0 |
+| 238 | 0 | 1 | 1 | 0 |
+| 239 | 0 | 0 | 1 | 0 |
+| 240 | 0 | 1 | 1 | 0 |
+| 241 | 0 | 0 | 0 | 0 |
+| 242 | 0 | 1 | 0 | 0 |
+| 243 | 0 | 0 | 0 | 0 |
+| 244 | 0 | 1 | 0 | 0 |
+| 245 | 0 | 0 | 0 | 0 |
+| 246 | 0 | 1 | 1 | 0 |
+| 247 | 0 | 0 | 1 | 0 |
+| 248 | 0 | 1 | 1 | 0 |
+| 249 | 0 | 0 | 1 | 0 |
+| 250 | 0 | 1 | 1 | 0 |
+| 251 | 0 | 0 | 0 | 1 |
+| 252 | 0 | 1 | 0 | 1 |
+| 253 | 0 | 0 | 0 | 1 |
+| 254 | 0 | 1 | 0 | 1 |
+| 255 | 0 | 0 | 0 | 1 |
+| 256 | 0 | 1 | 1 | 1 |
+| 257 | 0 | 0 | 1 | 1 |
+| 258 | 0 | 1 | 1 | 1 |
+| 259 | 0 | 0 | 1 | 1 |
+| 260 | 0 | 1 | 1 | 1 |
+| 261 | 0 | 0 | 0 | 1 |
+| 262 | 0 | 1 | 0 | 1 |
+| 263 | 0 | 0 | 0 | 1 |
+| 264 | 0 | 1 | 0 | 1 |
+| 265 | 0 | 0 | 0 | 1 |
+| 266 | 0 | 1 | 1 | 1 |
+| 267 | 0 | 0 | 1 | 1 |
+| 268 | 0 | 1 | 1 | 1 |
+| 269 | 0 | 0 | 1 | 1 |
+| 270 | 0 | 1 | 1 | 1 |
+| 271 | 0 | 0 | 0 | 1 |
+| 272 | 0 | 1 | 0 | 1 |
+| 273 | 0 | 0 | 0 | 1 |
+| 274 | 0 | 1 | 0 | 1 |
+| 275 | 0 | 0 | 0 | 1 |
+| 276 | 0 | 1 | 1 | 1 |
+| 277 | 0 | 0 | 1 | 1 |
+| 278 | 0 | 1 | 1 | 1 |
+| 279 | 0 | 0 | 1 | 1 |
+| 280 | 0 | 1 | 1 | 1 |
+| 281 | 0 | 0 | 0 | 1 |
+| 282 | 0 | 1 | 0 | 1 |
+| 283 | 0 | 0 | 0 | 1 |
+| 284 | 0 | 1 | 0 | 1 |
+| 285 | 0 | 0 | 0 | 1 |
+| 286 | 0 | 1 | 1 | 1 |
+| 287 | 0 | 0 | 1 | 1 |
+| 288 | 0 | 1 | 1 | 1 |
+| 289 | 0 | 0 | 1 | 1 |
+| 290 | 0 | 1 | 1 | 1 |
+| 291 | 0 | 0 | 0 | 1 |
+| 292 | 0 | 1 | 0 | 1 |
+| 293 | 0 | 0 | 0 | 1 |
+| 294 | 0 | 1 | 0 | 1 |
+| 295 | 0 | 0 | 0 | 1 |
+| 296 | 0 | 1 | 1 | 1 |
+| 297 | 0 | 0 | 1 | 1 |
+| 298 | 0 | 1 | 1 | 1 |
+| 299 | 0 | 0 | 1 | 1 |
+| 300 | 0 | 1 | 1 | 1 |
+| 301 | 0 | 0 | 0 | 0 |
+| 302 | 0 | 1 | 0 | 0 |
+| 303 | 0 | 0 | 0 | 0 |
+| 304 | 0 | 1 | 0 | 0 |
+| 305 | 0 | 0 | 0 | 0 |
+| 306 | 0 | 1 | 1 | 0 |
+
+### stimulus 4
+| cycle | RST | CLK_50 | CLK_10 | CLK_1 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 1 | 0 |
+| 7 | 0 | 0 | 1 | 0 |
+| 8 | 1 | 0 | 0 | 0 |
+| 9 | 0 | 0 | 0 | 0 |
+| 10 | 0 | 1 | 0 | 0 |
+| 11 | 0 | 0 | 0 | 0 |
+| 12 | 0 | 1 | 0 | 0 |
+| 13 | 0 | 0 | 0 | 0 |
+| 14 | 0 | 1 | 1 | 0 |
+| 15 | 0 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | RST | CLK_50 | CLK_10 | CLK_1 |
+|---|---|---|---|---|
+| 0 | 0 | x | x | x |
+| 1 | 0 | x | x | x |
+| 2 | 0 | x | x | x |
+| 3 | 0 | x | x | x |
+| 4 | 1 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 | 0 |
+| 7 | 0 | 0 | 0 | 0 |
+| 8 | 0 | 1 | 0 | 0 |
+| 9 | 0 | 0 | 0 | 0 |
+| 10 | 0 | 1 | 1 | 0 |
+| 11 | 0 | 0 | 1 | 0 |
+
+### stimulus 6
+| cycle | RST | CLK_50 | CLK_10 | CLK_1 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 |
+| 4 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 1 | 0 | 0 |
+| 6 | 0 | 0 | 0 | 0 |
+| 7 | 0 | 1 | 1 | 0 |
+| 8 | 0 | 0 | 1 | 0 |
+| 9 | 0 | 1 | 1 | 0 |
+
+### stimulus 7
+| cycle | RST | CLK_50 | CLK_10 | CLK_1 |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 | 0 |
+| 5 | 0 | 0 | 0 | 0 |
+| 6 | 0 | 1 | 0 | 0 |
+| 7 | 0 | 0 | 0 | 0 |

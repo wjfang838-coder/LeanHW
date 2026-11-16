@@ -1,0 +1,13 @@
+read_verilog -formal -sv -Irtl -DPROPERTY=3 /home/usr/leansilicon/case_cpu/rtl/cpu.sv rtl/miter.sv
+hierarchy -check -top miter
+prep -top miter -flatten
+async2sync
+chformal -lower
+memory_map
+opt
+dffunmap
+techmap
+abc -fast -g AND
+opt_clean
+aigmap
+write_aiger -zinit -symbols -map /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-sanity/design.map /home/usr/leansilicon/case_cpu/evidence/20261020T104208402433Z/pdr-sanity/design.aig

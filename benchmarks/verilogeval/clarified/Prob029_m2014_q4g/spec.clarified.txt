@@ -1,0 +1,83 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in1: input 1 bit.
+- in2: input 1 bit.
+- in3: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports.
+
+
+
+Reset.
+
+There is no reset input, reset behavior, or stored state. From power-up onward, including before any edge has occurred, out is the definite combinational value specified below for the current input levels; it is never uninitialized or unknown.
+
+Timing.
+
+out is continuously combinational from in1, in2, and in3, with zero clock-cycle latency. There is no capture edge, pulse, periodic output, transaction, completion event, restart, hold interval, or clear interval. A full-cycle trace row observes the settled value for the input levels in that row before the model's no-op transition. Row k is an observation at k times the interface step interval after settling; this observation convention does not impose or describe any circuit clock period or propagation-delay law.
+
+Behaviour.
+
+For every combination of the three one-bit inputs, out = (~(in1 ^ in2)) ^ in3. Equivalently, out is the exclusive-OR of in3 with the logical equivalence of in1 and in2.
+
+At either level and for every simultaneous setting or change of the other inputs, in1 contributes combinationally according to out = (~(in1 ^ in2)) ^ in3, so changing only in1 always complements out and there are no modes, transactions, interruptions, or retained effects.
+
+At either level and for every simultaneous setting or change of the other inputs, in2 contributes combinationally according to out = (~(in1 ^ in2)) ^ in3, so changing only in2 always complements out and there are no modes, transactions, interruptions, or retained effects.
+
+At either level and for every simultaneous setting or change of the other inputs, in3 contributes combinationally according to out = (~(in1 ^ in2)) ^ in3, so changing only in3 always complements out and there are no modes, transactions, interruptions, or retained effects.
+
+out is continuously combinational with out = (~(in1 ^ in2)) ^ in3; it has no reset, capture edge, observation latency, initialization, hold or clear interval, completion, or restart, so a pre-edge row observes the value for the input levels present at that row after combinational settling.
+
+Thus the complete input table, in in1, in2, in3 order, is: 000 gives out 1; 001 gives out 0; 010 gives out 0; 011 gives out 1; 100 gives out 0; 101 gives out 1; 110 gives out 1; and 111 gives out 0.
+
+Worked trace.
+
+The evaluated trace below is normative.
+
+### stimulus 0
+| cycle | in1 | in2 | in3 | out |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | in1 | in2 | in3 | out |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | in1 | in2 | in3 | out |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | in1 | in2 | in3 | out |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 |
+
+### stimulus 4
+| cycle | in1 | in2 | in3 | out |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | in1 | in2 | in3 | out |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 1 |
+
+### stimulus 6
+| cycle | in1 | in2 | in3 | out |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 1 |
+
+### stimulus 7
+| cycle | in1 | in2 | in3 | out |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 |

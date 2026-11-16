@@ -1,0 +1,75 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input [7:0].
+- out: output [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. The design has no state elements. From power-up onward, including before any edge has occurred, the output is fully determined by the current input; there is no uninitialized or unknown output interval and no first step after reset release.
+
+4. Timing.
+
+The output is combinational, with zero clock-cycle latency from `in` to `out`. There is no clock, capture edge, pulse, periodic signal, retention interval, or circuit period. Each trace row observes the settled combinational output for the input in that same row before the model's inert full-cycle transition. Row k is observation step k and, when the interface supplies a `step_ns`, denotes k * `step_ns` after settling; this trace observation cadence is not a circuit period or delay law. The interface supplies no numeric `step_ns` or `sample_offset_ns` value.
+
+5. Behaviour.
+
+At all times, every input bit `in[i]` for i from 0 through 7 determines `out[7-i]` combinationally; there are no modes, inactive levels, event priorities, interruptions, or transaction state, so simultaneous or repeated input changes simply produce the bit-reversed current input without retention or latency.
+
+The output is continuously the 8-bit reversal of the current input, with `out[i]` equal to `in[7-i]` for i from 0 through 7; there is no reset, capture edge, observation latency, hold/clear interval, completion, or restart, and a pre-edge row observes the reversal of the input present in that row because clock edges do not affect the output.
+
+Equivalently, for every possible 8-bit input, `out[7:0] = {in[0], in[1], in[2], in[3], in[4], in[5], in[6], in[7]}`. This law covers all 256 input values.
+
+6. Worked trace.
+
+The evaluated trace below is normative.
+
+### stimulus 0
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00000000 | 8'b00000000 |
+
+### stimulus 1
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00000001 | 8'b10000000 |
+
+### stimulus 2
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b11111111 | 8'b11111111 |
+
+### stimulus 3
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b10000000 | 8'b00000001 |
+
+### stimulus 4
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00111100 | 8'b00111100 |
+
+### stimulus 5
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00000010 | 8'b01000000 |
+
+### stimulus 6
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b10010110 | 8'b01101001 |
+
+### stimulus 7
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b10000001 | 8'b10000001 |

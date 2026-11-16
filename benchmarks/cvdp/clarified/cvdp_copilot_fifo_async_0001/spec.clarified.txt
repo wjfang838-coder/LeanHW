@@ -1,0 +1,254 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Create an asynchronous FIFO module with configurable depth and data width. The FIFO should support asynchronous and simultaneous writes and reads between different clock domains. The module should have parameters for setting the depth and data width, along with outputs to indicate full and empty status.
+
+The module should have the following interface:
+
+**Parameters**
+
+- `DATA_WIDTH`: the width of the data bus
+- `DEPTH`: the number of data elements that can be stored in the FIFO
+
+**Inputs**
+
+- `w_clk`: clock signal for write data operations
+- `w_rst`: reset signal to reset the write pointer
+- `w_inc`: enable signal for write data operations
+- `w_data`: input containing the data to be stored into the FIFO
+- `r_clk`: clock signal for read data operations
+- `r_rst`: reset signal to reset the read pointer
+- `r_inc`: enable signal for read data operations
+
+**Outputs**
+
+- `w_full`: output flag indicating that the FIFO is full
+- `r_empty`: output flag indicating that the FIFO is empty
+- `r_data`: output containing the data read from the FIFO
+
+**Behavior**
+
+It is also important to implement an appropriate synchronization mechanism to handle metastability issues. To achieve this, implement write and read pointers using Gray counters to track the write/read positions in the FIFO. To determine if the FIFO is empty or full, use pointers with one extra bit to track overflow and compare both pointers. The empty and full flags should be asserted as follows:
+
+- **Empty flag**: If the write and read pointers have exactly the same value, the `empty` flag should be asserted.
+- **Full flag**: If the most significant bit (MSB) of the write and read pointers is different but all other bits are the same, the `full` flag should be asserted. This indicates that the write pointer has made a complete cycle and reached the same position as the read pointer, causing an overflow.
+
+Since the read and write clocks are in different domains, it is necessary to synchronize the clock domains to compare the pointers. To do this, use cross-clock synchronizers, consisting of two registers in series, to pass the read pointer from the read clock domain to the write clock domain and the write pointer from the write clock domain to the read clock domain.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: fifo_async.
+Ports below are in exact declaration order:
+- w_clk: input 1 bit.
+- w_rst: input 1 bit.
+- w_inc: input 1 bit.
+- w_data: input [DATA_WIDTH-1:0].
+- w_full: output 1 bit.
+- r_clk: input 1 bit.
+- r_rst: input 1 bit.
+- r_inc: input 1 bit.
+- r_data: output [DATA_WIDTH-1:0].
+- r_empty: output 1 bit.
+
+Public parameters:
+-  DATA_WIDTH: default = 32.
+-  DEPTH: default = 8.
+- Verification-visible parameter `DATA_WIDTH`: Public parameter DATA_WIDTH defaults to 32 and sets the symbolic range [DATA_WIDTH-1:0] of w_data and r_data.
+- Verification-visible parameter `DEPTH`: Public parameter DEPTH defaults to 8 and sets the number of FIFO entries.
+- Verification-visible signal `r_clk`: Public input r_clk is the read-domain clock.
+- Verification-visible signal `r_data`: Public output r_data has range [DATA_WIDTH-1:0].
+- Verification-visible signal `r_empty`: Public output r_empty is one bit.
+- Verification-visible signal `r_inc`: Public input r_inc is one bit.
+- Verification-visible signal `r_rst`: Public input r_rst is one bit.
+- Verification-visible signal `w_clk`: Public input w_clk is the write-domain clock.
+- Verification-visible signal `w_data`: Public input w_data has range [DATA_WIDTH-1:0].
+- Verification-visible signal `w_full`: Public output w_full is one bit.
+- Verification-visible signal `w_inc`: Public input w_inc is one bit.
+- Verification-visible signal `w_rst`: Public input w_rst is one bit.
+
+Event convention: each table row drives the explicitly named clock levels and data, then observes settled outputs. The model must apply the edge described by those levels exactly once; it must not insert a second pipeline delay.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+Both resets are active high and synchronous in their own domains. On a rising w_clk that samples w_rst = 1, reset has priority over w_inc: the write position and both read-position synchronization stages in the write domain become zero and w_full becomes 0. Assertion, continued assertion, or release of w_rst without a rising w_clk has no immediate effect. On a rising r_clk that samples r_rst = 1, reset has priority over r_inc: the read position and both write-position synchronization stages in the read domain become zero and r_empty becomes 1. Assertion, continued assertion, or release of r_rst without a rising r_clk has no immediate effect. Neither reset initializes stored data, and either reset has no direct effect on the other clock domain.
+
+Before the first rising w_clk, w_full is hardware-unknown. The first rising w_clk establishes it as 0 if w_rst = 1, or according to the normal full law if w_rst = 0. Before the first rising r_clk, r_empty is hardware-unknown. The first rising r_clk establishes it as 1 if r_rst = 1, or according to the normal empty law if r_rst = 0. Before any reset edge, during reset, and after reset, r_data continuously denotes the current read location: it is hardware-unknown exactly when that location has never been written and otherwise equals the stored word. The first rising edge after reset release follows the normal non-reset law for that domain.
+
+The concrete verification model starts at the pointer and synchronizer state reached by the documented reset actions, while retaining invalid stored words and initially invalid status registers so that the answer-specified pre-first-edge observations remain hardware-unknown. This finite model setup is not a hardware power-up guarantee and does not impose reset-before-use.
+
+4. Timing.
+
+w_clk and r_clk are independent; their physical periods, duty cycles, and relative phase are unrestricted. A domain advances only on its clock's low-to-high transition. A low level, a falling edge, or a high level not preceded by an observed low level does not advance that domain. Simultaneous rising w_clk and r_clk transitions process their domain laws independently and can accept one write and one read in the same step.
+
+w_full is registered in the write domain. Each rising w_clk computes its next value from the post-request write position and the twice-captured read position; the new value is visible immediately after that edge and holds until the next rising w_clk. r_empty is registered analogously in the read domain and holds between rising r_clk edges. Neither flag is a pulse. r_data is combinational from the storage word at the current read position. An accepted read changes the selected location immediately after its rising r_clk, without another registered cycle; a rejected read does not change it.
+
+The worked trace uses settled pre-transition observations: each row reports outputs before applying the clock transitions represented by that row, and the resulting state first appears in the following row. This half-cycle interface provides no timing.step_ns or timing.sample_offset_ns, so row k denotes an observation index, not k times an implicit 10 ns tick. This observation convention is separate from the unrestricted physical clock periods and circuit delays.
+
+5. Behaviour.
+
+The FIFO stores DEPTH words, each DATA_WIDTH bits wide, and supports independent and simultaneous operation of the write and read domains. DATA_WIDTH defaults to 32. DEPTH defaults to 8.
+
+Derived parameter constraint P1: DEPTH shall be a positive power of two. The source requires Gray counters, exactly one additional overflow bit, location selection for all DEPTH entries, and comparison of the overflow-extended positions. With the required binary-reflected Gray progression and exactly log2(DEPTH) location bits, a non-power-of-two DEPTH cannot represent every location, wrap through all locations, and preserve that representation; therefore excluded depths cannot satisfy the stated representation and operations. This constraint does not reduce any explicit source-supported DEPTH value.
+
+Derived parameter constraint P2: DATA_WIDTH shall be at least 1. The source requires DATA_WIDTH-bit data ports and stored words; a zero-width bus cannot provide that representation. Every positive DATA_WIDTH remains supported.
+
+The write and read positions are overflow-extended Gray counters. Each has enough location bits for DEPTH entries plus one overflow bit. The read position crosses to the write domain through two registers in series, captured on successive rising w_clk edges. The write position crosses to the read domain through two registers in series, captured on successive rising r_clk edges. Status decisions use only the twice-captured position in the receiving domain; crossings and status evaluation continue even while requests are disabled or rejected and after a flag reaches full or empty.
+
+Amendment A1, limited to the w_full assertion test after a rising w_clk with w_rst = 0: the exact original clause is “**Full flag**: If the most significant bit (MSB) of the write and read pointers is different but all other bits are the same, the `full` flag should be asserted.” Question Q7 supplies the certain answer law: “On each rising w_clk with w_rst low, w_full becomes 1 exactly when the write position after any accepted write is one full buffer ahead of the read position that has reached the write domain through two rising-w_clk captures, and it holds between rising w_clk edges.” Within only that status-test scope, the quoted Q7 law supersedes the quoted original clause. It does not alter pointer representation, synchronization, reset, write acceptance, storage, or any read-domain law.
+
+Only a rising w_clk affects the write domain. If w_rst = 1, the write-domain reset law applies. Otherwise w_inc requests one write, accepted exactly when w_full is established as 0. An accepted write stores the DATA_WIDTH-bit value of w_data at the current write location and advances the write position once; a disabled request, a request while full, or a request while w_full is still hardware-unknown stores nothing and does not advance the position. Holding w_inc high requests and, when eligible, accepts one write on every rising w_clk. w_data has no effect except at an accepted write. On every non-reset rising w_clk, w_full becomes 1 exactly when the post-request write position is one full buffer ahead of the twice-captured read position, and otherwise becomes 0.
+
+Only a rising r_clk affects the read domain. If r_rst = 1, the read-domain reset law applies. Otherwise r_inc requests one read, accepted exactly when r_empty is established as 0. An accepted read advances the read position once; a disabled request, a request while empty, or a request while r_empty is still hardware-unknown leaves it unchanged. Holding r_inc high requests and, when eligible, accepts one read on every rising r_clk. On every non-reset rising r_clk, r_empty becomes 1 exactly when the post-request read position equals the twice-captured write position, and otherwise becomes 0.
+
+r_data continuously equals the DATA_WIDTH-bit word at the current read location. It is hardware-unknown exactly while that selected location has never been written. A write to the selected location establishes its value. An accepted read selects the next location immediately after its edge; otherwise the unchanged position retains the selected value. Reset selects the initial read location but does not initialize or erase any stored word. Empty reads, full writes, and same-domain requests coincident with reset are rejected. Independent activity in the other domain continues normally.
+
+All one-bit inputs are interpreted at one bit and w_data is interpreted at DATA_WIDTH bits, so there are no further input encodings. Pointer and status arithmetic wraps across the 2*DEPTH overflow-extended position cycle; storage location selection wraps across DEPTH entries.
+
+6. Worked trace.
+
+The evaluated trace below is normative for the concrete DATA_WIDTH = 32, DEPTH = 8 verification instance and uses the pre-transition observation convention above.
+
+### stimulus 0
+| half-cycle | w_clk | w_rst | w_inc | w_data | r_clk | r_rst | r_inc | w_full | r_data | r_empty |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 32'h0 | 0 | 1 | 0 | x | 32'x | x |
+| 1 | 1 | 1 | 0 | 32'h0 | 1 | 1 | 0 | x | 32'x | x |
+| 2 | 0 | 0 | 0 | 32'h1 | 0 | 0 | 0 | 0 | 32'x | 1 |
+| 3 | 1 | 0 | 1 | 32'h1 | 0 | 0 | 0 | 0 | 32'x | 1 |
+| 4 | 0 | 0 | 0 | 32'h0 | 1 | 0 | 1 | 0 | 32'h1 | 1 |
+
+### stimulus 1
+| half-cycle | w_clk | w_rst | w_inc | w_data | r_clk | r_rst | r_inc | w_full | r_data | r_empty |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 32'hff | 0 | 1 | 0 | x | 32'x | x |
+| 1 | 1 | 1 | 0 | 32'h80 | 0 | 0 | 0 | x | 32'x | x |
+| 2 | 0 | 0 | 0 | 32'h80 | 0 | 0 | 0 | 0 | 32'x | x |
+| 3 | 1 | 0 | 1 | 32'h80 | 0 | 0 | 0 | 0 | 32'x | x |
+| 4 | 0 | 0 | 0 | 32'h0 | 1 | 0 | 0 | 0 | 32'h80 | x |
+| 5 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 1 | 0 | 32'h80 | 1 |
+| 6 | 0 | 0 | 0 | 32'h0 | 1 | 0 | 1 | 0 | 32'h80 | 1 |
+
+### stimulus 2
+| half-cycle | w_clk | w_rst | w_inc | w_data | r_clk | r_rst | r_inc | w_full | r_data | r_empty |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | x | 32'x | x |
+| 1 | 1 | 0 | 1 | 32'h5a | 0 | 0 | 0 | x | 32'x | x |
+| 2 | 0 | 0 | 0 | 32'h0 | 1 | 0 | 0 | 0 | 32'x | x |
+| 3 | 1 | 0 | 1 | 32'ha5 | 0 | 0 | 0 | 0 | 32'x | 1 |
+| 4 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'ha5 | 1 |
+| 5 | 0 | 0 | 0 | 32'h0 | 1 | 0 | 1 | 0 | 32'ha5 | 1 |
+
+### stimulus 3
+| half-cycle | w_clk | w_rst | w_inc | w_data | r_clk | r_rst | r_inc | w_full | r_data | r_empty |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 32'h0 | 0 | 0 | 0 | x | 32'x | x |
+| 1 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'x | x |
+| 2 | 1 | 0 | 1 | 32'h1 | 0 | 0 | 0 | 0 | 32'x | x |
+| 3 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h1 | x |
+| 4 | 1 | 0 | 1 | 32'hff | 0 | 0 | 0 | 0 | 32'h1 | x |
+| 5 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h1 | x |
+| 6 | 1 | 0 | 1 | 32'h80 | 0 | 0 | 0 | 0 | 32'h1 | x |
+| 7 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h1 | x |
+| 8 | 1 | 0 | 1 | 32'h5a | 0 | 0 | 0 | 0 | 32'h1 | x |
+| 9 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h1 | x |
+
+### stimulus 4
+| half-cycle | w_clk | w_rst | w_inc | w_data | r_clk | r_rst | r_inc | w_full | r_data | r_empty |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 32'h11 | 0 | 0 | 0 | x | 32'x | x |
+| 1 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'x | x |
+| 2 | 1 | 0 | 1 | 32'h22 | 0 | 0 | 0 | 0 | 32'x | x |
+| 3 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h22 | x |
+| 4 | 0 | 0 | 0 | 32'h0 | 1 | 0 | 1 | 0 | 32'h22 | x |
+| 5 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h22 | 1 |
+| 6 | 0 | 0 | 0 | 32'h0 | 1 | 0 | 1 | 0 | 32'h22 | 1 |
+| 7 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h22 | 1 |
+| 8 | 1 | 0 | 1 | 32'h33 | 1 | 0 | 1 | 0 | 32'h22 | 1 |
+| 9 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h22 | 0 |
+
+### stimulus 5
+| half-cycle | w_clk | w_rst | w_inc | w_data | r_clk | r_rst | r_inc | w_full | r_data | r_empty |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 32'h44 | 0 | 0 | 0 | x | 32'x | x |
+| 1 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'x | x |
+| 2 | 1 | 0 | 0 | 32'h55 | 0 | 0 | 0 | 0 | 32'x | x |
+| 3 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'x | x |
+| 4 | 1 | 0 | 1 | 32'h66 | 0 | 0 | 0 | 0 | 32'x | x |
+| 5 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h66 | x |
+| 6 | 0 | 0 | 0 | 32'h0 | 1 | 0 | 0 | 0 | 32'h66 | x |
+| 7 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h66 | 1 |
+| 8 | 0 | 0 | 0 | 32'h0 | 1 | 0 | 1 | 0 | 32'h66 | 1 |
+| 9 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h66 | 1 |
+
+### stimulus 6
+| half-cycle | w_clk | w_rst | w_inc | w_data | r_clk | r_rst | r_inc | w_full | r_data | r_empty |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 32'h77 | 0 | 0 | 0 | x | 32'x | x |
+| 1 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'x | x |
+| 2 | 0 | 1 | 1 | 32'h88 | 0 | 0 | 0 | 0 | 32'x | x |
+| 3 | 1 | 1 | 1 | 32'h88 | 0 | 0 | 0 | 0 | 32'x | x |
+| 4 | 0 | 0 | 0 | 32'h99 | 0 | 0 | 0 | 0 | 32'x | x |
+| 5 | 1 | 0 | 1 | 32'h99 | 0 | 0 | 0 | 0 | 32'x | x |
+| 6 | 0 | 0 | 0 | 32'h0 | 0 | 1 | 0 | 0 | 32'h99 | x |
+| 7 | 0 | 0 | 0 | 32'h0 | 1 | 1 | 1 | 0 | 32'h99 | x |
+| 8 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | 0 | 32'h99 | 1 |
+| 9 | 0 | 0 | 0 | 32'h0 | 1 | 0 | 1 | 0 | 32'h99 | 1 |
+
+### stimulus 7
+| half-cycle | w_clk | w_rst | w_inc | w_data | r_clk | r_rst | r_inc | w_full | r_data | r_empty |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 0 | 0 | x | 32'x | x |
+| 1 | 1 | 0 | 0 | 32'h25 | 0 | 0 | 0 | x | 32'x | x |
+| 2 | 0 | 0 | 1 | 32'h4a | 1 | 0 | 0 | 0 | 32'x | x |
+| 3 | 1 | 0 | 1 | 32'h6f | 1 | 0 | 1 | 0 | 32'x | 1 |
+| 4 | 0 | 0 | 0 | 32'h94 | 0 | 0 | 1 | 0 | 32'h6f | 1 |
+| 5 | 1 | 0 | 0 | 32'hb9 | 0 | 0 | 1 | 0 | 32'h6f | 1 |
+| 6 | 0 | 0 | 1 | 32'hde | 1 | 0 | 0 | 0 | 32'h6f | 1 |
+| 7 | 1 | 0 | 1 | 32'h3 | 1 | 0 | 0 | 0 | 32'h6f | 1 |
+| 8 | 0 | 0 | 0 | 32'h28 | 0 | 0 | 0 | 0 | 32'h6f | 1 |
+| 9 | 1 | 0 | 0 | 32'h4d | 0 | 0 | 1 | 0 | 32'h6f | 1 |
+| 10 | 0 | 0 | 1 | 32'h72 | 1 | 0 | 1 | 0 | 32'h6f | 1 |
+| 11 | 1 | 0 | 1 | 32'h97 | 1 | 0 | 1 | 0 | 32'h6f | 1 |
+| 12 | 0 | 0 | 0 | 32'hbc | 0 | 0 | 0 | 0 | 32'h6f | 1 |
+| 13 | 1 | 0 | 0 | 32'he1 | 0 | 0 | 0 | 0 | 32'h6f | 1 |
+| 14 | 0 | 0 | 1 | 32'h6 | 1 | 0 | 0 | 0 | 32'h6f | 1 |
+| 15 | 1 | 0 | 1 | 32'h2b | 1 | 0 | 1 | 0 | 32'h6f | 0 |
+| 16 | 0 | 0 | 0 | 32'h50 | 0 | 0 | 1 | 0 | 32'h6f | 0 |
+| 17 | 1 | 0 | 0 | 32'h75 | 0 | 0 | 1 | 0 | 32'h6f | 0 |
+| 18 | 0 | 0 | 1 | 32'h9a | 1 | 0 | 0 | 0 | 32'h6f | 0 |
+| 19 | 1 | 0 | 1 | 32'hbf | 1 | 0 | 0 | 0 | 32'h6f | 0 |
+| 20 | 0 | 0 | 0 | 32'he4 | 0 | 0 | 0 | 0 | 32'h6f | 0 |
+| 21 | 1 | 0 | 0 | 32'h9 | 0 | 0 | 1 | 0 | 32'h6f | 0 |
+| 22 | 0 | 0 | 1 | 32'h2e | 1 | 0 | 1 | 0 | 32'h6f | 0 |
+| 23 | 1 | 0 | 1 | 32'h53 | 1 | 0 | 1 | 0 | 32'h3 | 0 |
+| 24 | 0 | 0 | 0 | 32'h78 | 0 | 0 | 0 | 0 | 32'h3 | 0 |
+| 25 | 1 | 0 | 0 | 32'h9d | 0 | 0 | 0 | 0 | 32'h3 | 0 |
+| 26 | 0 | 0 | 1 | 32'hc2 | 1 | 0 | 0 | 0 | 32'h3 | 0 |
+| 27 | 1 | 0 | 1 | 32'he7 | 1 | 0 | 1 | 0 | 32'h3 | 0 |
+| 28 | 0 | 0 | 0 | 32'hc | 0 | 0 | 1 | 0 | 32'h3 | 0 |
+| 29 | 1 | 0 | 0 | 32'h31 | 0 | 0 | 1 | 0 | 32'h3 | 0 |
+| 30 | 0 | 0 | 1 | 32'h56 | 1 | 0 | 0 | 0 | 32'h3 | 0 |
+| 31 | 1 | 0 | 1 | 32'h7b | 1 | 0 | 0 | 0 | 32'h3 | 0 |
+| 32 | 0 | 0 | 0 | 32'ha0 | 0 | 0 | 0 | 0 | 32'h3 | 0 |
+| 33 | 1 | 0 | 0 | 32'hc5 | 0 | 0 | 1 | 0 | 32'h3 | 0 |
+| 34 | 0 | 0 | 1 | 32'hea | 1 | 0 | 1 | 0 | 32'h3 | 0 |
+| 35 | 1 | 0 | 1 | 32'hf | 1 | 0 | 1 | 0 | 32'h97 | 0 |
+| 36 | 0 | 0 | 0 | 32'h34 | 0 | 0 | 0 | 1 | 32'h97 | 0 |
+| 37 | 1 | 0 | 0 | 32'h59 | 0 | 0 | 0 | 1 | 32'h97 | 0 |
+| 38 | 0 | 0 | 1 | 32'h7e | 1 | 0 | 0 | 1 | 32'h97 | 0 |
+| 39 | 1 | 0 | 1 | 32'ha3 | 1 | 0 | 1 | 1 | 32'h97 | 0 |
+| 40 | 0 | 0 | 0 | 32'hc8 | 0 | 0 | 1 | 0 | 32'h97 | 0 |
+| 41 | 1 | 0 | 0 | 32'hed | 0 | 0 | 1 | 0 | 32'h97 | 0 |
+| 42 | 0 | 0 | 1 | 32'h12 | 1 | 0 | 0 | 0 | 32'h97 | 0 |
+| 43 | 1 | 0 | 1 | 32'h37 | 1 | 0 | 0 | 0 | 32'h97 | 0 |
+| 44 | 0 | 0 | 0 | 32'h5c | 0 | 0 | 0 | 1 | 32'h97 | 0 |
+| 45 | 1 | 0 | 0 | 32'h81 | 0 | 0 | 1 | 1 | 32'h97 | 0 |
+| 46 | 0 | 0 | 1 | 32'ha6 | 1 | 0 | 1 | 1 | 32'h97 | 0 |
+| 47 | 1 | 0 | 1 | 32'hcb | 1 | 0 | 1 | 1 | 32'h2b | 0 |

@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_Carry_Lookahead_Adder_0001",
+  "toplevel": "GP",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

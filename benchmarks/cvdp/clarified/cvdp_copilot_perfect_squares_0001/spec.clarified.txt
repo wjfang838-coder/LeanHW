@@ -1,0 +1,131 @@
+Named module interface binding
+
+Module: perfect_squares_generator.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- reset: input; 1 bits in the concrete formal instance.
+- sqr_o: output; 32 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The implementation shall be a SystemVerilog module named perfect_squares_generator. No public parameters or symbolic port ranges are established by the requirements.
+
+The ports are clk, a 1-bit input clock active on its positive edge; reset, a 1-bit asynchronous active-high reset input; and sqr_o, a 32-bit output with range sqr_o[31:0]. These spellings, directions, and widths are normative. Connect the ports by name. The certain integration answer states that positional declaration order is unverified, so no declaration order is normative and the module must be instantiated by name.
+
+2. Reset.
+
+reset is asynchronous and active high. Assertion immediately restarts the square progression and establishes sqr_o as 1; an assertion that interrupts a progression, and every repeated assertion, has the same effect. While reset remains asserted, sqr_o remains 1 and positive clock edges do not advance the progression. Release does not itself advance the progression: sqr_o remains 1 until the first subsequent positive edge with reset low, which advances it to 4. The next such edges produce 9, 16, and the later squares.
+
+Before reset has ever been asserted, the requirements do not specify what sqr_o reads at hardware power-up. This omission neither requires an X value nor permits it to affect behavior after reset. The RTL contract imposes no reset-before-use input restriction, but only reset establishes the documented initial sequence state.
+
+For the finite evaluated model, every stimulus starts from the state reached after asynchronous reset has established sqr_o as 1 and the next odd increment as 3. This verification setup applies even when the stimulus table's first displayed row has reset low: that row is after settling from the prior reset setup, not an observation of uninitialized hardware power-up. The setup is not a hardware power-up guarantee, does not impose a reset-before-use input restriction on the RTL contract, and does not initialize any source-unspecified state.
+
+3. Timing.
+
+sqr_o is registered sequence state. Asynchronous reset assertion establishes 1 without waiting for a clock edge. With reset low, every positive edge of clk advances sqr_o once: the first positive edge after release changes 1 to 4, the second changes 4 to 9, the third changes 9 to 16, and each later positive edge advances once unless the output is already saturated. Falling edges and inactive clock levels do not advance it. There are no output pulses or periodic output signals.
+
+For the evaluated full-cycle trace, row k samples out(s[k], i[k]) before transition k and row k+1 observes the state produced by that transition. Successive rows represent successive complete clock cycles. iface.json specifies neither step_ns nor sample_offset_ns, so the rows have no numerical nanosecond spacing and must not be interpreted as implicit 10 ns ticks. This observation convention is separate from the circuit timing law: the circuit's physical clock period and propagation delays are not specified.
+
+4. Behaviour.
+
+The sequence starts at 1 and is calculated incrementally. With reset low, each positive edge advances the current square by the next successive odd-number increment: add 3 to 1 to obtain 4, add 5 to obtain 9, add 7 to obtain 16, and continue with successive odd increments. The internal base-number counter must track the base numbers whose mathematical squares are being produced.
+
+The progression arithmetic is unsigned. The addition and overflow comparison must be evaluated in an expression context wide enough to determine whether the next mathematical square exceeds 32'hFFFFFFFF before the documented 32-bit output truncation boundary. If the next mathematical square exceeds 32'hFFFFFFFF, sqr_o becomes 32'hFFFFFFFF instead of wrapping. Once saturated, sqr_o remains 32'hFFFFFFFF on every later positive edge while reset is low. Reset cancels the retained terminal condition and restarts the sequence at 1.
+
+There are no enable, start, cancellation, ready, valid, or completion ports. Consequently, every positive edge with reset low advances an unsaturated sequence, including consecutive edges. reset is the only specified restart or interruption condition.
+
+The clk input law is: positive edges advance the reset-established sequence exactly once when reset is low; inactive levels and falling edges have no sequence effect; and a positive edge during reset does not advance the sequence.
+
+The reset input law is: active-high asynchronous assertion has priority, establishes 1, and restarts an initial, repeated, or interrupted progression; release has no transition effect by itself, and the first subsequent positive edge with reset low produces 4.
+
+The sqr_o output law is: it is registered, reads 1 after reset establishes the sequence, then reads successive unsigned integer squares 4, 9, 16, and so on after successive positive edges with reset low, saturating and remaining at 32'hFFFFFFFF when the next mathematical square would exceed that maximum. Its hardware power-up value before any reset is not specified.
+
+5. Worked trace.
+
+The following evaluated trace is normative for the concrete sampled verification instance initialized by the reset setup stated in section 2. Its cycle-0 values are not hardware power-up guarantees. It uses the observation convention in section 3.
+
+### stimulus 0
+| cycle | reset | sqr_o |
+|---|---|---|
+| 0 | 0 | 32'h1 |
+| 1 | 0 | 32'h4 |
+| 2 | 0 | 32'h9 |
+| 3 | 0 | 32'h10 |
+
+### stimulus 1
+| cycle | reset | sqr_o |
+|---|---|---|
+| 0 | 1 | 32'h1 |
+| 1 | 0 | 32'h1 |
+| 2 | 0 | 32'h4 |
+| 3 | 0 | 32'h9 |
+| 4 | 0 | 32'h10 |
+| 5 | 0 | 32'h19 |
+
+### stimulus 2
+| cycle | reset | sqr_o |
+|---|---|---|
+| 0 | 1 | 32'h1 |
+| 1 | 1 | 32'h1 |
+| 2 | 0 | 32'h1 |
+| 3 | 0 | 32'h4 |
+| 4 | 0 | 32'h9 |
+
+### stimulus 3
+| cycle | reset | sqr_o |
+|---|---|---|
+| 0 | 0 | 32'h1 |
+| 1 | 1 | 32'h1 |
+| 2 | 0 | 32'h1 |
+| 3 | 0 | 32'h4 |
+| 4 | 0 | 32'h9 |
+
+### stimulus 4
+| cycle | reset | sqr_o |
+|---|---|---|
+| 0 | 1 | 32'h1 |
+| 1 | 0 | 32'h1 |
+| 2 | 0 | 32'h4 |
+| 3 | 1 | 32'h1 |
+| 4 | 0 | 32'h1 |
+| 5 | 0 | 32'h4 |
+| 6 | 0 | 32'h9 |
+
+### stimulus 5
+| cycle | reset | sqr_o |
+|---|---|---|
+| 0 | 1 | 32'h1 |
+| 1 | 0 | 32'h1 |
+| 2 | 1 | 32'h1 |
+| 3 | 0 | 32'h1 |
+| 4 | 0 | 32'h4 |
+
+### stimulus 6
+| cycle | reset | sqr_o |
+|---|---|---|
+| 0 | 1 | 32'h1 |
+| 1 | 0 | 32'h1 |
+| 2 | 0 | 32'h4 |
+| 3 | 0 | 32'h9 |
+| 4 | 0 | 32'h10 |
+| 5 | 0 | 32'h19 |
+| 6 | 0 | 32'h24 |
+| 7 | 0 | 32'h31 |
+| 8 | 0 | 32'h40 |
+| 9 | 0 | 32'h51 |
+
+### stimulus 7
+| cycle | reset | sqr_o |
+|---|---|---|
+| 0 | 1 | 32'h1 |
+| 1 | 0 | 32'h1 |
+| 2 | 0 | 32'h4 |
+| 3 | 0 | 32'h9 |
+| 4 | 0 | 32'h10 |
+| 5 | 0 | 32'h19 |
+| 6 | 1 | 32'h1 |
+| 7 | 0 | 32'h1 |
+| 8 | 0 | 32'h4 |
+| 9 | 0 | 32'h9 |

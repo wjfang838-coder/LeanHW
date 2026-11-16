@@ -1,0 +1,712 @@
+
+-- Executing script file `/home/usr/leansilicon/case_cpu/evidence/bridge/20261020T115530796334Z/import.ys' --
+
+1. Executing Verilog-2005 frontend: case_cpu/rtl/cpu.sv
+Parsing SystemVerilog input from `case_cpu/rtl/cpu.sv' to AST representation.
+Generating RTLIL representation for module `\case_cpu'.
+Successfully finished Verilog frontend.
+
+2. Executing HIERARCHY pass (managing design hierarchy).
+
+2.1. Analyzing design hierarchy..
+Top module:  \case_cpu
+
+2.2. Analyzing design hierarchy..
+Top module:  \case_cpu
+Removed 0 unused modules.
+
+3. Executing PROC pass (convert processes to netlists).
+
+3.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Cleaned up 0 empty switches.
+
+3.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+Marked 1 switch rules as full_case in process $proc$case_cpu/rtl/cpu.sv:162$227 in module case_cpu.
+Removed 6 dead cases from process $proc$case_cpu/rtl/cpu.sv:120$21 in module case_cpu.
+Marked 42 switch rules as full_case in process $proc$case_cpu/rtl/cpu.sv:120$21 in module case_cpu.
+Removed a total of 6 dead cases.
+
+3.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+Removed 19 redundant assignments.
+Promoted 47 assignments to connections.
+
+3.4. Executing PROC_INIT pass (extract init attributes).
+
+3.5. Executing PROC_ARST pass (detect async resets in processes).
+
+3.6. Executing PROC_ROM pass (convert switches to ROMs).
+Converted 4 switches.
+<suppressed ~39 debug messages>
+
+3.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+Creating decoders for process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+     1/19: $0\remaining[5:0]
+     2/19: $0\wpc[31:0]
+     3/19: $0\mpc[31:0]
+     4/19: $0\xpc[31:0]
+     5/19: $0\wval[31:0]
+     6/19: $0\mval[31:0]
+     7/19: $0\xval[31:0]
+     8/19: $0\wi[31:0]
+     9/19: $0\mi[31:0]
+    10/19: $0\xi[31:0]
+    11/19: $0\di[31:0]
+    12/19: $0\fi[31:0]
+    13/19: $0\wv[0:0]
+    14/19: $0\mv[0:0]
+    15/19: $0\xv[0:0]
+    16/19: $0\dv[0:0]
+    17/19: $0\fv[0:0]
+    18/19: $0\pc[31:0]
+    19/19: $0\regs[1023:0]
+Creating decoders for process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+     1/98: $1\n_fi[31:0]
+     2/98: $2\n_fv[0:0]
+     3/98: $11\decode_op$func$case_cpu/rtl/cpu.sv:158$6.$result[5:0]$218
+     4/98: $10\decode_op$func$case_cpu/rtl/cpu.sv:158$6.$result[5:0]$216
+     5/98: $9\decode_op$func$case_cpu/rtl/cpu.sv:158$6.$result[5:0]$214
+     6/98: $8\decode_op$func$case_cpu/rtl/cpu.sv:158$6.$result[5:0]$212
+     7/98: $7\decode_op$func$case_cpu/rtl/cpu.sv:158$6.$result[5:0]$211
+     8/98: $6\decode_op$func$case_cpu/rtl/cpu.sv:158$6.$result[5:0]$207
+     9/98: $5\decode_op$func$case_cpu/rtl/cpu.sv:158$6.$result[5:0]$203
+    10/98: $4\decode_op$func$case_cpu/rtl/cpu.sv:158$6.$result[5:0]$202
+    11/98: $3\decode_op$func$case_cpu/rtl/cpu.sv:158$6.$result[5:0]$200
+    12/98: $2\decode_op$func$case_cpu/rtl/cpu.sv:158$6.$result[5:0]$199
+    13/98: $1\decode_op$func$case_cpu/rtl/cpu.sv:158$6.$result[5:0]$197
+    14/98: $1\n_fv[0:0]
+    15/98: $1\n_di[31:0]
+    16/98: $2\n_dv[0:0]
+    17/98: $3\wait_count$func$case_cpu/rtl/cpu.sv:155$5.$result[5:0]$195
+    18/98: $2\wait_count$func$case_cpu/rtl/cpu.sv:155$5.$result[5:0]$191
+    19/98: $6\alu$func$case_cpu/rtl/cpu.sv:153$4.$result[31:0]$183
+    20/98: $5\alu$func$case_cpu/rtl/cpu.sv:153$4.$result[31:0]$179
+    21/98: $4\alu$func$case_cpu/rtl/cpu.sv:153$4.$result[31:0]$173
+    22/98: $3\alu$func$case_cpu/rtl/cpu.sv:153$4.$result[31:0]$169
+    23/98: $2\alu$func$case_cpu/rtl/cpu.sv:153$4.$result[31:0]$141
+    24/98: $2\alu$func$case_cpu/rtl/cpu.sv:153$4.prod_u[63:0]$143
+    25/98: $2\alu$func$case_cpu/rtl/cpu.sv:153$4.product[63:0]$142
+    26/98: $3\b[31:0]
+    27/98: $3\a[31:0]
+    28/98: $2\b[31:0]
+    29/98: $2\a[31:0]
+    30/98: $12\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result[5:0]$106
+    31/98: $11\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result[5:0]$104
+    32/98: $10\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result[5:0]$102
+    33/98: $9\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result[5:0]$100
+    34/98: $8\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result[5:0]$99
+    35/98: $7\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result[5:0]$95
+    36/98: $6\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result[5:0]$91
+    37/98: $5\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result[5:0]$90
+    38/98: $4\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result[5:0]$88
+    39/98: $3\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result[5:0]$87
+    40/98: $2\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result[5:0]$85
+    41/98: $3\n_remaining[5:0]
+    42/98: $1\wait_count$func$case_cpu/rtl/cpu.sv:155$5.$result[5:0]$83
+    43/98: $1\wait_count$func$case_cpu/rtl/cpu.sv:155$5.op[5:0]$84
+    44/98: $1\n_dv[0:0]
+    45/98: $4\n_xv[0:0]
+    46/98: $1\n_xpc[31:0]
+    47/98: $1\n_xi[31:0]
+    48/98: $1\n_xval[31:0]
+    49/98: $1\alu$func$case_cpu/rtl/cpu.sv:153$4.prod_u[63:0]$82
+    50/98: $1\alu$func$case_cpu/rtl/cpu.sv:153$4.product[63:0]$80
+    51/98: $1\alu$func$case_cpu/rtl/cpu.sv:153$4.$result[31:0]$71
+    52/98: $1\alu$func$case_cpu/rtl/cpu.sv:153$4.ua[63:0]$81
+    53/98: $1\alu$func$case_cpu/rtl/cpu.sv:153$4.ub[63:0]$79
+    54/98: $1\alu$func$case_cpu/rtl/cpu.sv:153$4.sb[63:0]$78
+    55/98: $1\alu$func$case_cpu/rtl/cpu.sv:153$4.sa[63:0]$77
+    56/98: $1\alu$func$case_cpu/rtl/cpu.sv:153$4.pc[31:0]$76
+    57/98: $1\alu$func$case_cpu/rtl/cpu.sv:153$4.im[31:0]$75
+    58/98: $1\alu$func$case_cpu/rtl/cpu.sv:153$4.b[31:0]$74
+    59/98: $1\alu$func$case_cpu/rtl/cpu.sv:153$4.a[31:0]$73
+    60/98: $1\alu$func$case_cpu/rtl/cpu.sv:153$4.op[5:0]$72
+    61/98: $1\immediate$func$case_cpu/rtl/cpu.sv:153$3.$result[31:0]$69
+    62/98: $1\immediate$func$case_cpu/rtl/cpu.sv:153$3.w[31:0]$70
+    63/98: $1\projected_pc[31:0]
+    64/98: $1\b[31:0]
+    65/98: $1\a[31:0]
+    66/98: $1\op[5:0]
+    67/98: $1\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result[5:0]$67
+    68/98: $1\decode_op$func$case_cpu/rtl/cpu.sv:144$2.w[31:0]$68
+    69/98: $1\r2[4:0]
+    70/98: $1\r1[4:0]
+    71/98: $3\n_xv[0:0]
+    72/98: $3\n_mpc[31:0]
+    73/98: $3\n_mval[31:0]
+    74/98: $3\n_mi[31:0]
+    75/98: $4\n_mv[0:0]
+    76/98: $2\n_remaining[5:0]
+    77/98: $2\n_mpc[31:0]
+    78/98: $2\n_mval[31:0]
+    79/98: $2\n_mi[31:0]
+    80/98: $3\n_mv[0:0]
+    81/98: $2\n_xv[0:0]
+    82/98: $1\n_remaining[5:0]
+    83/98: $1\n_mpc[31:0]
+    84/98: $1\n_mval[31:0]
+    85/98: $1\n_mi[31:0]
+    86/98: $2\n_mv[0:0]
+    87/98: $1\n_xv[0:0]
+    88/98: $1\n_mv[0:0]
+    89/98: $1\n_wpc[31:0]
+    90/98: $1\n_wval[31:0]
+    91/98: $1\n_wi[31:0]
+    92/98: $2\n_wv[0:0]
+    93/98: $2\n_regs[1023:0]
+    94/98: $2$bitselwrite$pos$case_cpu/rtl/cpu.sv:131$1[31:0]$45
+    95/98: $1\n_wv[0:0]
+    96/98: $1\n_pc[31:0]
+    97/98: $1$bitselwrite$pos$case_cpu/rtl/cpu.sv:131$1[31:0]$43
+    98/98: $1\n_regs[1023:0]
+
+3.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+No latch inferred for signal `\case_cpu.\insn_ready' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_regs' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_pc' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_fv' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_dv' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_xv' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_mv' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_wv' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_fi' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_di' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_xi' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_mi' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_wi' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_xval' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_mval' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_wval' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_xpc' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_mpc' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_wpc' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\n_remaining' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\a' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\b' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\projected_pc' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\r1' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\r2' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\op' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.$bitselwrite$pos$case_cpu/rtl/cpu.sv:131$1' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\decode_op$func$case_cpu/rtl/cpu.sv:144$2.$result' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\decode_op$func$case_cpu/rtl/cpu.sv:144$2.w' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\immediate$func$case_cpu/rtl/cpu.sv:153$3.$result' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\immediate$func$case_cpu/rtl/cpu.sv:153$3.w' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\alu$func$case_cpu/rtl/cpu.sv:153$4.$result' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\alu$func$case_cpu/rtl/cpu.sv:153$4.op' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\alu$func$case_cpu/rtl/cpu.sv:153$4.a' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\alu$func$case_cpu/rtl/cpu.sv:153$4.b' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\alu$func$case_cpu/rtl/cpu.sv:153$4.im' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\alu$func$case_cpu/rtl/cpu.sv:153$4.pc' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\alu$func$case_cpu/rtl/cpu.sv:153$4.sa' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\alu$func$case_cpu/rtl/cpu.sv:153$4.sb' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\alu$func$case_cpu/rtl/cpu.sv:153$4.ub' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\alu$func$case_cpu/rtl/cpu.sv:153$4.product' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\alu$func$case_cpu/rtl/cpu.sv:153$4.ua' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\alu$func$case_cpu/rtl/cpu.sv:153$4.prod_u' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\wait_count$func$case_cpu/rtl/cpu.sv:155$5.$result' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\wait_count$func$case_cpu/rtl/cpu.sv:155$5.op' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\decode_op$func$case_cpu/rtl/cpu.sv:158$6.$result' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+No latch inferred for signal `\case_cpu.\decode_op$func$case_cpu/rtl/cpu.sv:158$6.w' from process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+
+3.9. Executing PROC_DFF pass (convert process syncs to FFs).
+Creating register for signal `\case_cpu.\regs' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$984' with positive edge clock.
+Creating register for signal `\case_cpu.\pc' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$985' with positive edge clock.
+Creating register for signal `\case_cpu.\fv' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$986' with positive edge clock.
+Creating register for signal `\case_cpu.\dv' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$987' with positive edge clock.
+Creating register for signal `\case_cpu.\xv' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$988' with positive edge clock.
+Creating register for signal `\case_cpu.\mv' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$989' with positive edge clock.
+Creating register for signal `\case_cpu.\wv' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$990' with positive edge clock.
+Creating register for signal `\case_cpu.\fi' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$991' with positive edge clock.
+Creating register for signal `\case_cpu.\di' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$992' with positive edge clock.
+Creating register for signal `\case_cpu.\xi' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$993' with positive edge clock.
+Creating register for signal `\case_cpu.\mi' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$994' with positive edge clock.
+Creating register for signal `\case_cpu.\wi' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$995' with positive edge clock.
+Creating register for signal `\case_cpu.\xval' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$996' with positive edge clock.
+Creating register for signal `\case_cpu.\mval' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$997' with positive edge clock.
+Creating register for signal `\case_cpu.\wval' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$998' with positive edge clock.
+Creating register for signal `\case_cpu.\xpc' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$999' with positive edge clock.
+Creating register for signal `\case_cpu.\mpc' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$1000' with positive edge clock.
+Creating register for signal `\case_cpu.\wpc' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$1001' with positive edge clock.
+Creating register for signal `\case_cpu.\remaining' using process `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+  created $dff cell `$procdff$1002' with positive edge clock.
+
+3.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+
+3.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Found and cleaned up 1 empty switch in `\case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+Removing empty process `case_cpu.$proc$case_cpu/rtl/cpu.sv:162$227'.
+Found and cleaned up 42 empty switches in `\case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+Removing empty process `case_cpu.$proc$case_cpu/rtl/cpu.sv:120$21'.
+Cleaned up 43 empty switches.
+
+3.12. Executing OPT_EXPR pass (perform const folding).
+Optimizing module case_cpu.
+<suppressed ~49 debug messages>
+
+4. Executing FLATTEN pass (flatten design).
+
+5. Executing MEMORY_COLLECT pass (generating $mem cells).
+
+6. Executing MEMORY_MAP pass (converting memories to logic and flip-flops).
+Mapping memory $auto$proc_rom.cc:155:do_switch$241 in module \case_cpu:
+  created 8 $dff cells and 0 static cells of width 6.
+  read interface: 0 $dff and 7 $mux cells.
+  write interface: 0 write mux blocks.
+Mapping memory $auto$proc_rom.cc:155:do_switch$237 in module \case_cpu:
+  created 8 $dff cells and 0 static cells of width 6.
+  read interface: 0 $dff and 7 $mux cells.
+  write interface: 0 write mux blocks.
+Mapping memory $auto$proc_rom.cc:155:do_switch$233 in module \case_cpu:
+  created 8 $dff cells and 0 static cells of width 6.
+  read interface: 0 $dff and 7 $mux cells.
+  write interface: 0 write mux blocks.
+Mapping memory $auto$proc_rom.cc:155:do_switch$229 in module \case_cpu:
+  created 8 $dff cells and 0 static cells of width 6.
+  read interface: 0 $dff and 7 $mux cells.
+  write interface: 0 write mux blocks.
+
+7. Executing PMUXTREE pass.
+
+8. Executing OPT pass (performing simple optimizations).
+
+8.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module case_cpu.
+<suppressed ~12 debug messages>
+
+8.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\case_cpu'.
+<suppressed ~177 debug messages>
+Removed a total of 59 cells.
+
+8.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \case_cpu..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+      Replacing known input bits on port B of cell $procmux$884: $1\n_mv[0:0] -> 1'1
+      Replacing known input bits on port B of cell $procmux$445: $1\n_dv[0:0] -> 1'1
+  Analyzing evaluation results.
+    dead port 1/2 on $mux $procmux$979.
+    dead port 2/2 on $mux $procmux$979.
+    dead port 1/2 on $mux $procmux$970.
+    dead port 2/2 on $mux $procmux$970.
+    dead port 1/2 on $mux $procmux$968.
+    dead port 2/2 on $mux $procmux$968.
+    dead port 2/2 on $mux $procmux$964.
+    dead port 1/2 on $mux $procmux$925.
+    dead port 1/2 on $mux $procmux$919.
+    dead port 1/2 on $mux $procmux$913.
+    dead port 1/2 on $mux $procmux$907.
+    dead port 1/2 on $mux $procmux$901.
+    dead port 1/2 on $mux $procmux$895.
+    dead port 1/2 on $mux $procmux$889.
+    dead port 1/2 on $mux $procmux$887.
+    dead port 1/2 on $mux $procmux$880.
+    dead port 1/2 on $mux $procmux$878.
+    dead port 1/2 on $mux $procmux$871.
+    dead port 1/2 on $mux $procmux$869.
+    dead port 1/2 on $mux $procmux$862.
+    dead port 1/2 on $mux $procmux$860.
+    dead port 1/2 on $mux $procmux$853.
+    dead port 1/2 on $mux $procmux$851.
+    dead port 1/2 on $mux $procmux$844.
+    dead port 2/2 on $mux $procmux$844.
+    dead port 1/2 on $mux $procmux$841.
+    dead port 2/2 on $mux $procmux$841.
+    dead port 1/2 on $mux $procmux$838.
+    dead port 2/2 on $mux $procmux$838.
+    dead port 1/2 on $mux $procmux$835.
+    dead port 2/2 on $mux $procmux$835.
+    dead port 1/2 on $mux $procmux$832.
+    dead port 2/2 on $mux $procmux$832.
+    dead port 1/2 on $mux $procmux$829.
+    dead port 2/2 on $mux $procmux$829.
+    dead port 1/2 on $mux $procmux$826.
+    dead port 2/2 on $mux $procmux$826.
+    dead port 1/2 on $mux $procmux$823.
+    dead port 2/2 on $mux $procmux$823.
+    dead port 1/2 on $mux $procmux$820.
+    dead port 2/2 on $mux $procmux$820.
+    dead port 1/2 on $mux $procmux$817.
+    dead port 2/2 on $mux $procmux$817.
+    dead port 1/2 on $mux $procmux$814.
+    dead port 2/2 on $mux $procmux$814.
+    dead port 1/2 on $mux $procmux$811.
+    dead port 2/2 on $mux $procmux$811.
+    dead port 1/2 on $mux $procmux$808.
+    dead port 2/2 on $mux $procmux$808.
+    dead port 1/2 on $mux $procmux$805.
+    dead port 2/2 on $mux $procmux$805.
+    dead port 1/2 on $mux $procmux$802.
+    dead port 2/2 on $mux $procmux$802.
+    dead port 1/2 on $mux $procmux$799.
+    dead port 2/2 on $mux $procmux$799.
+    dead port 1/2 on $mux $procmux$796.
+    dead port 2/2 on $mux $procmux$796.
+    dead port 1/2 on $mux $procmux$793.
+    dead port 2/2 on $mux $procmux$793.
+    dead port 1/2 on $mux $procmux$790.
+    dead port 2/2 on $mux $procmux$790.
+    dead port 1/2 on $mux $procmux$787.
+    dead port 2/2 on $mux $procmux$787.
+    dead port 1/2 on $mux $procmux$784.
+    dead port 2/2 on $mux $procmux$784.
+    dead port 1/2 on $mux $procmux$781.
+    dead port 2/2 on $mux $procmux$781.
+    dead port 1/2 on $mux $procmux$763.
+    dead port 2/2 on $mux $procmux$763.
+    dead port 1/2 on $mux $procmux$760.
+    dead port 2/2 on $mux $procmux$760.
+    dead port 2/2 on $mux $procmux$745.
+    dead port 2/2 on $mux $procmux$743.
+    dead port 2/2 on $mux $procmux$733.
+    dead port 2/2 on $mux $procmux$731.
+    dead port 2/2 on $mux $procmux$729.
+    dead port 2/2 on $mux $procmux$720.
+    dead port 2/2 on $mux $procmux$718.
+    dead port 1/2 on $mux $procmux$716.
+    dead port 2/2 on $mux $procmux$705.
+    dead port 2/2 on $mux $procmux$703.
+    dead port 1/2 on $mux $procmux$701.
+    dead port 2/2 on $mux $procmux$698.
+    dead port 2/2 on $mux $procmux$689.
+    dead port 2/2 on $mux $procmux$687.
+    dead port 1/2 on $mux $procmux$685.
+    dead port 1/2 on $mux $procmux$682.
+    dead port 2/2 on $mux $procmux$671.
+    dead port 2/2 on $mux $procmux$669.
+    dead port 1/2 on $mux $procmux$667.
+    dead port 1/2 on $mux $procmux$664.
+    dead port 1/2 on $mux $procmux$661.
+    dead port 2/2 on $mux $procmux$650.
+    dead port 2/2 on $mux $procmux$648.
+    dead port 2/2 on $mux $procmux$633.
+    dead port 2/2 on $mux $procmux$631.
+    dead port 2/2 on $mux $procmux$619.
+    dead port 2/2 on $mux $procmux$617.
+    dead port 2/2 on $mux $procmux$615.
+    dead port 2/2 on $mux $procmux$606.
+    dead port 2/2 on $mux $procmux$604.
+    dead port 2/2 on $mux $procmux$602.
+    dead port 1/2 on $mux $procmux$600.
+    dead port 2/2 on $mux $procmux$590.
+    dead port 2/2 on $mux $procmux$584.
+    dead port 1/2 on $mux $procmux$566.
+    dead port 2/2 on $mux $procmux$566.
+    dead port 1/2 on $mux $auto$pmuxtree.cc:65:recursive_mux_generator$1127.
+    dead port 2/2 on $mux $auto$pmuxtree.cc:65:recursive_mux_generator$1127.
+    dead port 1/2 on $mux $procmux$554.
+    dead port 2/2 on $mux $procmux$554.
+    dead port 1/2 on $mux $procmux$552.
+    dead port 2/2 on $mux $procmux$552.
+    dead port 2/2 on $mux $procmux$544.
+    dead port 2/2 on $mux $procmux$510.
+    dead port 2/2 on $mux $procmux$508.
+    dead port 2/2 on $mux $procmux$498.
+    dead port 2/2 on $mux $procmux$496.
+    dead port 1/2 on $mux $procmux$494.
+    dead port 2/2 on $mux $procmux$483.
+    dead port 2/2 on $mux $procmux$481.
+    dead port 2/2 on $mux $procmux$473.
+    dead port 2/2 on $mux $procmux$471.
+    dead port 1/2 on $mux $procmux$469.
+    dead port 2/2 on $mux $procmux$460.
+    dead port 2/2 on $mux $procmux$454.
+    dead port 1/2 on $mux $procmux$452.
+    dead port 2/2 on $mux $procmux$430.
+    dead port 2/2 on $mux $procmux$421.
+    dead port 2/2 on $mux $procmux$419.
+    dead port 2/2 on $mux $procmux$411.
+    dead port 1/2 on $mux $procmux$409.
+    dead port 2/2 on $mux $procmux$399.
+    dead port 1/2 on $mux $procmux$397.
+    dead port 2/2 on $mux $procmux$394.
+    dead port 2/2 on $mux $procmux$386.
+    dead port 1/2 on $mux $procmux$384.
+    dead port 1/2 on $mux $procmux$381.
+    dead port 2/2 on $mux $procmux$371.
+    dead port 1/2 on $mux $procmux$369.
+    dead port 1/2 on $mux $procmux$366.
+    dead port 1/2 on $mux $procmux$363.
+    dead port 2/2 on $mux $procmux$353.
+    dead port 2/2 on $mux $procmux$339.
+    dead port 2/2 on $mux $procmux$328.
+    dead port 2/2 on $mux $procmux$326.
+    dead port 2/2 on $mux $procmux$318.
+    dead port 2/2 on $mux $procmux$316.
+    dead port 1/2 on $mux $procmux$314.
+    dead port 1/2 on $mux $auto$pmuxtree.cc:65:recursive_mux_generator$1125.
+    dead port 2/2 on $mux $auto$pmuxtree.cc:65:recursive_mux_generator$1125.
+Removed 151 multiplexer ports.
+<suppressed ~46 debug messages>
+
+8.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \case_cpu.
+    New input vector for $reduce_or cell $auto$pmuxtree.cc:37:or_generator$1169: { $auto$rtlil.cc:2827:Or$1142 $procmux$565_CMP $procmux$564_CMP $procmux$517_CMP $procmux$516_CMP $procmux$515_CMP }
+    New input vector for $reduce_or cell $auto$pmuxtree.cc:37:or_generator$1209: { $auto$rtlil.cc:2827:Or$1182 $procmux$536_CMP $procmux$535_CMP $procmux$532_CMP $procmux$531_CMP $procmux$530_CMP }
+    New input vector for $reduce_or cell $auto$pmuxtree.cc:37:or_generator$1213: { $auto$rtlil.cc:2827:Or$1162 $auto$rtlil.cc:2827:Or$1154 $auto$rtlil.cc:2827:Or$1142 $procmux$565_CMP $procmux$564_CMP $procmux$529_CMP $procmux$528_CMP $procmux$525_CMP $procmux$524_CMP $procmux$517_CMP $procmux$516_CMP $procmux$515_CMP }
+  Optimizing cells in module \case_cpu.
+Performed a total of 3 changes.
+
+8.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\case_cpu'.
+Removed a total of 0 cells.
+
+8.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+8.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \case_cpu..
+Removed 11 unused cells and 608 unused wires.
+<suppressed ~23 debug messages>
+
+8.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module case_cpu.
+
+8.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+8.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \case_cpu..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~44 debug messages>
+
+8.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \case_cpu.
+Performed a total of 0 changes.
+
+8.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\case_cpu'.
+Removed a total of 0 cells.
+
+8.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+8.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \case_cpu..
+
+8.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module case_cpu.
+
+8.16. Finished OPT passes. (There is nothing left to do.)
+
+9. Executing WREDUCE pass (reducing word size of cells).
+Removed top 27 bits (of 32) from mux cell case_cpu.$ternary$case_cpu/rtl/cpu.sv:114$14 ($mux).
+Removed top 21 bits (of 32) from port B of cell case_cpu.$shiftx$case_cpu/rtl/cpu.sv:0$19 ($shiftx).
+Removed top 22 bits (of 33) from port A of cell case_cpu.$neg$case_cpu/rtl/cpu.sv:0$52 ($neg).
+Converting cell case_cpu.$neg$case_cpu/rtl/cpu.sv:0$52 ($neg) from signed to unsigned.
+Removed top 1 bits (of 11) from port A of cell case_cpu.$neg$case_cpu/rtl/cpu.sv:0$52 ($neg).
+Removed top 29 bits (of 32) from port B of cell case_cpu.$add$case_cpu/rtl/cpu.sv:132$55 ($add).
+Removed top 31 bits (of 32) from port B of cell case_cpu.$sub$case_cpu/rtl/cpu.sv:138$61 ($sub).
+Removed top 26 bits (of 32) from port Y of cell case_cpu.$sub$case_cpu/rtl/cpu.sv:138$61 ($sub).
+Removed top 6 bits (of 7) from port B of cell case_cpu.$eq$case_cpu/rtl/cpu.sv:25$86 ($eq).
+Removed top 1 bits (of 7) from port B of cell case_cpu.$eq$case_cpu/rtl/cpu.sv:43$105 ($eq).
+Removed top 21 bits (of 32) from port B of cell case_cpu.$shiftx$case_cpu/rtl/cpu.sv:0$110 ($shiftx).
+Removed top 21 bits (of 32) from port B of cell case_cpu.$shiftx$case_cpu/rtl/cpu.sv:0$115 ($shiftx).
+Removed top 29 bits (of 32) from mux cell case_cpu.$ternary$case_cpu/rtl/cpu.sv:152$133 ($mux).
+Removed top 29 bits (of 32) from port B of cell case_cpu.$add$case_cpu/rtl/cpu.sv:152$134 ($add).
+Removed top 29 bits (of 32) from mux cell case_cpu.$ternary$case_cpu/rtl/cpu.sv:152$135 ($mux).
+Removed top 29 bits (of 32) from port B of cell case_cpu.$add$case_cpu/rtl/cpu.sv:152$136 ($add).
+Removed top 1 bits (of 32) from mux cell case_cpu.$ternary$case_cpu/rtl/cpu.sv:53$140 ($mux).
+Converting cell case_cpu.$mul$case_cpu/rtl/cpu.sv:74$165 ($mul) from unsigned to signed.
+Removed top 32 bits (of 64) from port A of cell case_cpu.$mul$case_cpu/rtl/cpu.sv:74$165 ($mul).
+Removed top 32 bits (of 64) from port B of cell case_cpu.$mul$case_cpu/rtl/cpu.sv:74$165 ($mul).
+Converting cell case_cpu.$mul$case_cpu/rtl/cpu.sv:75$166 ($mul) from unsigned to signed.
+Removed top 32 bits (of 64) from port A of cell case_cpu.$mul$case_cpu/rtl/cpu.sv:75$166 ($mul).
+Removed top 31 bits (of 64) from port B of cell case_cpu.$mul$case_cpu/rtl/cpu.sv:75$166 ($mul).
+Removed top 32 bits (of 64) from port A of cell case_cpu.$mul$case_cpu/rtl/cpu.sv:76$167 ($mul).
+Removed top 32 bits (of 64) from port B of cell case_cpu.$mul$case_cpu/rtl/cpu.sv:76$167 ($mul).
+Removed top 27 bits (of 32) from port B of cell case_cpu.$ge$case_cpu/rtl/cpu.sv:95$188 ($ge).
+Removed top 27 bits (of 32) from port B of cell case_cpu.$le$case_cpu/rtl/cpu.sv:95$189 ($le).
+Removed top 27 bits (of 32) from port B of cell case_cpu.$ge$case_cpu/rtl/cpu.sv:96$192 ($ge).
+Removed top 27 bits (of 32) from port B of cell case_cpu.$le$case_cpu/rtl/cpu.sv:96$193 ($le).
+Removed top 6 bits (of 7) from port B of cell case_cpu.$eq$case_cpu/rtl/cpu.sv:25$198 ($eq).
+Removed top 1 bits (of 7) from port B of cell case_cpu.$eq$case_cpu/rtl/cpu.sv:43$217 ($eq).
+Removed top 4 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$241$rdmux[0][2][0]$1012 ($mux).
+Removed top 2 bits (of 3) from port B of cell case_cpu.$procmux$346_CMP0 ($eq).
+Removed top 1 bits (of 3) from port B of cell case_cpu.$procmux$350_CMP0 ($eq).
+Removed top 1 bits (of 3) from port B of cell case_cpu.$procmux$351_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell case_cpu.$procmux$434_CMP0 ($eq).
+Removed top 1 bits (of 7) from port B of cell case_cpu.$procmux$435_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell case_cpu.$procmux$436_CMP0 ($eq).
+Removed top 1 bits (of 7) from port B of cell case_cpu.$procmux$437_CMP0 ($eq).
+Removed top 4 bits (of 6) from mux cell case_cpu.$procmux$449 ($mux).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$515_CMP0 ($eq).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$516_CMP0 ($eq).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$517_CMP0 ($eq).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$518_CMP0 ($eq).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$522_CMP0 ($eq).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$523_CMP0 ($eq).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$524_CMP0 ($eq).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$525_CMP0 ($eq).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$526_CMP0 ($eq).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$527_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell case_cpu.$procmux$528_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell case_cpu.$procmux$529_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell case_cpu.$procmux$530_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell case_cpu.$procmux$531_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell case_cpu.$procmux$532_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell case_cpu.$procmux$533_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell case_cpu.$procmux$534_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell case_cpu.$procmux$535_CMP0 ($eq).
+Removed top 3 bits (of 6) from port B of cell case_cpu.$procmux$536_CMP0 ($eq).
+Removed top 3 bits (of 6) from port B of cell case_cpu.$procmux$537_CMP0 ($eq).
+Removed top 3 bits (of 6) from port B of cell case_cpu.$procmux$538_CMP0 ($eq).
+Removed top 3 bits (of 6) from port B of cell case_cpu.$procmux$539_CMP0 ($eq).
+Removed top 4 bits (of 6) from port B of cell case_cpu.$procmux$540_CMP0 ($eq).
+Removed top 4 bits (of 6) from port B of cell case_cpu.$procmux$541_CMP0 ($eq).
+Removed top 5 bits (of 6) from port B of cell case_cpu.$procmux$542_CMP0 ($eq).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$553_CMP0 ($eq).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$564_CMP0 ($eq).
+Removed top 1 bits (of 6) from port B of cell case_cpu.$procmux$565_CMP0 ($eq).
+Removed top 2 bits (of 3) from port B of cell case_cpu.$procmux$641_CMP0 ($eq).
+Removed top 1 bits (of 3) from port B of cell case_cpu.$procmux$645_CMP0 ($eq).
+Removed top 1 bits (of 3) from port B of cell case_cpu.$procmux$646_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell case_cpu.$procmux$750_CMP0 ($eq).
+Removed top 1 bits (of 7) from port B of cell case_cpu.$procmux$751_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell case_cpu.$procmux$752_CMP0 ($eq).
+Removed top 1 bits (of 7) from port B of cell case_cpu.$procmux$753_CMP0 ($eq).
+Removed top 3 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$241$rdmux[0][2][1]$1015 ($mux).
+Removed top 4 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$241$rdmux[0][2][2]$1018 ($mux).
+Removed top 5 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$241$rdmux[0][2][3]$1021 ($mux).
+Removed top 4 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$237$rdmux[0][2][0]$1033 ($mux).
+Removed top 2 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$237$rdmux[0][2][1]$1036 ($mux).
+Removed top 4 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$237$rdmux[0][2][2]$1039 ($mux).
+Removed top 3 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$237$rdmux[0][2][3]$1042 ($mux).
+Removed top 4 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$233$rdmux[0][2][0]$1054 ($mux).
+Removed top 3 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$233$rdmux[0][2][1]$1057 ($mux).
+Removed top 4 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$233$rdmux[0][2][2]$1060 ($mux).
+Removed top 5 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$233$rdmux[0][2][3]$1063 ($mux).
+Removed top 4 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$229$rdmux[0][2][0]$1075 ($mux).
+Removed top 2 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$229$rdmux[0][2][1]$1078 ($mux).
+Removed top 4 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$229$rdmux[0][2][2]$1081 ($mux).
+Removed top 3 bits (of 6) from mux cell case_cpu.$memory$auto$proc_rom.cc:155:do_switch$229$rdmux[0][2][3]$1084 ($mux).
+Removed top 3 bits (of 6) from mux cell case_cpu.$auto$pmuxtree.cc:65:recursive_mux_generator$1091 ($mux).
+Removed top 5 bits (of 6) from mux cell case_cpu.$auto$pmuxtree.cc:65:recursive_mux_generator$1103 ($mux).
+Removed top 5 bits (of 6) from mux cell case_cpu.$auto$pmuxtree.cc:65:recursive_mux_generator$1109 ($mux).
+Removed top 5 bits (of 6) from mux cell case_cpu.$auto$pmuxtree.cc:65:recursive_mux_generator$1111 ($mux).
+Removed top 3 bits (of 6) from mux cell case_cpu.$auto$pmuxtree.cc:65:recursive_mux_generator$1115 ($mux).
+Removed top 31 bits (of 32) from mux cell case_cpu.$auto$pmuxtree.cc:65:recursive_mux_generator$1173 ($mux).
+Removed top 31 bits (of 32) from mux cell case_cpu.$auto$pmuxtree.cc:65:recursive_mux_generator$1191 ($mux).
+Removed top 3 bits (of 6) from mux cell case_cpu.$auto$pmuxtree.cc:65:recursive_mux_generator$1221 ($mux).
+Removed top 5 bits (of 6) from mux cell case_cpu.$auto$pmuxtree.cc:65:recursive_mux_generator$1233 ($mux).
+Removed top 5 bits (of 6) from mux cell case_cpu.$auto$pmuxtree.cc:65:recursive_mux_generator$1239 ($mux).
+Removed top 5 bits (of 6) from mux cell case_cpu.$auto$pmuxtree.cc:65:recursive_mux_generator$1241 ($mux).
+Removed top 3 bits (of 6) from mux cell case_cpu.$auto$pmuxtree.cc:65:recursive_mux_generator$1245 ($mux).
+Removed top 4 bits (of 6) from wire case_cpu.$3\wait_count$func$case_cpu/rtl/cpu.sv:155$5.$result[5:0]$195.
+Removed top 3 bits (of 6) from wire case_cpu.$auto$rtlil.cc:2914:Mux$1092.
+Removed top 5 bits (of 6) from wire case_cpu.$auto$rtlil.cc:2914:Mux$1104.
+Removed top 5 bits (of 6) from wire case_cpu.$auto$rtlil.cc:2914:Mux$1110.
+Removed top 3 bits (of 6) from wire case_cpu.$auto$rtlil.cc:2914:Mux$1116.
+Removed top 31 bits (of 32) from wire case_cpu.$auto$rtlil.cc:2914:Mux$1174.
+Removed top 31 bits (of 32) from wire case_cpu.$auto$rtlil.cc:2914:Mux$1192.
+Removed top 3 bits (of 6) from wire case_cpu.$auto$rtlil.cc:2914:Mux$1222.
+Removed top 5 bits (of 6) from wire case_cpu.$auto$rtlil.cc:2914:Mux$1234.
+Removed top 5 bits (of 6) from wire case_cpu.$auto$rtlil.cc:2914:Mux$1240.
+Removed top 5 bits (of 6) from wire case_cpu.$auto$rtlil.cc:2914:Mux$1242.
+Removed top 3 bits (of 6) from wire case_cpu.$auto$rtlil.cc:2914:Mux$1246.
+Removed top 31 bits (of 32) from wire case_cpu.$lt$case_cpu/rtl/cpu.sv:66$147_Y.
+Removed top 31 bits (of 32) from wire case_cpu.$lt$case_cpu/rtl/cpu.sv:69$155_Y.
+Removed top 4 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$229$rdmux[0][1][0]$a$1070.
+Removed top 2 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$229$rdmux[0][1][0]$b$1071.
+Removed top 3 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$229$rdmux[0][1][1]$b$1074.
+Removed top 4 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$233$rdmux[0][1][0]$a$1049.
+Removed top 3 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$233$rdmux[0][1][0]$b$1050.
+Removed top 4 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$233$rdmux[0][1][1]$a$1052.
+Removed top 4 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$237$rdmux[0][1][0]$a$1028.
+Removed top 2 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$237$rdmux[0][1][0]$b$1029.
+Removed top 3 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$237$rdmux[0][1][1]$b$1032.
+Removed top 4 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$241$rdmux[0][1][0]$a$1007.
+Removed top 3 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$241$rdmux[0][1][0]$b$1008.
+Removed top 4 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$241$rdmux[0][1][1]$a$1010.
+Removed top 5 bits (of 6) from wire case_cpu.$memory$auto$proc_rom.cc:155:do_switch$241$rdmux[0][1][1]$b$1011.
+Removed top 26 bits (of 32) from wire case_cpu.$sub$case_cpu/rtl/cpu.sv:138$61_Y.
+Removed top 29 bits (of 32) from wire case_cpu.$ternary$case_cpu/rtl/cpu.sv:152$133_Y.
+Removed top 29 bits (of 32) from wire case_cpu.$ternary$case_cpu/rtl/cpu.sv:152$135_Y.
+
+10. Executing OPT pass (performing simple optimizations).
+
+10.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module case_cpu.
+
+10.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\case_cpu'.
+Removed a total of 0 cells.
+
+10.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \case_cpu..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~44 debug messages>
+
+10.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \case_cpu.
+Performed a total of 0 changes.
+
+10.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\case_cpu'.
+<suppressed ~18 debug messages>
+Removed a total of 6 cells.
+
+10.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+10.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \case_cpu..
+Removed 0 unused cells and 37 unused wires.
+<suppressed ~1 debug messages>
+
+10.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module case_cpu.
+
+10.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+10.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \case_cpu..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~48 debug messages>
+
+10.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \case_cpu.
+Performed a total of 0 changes.
+
+10.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\case_cpu'.
+Removed a total of 0 cells.
+
+10.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+10.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \case_cpu..
+
+10.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module case_cpu.
+
+10.16. Finished OPT passes. (There is nothing left to do.)
+
+11. Executing JSON backend.
+
+End of script. Logfile hash: 79cbc86dae, CPU: user 0.59s system 0.01s, MEM: 32.59 MB peak
+Yosys 0.51+41 (git sha1 0c689091e, g++ 11.4.0-1ubuntu1~22.04 -fPIC -O3)
+Time spent: 25% 4x opt_clean (0 sec), 21% 7x opt_expr (0 sec), ...

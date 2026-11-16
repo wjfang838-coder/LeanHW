@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "answer_key_kind": "synthetic_harness_pass",
+  "benchmark": "cvdp",
+  "design_key": "cvdp_copilot_convolutional_encoder_0001",
+  "benchmark_toplevel": "convolutional_encoder",
+  "source_sha256": "b08ef8249366b2c807443aff628809d7ace28fb503a731b45a19a51dab6a0685",
+  "bootstrap_run_id": "purple-encoder-independent-apparatus-v1",
+  "verification_visible_names": [
+    "clk",
+    "rst",
+    "data_in",
+    "encoded_bit1",
+    "encoded_bit2"
+  ]
+}

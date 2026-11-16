@@ -1,0 +1,133 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- areset: input 1 bit.
+- load: input 1 bit.
+- ena: input 1 bit.
+- data: input [3:0].
+- q: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+areset is an asynchronous, active-high reset. As soon as areset is asserted, q reads 4'b0000, independently of clk, load, ena, and data. While areset remains asserted, q remains 4'b0000, and every rising clk edge stores 4'b0000. Reset has priority over load and ena.
+
+Before any reset assertion or rising clk edge with load high has established the register value, q is a 4-bit unknown. The implementation must leave this power-up state uninitialised: it must not give q a declaration initialiser or an initial-block value. A rising clk edge before q has been established leaves q unknown when areset, load, and ena are all low; an ena-only rising edge also leaves that unknown value unknown.
+
+Deasserting areset causes no change by itself. On the first rising clk edge after release, q follows the normal priority law: load captures data; otherwise ena shifts the retained value right; otherwise the retained value holds. Thus, after a reset has established q as zero, the first edge after release holds zero unless load or ena selects an update.
+
+The sole state element is the 4-bit value presented as q together with whether that value has yet been established. Reset establishes the value as 4'b0000; a qualifying load establishes it as data; holding or shifting an as-yet-unestablished value does not establish it.
+
+4. Timing.
+
+q is a registered output, except that assertion of asynchronous areset forces its visible value to zero immediately. A load or shift selected at a rising clk edge first appears in q after that edge. Under the pre-edge row convention, this is a latency of one clock cycle from the row containing the selected inputs to the row displaying their result. Changes of load, ena, or data away from a rising edge do not affect q. Falling clk edges and steady clk levels have no effect. No output pulse or autonomous periodic output is specified.
+
+For the normative worked trace, each row is a pre-edge sample: the row shows q after all earlier events and before that row's rising-edge transition. One row step represents one full clk cycle. This observation convention does not specify a nanosecond clock period or propagation delay; neither is fixed by this specification.
+
+5. Behaviour.
+
+Every control input is one bit and therefore has exactly the low and high encodings described below. data supplies all 16 possible 4-bit values without any reserved encoding.
+
+Only a rising clk edge performs a synchronous action. At every rising clk edge, the complete priority law is: if areset is high, q becomes 4'b0000; otherwise, if load is high, q becomes the contemporaneous 4-bit data value; otherwise, if ena is high, q becomes {1'b0, q[3:1]}; otherwise q retains its prior value. Repeated rising edges apply this law independently on every edge.
+
+A low-to-high transition of areset immediately makes q 4'b0000 independent of clk, load, ena, and data. While areset remains high every rising clk edge keeps q at zero. Deassertion alone causes no change, and every later assertion repeats the same asynchronous interruption.
+
+On each rising clk edge with areset low, load high captures the contemporaneous 4-bit data into q with priority over ena. Consecutive asserted-load edges capture data anew on every edge. load is ignored while areset is asserted, and load changes away from a rising edge have no effect.
+
+On each rising clk edge with areset and load low, ena high replaces q with {1'b0, q[3:1]}. This shifts right by one bit, discards the previous q[0], and inserts zero at q[3]. Consecutive enabled edges repeat exactly one shift per edge. ena low selects retention, reset or load overrides simultaneous ena, and ena changes away from a rising edge have no effect.
+
+data affects q only when it is captured on a rising clk edge with areset low and load high. Otherwise data changes have no effect, including during reset, retention, and ena-only shifting. Repeated loads capture the data value present at each respective edge.
+
+q is unknown before an event establishes it, becomes 4'b0000 immediately when areset is asserted, remains unchanged on reset release, and thereafter follows the complete rising-edge priority law above. Each selected result first appears after its selecting edge; later edges can independently reset, load, shift, or retain it.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | areset | load | ena | data | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 4'b0000 | 4'x |
+| 1 | 1 | 0 | 0 | 4'b0001 | 4'b0000 |
+| 2 | 0 | 1 | 0 | 4'b1000 | 4'b0000 |
+| 3 | 0 | 0 | 0 | 4'b0011 | 4'b1000 |
+| 4 | 0 | 0 | 1 | 4'b1111 | 4'b1000 |
+| 5 | 0 | 0 | 1 | 4'b0000 | 4'b0100 |
+| 6 | 0 | 0 | 1 | 4'b0000 | 4'b0010 |
+
+### stimulus 1
+| cycle | areset | load | ena | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 4'b1111 | 4'b0000 |
+| 1 | 0 | 1 | 1 | 4'b1111 | 4'b0000 |
+| 2 | 0 | 0 | 1 | 4'b0000 | 4'b1111 |
+| 3 | 0 | 1 | 1 | 4'b0001 | 4'b0111 |
+| 4 | 0 | 0 | 1 | 4'b0000 | 4'b0001 |
+
+### stimulus 2
+| cycle | areset | load | ena | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'b0000 | 4'b0000 |
+| 1 | 0 | 1 | 0 | 4'b0000 | 4'b0000 |
+| 2 | 0 | 0 | 1 | 4'b0000 | 4'b0000 |
+| 3 | 0 | 1 | 0 | 4'b0111 | 4'b0000 |
+| 4 | 0 | 0 | 0 | 4'b1000 | 4'b0111 |
+
+### stimulus 3
+| cycle | areset | load | ena | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'b0000 | 4'b0000 |
+| 1 | 0 | 1 | 0 | 4'b1000 | 4'b0000 |
+| 2 | 0 | 0 | 1 | 4'b0000 | 4'b1000 |
+| 3 | 1 | 0 | 1 | 4'b1111 | 4'b0000 |
+| 4 | 0 | 0 | 1 | 4'b0000 | 4'b0000 |
+| 5 | 0 | 1 | 0 | 4'b0101 | 4'b0000 |
+
+### stimulus 4
+| cycle | areset | load | ena | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'b0000 | 4'b0000 |
+| 1 | 0 | 1 | 0 | 4'b1111 | 4'b0000 |
+| 2 | 0 | 0 | 1 | 4'b0000 | 4'b1111 |
+| 3 | 0 | 0 | 1 | 4'b0000 | 4'b0111 |
+| 4 | 0 | 0 | 1 | 4'b0000 | 4'b0011 |
+| 5 | 0 | 0 | 1 | 4'b0000 | 4'b0001 |
+| 6 | 0 | 0 | 1 | 4'b0000 | 4'b0000 |
+
+### stimulus 5
+| cycle | areset | load | ena | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'b0000 | 4'b0000 |
+| 1 | 0 | 1 | 0 | 4'b0001 | 4'b0000 |
+| 2 | 0 | 0 | 0 | 4'b1111 | 4'b0001 |
+| 3 | 0 | 0 | 0 | 4'b1000 | 4'b0001 |
+| 4 | 0 | 0 | 1 | 4'b0011 | 4'b0001 |
+
+### stimulus 6
+| cycle | areset | load | ena | data | q |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 4'b0101 | 4'x |
+| 1 | 0 | 0 | 1 | 4'b0000 | 4'b0101 |
+| 2 | 0 | 1 | 0 | 4'b1010 | 4'b0010 |
+| 3 | 0 | 0 | 1 | 4'b0000 | 4'b1010 |
+| 4 | 0 | 0 | 1 | 4'b0000 | 4'b0101 |
+
+### stimulus 7
+| cycle | areset | load | ena | data | q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 4'b1111 | 4'b0000 |
+| 1 | 0 | 1 | 0 | 4'b0011 | 4'b0000 |
+| 2 | 0 | 0 | 1 | 4'b0000 | 4'b0011 |
+| 3 | 0 | 1 | 0 | 4'b1100 | 4'b0001 |
+| 4 | 0 | 0 | 1 | 4'b0000 | 4'b1100 |
+| 5 | 0 | 0 | 1 | 4'b0000 | 4'b0110 |

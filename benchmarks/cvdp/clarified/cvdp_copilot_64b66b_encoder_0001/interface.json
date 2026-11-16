@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_64b66b_encoder_0001",
+  "toplevel": "encoder_64b66b",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

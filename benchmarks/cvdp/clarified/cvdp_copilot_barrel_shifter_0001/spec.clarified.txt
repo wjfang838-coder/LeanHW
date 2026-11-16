@@ -1,0 +1,157 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design an **8-bit barrel shifter** which can shift the bits of an 8-bit input either to the left or to the right based on a control signal. This shift can range from 0 to 7 bits, as specified by another control signal. The operation must complete in **one clock cycle**. The detailed design specification for the **8-bit barrel shifter** is given below :
+
+## Design Specification:
+
+A **barrel shifter** is a digital circuit that shifts a data word by a specified number of bits in one clock cycle. It is commonly used in digital systems like microprocessors to perform rapid shifts of binary numbers, which is useful in operations such as multiplication, division, and data manipulation.
+
+### Module Name:
+`barrel_shifter_8bit`
+
+### Key Considerations:
+This design should be a **combinational logic**. The output must change immediately based on the input and control signals
+
+### Interface:
+
+#### Inputs:
+- **`data_in`** (8-bits, [7:0]): The 8-bit input data. This will be shifted by a number of bits based on the other control signals.
+- **`shift_bits`** (3-bits, [2:0]): Determines how many bits to shift the input. This value can range from `3'b000` (no shift) to `3'b111` (7-bit shift).
+- **`left_right`** (1-bit): Decides the direction of the shift.
+   - `left_right = 1`: Shift left.
+   - `left_right = 0`: Shift right.
+
+#### Output:
+- **`data_out`** (8-bits, [7:0]): The result after shifting the input. The output can range from 8'b00000000 to 8'b11111111.
+
+### Behavior and Data Flow:
+The input data (`data_in`) undergoes a shift operation, either to the left or right, as determined by the `shift_bits` value and the direction indicated by `left_right`. When `data_in` shifts right by the number specified in `shift_bits`, zeros are inserted into the Most Significant Bit (MSB) positions, equal to the value of `shift_bits`. Conversely, when `data_in` shifts left by the `shift_bits` value, zeros are inserted into the Least Significant Bit (LSB) positions, also corresponding in number to `shift_bits`.
+
+### Example Operations:
+
+#### Left Shift Example:
+- `data_in` = 8'b11001100, `shift_bits` = 3'b100, `left_right` = 1  
+- `data_out` = 8'b11001100 << 4 = 8'b11000000  
+
+#### Right Shift Example:
+- `data_in` = 8'b11001100, `shift_bits` = 3'b100, `left_right` = 0  
+- `data_out` = 8'b11001100 >> 4 = 8'b00001100  
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Named module interface binding
+
+Module: barrel_shifter_8bit.
+Connect ports by name. The enumeration below does not establish positional order.
+- data_in: input; 8 bits in the concrete formal instance.
+- shift_bits: input; 3 bits in the concrete formal instance.
+- left_right: input; 1 bits in the concrete formal instance.
+- data_out: output; 8 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly barrel_shifter_8bit. Its confirmed named boundary consists of the following ports:
+
+input data_in, 8 bits [7:0]
+input shift_bits, 3 bits [2:0]
+input left_right, 1 bit
+output data_out, 8 bits [7:0]
+
+The port spellings are normative. No public parameters or symbolic ranges are established. The integration answer states that the displayed canonical enumeration does not verify declaration order. Therefore declaration order is not fixed by the requirements, and the module must be instantiated by exact name rather than by position.
+
+3. Reset.
+
+There is no reset port, reset operation, or stored state. Reset polarity, assertion, release, reset edges, and first-step-after-release behavior are therefore inapplicable. At power-up, before any input change, data_out is already the combinational result of the current values of data_in, shift_bits, and left_right. It is neither a stored initialization value nor unconstrained.
+
+4. Timing.
+
+data_out is combinational with zero clock-cycle latency. It continuously reflects the current data_in, shift_bits, and left_right in the same combinational phase. There is no clock or other cycle-boundary input, capture edge, registered latency, pulse, periodic output, hold or clear interval, completion event, or restart event.
+
+For the evaluated model trace, row k is the kth settled-input observation and samples the combinational output for that row's inputs before the identity state transition. The interface specifies neither timing.step_ns nor timing.sample_offset_ns, so row indices do not establish a physical clock period, propagation delay, or implicit 10 ns interval. This table observation convention is separate from the circuit law of immediate combinational response.
+
+Amendment notice A1. The exact original clause is: “The operation must complete in **one clock cycle**.” The relevant frozen question is Q6, scope ID source@9221a855a72743e0. Its certain answer law states exactly: “For every shift_bits value from 3'b000 through 3'b111, data_out changes in the same combinational phase as any change to data_in, shift_bits, or left_right and equals the low eight bits of data_in shifted left by shift_bits when left_right is 1 or logically right when it is 0; there is no one-clock-cycle latency because the modeled interface defines no clock or other cycle-boundary event.” This corrected law supersedes that quoted original clause only for barrel_shifter_8bit's clockless interface, for legal shift_bits values 0 through 7, when specifying data_out's response to changes of data_in, shift_bits, or left_right. The original requirements outside those conditions are unchanged.
+
+Amendment notice A2. The exact original clause is: “A **barrel shifter** is a digital circuit that shifts a data word by a specified number of bits in one clock cycle.” The relevant frozen question is Q6, scope ID source@9221a855a72743e0. Its certain answer law states exactly: “For every shift_bits value from 3'b000 through 3'b111, data_out changes in the same combinational phase as any change to data_in, shift_bits, or left_right and equals the low eight bits of data_in shifted left by shift_bits when left_right is 1 or logically right when it is 0; there is no one-clock-cycle latency because the modeled interface defines no clock or other cycle-boundary event.” This corrected law supersedes only the quoted sentence's “in one clock cycle” timing characterization as applied to barrel_shifter_8bit's clockless interface, for legal shift_bits values 0 through 7, when specifying data_out's response to changes of data_in, shift_bits, or left_right. Its remaining general description and all original requirements outside those conditions are unchanged.
+
+5. Behaviour.
+
+For every data_in value, data_out is the low eight bits of data_in shifted by shift_bits—left when left_right is 1 and logically right when left_right is 0—and any data_in change, including one simultaneous with either control change or following any prior combination, immediately recomputes the result from the current inputs with no inactive level, capture, interruption, or transaction history.
+
+For every legal shift_bits value from 3'b000 through 3'b111, data_out is data_in shifted by that unsigned count—left with eight-bit truncation when left_right is 1 and logically right when left_right is 0—and any shift_bits change, including one simultaneous with another input change or following any prior combination, immediately recomputes the result with no inactive level, capture, interruption, or transaction history.
+
+left_right selects the shift direction for the current data_in and shift_bits, with 1 selecting an eight-bit-truncated left shift and 0 selecting a logical right shift, and a selector change, whether isolated, simultaneous with another input change, or following any prior combination, immediately selects the newly requested result with neither level inactive and no capture, interruption, or transaction history.
+
+data_out continuously equals the low eight bits of data_in shifted left by shift_bits when left_right is 1 or logically right by shift_bits when left_right is 0, so there is no reset assertion or release, capture edge, first-result latency, hold or clear interval, completion, or restart; because the interface has no active edge, pre-edge row-k sampling and capture-to-observation latency are inapplicable and every input change produces the corresponding output in the same combinational phase.
+
+Both operands are unsigned. Before shifting, data_in is interpreted at its specified eight-bit width. shift_bits is interpreted as its unsigned three-bit value, so its complete domain is 0 through 7. A left shift is evaluated with sufficient expression width to retain shifted bits until the documented result boundary, and truncation occurs at assignment to the eight-bit data_out; equivalently, data_out receives the low eight bits of the mathematical left-shift result. A logical right shift inserts zeros at the most-significant side. A left shift inserts zeros at the least-significant side. A shift count of zero leaves the eight-bit input unchanged.
+
+left_right is exactly one bit, so its complete domain is 0 and 1 and there are no other encodings. The function is stateless and has no enable or transaction protocol; consequently there are no disabled modes, cancellations, starts, repeated transactions, retained results, or terminal modes.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete sampled instance and uses the observation convention stated in section 4.
+
+### stimulus 0
+| cycle | data_in | shift_bits | left_right | data_out |
+|---|---|---|---|---|
+| 0 | 8'b00000000 | 3'b000 | 0 | 8'b00000000 |
+| 1 | 8'b00000001 | 3'b001 | 0 | 8'b00000000 |
+
+### stimulus 1
+| cycle | data_in | shift_bits | left_right | data_out |
+|---|---|---|---|---|
+| 0 | 8'b11111111 | 3'b010 | 0 | 8'b00111111 |
+
+### stimulus 2
+| cycle | data_in | shift_bits | left_right | data_out |
+|---|---|---|---|---|
+| 0 | 8'b10000000 | 3'b011 | 0 | 8'b00010000 |
+
+### stimulus 3
+| cycle | data_in | shift_bits | left_right | data_out |
+|---|---|---|---|---|
+| 0 | 8'b01011010 | 3'b100 | 0 | 8'b00000101 |
+
+### stimulus 4
+| cycle | data_in | shift_bits | left_right | data_out |
+|---|---|---|---|---|
+| 0 | 8'b10100101 | 3'b101 | 0 | 8'b00000101 |
+
+### stimulus 5
+| cycle | data_in | shift_bits | left_right | data_out |
+|---|---|---|---|---|
+| 0 | 8'b10000001 | 3'b110 | 0 | 8'b00000010 |
+
+### stimulus 6
+| cycle | data_in | shift_bits | left_right | data_out |
+|---|---|---|---|---|
+| 0 | 8'b11111111 | 3'b111 | 0 | 8'b00000001 |
+
+### stimulus 7
+| cycle | data_in | shift_bits | left_right | data_out |
+|---|---|---|---|---|
+| 0 | 8'b00000000 | 3'b000 | 1 | 8'b00000000 |
+| 1 | 8'b00000001 | 3'b001 | 1 | 8'b00000010 |
+| 2 | 8'b11111111 | 3'b010 | 1 | 8'b11111100 |
+
+### stimulus 8
+| cycle | data_in | shift_bits | left_right | data_out |
+|---|---|---|---|---|
+| 0 | 8'b10000000 | 3'b011 | 1 | 8'b00000000 |
+| 1 | 8'b11001100 | 3'b100 | 1 | 8'b11000000 |
+| 2 | 8'b01011010 | 3'b101 | 1 | 8'b01000000 |
+
+### stimulus 9
+| cycle | data_in | shift_bits | left_right | data_out |
+|---|---|---|---|---|
+| 0 | 8'b10000001 | 3'b110 | 1 | 8'b01000000 |
+| 1 | 8'b11111111 | 3'b111 | 1 | 8'b10000000 |
+
+### stimulus 10
+| cycle | data_in | shift_bits | left_right | data_out |
+|---|---|---|---|---|
+| 0 | 8'b00111100 | 3'b000 | 0 | 8'b00111100 |

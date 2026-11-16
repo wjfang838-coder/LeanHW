@@ -1,0 +1,151 @@
+Module and integration contract
+
+Module: LFSR.
+Ports below are in exact declaration order:
+- out: output [3:0].
+- clk: input 1 bit.
+- rst: input 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+rst is active high and asynchronous. Before reset has ever been asserted, out is unknown; the implementation must leave its stored value uninitialised, with no initial block or declaration initialiser that supplies a definite value. As soon as rst changes from low to high, out becomes 4'b0000. While rst remains high, out is 4'b0000, and reset has priority if a rising edge of clk occurs at the same time.
+
+Deasserting rst does not itself change out. On the first step after release, out remains 4'b0000 until the next rising edge of clk; that edge changes it to 4'b0001. Every later reset assertion again immediately makes out 4'b0000.
+
+The complete stored state is the four-bit value represented by out together with whether it has acquired a defined value. At power-up that value is invalid and unknown. Reset makes it valid with value 4'b0000. No distinct completion or result-valid state exists.
+
+Timing
+
+out is a retained, registered four-bit value updated by rising edges of clk, with asynchronous reset assertion. With rst low, each rising edge computes the next out from the value immediately before that edge; the new value is observable immediately after that edge and is the one-cycle successor in a pre-edge sampled trace. Static clk levels and falling edges do not affect out. out retains its value between rising edges and reset assertions.
+
+Reset assertion is asynchronous and therefore has no clock-cycle latency. Reset deassertion alone has no effect. out is not a pulse, and the generator has no completion interval. Repeated rising edges continue advancing it indefinitely.
+
+The circuit specification imposes no physical clock period or propagation-delay number. Separately, the evaluated trace uses the interface observation convention: row k denotes k * timing.step_ns after settling, sampled using timing.sample_offset_ns; this convention is not an implicit 10 ns circuit clock and does not create a circuit delay law. Each full-cycle row samples out before that row's active edge, then applies the transition, so an edge's result first appears in the following row.
+
+Behaviour
+
+Only a rising edge of clk affects out: with rst low every such edge replaces out by {previous out[2:0], ~(previous out[3] ^ previous out[2])}, with rst high or asserted simultaneously rst instead forces 4'b0000, and static levels or falling edges have no effect; reset assertion can interrupt between clock edges, and repeated rising edges repeatedly apply this rule without a completion state.
+
+rst is active high and asynchronous: each low-to-high transition immediately forces out to 4'b0000, rst high also has priority at any simultaneous rising clk edge, rst low permits clocked progression, and deasserting rst or holding it at either level causes no output change by itself, so reassertion after release clears out again.
+
+out is unknown at power-up, becomes 4'b0000 immediately when rst is asserted, remains 4'b0000 after reset release until the next rising clk edge, and thereafter changes on every rising clk edge with rst low to {previous out[2:0], ~(previous out[3] ^ previous out[2])}, retaining its value between such events and restarting from 4'b0000 after every reset; because row k is sampled before its active edge, an edge's new value first appears in the following row, with the first post-reset clock result equal to 4'b0001 and no separate completion interval.
+
+These laws cover every combination of the scalar inputs. If rst is high, reset dominates regardless of clk. If rst is low, only a low-to-high clk transition advances out. A falling clk edge, a steady clock level, reset deassertion, and holding rst low do not change out. There is no start input, disabled transaction, cancellation condition, terminal result, or completion pulse; every enabled rising edge advances the sequence, including repeated edges.
+
+Worked trace
+
+The following evaluated trace is normative for the concrete four-bit sampled instance and uses the observation convention stated above.
+
+### stimulus 0
+| cycle | rst | out |
+|---|---|---|
+| 0 | 0 | 4'x |
+
+### stimulus 1
+| cycle | rst | out |
+|---|---|---|
+| 0 | 1 | 4'b0000 |
+
+### stimulus 2
+| cycle | rst | out |
+|---|---|---|
+| 0 | 1 | 4'b0000 |
+| 1 | 0 | 4'b0000 |
+| 2 | 0 | 4'b0001 |
+
+### stimulus 3
+| cycle | rst | out |
+|---|---|---|
+| 0 | 0 | 4'x |
+| 1 | 1 | 4'b0000 |
+| 2 | 0 | 4'b0000 |
+| 3 | 0 | 4'b0001 |
+
+### stimulus 4
+| cycle | rst | out |
+|---|---|---|
+| 0 | 1 | 4'b0000 |
+| 1 | 0 | 4'b0000 |
+| 2 | 1 | 4'b0000 |
+| 3 | 0 | 4'b0000 |
+
+### stimulus 5
+| cycle | rst | out |
+|---|---|---|
+| 0 | 1 | 4'b0000 |
+| 1 | 0 | 4'b0000 |
+| 2 | 0 | 4'b0001 |
+| 3 | 0 | 4'b0011 |
+| 4 | 0 | 4'b0111 |
+| 5 | 0 | 4'b1110 |
+| 6 | 0 | 4'b1101 |
+| 7 | 0 | 4'b1011 |
+| 8 | 0 | 4'b0110 |
+| 9 | 0 | 4'b1100 |
+| 10 | 0 | 4'b1001 |
+| 11 | 0 | 4'b0010 |
+| 12 | 0 | 4'b0101 |
+| 13 | 0 | 4'b1010 |
+| 14 | 0 | 4'b0100 |
+| 15 | 0 | 4'b1000 |
+| 16 | 0 | 4'b0000 |
+| 17 | 0 | 4'b0001 |
+| 18 | 0 | 4'b0011 |
+| 19 | 0 | 4'b0111 |
+| 20 | 0 | 4'b1110 |
+| 21 | 0 | 4'b1101 |
+| 22 | 0 | 4'b1011 |
+| 23 | 0 | 4'b0110 |
+| 24 | 0 | 4'b1100 |
+| 25 | 0 | 4'b1001 |
+| 26 | 0 | 4'b0010 |
+| 27 | 0 | 4'b0101 |
+| 28 | 0 | 4'b1010 |
+| 29 | 0 | 4'b0100 |
+| 30 | 0 | 4'b1000 |
+| 31 | 0 | 4'b0000 |
+| 32 | 0 | 4'b0001 |
+| 33 | 0 | 4'b0011 |
+| 34 | 0 | 4'b0111 |
+| 35 | 0 | 4'b1110 |
+| 36 | 0 | 4'b1101 |
+| 37 | 0 | 4'b1011 |
+| 38 | 0 | 4'b0110 |
+| 39 | 0 | 4'b1100 |
+| 40 | 0 | 4'b1001 |
+| 41 | 0 | 4'b0010 |
+| 42 | 0 | 4'b0101 |
+| 43 | 0 | 4'b1010 |
+| 44 | 0 | 4'b0100 |
+| 45 | 0 | 4'b1000 |
+| 46 | 0 | 4'b0000 |
+
+### stimulus 6
+| cycle | rst | out |
+|---|---|---|
+| 0 | 1 | 4'b0000 |
+| 1 | 0 | 4'b0000 |
+| 2 | 0 | 4'b0001 |
+| 3 | 0 | 4'b0011 |
+| 4 | 1 | 4'b0000 |
+| 5 | 0 | 4'b0000 |
+| 6 | 0 | 4'b0001 |
+
+### stimulus 7
+| cycle | rst | out |
+|---|---|---|
+| 0 | 0 | 4'x |
+| 1 | 0 | 4'x |
+| 2 | 1 | 4'b0000 |
+| 3 | 1 | 4'b0000 |
+| 4 | 0 | 4'b0000 |
+| 5 | 0 | 4'b0001 |

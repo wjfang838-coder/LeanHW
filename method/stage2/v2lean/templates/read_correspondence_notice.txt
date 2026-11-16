@@ -1,0 +1,16 @@
+The SEC proof has some variables with X/undriven values mapped to each other.
+    X might propagate to a valid output. This could be either a bug in the design or the result of
+    cutpoint/stopat/bbox. This type of mapping does not hide differences between the spec and imp,
+    but might hide a bug that both designs have.
+    You must verify that X's do not propagate to valid output.
+    One way to do that is by running the X-Prop Verification App on both designs.
+    To get the list of mapped undrivens/X signals use the following:
+    check_sec -list -mapping -signal_type undriven
+    check_sec -list -mapping -signal_type x_assignment
+    To get the list of mapped undrivens/X signals use "check_sec -list -mapping -signal_type x_assignment".
+    The SEC proof has some uninitialized variables (X initialized) mapped to each other.
+    X might propagate to a valid output. This could be either a bug in the design or the result of
+    cutpoint/stopat/bbox. This type of mapping does not hide differences between the spec and imp,
+    but it might hide a bug that both designs have.
+    You must verify that X's do not propagate to valid output.
+    One way to do that is by running the X-Prop Verification App on both designs.

@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "multi_pipe_4bit",
+  "toplevel": "multi_pipe_4bit",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

@@ -1,0 +1,231 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+**Design a module that implements a flexible unpacking mechanism for converting packed binary data from a source register into a wider destination register. The unpacking process supports various bit-width selections based on a one-hot selector input. The module also handles signed or unsigned data conversion and incorporates size-based behavior for specific cases.**
+
+### Module Description:
+
+The `unpack_one_hot` module processes packed data stored in a 256-bit source register (`source_reg`) and expands it into a 512-bit destination register (`destination_reg`). The unpacking is controlled by a 3-bit one-hot selector (`one_hot_selector`), a sign control signal (`sign`), and a size control signal (`size`). The module supports unpacking at different granularities, handling both signed and unsigned data. 
+
+---
+
+### Input and Output Ports:
+
+#### Inputs:
+1. **`sign` (1 bit)**:
+   - Determines whether the unpacked data should be signed (`1`) or unsigned (`0`).
+2. **`size` (1 bit)**:
+   - Controls the unpacking behavior in certain cases (used when `one_hot_selector` is `3'b100`).
+3. **`one_hot_selector [2:0]` (3 bits)**:
+   - One-hot encoded input determining the unpacking granularity:
+     - `3'b001`: Treat each bit of `source_reg` as an unpacked 8-bit value.
+     - `3'b010`: Treat each 2-bit segment of `source_reg` as an unpacked 8-bit value.
+     - `3'b100`: Enables size-dependent behavior:
+       - If `size` is `1`, treat each 8-bit segment of `source_reg` as an unpacked 16-bit value.
+       - If `size` is `0`, treat each 4-bit segment of `source_reg` as an unpacked 8-bit value.
+4. **`source_reg [255:0]` (256 bits)**:
+   - The packed source register containing the input data to be unpacked.
+
+#### Outputs:
+1. **`destination_reg [511:0]` (512 bits)**:
+   - The destination register holding the unpacked and processed data.
+
+---
+
+### Functional Behavior:
+
+#### 1. **Default Initialization:**
+- The `destination_reg` is initialized to zero at the start of the unpacking process.
+
+#### 2. **Unpacking Control Based on `one_hot_selector`:**
+- **Case `3'b001`:**
+  - Each 1-bit segment of `source_reg` is unpacked into an 8-bit segment of `destination_reg`.
+  - Signed or unsigned extension is applied based on the `sign` input.
+- **Case `3'b010`:**
+  - Each 2-bit segment of `source_reg` is unpacked into an 8-bit segment of `destination_reg`.
+  - Signed or unsigned extension is applied based on the `sign` input.
+- **Case `3'b100`:**
+  - If `size` is `1`:
+    - Each 8-bit segment of `source_reg` is unpacked into a 16-bit segment of `destination_reg`.
+    - Signed or unsigned extension is applied based on the `sign` input.
+  - If `size` is `0`:
+    - Each 4-bit segment of `source_reg` is unpacked into an 8-bit segment of `destination_reg`.
+    - Signed or unsigned extension is applied based on the `sign` input.
+- **Default Case:**
+  - The `source_reg` is directly assigned to `destination_reg` without unpacking.
+
+#### 3. **Loop Operation:**
+- The module uses an `integer` variable (`i`) to iterate through the `source_reg` in chunks defined by the selected granularity, unpacking data into the corresponding segments of `destination_reg`.
+
+---
+
+### Design Features:
+
+1. **Dynamic Granularity Control:**
+   - The unpacking process supports granularities of 1-bit, 2-bit, 4-bit, and 8-bit segments from the packed input.
+2. **Signed and Unsigned Extension:**
+   - The `sign` input ensures flexibility for both signed and unsigned data conversion.
+3. **Size-Dependent Behavior:**
+   - The `size` input adds further control to the unpacking behavior when the one-hot selector is `3'b100`.
+4. **Default Assignment:**
+   - A fallback mechanism assigns the source register directly to the destination register when no valid `one_hot_selector` is provided.
+
+---
+
+### Example Use Cases:
+
+#### Case 1: `one_hot_selector = 3'b001, sign = 1`
+- Each bit of `source_reg` is sign-extended to 8 bits and written to `destination_reg`.
+
+#### Case 2: `one_hot_selector = 3'b010, sign = 0`
+- Each 2-bit segment of `source_reg` is zero-extended to 8 bits and written to `destination_reg`.
+
+#### Case 3: `one_hot_selector = 3'b100, size = 1, sign = 1`
+- Each 8-bit segment of `source_reg` is sign-extended to 16 bits and written to `destination_reg`.
+
+#### Case 4: `one_hot_selector = 3'b100, size = 0, sign = 0`
+- Each 4-bit segment of `source_reg` is zero-extended to 8 bits and written to `destination_reg`.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Named module interface binding
+
+Module: unpack_one_hot.
+Connect ports by name. The enumeration below does not establish positional order.
+- sign: input; 1 bits in the concrete formal instance.
+- size: input; 1 bits in the concrete formal instance.
+- one_hot_selector: input; 3 bits in the concrete formal instance.
+- source_reg: input; 256 bits in the concrete formal instance.
+- destination_reg: output; 512 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly unpack_one_hot. There are no established public parameters or symbolic ranges. Connections shall be made by exact name. Positional declaration order is unverified, so the following listing order is descriptive, not normative positional order; the module must be instantiated by name.
+
+input sign, width 1 bit.
+input size, width 1 bit.
+input one_hot_selector, width 3 bits, range [2:0].
+input source_reg, width 256 bits, range [255:0].
+output destination_reg, width 512 bits, range [511:0].
+
+3. Reset.
+
+There is no reset input, reset behavior, stored state, or reset edge. destination_reg is continuously determined by the current inputs. At hardware power-up before any edge or reset event, including when no reset has ever occurred, destination_reg has the value prescribed by the current inputs under section 5; it is not unconstrained. There is no first step after reset release.
+
+The original statement that destination_reg is initialized to zero at the start of unpacking specifies a per-evaluation zero-filled destination before the selected assignment. It does not specify temporal state initialization.
+
+4. Timing.
+
+destination_reg is combinational from sign, size, one_hot_selector, and source_reg, with zero clock-cycle latency. There is no clock, registered output, pulse, periodic signal, handshake, retention interval, transaction, acceptance edge, state-entry edge, later action edge, or transaction history. Every current input tuple determines the settled output directly; simultaneous and repeated input changes have no priority or cancellation semantics.
+
+The evaluated full-cycle trace uses an observation convention, not a circuit clock: row k denotes the settled observation for harness step k, with any configured step duration and sample offset applied. No numeric step_ns or sample_offset_ns is present in the interface. This observation convention creates no circuit period, active edge, or delay law. A pre-edge row already observes the combinational result of the inputs in that row.
+
+5. Behaviour.
+
+Source fields and destination lanes are numbered from least significant to most significant. For every lane index j in the stated range, source field j maps to destination lane j. destination_reg is zero-filled before the applicable assignments below.
+
+Amendment Q1-A. The exact original clause “`3'b001`: Treat each bit of `source_reg` as an unpacked 8-bit value.” is superseded only when one_hot_selector is 3'b001 by question Q1's certain answer law: “When one_hot_selector is 3'b001, each of source_reg[63:0]'s 64 one-bit fields maps in increasing field order to the corresponding eight-bit destination_reg lane, with sign=0 zero-extending each field and sign=1 sign-extending it; source_reg[255:64] has no effect.” This amendment is limited to the source-bit coverage and lane mapping of selector 3'b001; all other source requirements remain unchanged.
+
+Amendment Q1-B. The exact original clause “Each 1-bit segment of `source_reg` is unpacked into an 8-bit segment of `destination_reg`.” is superseded only when one_hot_selector is 3'b001 by question Q1's certain answer law: “When one_hot_selector is 3'b001, each of source_reg[63:0]'s 64 one-bit fields maps in increasing field order to the corresponding eight-bit destination_reg lane, with sign=0 zero-extending each field and sign=1 sign-extending it; source_reg[255:64] has no effect.” This amendment is limited to the source-bit coverage and lane mapping of selector 3'b001; all other source requirements remain unchanged.
+
+Amendment Q1-C. The exact original clause “Each bit of `source_reg` is sign-extended to 8 bits and written to `destination_reg`.” is superseded only in Example Use Case 1, when one_hot_selector is 3'b001 and sign is 1, by question Q1's certain answer law: “When one_hot_selector is 3'b001, each of source_reg[63:0]'s 64 one-bit fields maps in increasing field order to the corresponding eight-bit destination_reg lane, with sign=0 zero-extending each field and sign=1 sign-extending it; source_reg[255:64] has no effect.” This amendment is limited to that example's source-bit coverage; all other source requirements remain unchanged.
+
+Amendment Q2-A. The exact original clause “`3'b010`: Treat each 2-bit segment of `source_reg` as an unpacked 8-bit value.” is superseded only when one_hot_selector is 3'b010 by question Q2's certain answer law: “When one_hot_selector is 3'b010, each of source_reg[127:0]'s 64 two-bit fields maps in increasing field order to the corresponding eight-bit destination_reg lane, with sign=0 zero-extending each field and sign=1 sign-extending it; source_reg[255:128] has no effect.” This amendment is limited to the source-bit coverage and lane mapping of selector 3'b010; all other source requirements remain unchanged.
+
+Amendment Q2-B. The exact original clause “Each 2-bit segment of `source_reg` is unpacked into an 8-bit segment of `destination_reg`.” is superseded only when one_hot_selector is 3'b010 by question Q2's certain answer law: “When one_hot_selector is 3'b010, each of source_reg[127:0]'s 64 two-bit fields maps in increasing field order to the corresponding eight-bit destination_reg lane, with sign=0 zero-extending each field and sign=1 sign-extending it; source_reg[255:128] has no effect.” This amendment is limited to the source-bit coverage and lane mapping of selector 3'b010; all other source requirements remain unchanged.
+
+Amendment Q2-C. The exact original clause “Each 2-bit segment of `source_reg` is zero-extended to 8 bits and written to `destination_reg`.” is superseded only in Example Use Case 2, when one_hot_selector is 3'b010 and sign is 0, by question Q2's certain answer law: “When one_hot_selector is 3'b010, each of source_reg[127:0]'s 64 two-bit fields maps in increasing field order to the corresponding eight-bit destination_reg lane, with sign=0 zero-extending each field and sign=1 sign-extending it; source_reg[255:128] has no effect.” This amendment is limited to that example's source-bit coverage; all other source requirements remain unchanged.
+
+When one_hot_selector is 3'b001, for each j from 0 through 63, source_reg[j] is expanded into destination_reg[8*j +: 8]. If sign is 0, the lane is zero-extended; if sign is 1, it is sign-extended. source_reg[255:64] has no effect.
+
+When one_hot_selector is 3'b010, for each j from 0 through 63, source_reg[2*j +: 2] is expanded into destination_reg[8*j +: 8]. If sign is 0, the lane is zero-extended; if sign is 1, it is sign-extended. source_reg[255:128] has no effect.
+
+When one_hot_selector is 3'b100 and size is 0, for each j from 0 through 63, source_reg[4*j +: 4] is expanded into destination_reg[8*j +: 8]. If sign is 0, the lane is zero-extended; if sign is 1, it is sign-extended. All 256 source bits are used.
+
+When one_hot_selector is 3'b100 and size is 1, for each j from 0 through 31, source_reg[8*j +: 8] is expanded into destination_reg[16*j +: 16]. If sign is 0, the lane is zero-extended; if sign is 1, it is sign-extended. All 256 source bits are used.
+
+For every other one_hot_selector encoding, including 3'b000, 3'b011, 3'b101, 3'b110, and 3'b111, destination_reg[255:0] equals source_reg and destination_reg[511:256] is zero. sign and size have no effect.
+
+For selectors 3'b001, 3'b010, and 3'b100, sign=1 sign-extends every selected source field into its destination lane and sign=0 zero-extends it, while for every other selector sign has no effect because source_reg is zero-extended as a whole; the combinational result reflects sign and the other inputs together without priority, retained state, interruption, or transaction history.
+
+Size affects only selector 3'b100: size=0 selects 64 four-bit source fields expanded into eight-bit lanes and size=1 selects 32 eight-bit source fields expanded into sixteen-bit lanes; for all other selectors size has no effect, and the combinational result reflects simultaneous or repeated input changes without priority, interruption, or retained state.
+
+one_hot_selector=3'b001 expands 64 one-bit fields into eight-bit lanes, 3'b010 expands 64 two-bit fields into eight-bit lanes, and 3'b100 expands either 64 four-bit fields into eight-bit lanes when size=0 or 32 eight-bit fields into sixteen-bit lanes when size=1, while every other selector zero-extends source_reg as a whole; selection is combinational with no priority between transactions, interruption state, or history.
+
+source_reg supplies the fields expanded according to one_hot_selector, size, and sign—only bits [63:0] are used for selector 3'b001, only bits [127:0] for 3'b010, and all 256 bits for either 3'b100 mode—whereas every other selector places the complete source_reg in destination_reg[255:0] and zeros destination_reg[511:256]; changes are reflected combinationally with no retention, interruption, or transaction history.
+
+destination_reg is a continuously combinational function of the current inputs, so there is no reset, capture edge, completion edge, hold interval, or restart protocol: a pre-edge row already observes the result of the input values present in that row after combinational settling, and every later input change replaces it without stored state or latency.
+
+The implementation shall use the source-specified integer variable i to iterate through source_reg in chunks defined by the selected granularity, unpacking data into the corresponding destination_reg segments.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the listed stimuli and uses the observation convention stated in section 4.
+
+### stimulus 0
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 3'b000 | 256'h0 | 512'h0 |
+
+### stimulus 1
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 3'b001 | 256'h1 | 512'h1 |
+
+### stimulus 2
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 3'b001 | 256'h8000000000000000000000000000000000000000000000000000000000000000 | 512'h0 |
+
+### stimulus 3
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 3'b010 | 256'h123456789abcdef | 512'h100020003010001010102010302000201020202030300030103020303 |
+
+### stimulus 4
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 3'b010 | 256'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff | 512'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff |
+
+### stimulus 5
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 3'b011 | 256'h1 | 512'h1 |
+
+### stimulus 6
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 3'b100 | 256'h123456789abcdef | 512'h102030405060708090a0b0c0d0e0f |
+
+### stimulus 7
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 3'b100 | 256'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff | 512'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff |
+
+### stimulus 8
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 3'b100 | 256'h1 | 512'h1 |
+
+### stimulus 9
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 3'b100 | 256'h8000000000000000000000000000000000000000000000000000000000000000 | 512'hff800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 |
+
+### stimulus 10
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 3'b101 | 256'hdeadbeef | 512'hdeadbeef |
+
+### stimulus 11
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 3'b110 | 256'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff | 512'hffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff |
+
+### stimulus 12
+| cycle | sign | size | one_hot_selector | source_reg | destination_reg |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 3'b111 | 256'h8000000000000000000000000000000000000000000000000000000000000000 | 512'h8000000000000000000000000000000000000000000000000000000000000000 |

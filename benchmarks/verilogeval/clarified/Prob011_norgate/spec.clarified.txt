@@ -1,0 +1,86 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input, reset operation, clock, or stored state. At power-up, including before any edge could have occurred, out has the same fully determined combinational value as at every other time: out is 1'b1 exactly when a and b are both 1'b0, and is 1'b0 otherwise. There is consequently no first reset edge and no first post-release step.
+
+4. Timing.
+
+out is combinational and continuously reflects the current values of a and b. Its latency from either input is zero clock cycles. It is neither a pulse nor a periodic signal.
+
+The evaluated trace uses observation steps: row k denotes the settled combinational observation for the row-k stimulus, with successive rows separated by the interface step interval if one is supplied. This observation convention does not imply a 10 ns clock tick, a circuit clock period, or a propagation-delay law. This circuit has no clock or specified numerical period or delay.
+
+5. Behaviour.
+
+out is the one-bit NOR of a and b, so it is 1'b1 exactly when both inputs are 1'b0 and is 1'b0 otherwise.
+
+At all times, a=1'b1 forces out to 1'b0, while a=1'b0 makes out equal to the complement of b; every change of a, including a change simultaneous with b or any repeated change, is reflected combinationally with no modes, capture, interruption, or retained transaction state.
+
+At all times, b=1'b1 forces out to 1'b0, while b=1'b0 makes out equal to the complement of a; every change of b, including a change simultaneous with a or any repeated change, is reflected combinationally with no modes, capture, interruption, or retained transaction state.
+
+out continuously equals ~(a | b), with no reset, clock, capture or observation edge, initialization interval, hold or clear interval, completion, or restart; therefore a row sampled before any edge observes the combinational value for the inputs at that sampling time and there is no edge-counted latency.
+
+Thus the complete input function is: a=1'b0 and b=1'b0 gives out=1'b1; a=1'b0 and b=1'b1 gives out=1'b0; a=1'b1 and b=1'b0 gives out=1'b0; and a=1'b1 and b=1'b1 gives out=1'b0. These are all possible values of the one-bit inputs.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+
+### stimulus 4
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 1 |
+| 1 | 1 | 0 | 0 |
+
+### stimulus 5
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 1 |
+
+### stimulus 6
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+
+### stimulus 7
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 0 | 1 |

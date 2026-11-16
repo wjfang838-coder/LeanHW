@@ -1,0 +1,86 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input [7:0].
+- b: input [7:0].
+- c: input [7:0].
+- d: input [7:0].
+- min: output [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+The module has no reset input and no reset behavior. It contains no state elements. From power-up onward, including before any edge has occurred, min is defined by the current inputs exactly as stated below; it is never an uninitialized or retained value.
+
+4. Timing
+
+min is combinational. After combinational propagation it reflects the current a, b, c, and d values with zero clock-cycle latency. It is not registered, is not a pulse, and is not periodic. There is no physical clock, circuit period, or cycle-based delay law.
+
+For the evaluated trace, row k is observation k after that row's inputs have settled. The full-cycle trace machinery samples the output before its inert transition step, but this convention does not create an edge dependency and does not imply a 10 ns clock tick.
+
+5. Behaviour
+
+For every combination of the four 8-bit inputs, min is the 8-bit unsigned minimum of a, b, c, and d.
+
+At all times, a participates as an unsigned candidate; every level of a is active, and simultaneous input changes are evaluated together.
+
+At all times, b participates as an unsigned candidate; every level of b is active, and simultaneous input changes are evaluated together.
+
+At all times, c participates as an unsigned candidate; every level of c is active, and simultaneous input changes are evaluated together.
+
+At all times, d participates as an unsigned candidate; every level of d is active, and simultaneous input changes are evaluated together.
+
+min continuously reflects the unsigned minimum of a, b, c, and d after combinational propagation. There are no modes, transactions, disabled input levels, interruption or cancellation rules, capture edges, hold or clear intervals, completion pulses, restarts, retained results, or history-dependent effects from first or repeated input changes.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | c | d | min |
+|---|---|---|---|---|---|
+| 0 | 8'b00000000 | 8'b00000001 | 8'b11111111 | 8'b10000000 | 8'b00000000 |
+
+### stimulus 1
+| cycle | a | b | c | d | min |
+|---|---|---|---|---|---|
+| 0 | 8'b00000001 | 8'b11111111 | 8'b10000000 | 8'b01001001 | 8'b00000001 |
+
+### stimulus 2
+| cycle | a | b | c | d | min |
+|---|---|---|---|---|---|
+| 0 | 8'b11111111 | 8'b10000000 | 8'b01001001 | 8'b00000000 | 8'b00000000 |
+
+### stimulus 3
+| cycle | a | b | c | d | min |
+|---|---|---|---|---|---|
+| 0 | 8'b10000000 | 8'b01001001 | 8'b00000000 | 8'b00000001 | 8'b00000000 |
+
+### stimulus 4
+| cycle | a | b | c | d | min |
+|---|---|---|---|---|---|
+| 0 | 8'b01001001 | 8'b00000000 | 8'b00000001 | 8'b11111111 | 8'b00000000 |
+
+### stimulus 5
+| cycle | a | b | c | d | min |
+|---|---|---|---|---|---|
+| 0 | 8'b00101010 | 8'b00101010 | 8'b01100011 | 8'b11001000 | 8'b00101010 |
+
+### stimulus 6
+| cycle | a | b | c | d | min |
+|---|---|---|---|---|---|
+| 0 | 8'b11111110 | 8'b11111101 | 8'b11111100 | 8'b11111011 | 8'b11111011 |
+
+### stimulus 7
+| cycle | a | b | c | d | min |
+|---|---|---|---|---|---|
+| 0 | 8'b11111111 | 8'b11111111 | 8'b11111111 | 8'b11111111 | 8'b11111111 |

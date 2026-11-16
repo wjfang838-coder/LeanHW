@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_data_width_converter_0003",
+  "toplevel": "data_width_converter",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

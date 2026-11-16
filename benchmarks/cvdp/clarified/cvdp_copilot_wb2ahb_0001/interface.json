@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_wb2ahb_0001",
+  "toplevel": "wishbone_to_ahb_bridge",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

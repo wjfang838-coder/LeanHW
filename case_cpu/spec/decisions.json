@@ -1,0 +1,24 @@
+{
+  "provenance": "Synthetic case-author decisions for this demonstration, not answers obtained from the user, an independent designer, an LLM experiment, or a hidden golden RTL.",
+  "workflow": [
+    "Formalize and diagnose original clauses as relations.",
+    "Resolve the two contradictions before comparing ambiguity candidates, so dead readings are not mislabeled as ambiguity.",
+    "Freeze the three choices and two holes using the recorded decisions below.",
+    "Check the revised seven-context diagnostic projection, then freeze ISA and cycle semantics before fault injection."
+  ],
+  "decisions": [
+    {"id":"D1","kind":"ambiguity","original":"O04","question":"Does EX stall freeze the entire pipeline or only EX progress/departure?","witness":"WB valid, EX stalled, WB unblocked: retirement=1 versus 0.","answer":"Source-local stalls; WB may retire.","revised":"R09,R10","certificate":"CPUDiagnosis.stall_ambiguity"},
+    {"id":"D2","kind":"ambiguity","original":"O05","question":"Which matching in-flight writer supplies a source register?","witness":"WB writes x1=7; younger MEM writes x1=9: forwarded source=7 versus 9.","answer":"The youngest preceding writer; apply WB then MEM.","revised":"R09.4","certificate":"CPUDiagnosis.forwarding_ambiguity"},
+    {"id":"D3","kind":"ambiguity","original":"O06","question":"Does the EX entry establish the first latency cycle or start a further L-cycle countdown?","witness":"MUL residency parameter=3 versus 4.","answer":"Set remaining=L-1 on entry, decrement on subsequent unblocked edges, depart when the old counter is zero; earliest MEM transfer is edge t+L.","revised":"R09.3,R09.4","certificate":"CPUDiagnosis.latency_ambiguity"},
+    {"id":"D4","kind":"incompleteness","original":"O03","question":"What is the result of division by zero?","witness":"DIV x3,x1,x0 admits multiple result words.","answer":"Follow M: DIV/DIVU all ones; REM/REMU dividend.","revised":"R05","certificate":"CPUDiagnosis.divzero_incomplete"},
+    {"id":"D5","kind":"incompleteness","original":"O01,O07,O08","question":"How are writes and reset initialization of x0 treated?","witness":"ADDI x0,x0,7 leaves x0 unspecified in the draft's explicit clauses.","answer":"Follow RV32I: read zero, discard writes, force zero on reset.","revised":"R03,R07,R08","certificate":"CPUDiagnosis.x0_incomplete"},
+    {"id":"D6","kind":"contradiction","original":"O07,O08","question":"With reset and valid unblocked WB on the same edge, retire or abort?","witness":"The two clauses require retirement=0 and retirement=1.","answer":"Reset priority; remove the including-reset exception from O08.","revised":"R07,R08","certificate":"CPUDiagnosis.reset_contradiction"},
+    {"id":"D7","kind":"contradiction","original":"O09,O10","question":"Is a forty-cycle completion bound compatible with permanently asserted WB stall?","witness":"Accepted work remains WB-blocked for 41 edges; required retired=1, operationally retired=0.","answer":"Remove unconditional completion bound; retain arbitrary stalls and safety refinement.","revised":"R11,R12","certificate":"CPUDiagnosis.progress_contradiction"}
+  ],
+  "limits": [
+    "Diagnosis enumerates seven clause-local contexts and seven projected observations, not the entire 32-bit CPU state space.",
+    "x0 and divide-by-zero holes model missing explicit draft clauses; referring to the complete RISC-V manual can already supply these answers.",
+    "The revision repairs contradictions and resolves choices; it is not claimed to monotonically narrow an inconsistent original admitted set.",
+    "No automatically proved equivalence between natural-language prose and its Lean formalization is claimed."
+  ]
+}

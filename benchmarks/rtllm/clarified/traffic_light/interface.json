@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "traffic_light",
+  "toplevel": "traffic_light",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

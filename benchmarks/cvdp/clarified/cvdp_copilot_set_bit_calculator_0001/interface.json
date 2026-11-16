@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_set_bit_calculator_0001",
+  "toplevel": "SetBitStreamCalculator",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

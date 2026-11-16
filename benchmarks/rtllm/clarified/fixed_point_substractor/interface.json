@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "fixed_point_substractor",
+  "toplevel": "fixed_point_substractor",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

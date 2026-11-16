@@ -1,0 +1,115 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- areset: input 1 bit.
+- x: input 1 bit.
+- z: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+`areset` is an asynchronous, active-high reset. Whenever it is asserted, including when coincident with a rising edge of `clk`, it immediately selects state A and has priority over clocked capture. While it remains asserted, every rising edge retains state A. Deasserting `areset` alone causes no state change. On the first cycle after release, the machine remains in state A unless that cycle's rising edge samples `x = 1`, in which case it enters state B.
+
+The state at power-up, before any reset assertion or reset edge, is state A. Consequently `z` has the same defined behavior as after reset: `z = x`. There is no interval in which `z` is unknown.
+
+Timing
+
+The circuit is a positive-edge-triggered Mealy machine. Its state changes only on a rising edge of `clk`, except that assertion of `areset` changes it asynchronously. Falling edges and steady clock levels have no retained effect.
+
+`z` is combinational with zero-cycle latency from `x`: in state A it equals the current `x`, and in state B it equals the complement of the current `x`. A rising edge that first samples `x = 1` while `areset` is low changes this combinational relation immediately after that edge. `z` is not a completion pulse and has no automatic clearing behavior.
+
+The evaluated full-cycle trace uses one row per positive-edge opportunity. Row k denotes k full-cycle steps after settling; outputs in a row are sampled before that row's transition. This observation convention does not impose a 10 ns clock tick and is separate from the circuit's edge and delay laws. No absolute clock period, step duration, or sampling offset is specified by the interface.
+
+Behaviour
+
+The machine has two behavioral states, A and B. It starts in A and every assertion of `areset` returns it to A, interrupting any prior operation.
+
+In state A with `areset` low, `z = x`. A rising edge sampling `x = 0` retains state A. A rising edge sampling `x = 1` enters state B. Therefore the edge row itself is observed using the pre-edge relation, and the state-B relation applies immediately after the edge.
+
+In state B with `areset` low, `z = ~x` for the one-bit input. Every rising edge retains state B, whether it samples `x = 0` or `x = 1`. State B persists until the next assertion of `areset`; repeated input activity cannot leave it.
+
+At an asserted `areset`, `z = x` for the current value of `x`. Reset has priority over a simultaneous rising edge, so such an event selects state A rather than capturing `x = 1`. Reset deassertion by itself neither changes the state nor adds latency. Every later reset assertion restarts the same behavior.
+
+Because `x`, `areset`, and `z` are each one bit, the cases above cover every possible input encoding. Repeated transactions obey the same laws.
+
+Worked trace
+
+The following evaluated trace is normative. Each row reports the settled input and output before the corresponding full-cycle transition.
+
+### stimulus 0
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 1 |
+| 2 | 0 | 0 | 1 |
+| 3 | 0 | 1 | 0 |
+
+### stimulus 1
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 1 | 1 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 1 |
+| 3 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 1 |
+| 2 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 0 | 1 | 1 |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 1 |
+| 3 | 0 | 1 | 0 |
+
+### stimulus 4
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 1 |
+| 2 | 0 | 0 | 1 |
+| 3 | 0 | 0 | 1 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 1 | 1 |
+| 1 | 1 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 1 |
+
+### stimulus 6
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 1 |
+| 4 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | areset | x | z |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 1 |
+| 2 | 1 | 1 | 1 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 1 |

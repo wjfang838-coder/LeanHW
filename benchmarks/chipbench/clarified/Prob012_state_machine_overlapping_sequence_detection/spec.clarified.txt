@@ -1,0 +1,290 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+I would like you to implement a module named TopModule with the following
+interface. All input and output ports are one bit unless otherwise
+specified.
+
+ - input  clk
+ - input  rst
+ - input  data
+ - output reg flag
+
+The module should implement a state machine that detects the sequence "1011"
+with overlapping detection capability. The state machine should detect
+multiple occurrences of the sequence even when they overlap. reset is active low.
+
+The sequence detection should work as follows:
+- Monitor the input data stream continuously
+- Detect when the sequence "1011" appears in the input
+- Support overlapping detection: "10110111" should be detected twice
+- Output flag signal should be high for one clock cycle when the sequence
+  is detected, starting from the next clock cycle after detection
+
+Clarification: The detector is a Moore machine and flag is a registered output. On the clock edge that completes 1011 the FSM enters the accept state, and flag is asserted on the following clock edge for exactly one cycle (a two-register-deep latency from the completing input bit). Overlapping matches are allowed.
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- data: input 1 bit.
+- flag: output 1 bit.
+
+Public parameters:
+-  S0: default = 0.
+-  S1: default = 1.
+-  S2: default = 2.
+-  S3: default = 3.
+-  S4: default = 4.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+3. Reset
+rst is an active-low asynchronous reset: its falling edge immediately clears flag to 0, all captured recognition history, and any match awaiting publication, regardless of clk or data.
+Reset takes priority over simultaneous clock capture and publication. While rst=0, flag remains 0 and recognition remains empty; data is ignored. Repeated assertions discard history anew. Holding rst=1 has no independent reset effect. Reset release changes neither flag nor recognition and accepts no data. The first subsequent rising edge captures the first bit of a fresh stream, leaves flag=0, and records no completed match. There is no reset-before-use input restriction.
+
+At unreset hardware power-up flag is hardware-unknown, independent of data, and recognition history and pending publication are uninitialized. The first rising edge with rst=1 discards that history and its input bit, establishes empty recognition and no pending match, but leaves flag hardware-unknown. The second rising edge captures the first usable bit and establishes flag=0. These unknowns are required hardware unknowns, not don't-cares. No implementation initialization choice is being made.
+
+Amendment A1, limited to unreset startup before recognition begins: the original clause "- Monitor the input data stream continuously" is superseded only for the first rising edge after unreset power-up. Frozen question Q2 (flag@flag_from_unknown_history), whose scope is the early-history observable coordinate, has the certain answer law: "E0 discards the unknown recognition history and does not consume its data bit for subsequent recognition." Thus that first edge is excluded from recognition; subsequent edges are monitored continuously. After any reset, recognition instead starts with the first rising edge after release. This is an amendment, not preservation of continuous monitoring at that startup edge. Q5, Q7 and Q8 independently state the same unreset startup exception within their input-effect and output-timing scopes.
+
+Amendment A2, limited to the first rising edge after unreset power-up and matches that would require its discarded bit: the original clause is:
+"The module should implement a state machine that detects the sequence "1011"
+with overlapping detection capability. The state machine should detect
+multiple occurrences of the sequence even when they overlap. reset is active low."
+Frozen question Q7 (rule@input.data), scoped to the effect of data in every reachable mode, has this certain answer law: "Without any reset from power-up, the first rising edge instead discards unknown history, and recognition starts with the second rising edge; data cannot determine the initial x flag." Only the detection obligations concerning that excluded first bit are amended: the continuously captured stream starts at the second rising edge without reset, or at the first rising edge after reset release. Overlapping detection on that stream and active-low reset remain unchanged.
+
+Amendment A3, limited to unreset startup and matches requiring its excluded first bit, individually supersedes these original clauses in that scope:
+"- Detect when the sequence "1011" appears in the input"
+"- Support overlapping detection: "10110111" should be detected twice"
+"- Output flag signal should be high for one clock cycle when the sequence
+  is detected, starting from the next clock cycle after detection"
+Frozen question Q7 (rule@input.data), scoped to data acceptance and its effects in every reachable mode, gives the certain law: "Without any reset from power-up, the first rising edge instead discards unknown history, and recognition starts with the second rising edge; data cannot determine the initial x flag." These detection and publication obligations apply to the captured stream starting at the second rising edge on unreset startup. They apply from the first rising edge after reset release on a reset-established stream. In particular, 10110111 is detected twice when all eight bits belong to that captured stream; its leading bit is excluded if presented at the first unreset rising edge. Pulse duration, publication latency and all subsequent overlap behavior are unchanged. This is an amendment, not preservation of detection involving the discarded startup bit.
+
+Amendment A4, limited to matches that would require the first rising edge's bit at unreset power-up: the original clause is:
+"Clarification: The detector is a Moore machine and flag is a registered output. On the clock edge that completes 1011 the FSM enters the accept state, and flag is asserted on the following clock edge for exactly one cycle (a two-register-deep latency from the completing input bit). Overlapping matches are allowed."
+Frozen question Q8 (rule@output.flag), scoped to startup, capture, publication and restart timing, has this certain answer law: "Recognition begins with the second captured bit in that unreset startup path." Its general publication law is: "For either initialized path, flag immediately after any rising edge with rst=1 equals 1 exactly if a contiguous captured 1011 completed at the previous rising edge, otherwise 0." Therefore accept-state entry and following-edge publication concern completions wholly within the initialized captured stream, excluding the first unreset edge's bit. Moore behavior, registered publication, the following-edge latency, one-cycle pulse and overlap support remain unchanged. After reset, the first rising edge after release belongs to that stream. No other completion is excluded.
+
+4. Timing
+A rising edge of clk captures data and publishes flag from the match completed at the preceding rising edge; falling edges and static clock levels have no effect, and a stopped clock retains recognition and flag unless reset asserts.
+flag is a registered Moore output. Let E0 be the edge completing a captured 1011. Immediately after E0 flag=0; immediately after the next rising edge E1 flag=1; immediately after E2 flag=0, unless reset has cleared it earlier. Publication at E1 uses the completion established before E1, independently of the data captured at E1. Recognition advances using that new data on the same edge. Each pulse spans one rising-edge interval; stopping the clock extends its physical duration until a resumed rising edge or reset assertion. No fixed clock period or nanosecond delay is specified.
+
+From reset assertion through release: assertion immediately sets flag=0; release alone leaves it 0; the first three rising edges after release capture the first three bits and each leaves flag=0. If those bits and the fourth are 1,0,1,1, the fourth edge still leaves flag=0, the fifth asserts it, and the sixth clears it. An intervening reset cancels both partial recognition and pending publication.
+
+5. Behaviour
+With initialized recognition and rst=1, each rising edge contributes exactly one chronological data bit, and every contiguous captured 1011 completes a match, including overlaps; between-edge data changes have no effect and reset discards both partial matches and unpublished completions.
+For either initialized startup path, flag immediately after a rising edge is 1 exactly when the preceding rising edge completed a captured 1011, otherwise 0; recognition continues during publication without an idle or restart cycle.
+
+For a complete case description, classify recognition by the longest captured suffix that is a prefix of 1011, also retaining whether the most recent edge completed a match. Empty history followed by 0 stays empty; followed by 1 it becomes suffix 1. Suffix 1 followed by 0 becomes 10; followed by 1 remains 1. Suffix 10 followed by 0 becomes empty; followed by 1 becomes 101. Suffix 101 followed by 0 becomes 10; followed by 1 completes a match and retains suffix 1 for overlap. On the next edge, that completed match is published while the newly captured bit advances recognition normally. All binary data values are covered. clk and rst each have their stated binary level and event semantics; no enable or transaction boundary exists.
+
+The captured stream 10110111 contains matches ending at captures four and seven, so flag is asserted after captures five and eight. A held data=0 stream has no matches, and a held data=1 stream has no matches. Repeated or overlapping sequences remain fully accepted. The public parameter declarations in the interface contract remain part of the module interface; the finite model represents their default instance and does not remove them or alter any port widths. The required candidate module name is TopModule; RefModule in Q9 identifies the supplied reference rather than renaming the candidate. Q9 establishes the declaration order and public untyped integral parameters S0=0, S1=1, S2=2, S3=3 and S4=4 with unsized integer defaults; none changes a port width, and the finite default instance does not impose a new parameter-domain restriction.
+
+6. Worked trace
+The following trace is normative for the finite active-edge scenario. Each row samples flag before its rising edge, then captures that row's data and transitions once. A match completed by row k is therefore visible high at row k+2. Each stimulus block begins at unreset power-up, not at an assumed post-reset setup. Reset assertions in this scenario settle before the row sample and are held through that row's active edge; reset release precedes the next active edge. There is no physical clk input in the finite interface. This projection does not simulate reset pulses occurring entirely between represented edges; the full circuit must nevertheless satisfy the asynchronous reset law for those pulses. No numeric step_ns or sample_offset_ns is supplied by this interface, and row indices are active-edge indices rather than an assumed 10 ns time grid.
+### stimulus 0
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 1 | 0 | x |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+
+### stimulus 1
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 1 | 0 | x |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 1 |
+| 9 | 1 | 0 | 0 |
+| 10 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 1 |
+| 8 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 1 |
+| 8 | 1 | 0 | 0 |
+
+### stimulus 4
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 1 | 0 | x |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 0 |
+
+### stimulus 5
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 1 | 1 | x |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+
+### stimulus 6
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 1 | 0 | x |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 0 |
+| 8 | 1 | 1 | 0 |
+| 9 | 1 | 1 | 0 |
+| 10 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 1 | 0 | x |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 0 | 0 |
+| 8 | 1 | 1 | 0 |
+| 9 | 1 | 1 | 0 |
+| 10 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 1 |
+| 12 | 1 | 0 | 0 |
+
+### stimulus 8
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 1 | 0 | x |
+| 2 | 0 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 1 | 0 | 1 |
+| 10 | 1 | 0 | 0 |
+
+### stimulus 9
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 1 | 0 | x |
+| 2 | 1 | 1 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 1 | 0 |
+| 9 | 1 | 0 | 0 |
+| 10 | 1 | 0 | 1 |
+| 11 | 1 | 0 | 0 |
+
+### stimulus 10
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 1 | 0 | 1 |
+| 10 | 1 | 0 | 0 |
+
+### stimulus 11
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 1 | 1 |
+| 8 | 1 | 1 | 0 |
+| 9 | 1 | 0 | 0 |
+| 10 | 1 | 1 | 1 |
+| 11 | 1 | 1 | 0 |
+| 12 | 1 | 0 | 0 |
+| 13 | 1 | 1 | 1 |
+| 14 | 1 | 1 | 0 |
+| 15 | 1 | 0 | 0 |
+| 16 | 1 | 1 | 1 |
+| 17 | 1 | 1 | 0 |
+| 18 | 1 | 0 | 0 |
+| 19 | 1 | 1 | 1 |
+| 20 | 1 | 1 | 0 |
+| 21 | 1 | 0 | 0 |
+| 22 | 1 | 1 | 1 |
+| 23 | 1 | 1 | 0 |
+| 24 | 1 | 0 | 0 |
+| 25 | 1 | 1 | 1 |
+| 26 | 1 | 1 | 0 |
+| 27 | 1 | 0 | 0 |
+| 28 | 1 | 1 | 1 |
+| 29 | 1 | 1 | 0 |
+| 30 | 1 | 0 | 0 |
+| 31 | 1 | 1 | 1 |
+| 32 | 1 | 1 | 0 |
+| 33 | 1 | 0 | 0 |
+| 34 | 1 | 1 | 1 |
+| 35 | 1 | 1 | 0 |
+| 36 | 1 | 0 | 0 |
+| 37 | 1 | 1 | 1 |
+| 38 | 1 | 1 | 0 |
+| 39 | 1 | 0 | 0 |
+| 40 | 1 | 1 | 1 |

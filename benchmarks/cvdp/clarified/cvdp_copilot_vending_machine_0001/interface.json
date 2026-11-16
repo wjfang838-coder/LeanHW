@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_vending_machine_0001",
+  "toplevel": "vending_machine",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

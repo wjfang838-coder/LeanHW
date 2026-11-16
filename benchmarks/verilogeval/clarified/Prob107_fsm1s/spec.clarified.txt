@@ -1,0 +1,122 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- in: input 1 bit.
+- reset: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is active high and synchronous to the rising edge of clk. Merely changing reset does not change out. At every rising edge on which reset is 1, reset overrides in and sets the stored Moore state and out value to 1; repeated rising edges with reset asserted keep them at 1. Because outputs are observed before each edge, an asserted reset in trace row k is visible as out=1 in row k+1.
+
+At power-up, before any rising edge has sampled an asserted reset, out is unknown. The implementation must leave this power-up state uninitialised, with no initial block or declaration initialiser that gives it a definite value. Rising edges with reset=0 do not resolve the unknown: selecting either hold or complement leaves out unknown. After the first asserted-reset edge, out is 1. On the first rising edge after reset is released, normal input-controlled updating occurs; its result is visible for the following cycle.
+
+4. Timing
+
+The machine acts only on rising edges of clk. Falling edges, steady clock levels, and changes to in or reset between rising edges do not alter out. out is a registered Moore output and holds between rising edges. A reset or input value sampled at a rising edge affects out for the cycle immediately following that edge, giving out a latency of one clock cycle from the sampled reset or in value under the pre-edge sampling convention.
+
+The normative worked trace samples row k before the kth modeled rising-edge transition, then applies that transition. The interface specifies no absolute step_ns or sample_offset_ns, so row numbers do not imply a 10 ns clock or any other physical period or propagation delay. The circuit's clock period is externally supplied and is not constrained by this specification.
+
+5. Behaviour
+
+At every rising edge, reset has priority. If reset=1, the next out value is 1 regardless of in.
+
+Only a rising edge of clk can change out: at each rising edge reset has priority, while with reset low the current in value selects hold when high or complement when low; falling edges and steady clk levels have no effect, and every repeated rising edge applies the same rule independently.
+
+reset is synchronous and active high: its assertion changes out to 1 only after the next rising clk edge and overrides in on that edge, its deassertion has no immediate effect and permits normal updating at subsequent rising edges, and repeated asserted-reset edges keep out at 1.
+
+When reset=0 and in=1, the next out value equals the current out value. Every repeated rising edge independently reapplies this hold law.
+
+When reset=0 and in=0, the next out value is the one-bit complement of the current out value. Every repeated rising edge independently reapplies this complement law.
+
+When reset is low, in is sampled on each rising clk edge so that in=1 holds out and in=0 complements out; changes of in between rising edges have no observable effect, reset asserted on the same edge overrides in, and repeated edges repeatedly apply the selected hold-or-complement operation.
+
+out is unknown before initialization; because each row is sampled before its active edge, an asserted reset in row k is first observed as out=1 in row k+1, and thereafter each non-reset rising edge produces for the following row either the retained value when in=1 or its complement when in=0, with out holding between edges and any later reset edge restarting this rule from 1.
+
+These cases cover every value of the one-bit reset and in ports. A later asserted-reset edge restarts operation from out=1. Before initialization, both the hold and complement laws preserve the declared unknown value.
+
+6. Worked trace
+
+The following evaluated trace is normative. Each row observes out before applying that row's rising-edge transition.
+
+### stimulus 0
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 1 | x |
+| 2 | 0 | 0 | 1 |
+| 3 | 1 | 0 | 0 |
+
+### stimulus 1
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | x |
+| 2 | 1 | 0 | 1 |
+| 3 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 0 | 0 | 1 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 1 | 0 | 1 |
+| 2 | 1 | 0 | 1 |
+| 3 | 1 | 0 | 1 |
+
+### stimulus 4
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 0 | 0 | 1 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 1 |
+
+### stimulus 5
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 0 | 1 |
+| 2 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 1 |
+| 4 | 0 | 0 | 1 |
+
+### stimulus 6
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 0 | 0 | 1 |
+| 2 | 1 | 0 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 1 |
+| 5 | 0 | 0 | 1 |
+| 6 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | in | reset | out |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 0 | x |
+| 2 | 0 | 0 | x |
+| 3 | 0 | 1 | x |
+| 4 | 1 | 0 | 1 |

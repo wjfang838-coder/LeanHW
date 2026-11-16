@@ -1,0 +1,138 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- valid_in: input 1 bit.
+- data_in: input [7:0].
+- valid_out: output 1 bit.
+- data_out: output [11:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+2. Reset
+
+rst_n is an active-low asynchronous reset. Assertion of rst_n low asynchronously clears valid_out to 0 and data_out to 12'h000, discards any partial group, overrides input activity, and holds those values throughout reset. Reset also clears the accepted-byte position to the first byte of a new group and invalidates any retained first or second byte.
+
+Deasserting rst_n alone does not change the reset output values. On the first rising edge after release, valid_in low leaves data_out at 12'h000 and leaves the group at its first-byte position; valid_in high accepts the first byte of a new group. In either case, valid_out is 0 after that edge.
+
+Before rst_n has ever been asserted low, both outputs are unknown at power-up. valid_out becomes 0 after the first rising edge but no input is accepted before a reset has established a group boundary. data_out remains unknown until rst_n is asserted low. The implementation must leave both outputs uninitialised at power-up: no initial block or declaration initialiser may define them.
+
+3. Timing
+
+Inputs are sampled on rising edges of clk. With rst_n high, an input is accepted only on a rising edge of clk; falling edges and steady clock levels have no effect, and assertion of rst_n low takes effect asynchronously.
+
+valid_out and data_out are registered outputs. A result caused by an accepted input at one rising edge is first observable during the cycle immediately following that edge, a latency of one sampled row from that input edge. valid_out is a one-cycle indication only when the following rising edge is idle or accepts the first byte of the next group; with consecutive accepted second and third bytes, it remains high for two consecutive cycles.
+
+The evaluated trace uses full-cycle observations: row k is sampled before rising edge k, and the transition at that edge determines row k+1. Each row therefore represents one actual clk cycle after settling. This observation convention does not impose an implicit 10 ns clock period or any propagation delay; no absolute clock period or delay law is specified.
+
+4. Behaviour
+
+The converter partitions accepted bytes into repeating groups of three. An accepted byte is a data_in value present when valid_in is high at a rising edge while rst_n is high and reset has previously been asserted. Consecutive high edges form consecutive groups without a gap.
+
+For three accepted bytes A, B, and C, B's rising edge produces {A, B[7:4]} and C's rising edge produces {B[3:0], C}; data_in has no effect when valid_in is low. Thus all 24 accepted bits produce two 12-bit results and no bits are dropped. This law applies to every possible 8-bit value of A, B, and C.
+
+With rst_n high after reset, valid_in high at a rising edge accepts exactly one byte and advances the repeating three-byte group position; valid_in low accepts nothing, pauses a partial group, makes valid_out low after that edge, and leaves data_out unchanged.
+
+For accepted bytes A, B, and C, valid_out is low after A's rising edge, high after B's rising edge, and high after C's rising edge; it becomes low after an idle rising edge or the next group's A edge. Release of reset does not assert valid_out.
+
+Acceptance of A leaves data_out unchanged, B's rising edge sets it to {A, B[7:4]}, C's rising edge sets it to {B[3:0], C}, and it retains its last value through idle edges and the next A edge. An idle edge between accepted bytes pauses the group without cancelling it. Reset is the only event that cancels a partial group or replaces retained data independently of producing a result.
+
+5. Worked trace
+
+The following evaluated trace is normative for the concrete 8-bit-input, 12-bit-output instance and uses the pre-edge observation convention stated above.
+
+### stimulus 0
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 0 | 12'h0 |
+| 1 | 0 | 1 | 8'b11111111 | 0 | 12'h0 |
+| 2 | 1 | 1 | 8'b00000001 | 0 | 12'h0 |
+| 3 | 1 | 1 | 8'b10000000 | 0 | 12'h0 |
+| 4 | 1 | 1 | 8'b01011010 | 1 | 12'h18 |
+| 5 | 1 | 0 | 8'b00000000 | 1 | 12'h5a |
+
+### stimulus 1
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 8'b00000000 | x | 12'x |
+| 1 | 1 | 1 | 8'b00000000 | 0 | 12'x |
+| 2 | 1 | 0 | 8'b11111111 | 0 | 12'x |
+| 3 | 1 | 1 | 8'b00000001 | 0 | 12'x |
+| 4 | 1 | 0 | 8'b10000000 | 0 | 12'x |
+| 5 | 1 | 1 | 8'b11111111 | 0 | 12'x |
+| 6 | 1 | 0 | 8'b00000000 | 0 | 12'x |
+
+### stimulus 2
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b01010101 | 0 | 12'h0 |
+| 1 | 1 | 1 | 8'b00010010 | 0 | 12'h0 |
+| 2 | 1 | 1 | 8'b00110100 | 0 | 12'h0 |
+| 3 | 1 | 1 | 8'b01010110 | 1 | 12'h123 |
+| 4 | 1 | 1 | 8'b01111000 | 1 | 12'h456 |
+| 5 | 1 | 1 | 8'b10011010 | 0 | 12'h456 |
+| 6 | 1 | 1 | 8'b10111100 | 1 | 12'h789 |
+| 7 | 1 | 0 | 8'b00000000 | 1 | 12'habc |
+
+### stimulus 3
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 0 | 12'h0 |
+| 1 | 1 | 1 | 8'b10000000 | 0 | 12'h0 |
+| 2 | 1 | 0 | 8'b00000001 | 0 | 12'h0 |
+| 3 | 1 | 0 | 8'b11111111 | 0 | 12'h0 |
+| 4 | 1 | 1 | 8'b01011010 | 0 | 12'h0 |
+| 5 | 1 | 1 | 8'b10100101 | 1 | 12'h805 |
+| 6 | 1 | 0 | 8'b00000000 | 1 | 12'haa5 |
+
+### stimulus 4
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 0 | 12'h0 |
+| 1 | 1 | 1 | 8'b00010001 | 0 | 12'h0 |
+| 2 | 1 | 1 | 8'b00100010 | 0 | 12'h0 |
+| 3 | 0 | 1 | 8'b00110011 | 0 | 12'h0 |
+| 4 | 1 | 1 | 8'b01000100 | 0 | 12'h0 |
+| 5 | 1 | 1 | 8'b01010101 | 0 | 12'h0 |
+| 6 | 1 | 1 | 8'b01100110 | 1 | 12'h445 |
+| 7 | 1 | 0 | 8'b00000000 | 1 | 12'h566 |
+
+### stimulus 5
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 8'b11111111 | 0 | 12'h0 |
+| 1 | 1 | 0 | 8'b10000000 | 0 | 12'h0 |
+| 2 | 1 | 1 | 8'b00000001 | 0 | 12'h0 |
+| 3 | 1 | 1 | 8'b01011010 | 0 | 12'h0 |
+| 4 | 1 | 0 | 8'b11111111 | 1 | 12'h15 |
+| 5 | 1 | 1 | 8'b10100101 | 0 | 12'h15 |
+| 6 | 1 | 0 | 8'b00000000 | 1 | 12'haa5 |
+
+### stimulus 6
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 8'b11111111 | x | 12'x |
+| 1 | 1 | 1 | 8'b10000000 | 0 | 12'x |
+| 2 | 1 | 1 | 8'b00000001 | 0 | 12'x |
+| 3 | 1 | 0 | 8'b01011010 | 0 | 12'x |
+
+### stimulus 7
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 8'b00000000 | 0 | 12'h0 |
+| 1 | 1 | 1 | 8'b00101010 | 0 | 12'h0 |
+| 2 | 1 | 1 | 8'b00101010 | 0 | 12'h0 |
+| 3 | 1 | 1 | 8'b00101010 | 1 | 12'h2a2 |
+| 4 | 1 | 1 | 8'b00101010 | 1 | 12'ha2a |
+| 5 | 1 | 1 | 8'b00101010 | 0 | 12'ha2a |
+| 6 | 1 | 1 | 8'b00101010 | 1 | 12'h2a2 |
+| 7 | 1 | 0 | 8'b00101010 | 1 | 12'ha2a |

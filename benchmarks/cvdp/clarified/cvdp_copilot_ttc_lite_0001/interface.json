@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_ttc_lite_0001",
+  "toplevel": "ttc_counter_lite",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

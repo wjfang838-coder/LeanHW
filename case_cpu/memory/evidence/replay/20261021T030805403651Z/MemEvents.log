@@ -1,0 +1,3 @@
+'CaseCPUMem.cycle_conservation' depends on axioms: [propext, Quot.sound]
+'CaseCPUMem.trace_conservation' depends on axioms: [propext, Quot.sound]
+'CaseCPUMem.drained_refinement' depends on axioms: [propext, Quot.sound]

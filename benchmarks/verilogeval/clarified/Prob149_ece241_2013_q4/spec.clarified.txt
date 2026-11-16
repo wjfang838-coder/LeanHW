@@ -1,0 +1,139 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- s: input [2:0].
+- fr2: output 1 bit.
+- fr1: output 1 bit.
+- fr0: output 1 bit.
+- dfr: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A2: default = 0.
+-  B1: default = 1.
+-  B2: default = 2.
+-  C1: default = 3.
+-  C2: default = 4.
+-  D1: default = 5.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is active high and synchronous to the rising edge of clk. Before the first rising edge establishes valid state, fr2, fr1, fr0, and dfr are all unknown, including while reset is asserted before its first rising edge. The implementation must leave that power-up state uninitialised, with no initial block or declaration initialiser assigning these outputs or their stored state.
+
+At any rising edge that samples reset as 1, reset overrides s and establishes (fr2, fr1, fr0, dfr) = 1111 immediately after the edge. Repeated rising edges with reset asserted reestablish 1111. On the first rising edge after reset is released, normal evolution from 1111 applies to the s value sampled on that edge.
+
+4. Timing
+
+All four outputs are registered. Each reflects the condition established by the preceding rising edge of clk, is updated immediately after a rising edge, and remains stable between rising edges. Reset and s are sampled only on rising edges; clock levels without an edge and falling edges have no effect. Each rising edge performs exactly one update.
+
+The evaluated trace uses full-cycle rows: row k denotes k times timing.step_ns after settling, sampled at the interface's timing.sample_offset_ns, and each row samples outputs before that row's active edge. This observation convention is distinct from the circuit law: the circuit responds to rising clk edges and has no independently specified real-time period or delay. There are no pulse outputs, periodic output signals, transactions, completion handshakes, or cancellation behavior.
+
+5. Behaviour
+
+Write the registered output condition as the tuple (fr2, fr1, fr0, dfr). With reset low, every rising edge samples all three bits of s and applies exactly one of these laws:
+
+* 1111 becomes 0110 when s[0] is 1; otherwise it remains 1111.
+* 0110 becomes 0010 when s[1] is 1; otherwise it remains 0110 when s[0] is 1, and becomes 1111 when both are 0.
+* 0111 becomes 0010 when s[1] is 1; otherwise it remains 0111 when s[0] is 1, and becomes 1111 when both are 0.
+* 0010 becomes 0000 when s[2] is 1; otherwise it remains 0010 when s[1] is 1, and becomes 0111 when both are 0.
+* 0011 becomes 0000 when s[2] is 1; otherwise it remains 0011 when s[1] is 1, and becomes 0111 when both are 0.
+* 0000 remains 0000 when s[2] is 1; otherwise it becomes 0011.
+
+These priority-ordered bit tests define the behavior for every encoding of s, including 010, 100, 101, and 110. Changes to s between rising edges have no effect. There is no start, completion, or restart protocol; every rising edge with reset low applies the law again.
+
+fr2 is unknown before initialization, becomes 1 immediately after any rising edge sampling reset=1, and with reset=0 is 1 only while the sampled s history has remained at the lowest condition since reset; it becomes 0 immediately after an edge sampling s[0]=1 and returns to 1 only after successive falling samples reduce the history through all intermediate conditions to s=3'b000, remaining stable between edges, with no completion handshake and immediate continued or repeated operation.
+
+fr1 is unknown before initialization, becomes 1 immediately after any rising edge sampling reset=1, remains 1 through the lowest and first rising-level conditions, becomes 0 immediately after an edge that advances the sampled history above them, and becomes 1 again only after falling samples return the history to the first rising-level or lowest condition; it is stable between edges, reset overrides s, and operation continues without completion or restart handshakes.
+
+fr0 is unknown before initialization, becomes 1 immediately after any rising edge sampling reset=1, remains 1 at every reachable sampled-history condition except the highest rising-level condition where it is 0, returns to 1 on the first falling sample from that condition, and is stable between edges; reset overrides s and operation continues without completion or restart handshakes.
+
+dfr is unknown before initialization, becomes 1 immediately after any rising edge sampling reset=1, is 0 in each first-encountered rising intermediate condition and at the highest condition, and is 1 at reset/lowest and at the corresponding falling intermediate conditions; it changes immediately after the capturing edge, is stable between edges, reset overrides s, and repeated changes proceed continuously without completion or restart handshakes.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | reset | s | fr2 | fr1 | fr0 | dfr |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 3'b000 | x | x | x | x |
+| 1 | 0 | 3'b001 | 1 | 1 | 1 | 1 |
+| 2 | 0 | 3'b011 | 0 | 1 | 1 | 0 |
+| 3 | 0 | 3'b111 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 3'b011 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 3'b001 | 0 | 0 | 1 | 1 |
+| 6 | 0 | 3'b000 | 0 | 1 | 1 | 1 |
+
+### stimulus 1
+| cycle | reset | s | fr2 | fr1 | fr0 | dfr |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 3'b000 | x | x | x | x |
+| 1 | 1 | 3'b111 | x | x | x | x |
+| 2 | 0 | 3'b011 | 1 | 1 | 1 | 1 |
+| 3 | 0 | 3'b001 | 0 | 1 | 1 | 0 |
+
+### stimulus 2
+| cycle | reset | s | fr2 | fr1 | fr0 | dfr |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 3'b000 | x | x | x | x |
+| 1 | 0 | 3'b111 | 1 | 1 | 1 | 1 |
+| 2 | 0 | 3'b111 | 0 | 1 | 1 | 0 |
+| 3 | 0 | 3'b011 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 3'b011 | 0 | 0 | 1 | 0 |
+
+### stimulus 3
+| cycle | reset | s | fr2 | fr1 | fr0 | dfr |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 3'b001 | x | x | x | x |
+| 1 | 0 | 3'b011 | 1 | 1 | 1 | 1 |
+| 2 | 0 | 3'b001 | 0 | 1 | 1 | 0 |
+| 3 | 0 | 3'b011 | 0 | 1 | 1 | 0 |
+| 4 | 0 | 3'b001 | 0 | 0 | 1 | 0 |
+
+### stimulus 4
+| cycle | reset | s | fr2 | fr1 | fr0 | dfr |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 3'b011 | x | x | x | x |
+| 1 | 0 | 3'b000 | 1 | 1 | 1 | 1 |
+| 2 | 0 | 3'b001 | 1 | 1 | 1 | 1 |
+| 3 | 0 | 3'b011 | 0 | 1 | 1 | 0 |
+| 4 | 0 | 3'b111 | 0 | 0 | 1 | 0 |
+| 5 | 0 | 3'b000 | 0 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | reset | s | fr2 | fr1 | fr0 | dfr |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 3'b111 | x | x | x | x |
+| 1 | 0 | 3'b010 | 1 | 1 | 1 | 1 |
+| 2 | 0 | 3'b100 | 1 | 1 | 1 | 1 |
+| 3 | 0 | 3'b110 | 1 | 1 | 1 | 1 |
+
+### stimulus 6
+| cycle | reset | s | fr2 | fr1 | fr0 | dfr |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 3'b000 | x | x | x | x |
+| 1 | 0 | 3'b101 | 1 | 1 | 1 | 1 |
+| 2 | 0 | 3'b111 | 0 | 1 | 1 | 0 |
+| 3 | 0 | 3'b101 | 0 | 0 | 1 | 0 |
+
+### stimulus 7
+| cycle | reset | s | fr2 | fr1 | fr0 | dfr |
+|---|---|---|---|---|---|---|
+| 0 | 1 | 3'b000 | x | x | x | x |
+| 1 | 0 | 3'b001 | 1 | 1 | 1 | 1 |
+| 2 | 0 | 3'b011 | 0 | 1 | 1 | 0 |
+| 3 | 0 | 3'b111 | 0 | 0 | 1 | 0 |
+| 4 | 0 | 3'b011 | 0 | 0 | 0 | 0 |
+| 5 | 0 | 3'b001 | 0 | 0 | 1 | 1 |
+| 6 | 0 | 3'b000 | 0 | 1 | 1 | 1 |
+| 7 | 0 | 3'b001 | 1 | 1 | 1 | 1 |
+| 8 | 0 | 3'b011 | 0 | 1 | 1 | 0 |
+| 9 | 0 | 3'b111 | 0 | 0 | 1 | 0 |

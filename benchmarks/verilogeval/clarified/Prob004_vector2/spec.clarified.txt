@@ -1,0 +1,73 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input [31:0].
+- out: output [31:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports.
+
+
+
+Reset.
+
+There is no reset and no state element. At power-up, including before any edge has occurred, out is already defined by the current input according to the byte-reversal law below. There is no first reset edge or reset-release step.
+
+Timing.
+
+out is combinational: it continuously reflects the input named in with zero clock-cycle latency. The circuit has no clock, edge-triggered capture, pulse, or periodic signal. In the evaluated trace, row k is the settled combinational observation at k * timing.step_ns with the interface's timing.sample_offset_ns applied; this observation convention does not impose a circuit clock period or propagation-delay law.
+
+Behaviour.
+
+For every 32-bit input value in, out is continuously the byte-reversal {in[7:0], in[15:8], in[23:16], in[31:24]}; every input bit therefore always affects its corresponding byte-reversed output position, with no inactive level, modes, simultaneous-event priority, interruption behavior, or transaction history.
+
+out continuously equals {in[7:0], in[15:8], in[23:16], in[31:24]} with no edge-based capture or observation latency and no reset, initialization, hold, clear, completion, or restart phase; consequently a row sampled before an active edge observes the byte-reversal of the input present at that same pre-edge sampling instant.
+
+Worked trace.
+
+The following evaluated trace is normative for the concrete 32-bit sampled instance of this specification.
+
+### stimulus 0
+| cycle | in | out |
+|---|---|---|
+| 0 | 32'h0 | 32'h0 |
+
+### stimulus 1
+| cycle | in | out |
+|---|---|---|
+| 0 | 32'h1 | 32'h1000000 |
+
+### stimulus 2
+| cycle | in | out |
+|---|---|---|
+| 0 | 32'hffffffff | 32'hffffffff |
+
+### stimulus 3
+| cycle | in | out |
+|---|---|---|
+| 0 | 32'h80000000 | 32'h80 |
+
+### stimulus 4
+| cycle | in | out |
+|---|---|---|
+| 0 | 32'h12345678 | 32'h78563412 |
+
+### stimulus 5
+| cycle | in | out |
+|---|---|---|
+| 0 | 32'h1000000 | 32'h1 |
+
+### stimulus 6
+| cycle | in | out |
+|---|---|---|
+| 0 | 32'h10203 | 32'h3020100 |
+
+### stimulus 7
+| cycle | in | out |
+|---|---|---|
+| 0 | 32'hff00ff00 | 32'hff00ff |

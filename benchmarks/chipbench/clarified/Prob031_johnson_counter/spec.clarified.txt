@@ -1,0 +1,140 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- Q: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+rst_n is an active-low asynchronous reset. Whenever rst_n is low, Q is 4'b0000 independently of clk. A falling edge of rst_n immediately makes Q 4'b0000. Every rising edge of clk while rst_n remains low leaves Q at 4'b0000. A rising edge coincident with reset assertion is governed by reset.
+
+Releasing rst_n has no immediate effect: Q retains 4'b0000 until the first subsequent rising edge of clk, at which point normal progression resumes. Any later reset assertion interrupts the progression and restarts it from 4'b0000.
+
+At power-up, before rst_n has ever been asserted low, Q is unknown. Rising edges of clk while rst_n remains high do not initialize it. The implementation must leave Q uninitialized in that interval, with no initial value or declaration initializer.
+
+Timing
+
+Q is a registered four-bit output. Except for asynchronous reset assertion, it changes only as the result of a rising edge of clk. The effect of a rising edge is observable immediately after that edge; under the evaluation convention, row k samples Q before the active edge of full-cycle step k, and the value captured at that edge first appears in row k+1. Each successive row represents one full-cycle step after settling. The interface specifies no numeric step duration or sample offset, so the row spacing is not an implicit 10 ns clock tick.
+
+The counter has a period of 8 rising clock cycles while reset is inactive. Q is not a pulse or a periodic one-bit duty-cycle signal; each of its eight values is retained for one rising-clock interval.
+
+Behaviour
+
+Each rising edge of clk sets Q to 4'b0000 when rst_n is low and otherwise replaces Q with {~Q[0],Q[3:1]}; other clk levels and edges have no effect, a simultaneous reset assertion takes priority, asynchronous reset can interrupt the sequence, and repeated rising edges while reset is inactive apply the same transformation successively without a completion gate.
+
+A falling edge of active-low rst_n immediately sets Q to 4'b0000 independently of clk, Q remains 4'b0000 on every rising clk edge while rst_n is low, and releasing rst_n high has no immediate effect but permits progression at the next and subsequent rising clk edges; reset assertion has priority over a simultaneous clock event and any repeated assertion interrupts and restarts the sequence from zero.
+
+Q is x before reset, becomes 4'b0000 immediately when rst_n is asserted low, stays zero through rising edges while reset is held, retains zero when reset is released until the next rising clk edge, and thereafter changes after each rising edge through 1000, 1100, 1110, 1111, 0111, 0011, 0001, 0000 and repeats until interrupted by reset; because each row is sampled before its active edge, a row shows the value produced by the preceding edge and the value captured at that row's edge is first observable after that edge (thus in the next pre-edge row).
+
+The recurrence applies to every possible four-bit value of Q, not only the eight values in the normal reset-originated cycle. For any current Q, the next value when rst_n is high is the concatenation of the complement of Q[0] as the new high bit and Q[3:1] as the new low three bits.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 1 | 4'x |
+| 2 | 1 | 4'x |
+
+### stimulus 1
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 0 | 4'b0000 |
+| 1 | 1 | 4'b0000 |
+| 2 | 1 | 4'b1000 |
+| 3 | 1 | 4'b1100 |
+
+### stimulus 2
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 1 | 4'x |
+| 1 | 0 | 4'b0000 |
+| 2 | 1 | 4'b0000 |
+| 3 | 1 | 4'b1000 |
+
+### stimulus 3
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 0 | 4'b0000 |
+| 1 | 0 | 4'b0000 |
+| 2 | 1 | 4'b0000 |
+| 3 | 1 | 4'b1000 |
+
+### stimulus 4
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 0 | 4'b0000 |
+| 1 | 1 | 4'b0000 |
+| 2 | 0 | 4'b0000 |
+| 3 | 1 | 4'b0000 |
+| 4 | 1 | 4'b1000 |
+
+### stimulus 5
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 0 | 4'b0000 |
+| 1 | 1 | 4'b0000 |
+| 2 | 1 | 4'b1000 |
+| 3 | 0 | 4'b0000 |
+| 4 | 1 | 4'b0000 |
+
+### stimulus 6
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 0 | 4'b0000 |
+| 1 | 1 | 4'b0000 |
+| 2 | 1 | 4'b1000 |
+| 3 | 1 | 4'b1100 |
+| 4 | 1 | 4'b1110 |
+| 5 | 1 | 4'b1111 |
+| 6 | 1 | 4'b0111 |
+| 7 | 1 | 4'b0011 |
+| 8 | 1 | 4'b0001 |
+| 9 | 1 | 4'b0000 |
+| 10 | 1 | 4'b1000 |
+| 11 | 1 | 4'b1100 |
+| 12 | 1 | 4'b1110 |
+| 13 | 1 | 4'b1111 |
+| 14 | 1 | 4'b0111 |
+| 15 | 1 | 4'b0011 |
+| 16 | 1 | 4'b0001 |
+| 17 | 1 | 4'b0000 |
+| 18 | 1 | 4'b1000 |
+| 19 | 1 | 4'b1100 |
+| 20 | 1 | 4'b1110 |
+| 21 | 1 | 4'b1111 |
+| 22 | 1 | 4'b0111 |
+| 23 | 1 | 4'b0011 |
+| 24 | 1 | 4'b0001 |
+| 25 | 1 | 4'b0000 |
+| 26 | 1 | 4'b1000 |
+
+### stimulus 7
+| cycle | rst_n | Q |
+|---|---|---|
+| 0 | 0 | 4'b0000 |
+| 1 | 1 | 4'b0000 |
+| 2 | 1 | 4'b1000 |
+| 3 | 1 | 4'b1100 |
+| 4 | 1 | 4'b1110 |
+| 5 | 1 | 4'b1111 |
+| 6 | 1 | 4'b0111 |
+| 7 | 1 | 4'b0011 |
+| 8 | 1 | 4'b0001 |
+| 9 | 0 | 4'b0000 |
+| 10 | 1 | 4'b0000 |
+| 11 | 1 | 4'b1000 |

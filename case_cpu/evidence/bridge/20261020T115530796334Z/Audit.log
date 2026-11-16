@@ -1,0 +1,355 @@
+theorem CaseCPU.Bridge.rtl_step_refines : ∀ (r : LeanRTL.Env) (i : CaseCPU.Bridge.Pins) (o : LeanRTL.Env),
+  CaseCPU.Bridge.Legal (CaseCPU.Bridge.rawOf r) →
+    CaseCPU.Bridge.rawOf (CaseCPU.Bridge.rtlStep r i o) = CaseCPU.Bridge.rawCycle (CaseCPU.Bridge.rawOf r) i :=
+fun r i o h =>
+  Eq.mpr
+    (id
+      (congrArg (fun _a => _a = CaseCPU.Bridge.rawCycle (CaseCPU.Bridge.rawOf r) i) (CaseCPU.Bridge.actual_step r i o)))
+    (Eq.mpr
+      (id
+        (congrArg (fun _a => _a = CaseCPU.Bridge.rawCycle (CaseCPU.Bridge.rawOf r) i)
+          (CaseCPU.Bridge.source_cycle (CaseCPU.Bridge.base r i o)
+            (Eq.mpr (id (congrArg CaseCPU.Bridge.Legal (CaseCPU.Bridge.base_raw r i o))) h))))
+      (Eq.mpr
+        (id
+          (congrArg
+            (fun _a =>
+              CaseCPU.Bridge.rawCycle _a (CaseCPU.Bridge.pinsOf (CaseCPU.Bridge.base r i o)) =
+                CaseCPU.Bridge.rawCycle (CaseCPU.Bridge.rawOf r) i)
+            (CaseCPU.Bridge.base_raw r i o)))
+        (Eq.mpr
+          (id
+            (congrArg
+              (fun _a =>
+                CaseCPU.Bridge.rawCycle (CaseCPU.Bridge.rawOf r) _a =
+                  CaseCPU.Bridge.rawCycle (CaseCPU.Bridge.rawOf r) i)
+              (CaseCPU.Bridge.base_pins r i o)))
+          (Eq.refl (CaseCPU.Bridge.rawCycle (CaseCPU.Bridge.rawOf r) i)))))
+theorem CaseCPU.Bridge.rtl_cycle_refinement : ∀ (r : LeanRTL.Env) (i : CaseCPU.Bridge.Pins) (o : LeanRTL.Env)
+  (xs : List (CaseCPU.Bridge.Pins × LeanRTL.Env)),
+  i.reset = true →
+    CaseCPU.Bridge.project (CaseCPU.Bridge.rawOf (CaseCPU.Bridge.rtlRun (CaseCPU.Bridge.rtlStep r i o) xs)) =
+      CaseCPU.run (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed))
+        (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs) :=
+fun r i o xs hr =>
+  have h0 := CaseCPU.Bridge.rtl_reset r i o hr;
+  Eq.mpr
+    (id
+      (congrArg
+        (fun _a =>
+          CaseCPU.Bridge.project _a =
+            CaseCPU.run (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed))
+              (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs))
+        (CaseCPU.Bridge.rtl_run_refines (CaseCPU.Bridge.rtlStep r i o) xs
+          (Eq.mpr (id (congrArg (fun _a => CaseCPU.Bridge.Legal _a) h0)) (CaseCPU.Bridge.legal_initial i.seed)))))
+    (Eq.mpr
+      (id
+        (congrArg
+          (fun _a =>
+            CaseCPU.Bridge.project (CaseCPU.Bridge.rawRun _a (List.map Prod.fst xs)) =
+              CaseCPU.run (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed))
+                (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs))
+          h0))
+      (Eq.mpr
+        (id
+          (congrArg
+            (fun _a =>
+              _a =
+                CaseCPU.run (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed))
+                  (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs))
+            (CaseCPU.Bridge.projected_run (CaseCPU.Bridge.rawInitial i.seed) (List.map Prod.fst xs))))
+        (Eq.mpr
+          (id
+            (congrArg
+              (fun _a =>
+                CaseCPU.run _a (List.map CaseCPU.Bridge.specInput (List.map Prod.fst xs)) =
+                  CaseCPU.run (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed))
+                    (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs))
+              (CaseCPU.Bridge.project_initial i.seed)))
+          (of_eq_true
+            (Eq.trans
+              (congrFun'
+                (congrArg Eq (congrArg (CaseCPU.run (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed))) List.map_map))
+                (CaseCPU.run (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed))
+                  (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs)))
+              (eq_self
+                (CaseCPU.run (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed))
+                  (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs))))))))
+theorem CaseCPU.Bridge.rtl_isa_refinement : ∀ (r : LeanRTL.Env) (i : CaseCPU.Bridge.Pins) (o : LeanRTL.Env)
+  (xs : List (CaseCPU.Bridge.Pins × LeanRTL.Env)),
+  i.reset = true →
+    (CaseCPU.Bridge.project (CaseCPU.Bridge.rawOf (CaseCPU.Bridge.rtlRun (CaseCPU.Bridge.rtlStep r i o) xs))).arch =
+      CaseCPU.reference (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed))
+        (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed)).arch (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs) :=
+fun r i o xs hr =>
+  Eq.mpr
+    (id
+      (congrArg
+        (fun _a =>
+          _a.arch =
+            CaseCPU.reference (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed))
+              (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed)).arch
+              (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs))
+        (CaseCPU.Bridge.rtl_cycle_refinement r i o xs hr)))
+    (CaseCPU.reset_refinement (CaseCPU.Bridge.readRF i.seed) (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs))
+theorem CaseCPU.Bridge.rtl_isa_physical_events : ∀ (r : LeanRTL.Env) (i : CaseCPU.Bridge.Pins) (o : LeanRTL.Env)
+  (xs : List (CaseCPU.Bridge.Pins × LeanRTL.Env)),
+  i.reset = true →
+    (CaseCPU.Bridge.project (CaseCPU.Bridge.rawOf (CaseCPU.Bridge.rtlRun (CaseCPU.Bridge.rtlStep r i o) xs))).arch =
+      CaseCPU.Bridge.rtlReference (CaseCPU.Bridge.rtlStep r i o) (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed)).arch
+        xs :=
+fun r i o xs hr =>
+  Eq.mpr
+    (id
+      (congrArg
+        (fun _a =>
+          (CaseCPU.Bridge.project
+                (CaseCPU.Bridge.rawOf (CaseCPU.Bridge.rtlRun (CaseCPU.Bridge.rtlStep r i o) xs))).arch =
+            _a)
+        (CaseCPU.Bridge.reference_events (CaseCPU.Bridge.rtlStep r i o)
+          (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed)).arch xs
+          (Eq.mpr (id (congrArg (fun _a => CaseCPU.Bridge.Legal _a) (CaseCPU.Bridge.rtl_reset r i o hr)))
+            (CaseCPU.Bridge.legal_initial i.seed)))))
+    (Eq.mpr
+      (id
+        (congrArg
+          (fun _a =>
+            (CaseCPU.Bridge.project
+                  (CaseCPU.Bridge.rawOf (CaseCPU.Bridge.rtlRun (CaseCPU.Bridge.rtlStep r i o) xs))).arch =
+              CaseCPU.reference (CaseCPU.Bridge.project _a) (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed)).arch
+                (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs))
+          (CaseCPU.Bridge.rtl_reset r i o hr)))
+      (Eq.mpr
+        (id
+          (congrArg
+            (fun _a =>
+              (CaseCPU.Bridge.project
+                    (CaseCPU.Bridge.rawOf (CaseCPU.Bridge.rtlRun (CaseCPU.Bridge.rtlStep r i o) xs))).arch =
+                CaseCPU.reference _a (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed)).arch
+                  (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs))
+            (CaseCPU.Bridge.project_initial i.seed)))
+        (CaseCPU.Bridge.rtl_isa_refinement r i o xs hr)))
+theorem CaseCPU.Bridge.rtl_drained_refinement : ∀ (r : LeanRTL.Env) (i : CaseCPU.Bridge.Pins) (o : LeanRTL.Env)
+  (xs : List (CaseCPU.Bridge.Pins × LeanRTL.Env)),
+  i.reset = true →
+    (∀ (io : CaseCPU.Bridge.Pins × LeanRTL.Env), io ∈ xs → io.fst.reset = false) →
+      CaseCPU.pending
+            (CaseCPU.Bridge.project (CaseCPU.Bridge.rawOf (CaseCPU.Bridge.rtlRun (CaseCPU.Bridge.rtlStep r i o) xs))) =
+          [] →
+        (CaseCPU.Bridge.project (CaseCPU.Bridge.rawOf (CaseCPU.Bridge.rtlRun (CaseCPU.Bridge.rtlStep r i o) xs))).arch =
+          CaseCPU.isaRun (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed)).arch
+            (CaseCPU.Bridge.rtlAcceptances (CaseCPU.Bridge.rtlStep r i o) xs) :=
+fun r i o xs hr hn hd =>
+  have h0 := CaseCPU.Bridge.rtl_reset r i o hr;
+  Eq.mpr
+    (id
+      (congrArg
+        (fun _a =>
+          (CaseCPU.Bridge.project
+                (CaseCPU.Bridge.rawOf (CaseCPU.Bridge.rtlRun (CaseCPU.Bridge.rtlStep r i o) xs))).arch =
+            CaseCPU.isaRun (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed)).arch _a)
+        (CaseCPU.Bridge.acceptance_events (CaseCPU.Bridge.rtlStep r i o) xs
+          (Eq.mpr (id (congrArg (fun _a => CaseCPU.Bridge.Legal _a) h0)) (CaseCPU.Bridge.legal_initial i.seed)))))
+    (Eq.mpr
+      (id
+        (congrArg
+          (fun _a =>
+            (CaseCPU.Bridge.project
+                  (CaseCPU.Bridge.rawOf (CaseCPU.Bridge.rtlRun (CaseCPU.Bridge.rtlStep r i o) xs))).arch =
+              CaseCPU.isaRun (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed)).arch
+                (CaseCPU.acceptances (CaseCPU.Bridge.project _a)
+                  (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs)))
+          h0))
+      (Eq.mpr
+        (id
+          (congrArg
+            (fun _a =>
+              (CaseCPU.Bridge.project
+                    (CaseCPU.Bridge.rawOf (CaseCPU.Bridge.rtlRun (CaseCPU.Bridge.rtlStep r i o) xs))).arch =
+                CaseCPU.isaRun (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed)).arch
+                  (CaseCPU.acceptances _a (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs)))
+            (CaseCPU.Bridge.project_initial i.seed)))
+        (Eq.mpr
+          (id
+            (congrArg
+              (fun _a =>
+                _a.arch =
+                  CaseCPU.isaRun (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed)).arch
+                    (CaseCPU.acceptances (CaseCPU.initial (CaseCPU.Bridge.readRF i.seed))
+                      (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs)))
+              (CaseCPU.Bridge.rtl_cycle_refinement r i o xs hr)))
+          (CaseCPU.drained_refinement (CaseCPU.Bridge.readRF i.seed)
+            (List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs)
+            (fun j hj =>
+              Exists.casesOn (List.mem_map.mp hj) fun io h =>
+                And.casesOn h fun hio right =>
+                  Eq.ndrec (motive := fun j =>
+                    j ∈ List.map (fun x => CaseCPU.Bridge.specInput x.fst) xs → j.reset = false) (fun hj => hn io hio)
+                    right hj)
+            (Eq.mp (congrArg (fun _a => CaseCPU.pending _a = []) (CaseCPU.Bridge.rtl_cycle_refinement r i o xs hr))
+              hd)))))
+'CaseCPU.Bridge.rtl_step_refines' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.accept_condition._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_immediate._native.bv_decide.ax_1_8,
+ CaseCPU.Bridge.circuit_reset._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_w137._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.circuit_w140._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.code_I._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_U._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_table._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.forward_a._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.forward_b._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.offset_sign._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.projected_pc._native.bv_decide.ax_1_9,
+ CaseCPU.Bridge.ready_condition._native.bv_decide.ax_1_13]
+'CaseCPU.Bridge.rtl_cycle_refinement' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.accept_condition._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_immediate._native.bv_decide.ax_1_8,
+ CaseCPU.Bridge.circuit_reset._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_w137._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.circuit_w140._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.code_I._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_U._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_table._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.forward_a._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.forward_b._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.offset_sign._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.projected_pc._native.bv_decide.ax_1_9,
+ CaseCPU.Bridge.read_resetRF._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.ready_condition._native.bv_decide.ax_1_13]
+'CaseCPU.Bridge.rtl_isa_refinement' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.accept_condition._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_immediate._native.bv_decide.ax_1_8,
+ CaseCPU.Bridge.circuit_reset._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_w137._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.circuit_w140._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.code_I._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_U._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_table._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.forward_a._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.forward_b._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.offset_sign._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.projected_pc._native.bv_decide.ax_1_9,
+ CaseCPU.Bridge.read_resetRF._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.ready_condition._native.bv_decide.ax_1_13]
+'CaseCPU.Bridge.rtl_isa_physical_events' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.accept_condition._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_immediate._native.bv_decide.ax_1_8,
+ CaseCPU.Bridge.circuit_reset._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_w137._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.circuit_w140._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.code_I._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_U._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_table._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.forward_a._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.forward_b._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.offset_sign._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.projected_pc._native.bv_decide.ax_1_9,
+ CaseCPU.Bridge.read_resetRF._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.ready_condition._native.bv_decide.ax_1_13]
+'CaseCPU.Bridge.rtl_drained_refinement' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.accept_condition._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_immediate._native.bv_decide.ax_1_8,
+ CaseCPU.Bridge.circuit_reset._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_w137._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.circuit_w140._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.code_I._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_U._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_table._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.forward_a._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.forward_b._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.offset_sign._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.projected_pc._native.bv_decide.ax_1_9,
+ CaseCPU.Bridge.read_resetRF._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.ready_condition._native.bv_decide.ax_1_13]
+'CaseCPU.Bridge.rtl_conservation' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.accept_condition._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_immediate._native.bv_decide.ax_1_8,
+ CaseCPU.Bridge.circuit_reset._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_w137._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.circuit_w140._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.code_I._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_U._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_table._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.forward_a._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.forward_b._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.offset_sign._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.projected_pc._native.bv_decide.ax_1_9,
+ CaseCPU.Bridge.read_resetRF._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.ready_condition._native.bv_decide.ax_1_13]
+'CaseCPU.Bridge.rtl_accepted_cycle' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.circuit_immediate._native.bv_decide.ax_1_8,
+ CaseCPU.Bridge.circuit_w137._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.circuit_w140._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.code_I._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_U._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_table._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.forward_a._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.forward_b._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.offset_sign._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.projected_pc._native.bv_decide.ax_1_9,
+ CaseCPU.Bridge.ready_condition._native.bv_decide.ax_1_13]
+'CaseCPU.Bridge.rtl_retired_cycle' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1]
+'CaseCPU.Bridge.retirement_pc' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1]
+'CaseCPU.Bridge.retirement_value' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1]
+'CaseCPU.Bridge.port_debug' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.debug_read._native.bv_decide.ax_1_5]
+'CaseCPU.Bridge.port_arch_pc' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1]
+'CaseCPU.Bridge.rtl_pc_inv' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CPUShallow.topology._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.accept_condition._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_immediate._native.bv_decide.ax_1_8,
+ CaseCPU.Bridge.circuit_reset._native.bv_decide.ax_1_6,
+ CaseCPU.Bridge.circuit_w137._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.circuit_w140._native.bv_decide.ax_1_58,
+ CaseCPU.Bridge.code_I._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_U._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.code_table._native.native_decide.ax_1_1,
+ CaseCPU.Bridge.forward_a._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.forward_b._native.bv_decide.ax_1_20,
+ CaseCPU.Bridge.offset_sign._native.bv_decide.ax_1_5,
+ CaseCPU.Bridge.projected_pc._native.bv_decide.ax_1_9,
+ CaseCPU.Bridge.ready_condition._native.bv_decide.ax_1_13]
+'CaseCPU.Bridge.imported_checks' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CaseCPU.Bridge.imported_checks._native.native_decide.ax_1_1]
+'CaseCPU.Bridge.imported_widths' depends on axioms: [CaseCPU.Bridge.imported_widths._native.native_decide.ax_1_1]

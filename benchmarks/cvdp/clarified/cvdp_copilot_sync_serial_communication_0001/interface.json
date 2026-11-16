@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_sync_serial_communication_0001",
+  "toplevel": "sync_serial_communication_tx_rx",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

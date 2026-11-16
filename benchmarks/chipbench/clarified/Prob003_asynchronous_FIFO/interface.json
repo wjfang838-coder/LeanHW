@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob003_asynchronous_FIFO",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

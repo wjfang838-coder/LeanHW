@@ -1,0 +1,803 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+
+I would like you to implement a module named TopModule with the following
+interface.
+
+ - output readM
+ - output address (16 bits)
+ - inout  data (16 bits)
+ - input  inputReady
+ - input  reset_n
+ - input  clk
+ - output num_inst (16 bits)
+ - output output_port (16 bits)
+
+This CPU is a simplified 16-bit processor model. It contains basic stages
+including Instruction Fetch, Decode, Execute, Memory Access, and Write Back.
+The Control module generates various control signals to coordinate data flow
+between the Register File (RF), Arithmetic Logic Unit (ALU), and memory. Each
+clock cycle, the CPU updates the program counter (PC) based on the current
+instruction (input from memory via the data bus), and executes arithmetic,
+logic, jump, or store operations. When encountering the special WWD
+instruction, it outputs register values to output_port, implementing a
+"display result" functionality.
+
+Port descriptions:
+
+Input ports:
+- inputReady: Indicates that data is ready from the input port
+- reset_n: Active-low RESET signal
+- clk: Clock signal
+
+Output ports:
+- readM: Read from memory signal
+- address: Current address for data (16 bits)
+- num_inst: Number of instructions during execution (16 bits), for debugging/testing
+- output_port: Used for WWD instruction to output register values (16 bits)
+
+Inout ports:
+- data: Data being input or output (16 bits)
+
+Instruction Set:
+The CPU supports the following instructions:
+R-type instructions (function field determines operation):
+- ADD (FUNC_ADD = 0): Register addition: rd = rs + rt
+- SUB (FUNC_SUB = 1): Register subtraction: rd = rs - rt
+- AND (FUNC_AND = 2): Bitwise AND: rd = rs & rt
+- ORR (FUNC_ORR = 3): Bitwise OR: rd = rs | rt
+- NOT (FUNC_NOT = 4): Bitwise NOT: rd = ~rs
+- TCP (FUNC_TCP = 5): Two's complement: rd = -rs
+- SHL (FUNC_SHL = 6): Shift left by 1: rd = rs << 1
+- SHR (FUNC_SHR = 7): Arithmetic shift right by 1: rd = rs >>> 1
+- JPR (FUNC_JPR = 25): Jump to register address: PC = rs
+- JRL (FUNC_JRL = 26): Jump to register address and save return address:
+  rd = PC + 1; PC = rs
+- RWD (FUNC_RWD = 27): Read from input port to register: reg = input port
+- WWD (FUNC_WWD = 28): Write register value to output port: output port = reg
+- HLT (FUNC_HLT = 29): Halt CPU execution
+- ENI (FUNC_ENI = 30): Enable interrupt
+- DSI (FUNC_DSI = 31): Disable interrupt
+
+I-type instructions (opcode determines operation):
+- ADI (OPCODE_ADI = 4): Add immediate: rt = rs + imm
+- ORI (OPCODE_ORI = 5): Bitwise OR immediate: rt = rs | imm
+- LHI (OPCODE_LHI = 6): Load immediate to high 8 bits: rt = {imm, 8'b0}
+- LWD (OPCODE_LWD = 7): Load from memory: rt = MEM[rs + imm]
+- SWD (OPCODE_SWD = 8): Store to memory: MEM[rs + imm] = rt
+- BNE (OPCODE_BNE = 0): Branch if not equal: if(rs != rt) PC += imm
+- BEQ (OPCODE_BEQ = 1): Branch if equal: if(rs == rt) PC += imm
+- BGZ (OPCODE_BGZ = 2): Branch if greater than zero: if(rs > 0) PC += imm
+- BLZ (OPCODE_BLZ = 3): Branch if less than zero: if(rs < 0) PC += imm
+- JMP (OPCODE_JMP = 9): Unconditional jump: PC = target
+- JAL (OPCODE_JAL = 10): Jump and link: R3 = PC + 1; PC = target
+
+CPU Execution Flow:
+
+The CPU execution follows these stages:
+
+1. Instruction Fetch:
+   - When PC updates, assert readM=1 and set address=PC
+   - Wait for inputReady to become high
+   - When inputReady is asserted, read the instruction from the data bus
+   - Save the instruction for decoding
+
+2. Decode:
+   - Extract opcode (bits [15:12]) and function (bits [5:0]) from instruction
+   - Control module generates control signals based on opcode and function
+   - RF module reads source registers (rs and rt) based on instruction fields
+
+3. Execute:
+   - ALU performs computation based on ALUOp control signal
+   - For immediate instructions, sign-extend the immediate value
+   - ALU outputs result and branch condition (bcond)
+
+4. Memory Access:
+   - If instruction is LWD (Load Word) or SWD (Store Word):
+     * Set address to ALUResult (calculated memory address)
+     * Assert readM (for LWD) or MemWrite (for SWD)
+     * Wait for inputReady to become high
+     * For LWD: read data from data bus and save to dataReg
+     * For SWD: write ReadData2 to data bus
+
+5. Write Back:
+   - If RegWrite=1, write result to register file at next clock edge
+   - For LWD: write dataReg to destination register
+   - For other instructions: write ALUResult to destination register
+   - Destination register is determined by RegDst control signal
+
+6. PC Update:
+   - Calculate nextPC based on control signals:
+     * If Jump: nextPC = {PC[15:12], instruction[11:0]}
+     * Else if Branch & bcond: nextPC = PC + sign-extended(immediate)
+     * Else: nextPC = PC + 1
+   - Update PC to nextPC at next clock edge
+
+7. Output Stage (WWD instruction):
+   - If OpenPort=1 (WWD instruction), output ReadData1 to output_port
+   - Use: assign output_port = OpenPort ? ReadData1 : 16'bz;
+
+The following submodules are already provided and should be instantiated and included in
+your design, please do not edit this part:
+- Control: Generates control signals based on instruction opcode and function
+  fields
+- RF: Register File module for reading and writing register values
+- ALU: Arithmetic Logic Unit module for performing arithmetic and logic
+  operations
+provided:
+```
+`define FUNC_ADD 6'd0
+`define FUNC_SUB 6'd1
+`define FUNC_AND 6'd2
+`define FUNC_ORR 6'd3
+`define FUNC_NOT 6'd4
+`define FUNC_TCP 6'd5
+`define FUNC_SHL 6'd6
+`define FUNC_SHR 6'd7
+`define FUNC_RWD 6'd27
+`define FUNC_WWD 6'd28
+`define FUNC_JPR 6'd25
+`define FUNC_JRL 6'd26
+`define FUNC_HLT 6'd29
+`define FUNC_ENI 6'd30
+`define FUNC_DSI 6'd31
+
+`define OPCODE_ADI 4'd4
+`define OPCODE_ORI 4'd5
+`define OPCODE_LHI 4'd6
+`define OPCODE_LWD 4'd7
+`define OPCODE_SWD 4'd8
+`define OPCODE_BNE 4'd0
+`define OPCODE_BEQ 4'd1
+`define OPCODE_BGZ 4'd2
+`define OPCODE_BLZ 4'd3
+`define OPCODE_JMP 4'd9
+`define OPCODE_JAL 4'd10
+`define OPCODE_R   4'd15
+
+module Control(
+    input [3:0] opcode,
+    input [5:0] func,
+    output RegDst,
+    output Jump,
+    output Branch,
+    output MemRead,
+    output MemtoReg,
+    output reg [3:0] ALUOp,
+    output MemWrite,
+    output ALUSrc,
+    output RegWrite,
+    output OpenPort
+    );
+    
+    /* 
+    Receives opcode and function code of an instruction, and generates control signals.
+    RegDst  : Chooses RF write address (rt or rd)
+    Jump    : Whether this instruction is a jump
+    Branch  : Whether this instruction is a branch
+    MemRead : Whether we should read data memory
+    MemtoReg: Chooses what to write to RF (ALU result or data read from memory)
+    ALUOp   : Controls ALU operation. Directly connected to the input OP of the ALU. (There is no ALU control module in this CPU)
+    MemWrite: Whether we should write data to memory
+    ALUSrc  : Chooses ALU second input (Second RF read data or sign-extended immediate)
+    RegWrite: Whether we should write data to RF
+    OpenPort: Wheter to open output_port of CPU
+    */
+    
+    assign RegDst = (opcode==`OPCODE_R);
+    assign Jump = (opcode==`OPCODE_JMP || opcode==`OPCODE_JAL);
+    assign Branch = (opcode==`OPCODE_BEQ || opcode==`OPCODE_BNE || opcode==`OPCODE_BGZ || opcode==`OPCODE_BLZ);
+    assign MemRead = (opcode==`OPCODE_LWD || opcode==`OPCODE_SWD);
+    assign MemtoReg = (opcode==`OPCODE_LWD);
+    assign MemWrite = (opcode==`OPCODE_SWD);
+    assign ALUSrc = !(opcode==`OPCODE_R || opcode==`OPCODE_BEQ || opcode==`OPCODE_BNE);
+    assign RegWrite = !(opcode==`OPCODE_SWD || opcode==`OPCODE_BEQ || opcode==`OPCODE_BNE || opcode==`OPCODE_BGZ || opcode==`OPCODE_BLZ || opcode==`OPCODE_JMP || func==`FUNC_WWD);
+    assign OpenPort = (opcode==`OPCODE_R & func==`FUNC_WWD);
+    
+    always @(*) begin
+        if (opcode==`OPCODE_R & func<8) ALUOp = func[3:0];
+        else if (opcode==`OPCODE_ADI || opcode==`OPCODE_LWD || opcode==`OPCODE_SWD) ALUOp = 0;
+        else if (opcode==`OPCODE_ORI) ALUOp = 3;
+        else if (opcode==`OPCODE_LHI) ALUOp = 8;
+        else if (opcode==`OPCODE_BNE) ALUOp = 9;
+        else if (opcode==`OPCODE_BEQ) ALUOp = 10;
+        else if (opcode==`OPCODE_BGZ) ALUOp = 11;
+        else if (opcode==`OPCODE_BLZ) ALUOp = 12;
+        else ALUOp = 15;
+    end
+    
+endmodule
+
+module RF(
+    input write,
+    input clk,
+    input reset_n,
+    input [1:0] addr1,
+    input [1:0] addr2,
+    input [1:0] addr3,
+    output [15:0] data1,
+    output [15:0] data2,
+    input [15:0] data3
+    );
+    
+    reg [63:0] register;
+    /*
+    register[63:48] == register[16*3+: 16] (addr is 2'b11)
+    register[47:32] == register[16*2+: 16] (addr is 2'b10)
+    register[31:16] == register[16*1+: 16] (addr is 2'b01)
+    register[15: 0] == register[16*0+: 16] (addr is 2'b00)
+    */
+    
+    always @(posedge clk, negedge reset_n) begin
+        // Asynchronous active low reset -> This used to be Synchronous reset; modified to asynchronous for Project 4.
+    	if (!reset_n) register <= 64'b0;
+    	// Synchronous data write
+    	else if (write) register[16*addr3+: 16] <= data3;
+    end
+    
+    // Asynchronous data read
+    assign data1 = register[16*addr1+: 16];
+    assign data2 = register[16*addr2+: 16];
+    
+endmodule
+
+module ALU(
+    input signed [15:0] A,
+    input signed [15:0] B,
+    input [3:0] OP,
+    output reg [15:0] C,
+    output bcond
+    );
+    
+    always @(*) begin
+        case (OP)
+            0:  C = A + B;          // ADD, ADI, LWD, SWD
+            1:  C = A - B;          // SUB
+            2:  C = A & B;          // AND
+            3:  C = A | B;          // ORR, ORI
+            4:  C = ~A;             // NOT
+            5:  C = ~A + 1'b1;      // TCP
+            6:  C = A << 1;         // SHL
+            7:  C = A >>> 1;        // SHR
+            8:  C = {B[7:0], 8'b0}; // LHI
+            9:  C = A - B;          // BNE
+            10: C = A - B;          // BEQ
+            11: C = A;              // BGZ
+            12: C = A;              // BLZ
+            default: C = 16'bz;
+        endcase
+    end
+    
+    // Using assign, C and bcond change at the same time.
+    // The timing would have been different if they were inside a single always block. 
+    assign bcond = OP==9  ? (C!=0) :        // BNE
+                   OP==10 ? (C==0) :        // BEQ
+                   OP==11 ? (C>0)  :        // BGZ                
+                   OP==12 ? (C<0)  : 0;     // BLZ
+    
+endmodule
+```
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- readM: output 1 bit.
+- address: output [16-1:0].
+- data: inout [16-1:0].
+- inputReady: input 1 bit.
+- reset_n: input 1 bit.
+- clk: input 1 bit.
+- num_inst: output [16-1:0].
+- output_port: output [16-1:0].
+
+Public parameters:
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+2. Given submodules
+The implementation file must contain the following supplied definitions alongside TopModule, verbatim, and must instantiate Control, RF and ALU rather than reimplement their functions inline. Their declarations and port orders are part of the supplied interface.
+
+`define FUNC_ADD 6'd0
+`define FUNC_SUB 6'd1
+`define FUNC_AND 6'd2
+`define FUNC_ORR 6'd3
+`define FUNC_NOT 6'd4
+`define FUNC_TCP 6'd5
+`define FUNC_SHL 6'd6
+`define FUNC_SHR 6'd7
+`define FUNC_RWD 6'd27
+`define FUNC_WWD 6'd28
+`define FUNC_JPR 6'd25
+`define FUNC_JRL 6'd26
+`define FUNC_HLT 6'd29
+`define FUNC_ENI 6'd30
+`define FUNC_DSI 6'd31
+
+`define OPCODE_ADI 4'd4
+`define OPCODE_ORI 4'd5
+`define OPCODE_LHI 4'd6
+`define OPCODE_LWD 4'd7
+`define OPCODE_SWD 4'd8
+`define OPCODE_BNE 4'd0
+`define OPCODE_BEQ 4'd1
+`define OPCODE_BGZ 4'd2
+`define OPCODE_BLZ 4'd3
+`define OPCODE_JMP 4'd9
+`define OPCODE_JAL 4'd10
+`define OPCODE_R   4'd15
+
+module Control(
+    input [3:0] opcode,
+    input [5:0] func,
+    output RegDst,
+    output Jump,
+    output Branch,
+    output MemRead,
+    output MemtoReg,
+    output reg [3:0] ALUOp,
+    output MemWrite,
+    output ALUSrc,
+    output RegWrite,
+    output OpenPort
+    );
+    
+    /* 
+    Receives opcode and function code of an instruction, and generates control signals.
+    RegDst  : Chooses RF write address (rt or rd)
+    Jump    : Whether this instruction is a jump
+    Branch  : Whether this instruction is a branch
+    MemRead : Whether we should read data memory
+    MemtoReg: Chooses what to write to RF (ALU result or data read from memory)
+    ALUOp   : Controls ALU operation. Directly connected to the input OP of the ALU. (There is no ALU control module in this CPU)
+    MemWrite: Whether we should write data to memory
+    ALUSrc  : Chooses ALU second input (Second RF read data or sign-extended immediate)
+    RegWrite: Whether we should write data to RF
+    OpenPort: Wheter to open output_port of CPU
+    */
+    
+    assign RegDst = (opcode==`OPCODE_R);
+    assign Jump = (opcode==`OPCODE_JMP || opcode==`OPCODE_JAL);
+    assign Branch = (opcode==`OPCODE_BEQ || opcode==`OPCODE_BNE || opcode==`OPCODE_BGZ || opcode==`OPCODE_BLZ);
+    assign MemRead = (opcode==`OPCODE_LWD || opcode==`OPCODE_SWD);
+    assign MemtoReg = (opcode==`OPCODE_LWD);
+    assign MemWrite = (opcode==`OPCODE_SWD);
+    assign ALUSrc = !(opcode==`OPCODE_R || opcode==`OPCODE_BEQ || opcode==`OPCODE_BNE);
+    assign RegWrite = !(opcode==`OPCODE_SWD || opcode==`OPCODE_BEQ || opcode==`OPCODE_BNE || opcode==`OPCODE_BGZ || opcode==`OPCODE_BLZ || opcode==`OPCODE_JMP || func==`FUNC_WWD);
+    assign OpenPort = (opcode==`OPCODE_R & func==`FUNC_WWD);
+    
+    always @(*) begin
+        if (opcode==`OPCODE_R & func<8) ALUOp = func[3:0];
+        else if (opcode==`OPCODE_ADI || opcode==`OPCODE_LWD || opcode==`OPCODE_SWD) ALUOp = 0;
+        else if (opcode==`OPCODE_ORI) ALUOp = 3;
+        else if (opcode==`OPCODE_LHI) ALUOp = 8;
+        else if (opcode==`OPCODE_BNE) ALUOp = 9;
+        else if (opcode==`OPCODE_BEQ) ALUOp = 10;
+        else if (opcode==`OPCODE_BGZ) ALUOp = 11;
+        else if (opcode==`OPCODE_BLZ) ALUOp = 12;
+        else ALUOp = 15;
+    end
+    
+endmodule
+
+module RF(
+    input write,
+    input clk,
+    input reset_n,
+    input [1:0] addr1,
+    input [1:0] addr2,
+    input [1:0] addr3,
+    output [15:0] data1,
+    output [15:0] data2,
+    input [15:0] data3
+    );
+    
+    reg [63:0] register;
+    /*
+    register[63:48] == register[16*3+: 16] (addr is 2'b11)
+    register[47:32] == register[16*2+: 16] (addr is 2'b10)
+    register[31:16] == register[16*1+: 16] (addr is 2'b01)
+    register[15: 0] == register[16*0+: 16] (addr is 2'b00)
+    */
+    
+    always @(posedge clk, negedge reset_n) begin
+        // Asynchronous active low reset -> This used to be Synchronous reset; modified to asynchronous for Project 4.
+    	if (!reset_n) register <= 64'b0;
+    	// Synchronous data write
+    	else if (write) register[16*addr3+: 16] <= data3;
+    end
+    
+    // Asynchronous data read
+    assign data1 = register[16*addr1+: 16];
+    assign data2 = register[16*addr2+: 16];
+    
+endmodule
+
+module ALU(
+    input signed [15:0] A,
+    input signed [15:0] B,
+    input [3:0] OP,
+    output reg [15:0] C,
+    output bcond
+    );
+    
+    always @(*) begin
+        case (OP)
+            0:  C = A + B;          // ADD, ADI, LWD, SWD
+            1:  C = A - B;          // SUB
+            2:  C = A & B;          // AND
+            3:  C = A | B;          // ORR, ORI
+            4:  C = ~A;             // NOT
+            5:  C = ~A + 1'b1;      // TCP
+            6:  C = A << 1;         // SHL
+            7:  C = A >>> 1;        // SHR
+            8:  C = {B[7:0], 8'b0}; // LHI
+            9:  C = A - B;          // BNE
+            10: C = A - B;          // BEQ
+            11: C = A;              // BGZ
+            12: C = A;              // BLZ
+            default: C = 16'bz;
+        endcase
+    end
+    
+    // Using assign, C and bcond change at the same time.
+    // The timing would have been different if they were inside a single always block. 
+    assign bcond = OP==9  ? (C!=0) :        // BNE
+                   OP==10 ? (C==0) :        // BEQ
+                   OP==11 ? (C>0)  :        // BGZ                
+                   OP==12 ? (C<0)  : 0;     // BLZ
+    
+endmodule
+
+3. Reset
+reset_n is active low and asynchronous. Assertion is the falling transition of reset_n, independently of clk. It takes priority over instruction acceptance, execution, data capture and completion, including simultaneous rising clock edges. All four architectural registers, the instruction count and the instruction-fetch address are cleared to zero; pending instruction and captured-data validity are discarded, halt is exited, and execution is prepared to fetch at zero. While asserted, readM=0, address=0, num_inst=0, output_port is 16-bit high impedance and data is released. No accepted transaction survives reset. Release alone changes readM to 1; address and num_inst remain zero, output_port remains high impedance and data remains released. The first rising edge after release accepts a word only if inputReady=1; otherwise it retains fetch waiting. With ready continuously high, the second rising edge executes that accepted instruction and the third follows the instruction-specific access/completion law below. With ready low, these edges do not accept an instruction.
+
+Before any reset or clock edge, readM=0, address and num_inst are hardware-unknown, and output_port is hardware-unknown, as established by Q1, Q6, Q11 and Q16. The architectural register file has no source power-up initialization. The first unreset rising edge establishes fetch and releases output_port to high impedance without establishing a known starting address or count. Ordinary writes may establish individual register values without reset; LHI and accepted input data are examples. Hardware-unknown state is not a prohibition on ordinary operation and is not an input restriction requiring reset before use.
+
+Implementation choice C1: the interrupt-enable condition initially is disabled and is disabled by reset. Only this otherwise unspecified initial/reset condition is selected; ENI enables and DSI disables it at their ordinary execution edge. This is a compatible completion of an unstated initial/reset condition, not a source power-up fact. No interrupt request port or interrupt-entry algorithm is supplied, and this choice adds none.
+
+4. Timing
+All CPU transaction advances and architectural writes occur on rising edges of clk; falling edges and held clock levels do not advance them. The supplied RF retains its asynchronous active-low reset and asynchronous reads, and the supplied Control and ALU remain combinational. Top-level reset assertion and release have the independent effects stated above.
+
+For every instruction, E0 is its ready rising-edge acceptance during fetch. The accepted instruction is fixed after E0; the current bus at E1 is not a replacement instruction. E1 is the next rising edge, after one completed clock interval. Ordinary instructions complete at E1. SWD enters its access interval at E1 and completes at E2, after two completed intervals from E0, irrespective of ready. LWD and RWD enter waiting at E1; C is the first subsequent rising edge with ready high. They capture data at C and complete at the next rising edge, after one full interval from C. Even when ready remains high, E1 is not a data-capture edge for these instructions. An edge completing an earlier instruction cannot simultaneously accept the next instruction. The next fetch edge may accept it. inputReady=0 delays only fetch acceptance and LWD/RWD data capture, not execution or completion.
+
+address is a held transaction address updated at the stated reset, execution, data-capture and completion events. num_inst is a 16-bit registered retirement count, unchanged at E0 and incremented modulo 65536 only at the instruction's completion edge. There is no separate completion pulse port. readM is a phase-qualified combinational request, not a fixed-width pulse: it remains asserted for every complete fetch-wait interval or LWD data-wait interval, and deasserts at acceptance/capture. output_port is combinational from the accepted WWD instruction and its current architectural operand: its display interval is exactly one clock cycle from immediately after E0 until immediately after E1. It is released at other initialized times; no displayed value is retained. data is driven only during the one-cycle SWD interval from immediately after E1 until immediately after E2. There are no autonomous periodic outputs or specified duty cycles.
+
+The published post-edge address and each post-edge register write use the accepted instruction and architectural operands BEFORE that edge. Next address selection and the link write are simultaneous: JRL uses the old rs value even if its destination aliases rs. num_inst after completion equals its pre-edge value plus one modulo 65536. At C the captured full bus word is buffered; it is not an architectural write until the following rising edge. At that following edge the destination receives the buffered word rather than the current bus. These publication rules are physical edge laws, not an artifact of pre-edge trace sampling.
+
+Finite-model observation scope: each row samples settled out(s[k], i[k]) BEFORE one rising edge, then the transition computes s[k+1]. This is an active-edge scenario; clk is implicit and is not a stimulus field. A sampled low reset is asserted before that row and held through its rising edge, so the following row can observe release. The projection does not represent a reset pulse entirely between sampled edges; the full RTL contract nevertheless requires its asynchronous state reset and subsequent persistence after release. The table starts before any reset or clock edge, with the explicitly answered power-up observations, and does not assume a prior reset setup. No nanosecond step or offset is supplied in this interface; the rows do not assert an implicit 10 ns clock period.
+
+5. Behaviour
+The original requirements retained by the driver remain authoritative except for the individually limited amendments below. The supplied submodules remain unchanged. All architectural words, address arithmetic and count arithmetic use 16-bit representation. Addition, subtraction, negation and left shift truncate at the 16-bit result/write boundary; right shift replicates the signed operand's sign bit. ALU A and B are signed 16-bit operands, while C and its branch comparisons are unsigned. Immediate arithmetic uses the 8-bit signed immediate sign-extended to 16 bits. LHI uses the low eight immediate bits followed by eight zero bits. Bitwise operations preserve the full 16-bit bit patterns. No wider shift-expression context is introduced in this design.
+
+R-type functions 0 through 7 perform ADD, SUB, AND, ORR, NOT, TCP, SHL and signed arithmetic SHR, respectively, and write rd at E1. I-type arithmetic writes rt at E1, subject to the supplied opcode-independent low-six-bit write exclusion. ORI ORs the register with the sign-extended immediate, rather than zero-extending it. All four registers, including index zero, are writable. LWD writes its captured word to rt at its completion edge; RWD writes its captured word to rd at its completion edge. SWD writes the pre-execution rt operand to the external bus at its effective address for its access interval and makes no architectural register write. External memory is not CPU reset state and is not zeroed by reset.
+
+JPR selects the pre-execution rs operand as the next fetch address; the unchanged supplied general write control also selects rd and the supplied ALU default high-impedance result for its write. JRL instead writes its link value to rd. JMP performs no architectural write. JAL writes its link to R3 except when its low six bits equal 28. WWD performs no architectural write. HLT retires once, stops further instruction execution until reset and preserves its fetch address; the unchanged general register-write/ALU-default law determines its otherwise unspecified destination write. ENI and DSI enable and disable the interrupt condition, retire normally and follow the supplied general register-write/ALU-default behavior. No additional public interrupt handshake is specified.
+
+For opcodes 11 through 14 and R-type functions outside 0..7 and 25..31, preserve the supplied default decoding rather than inventing another operation: the ALU result is 16-bit high impedance, ordinary completion advances the fetch address by one and increments the count, and the supplied write-control exclusion still applies. Default I-type destinations use rt and default R-type destinations use rd. A permitted write of the supplied high-impedance ALU result remains high impedance on subsequent direct register readback; arithmetic using unknown or high-impedance bits follows the supplied four-state ALU expression semantics. The known-word portion of the finite projection does not turn those values into zero. Branches write no architectural register. Unconditional jump address selection retains the upper four bits of the instruction-fetch address and replaces its lower twelve bits with the accepted instruction's target.
+
+Certain scoped laws, applied on all histories within their scopes:
+
+Q21 (rule@input.data): Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges. data is sampled at posedge clk only when reset_n=1 and inputReady=1 during instruction fetch or a pending LWD/RWD data wait. Fetch E0 accepts the full 16-bit instruction, whose subsequent effects depend on its fields and architectural operands. Execution E1 ignores the current data bus. LWD/RWD enter a separate data wait after E1; the first ready rising edge C accepts the full 16-bit bus word, and the next rising edge commits that word to the instruction destination and completes the transaction. Data changes while inputReady=0, during ordinary execution, after capture, or during halt do not replace accepted words. During SWD memory access the CPU drives the rt operand on data for the interval after E1 until E2; external simultaneous driving resolves electrically, and is not an input capture. Otherwise the CPU releases data to z. Reset interrupts any pending transaction and discards its accepted instruction/data; it clears architectural operands. Repeated transactions sample independently at their respective acceptance edges.
+
+Q22 (rule@input.inputReady): Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges. inputReady is a level tested on posedge clk with reset_n=1, not an edge-triggered handshake. In fetch, 0 retains the fetch request; 1 accepts data as an instruction at E0. Immediately after E0 execution begins; E1 executes regardless of inputReady. For LWD/RWD, E1 starts a separate data wait; 0 holds that wait, and 1 at C captures data. The next rising edge completes regardless of inputReady. SWD completes at E2 regardless of inputReady. During execution, store completion, data completion and halt inputReady has no effect. A continuously high level can accept both instruction and later LWD/RWD data, but cannot accept a new instruction on a completion edge; the following fetch edge can accept it. Reset has priority over ready, interrupts waits and completion, and restarts fetch after release.
+
+Q23 (rule@input.reset_n): reset_n is an asynchronous active-low reset asserted on negedge reset_n. Let E0 be that physical assertion event: immediately after settling, address=0, num_inst=0, readM=0, output_port=z, and the CPU releases data. Architectural operands are cleared, pending work is discarded, and halt is exited. Each posedge clk while reset_n=0 repeats the reset effects; simultaneous ready/data cannot accept or complete work. Release alone sets readM=1 with address=0, num_inst=0, output_port=z and data released. The first post-release posedge accepts an instruction only if inputReady=1; otherwise fetch waits. Repeated assertions have the same effect in every phase. Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges.
+
+Q24 (rule@input.clk): clk advances transactions on posedge clk. Falling edges and a static clock do not advance execution; asynchronous reset and combinational port changes can still occur. Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges. With reset_n=1, fetch accepts ready data at E0; ordinary execution completes after E1, while LWD/SWD/RWD begin their separate access interval after E1. SWD completes after E2. LWD/RWD capture at the first ready rising edge C in their access interval and complete after the next rising edge. Fetch and LWD/RWD waiting edges with inputReady=0 retain work. HLT executes at E1 then ignores all later clock edges until reset. Reset_n=0 takes priority at each rising edge. Continuously asserted ready does not compress these physical edges or allow fetch on the edge completing prior work.
+
+Q25 (rule@output.readM): Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges. Reset_n=0 forces readM=0; after asynchronous reset E0 it remains 0. Release makes readM=1 immediately, before any clock edge. With reset_n=1, readM=1 throughout instruction-fetch waiting and LWD memory-read waiting, and 0 during instruction execution, SWD memory access, RWD input waiting, the interval following LWD/RWD data capture, and halt. At fetch acceptance E0 it becomes 0 immediately afterward. After E1 an ordinary instruction returns it to 1; HLT leaves it 0; LWD makes it 1; SWD/RWD leave it 0. SWD returns it to 1 after E2 regardless of inputReady. LWD ready capture C makes it 0, and the next rising edge makes it 1. RWD ready capture leaves it 0, and the next rising edge makes it 1. No new instruction is accepted on an execution, store-completion or data-write-completion edge even if inputReady stays high; acceptance is possible on the following fetch edge. Before any reset or clock edge readM=0; the first unreset rising edge establishes fetch and makes it 1.
+
+Q26 (rule@output.address): Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges. At asynchronous reset assertion E0 (negedge reset_n), address becomes 16'h0000 after settling and remains zero while reset is low. Reset release alone leaves it zero until instruction execution advances the address. Let P be the instruction-fetch address and I the accepted instruction. All address arithmetic wraps modulo 65536. At instruction acceptance E0 (posedge clk with inputReady=1 during fetch), address remains P immediately afterward. For an ordinary instruction, immediately after E1 address is the next fetch address N. N is the rs operand for opcode 15/function 25 or 26; {P[15:12],I[11:0]} for opcode 9 or 10; P+sign_extend(I[7:0]) for a taken branch; otherwise P+1. BNE/BEQ compare rs and rt for inequality/equality; BGZ takes for any nonzero 16-bit rs, BLZ never takes for a known operand. For LWD/SWD, after E1 address is (rs+sign_extend(I[7:0])) modulo 65536. SWD returns to N after E2 regardless of inputReady. LWD holds its memory address through waiting edges; at a ready capture edge C address returns to P, and after the next rising edge it becomes N. RWD keeps address=P through its separate input wait and capture, becoming N after the rising edge following capture. HLT keeps address=P indefinitely. Fetch waiting holds P. Before reset address is hardware-unknown; clocking alone does not supply a known starting address.
+
+Q27 (rule@output.num_inst): Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges. At asynchronous reset assertion E0 (negedge reset_n), num_inst becomes 16'h0000 after settling and remains zero while reset is low; release alone leaves it zero. Let n be num_inst before instruction acceptance E0. Immediately after E0 it remains n. Ordinary instructions (including WWD, jumps, ENI, DSI and otherwise unhandled instructions) increment it modulo 65536 immediately after E1. HLT also increments after E1, then retains that value indefinitely. LWD, SWD and RWD do not increment at E1. SWD increments after E2 regardless of inputReady. LWD/RWD retain n throughout their wait and ready capture edge C, then increment immediately after the next rising edge. Fetch waiting does not increment. Before reset num_inst is hardware-unknown; increments do not establish a known initial count.
+
+Q28 (rule@output.output_port): Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges. At asynchronous reset assertion E0 (negedge reset_n), output_port becomes 16'bz after settling and remains z through reset and release until WWD acceptance. output_port drives the current architectural rs operand only in the execution interval of an accepted opcode-15/function-28 WWD; it is 16'bz at all other initialized times. If E0 accepts WWD, immediately after E0 the operand is visible; immediately after E1 output_port returns to z, independently of inputReady. Changes on data after E0 do not change this WWD selection. Consecutive WWD transactions each require a fetch acceptance edge and a following execution edge; no displayed value is retained between them. Before any reset or clock edge output_port is hardware-unknown; the first unreset rising edge establishes fetch and releases output_port to z.
+
+Q30 (source@33e3f3ea7142d698): For an accepted 16-bit instruction I, rs=I[11:10], rt=I[9:8], rd=I[7:6], and imm=I[7:0], with I[7] replicated into bits [15:8] when sign extension is used. Architectural register indices range from 0 to 3. WWD displays rs; RWD writes rd. I-type arithmetic/load destinations use rt. Thus ADI 16'h4601 adds 1 to R1 and writes R2.
+
+Q31 (source@4d42f892d72fc5a2): For known 16-bit rs, BGZ takes exactly when the bit pattern is nonzero (unsigned value greater than zero); BLZ never takes. With rs=16'hffff BGZ therefore fetches at (P+sign_extend(imm)) modulo 65536 and BLZ at P+1 modulo 65536. E0 accepts the branch at P; address remains P immediately after E0 and becomes the selected next-fetch address immediately after E1. The pre-edge row at E1 still sees P; the following row sees the new address.
+
+Q32 (source@0d5742c8b2fc733b): The low-six-bits-equal-28 exclusion is independent of opcode for immediate execution writes. ADI with I[5:0]=28 leaves rt unchanged; otherwise ADI writes (rs+sign_extend(I[7:0])) modulo 65536. Thus ADI +28, +92, -100 and -36 are suppressed. A subsequent WWD of rt displays its old value, assuming no intervening write. E0 accepts ADI, E1 executes it, and the destination remains unchanged immediately after E1 for these suppressed cases.
+
+Q33 (source@5979781aa84b41e9): For opcode 15/function 25 (JPR) or 26 (JRL), the next fetch address is the pre-execution rs operand T. E0 accepts the instruction at P, address remains P after E0, and immediately after E1 address=T. The pre-edge E1 row sees P and the next row sees T. This applies even if JRL destination aliases rs: the jump uses the operand before the link write.
+
+Q34 (source@40cb59456477f434): JAL writes architectural R3; JRL writes rd=I[7:6]. Each receives (P+1) modulo 65536. E0 accepts the jump at P; the link value is committed immediately after E1. A later WWD of that link destination displays P+1 unless an intervening instruction changes it. For JAL only, I[5:0]=28 suppresses the link write, leaving R3 unchanged; JRL function 26 has no such exclusion.
+
+Q35 (source@abb3cd8032f488ec): During the SWD memory-access interval readM=0, independently of inputReady. E0 accepts SWD; E1 starts its store interval with the effective address and rt word driven on data. Immediately after E2 the store interval ends regardless of inputReady. Thus there is no extended store wait when inputReady=0; this rule concerns readM only during the actual store interval.
+
+Q36 (source@f6c0f34a059842b7): RWD uses a separate post-fetch ready transfer. E0 accepts the RWD instruction word; E1 starts input waiting and does not capture a data item even if inputReady=1. At the first subsequent posedge C with inputReady=1, the current full 16-bit data word is captured; inputReady=0 retains the wait. Immediately after the next posedge the captured word is committed to rd=I[7:6]. Later WWD of that destination displays the captured word unless changed in between. Continuous inputReady=1 is sufficient; no new ready transition is required. Reset interrupts and discards the pending transfer.
+
+Q37 (source@a7004e792682b8d1): HLT overrides ordinary advancement. E0 accepts opcode-15/function-29 HLT at address P; immediately afterward address=P, readM=0 and output_port=z. At E1 num_inst increments modulo 65536 once and the CPU halts with address=P, readM=0, output_port=z. All later edges retain these values regardless of ready instructions/data, so WWD at P+1 never executes. Only reset restarts execution. The pre-edge E1 row sees the prior count; the following row sees the incremented count.
+
+Scoped amendment notices
+
+Amendment Q31: Original clause: "- BGZ (OPCODE_BGZ = 2): Branch if greater than zero: if(rs > 0) PC += imm" Certain answer law (Q31, source@4d42f892d72fc5a2): "For known 16-bit rs, BGZ takes exactly when the bit pattern is nonzero (unsigned value greater than zero); BLZ never takes. With rs=16'hffff BGZ therefore fetches at (P+sign_extend(imm)) modulo 65536 and BLZ at P+1 modulo 65536. E0 accepts the branch at P; address remains P immediately after E0 and becomes the selected next-fetch address immediately after E1. The pre-edge row at E1 still sees P; the following row sees the new address." Scope: known 16-bit BGZ operands, including sign-bit-set patterns. Within this scope only, the corrected law supersedes the original clause: BGZ takes exactly when the unsigned 16-bit source pattern is nonzero. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q31: Original clause: "- BLZ (OPCODE_BLZ = 3): Branch if less than zero: if(rs < 0) PC += imm" Certain answer law (Q31, source@4d42f892d72fc5a2): "For known 16-bit rs, BGZ takes exactly when the bit pattern is nonzero (unsigned value greater than zero); BLZ never takes. With rs=16'hffff BGZ therefore fetches at (P+sign_extend(imm)) modulo 65536 and BLZ at P+1 modulo 65536. E0 accepts the branch at P; address remains P immediately after E0 and becomes the selected next-fetch address immediately after E1. The pre-edge row at E1 still sees P; the following row sees the new address." Scope: known 16-bit BLZ operands. Within this scope only, the corrected law supersedes the original clause: BLZ never takes. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q32: Original clause: "- ADI (OPCODE_ADI = 4): Add immediate: rt = rs + imm" Certain answer law (Q32, source@0d5742c8b2fc733b): "The low-six-bits-equal-28 exclusion is independent of opcode for immediate execution writes. ADI with I[5:0]=28 leaves rt unchanged; otherwise ADI writes (rs+sign_extend(I[7:0])) modulo 65536. Thus ADI +28, +92, -100 and -36 are suppressed. A subsequent WWD of rt displays its old value, assuming no intervening write. E0 accepts ADI, E1 executes it, and the destination remains unchanged immediately after E1 for these suppressed cases." Scope: ADI execution writes with instruction bits [5:0]=28. Within this scope only, the corrected law supersedes the original clause: The destination is unchanged in this scope; other ADI instructions retain their arithmetic result law. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q33: Original clause: "* If Jump: nextPC = {PC[15:12], instruction[11:0]}
+     * Else if Branch & bcond: nextPC = PC + sign-extended(immediate)
+     * Else: nextPC = PC + 1" Certain answer law (Q33, source@5979781aa84b41e9): "For opcode 15/function 25 (JPR) or 26 (JRL), the next fetch address is the pre-execution rs operand T. E0 accepts the instruction at P, address remains P after E0, and immediately after E1 address=T. The pre-edge E1 row sees P and the next row sees T. This applies even if JRL destination aliases rs: the jump uses the operand before the link write." Scope: next-address selection for opcode 15/function 25 or 26 only. Within this scope only, the corrected law supersedes the original clause: The next fetch address is the pre-execution rs operand, even when JRL writes the same register. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q34: Original clause: "For other instructions: write ALUResult to destination register" Certain answer law (Q34, source@40cb59456477f434): "JAL writes architectural R3; JRL writes rd=I[7:6]. Each receives (P+1) modulo 65536. E0 accepts the jump at P; the link value is committed immediately after E1. A later WWD of that link destination displays P+1 unless an intervening instruction changes it. For JAL only, I[5:0]=28 suppresses the link write, leaving R3 unchanged; JRL function 26 has no such exclusion." Scope: JAL and JRL link write-back only. Within this scope only, the corrected law supersedes the original clause: The link write uses (P+1) modulo 65536, to R3 for JAL and rd for JRL; JAL with low six bits 28 suppresses the write. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q34: Original clause: "- JAL (OPCODE_JAL = 10): Jump and link: R3 = PC + 1; PC = target" Certain answer law (Q34, source@40cb59456477f434): "JAL writes architectural R3; JRL writes rd=I[7:6]. Each receives (P+1) modulo 65536. E0 accepts the jump at P; the link value is committed immediately after E1. A later WWD of that link destination displays P+1 unless an intervening instruction changes it. For JAL only, I[5:0]=28 suppresses the link write, leaving R3 unchanged; JRL function 26 has no such exclusion." Scope: JAL link writes whose instruction low six bits equal 28. Within this scope only, the corrected law supersedes the original clause: R3 is retained, while the jump still selects the required target; all other JAL link writes retain P+1. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q36: Original clause: "For other instructions: write ALUResult to destination register" Certain answer law (Q36, source@f6c0f34a059842b7): "RWD uses a separate post-fetch ready transfer. E0 accepts the RWD instruction word; E1 starts input waiting and does not capture a data item even if inputReady=1. At the first subsequent posedge C with inputReady=1, the current full 16-bit data word is captured; inputReady=0 retains the wait. Immediately after the next posedge the captured word is committed to rd=I[7:6]. Later WWD of that destination displays the captured word unless changed in between. Continuous inputReady=1 is sufficient; no new ready transition is required. Reset interrupts and discards the pending transfer." Scope: RWD data-source selection and its separate post-fetch transfer only. Within this scope only, the corrected law supersedes the original clause: RWD captures the full data bus word at C after E1 and writes that buffered word to rd at the following rising edge. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q21: Original clause: "If RegWrite=1, write result to register file at next clock edge" Certain answer law (Q21, rule@input.data): "Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges. data is sampled at posedge clk only when reset_n=1 and inputReady=1 during instruction fetch or a pending LWD/RWD data wait. Fetch E0 accepts the full 16-bit instruction, whose subsequent effects depend on its fields and architectural operands. Execution E1 ignores the current data bus. LWD/RWD enter a separate data wait after E1; the first ready rising edge C accepts the full 16-bit bus word, and the next rising edge commits that word to the instruction destination and completes the transaction. Data changes while inputReady=0, during ordinary execution, after capture, or during halt do not replace accepted words. During SWD memory access the CPU drives the rt operand on data for the interval after E1 until E2; external simultaneous driving resolves electrically, and is not an input capture. Otherwise the CPU releases data to z. Reset interrupts any pending transaction and discards its accepted instruction/data; it clears architectural operands. Repeated transactions sample independently at their respective acceptance edges." Scope: architectural publication of a captured LWD or RWD data word, including LWD instructions with low six bits equal to 28. Within this scope only, the corrected law supersedes the original clause: The rising edge following ready data capture commits that word to the instruction destination, independently of current ready; the opcode-independent exclusion remains binding for immediate execution writes. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q22: Original clause: "* Wait for inputReady to become high" Certain answer law (Q22, rule@input.inputReady): "Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges. inputReady is a level tested on posedge clk with reset_n=1, not an edge-triggered handshake. In fetch, 0 retains the fetch request; 1 accepts data as an instruction at E0. Immediately after E0 execution begins; E1 executes regardless of inputReady. For LWD/RWD, E1 starts a separate data wait; 0 holds that wait, and 1 at C captures data. The next rising edge completes regardless of inputReady. SWD completes at E2 regardless of inputReady. During execution, store completion, data completion and halt inputReady has no effect. A continuously high level can accept both instruction and later LWD/RWD data, but cannot accept a new instruction on a completion edge; the following fetch edge can accept it. Reset has priority over ready, interrupts waits and completion, and restarts fetch after release." Scope: the SWD access interval only. Within this scope only, the corrected law supersedes the original clause: SWD ends at E2 irrespective of inputReady. LWD still waits for ready and retains its separately stated capture/completion timing. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q37: Original clause: "Each
+clock cycle, the CPU updates the program counter (PC) based on the current
+instruction (input from memory via the data bus), and executes arithmetic,
+logic, jump, or store operations." Certain answer law (Q37, source@a7004e792682b8d1): "HLT overrides ordinary advancement. E0 accepts opcode-15/function-29 HLT at address P; immediately afterward address=P, readM=0 and output_port=z. At E1 num_inst increments modulo 65536 once and the CPU halts with address=P, readM=0, output_port=z. All later edges retain these values regardless of ready instructions/data, so WWD at P+1 never executes. Only reset restarts execution. The pre-edge E1 row sees the prior count; the following row sees the incremented count." Scope: instruction execution after an accepted HLT, until reset. Within this scope only, the corrected law supersedes the original clause: HLT retires at E1 and stops later instruction execution until reset. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q37: Original clause: "* Else: nextPC = PC + 1" Certain answer law (Q37, source@a7004e792682b8d1): "HLT overrides ordinary advancement. E0 accepts opcode-15/function-29 HLT at address P; immediately afterward address=P, readM=0 and output_port=z. At E1 num_inst increments modulo 65536 once and the CPU halts with address=P, readM=0, output_port=z. All later edges retain these values regardless of ready instructions/data, so WWD at P+1 never executes. Only reset restarts execution. The pre-edge E1 row sees the prior count; the following row sees the incremented count." Scope: opcode-15/function-29 HLT only. Within this scope only, the corrected law supersedes the original clause: The instruction-fetch address remains P through halt; no ordinary increment occurs. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q24: Original clause: "Each
+clock cycle, the CPU updates the program counter (PC) based on the current
+instruction (input from memory via the data bus), and executes arithmetic,
+logic, jump, or store operations." Certain answer law (Q24, rule@input.clk): "clk advances transactions on posedge clk. Falling edges and a static clock do not advance execution; asynchronous reset and combinational port changes can still occur. Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges. With reset_n=1, fetch accepts ready data at E0; ordinary execution completes after E1, while LWD/SWD/RWD begin their separate access interval after E1. SWD completes after E2. LWD/RWD capture at the first ready rising edge C in their access interval and complete after the next rising edge. Fetch and LWD/RWD waiting edges with inputReady=0 retain work. HLT executes at E1 then ignores all later clock edges until reset. Reset_n=0 takes priority at each rising edge. Continuously asserted ready does not compress these physical edges or allow fetch on the edge completing prior work." Scope: the acceptance, advancement and completion events controlled by clk, including fetch and data waiting. Within this scope only, the corrected law supersedes the original clause: Only the rising-edge stage schedule in Q24 advances transactions; waiting edges do not update the fetch address or execute a fresh bus instruction, and no completion edge also fetches. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q28: Original clause: "If OpenPort=1 (WWD instruction), output ReadData1 to output_port" Certain answer law (Q28, rule@output.output_port): "Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges. At asynchronous reset assertion E0 (negedge reset_n), output_port becomes 16'bz after settling and remains z through reset and release until WWD acceptance. output_port drives the current architectural rs operand only in the execution interval of an accepted opcode-15/function-28 WWD; it is 16'bz at all other initialized times. If E0 accepts WWD, immediately after E0 the operand is visible; immediately after E1 output_port returns to z, independently of inputReady. Changes on data after E0 do not change this WWD selection. Consecutive WWD transactions each require a fetch acceptance edge and a following execution edge; no displayed value is retained between them. Before any reset or clock edge output_port is hardware-unknown; the first unreset rising edge establishes fetch and releases output_port to z." Scope: the observable display interval for accepted WWD, and all initialized non-display phases. Within this scope only, the corrected law supersedes the original clause: The accepted WWD displays its current rs operand only between E0 and E1; all other initialized phases release output_port. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q28: Original clause: "Use: assign output_port = OpenPort ? ReadData1 : 16'bz;" Certain answer law (Q28, rule@output.output_port): "Rows sample BEFORE the rising edge: values immediately after an edge are seen in the next pre-edge row, unless reset changes between edges. At asynchronous reset assertion E0 (negedge reset_n), output_port becomes 16'bz after settling and remains z through reset and release until WWD acceptance. output_port drives the current architectural rs operand only in the execution interval of an accepted opcode-15/function-28 WWD; it is 16'bz at all other initialized times. If E0 accepts WWD, immediately after E0 the operand is visible; immediately after E1 output_port returns to z, independently of inputReady. Changes on data after E0 do not change this WWD selection. Consecutive WWD transactions each require a fetch acceptance edge and a following execution edge; no displayed value is retained between them. Before any reset or clock edge output_port is hardware-unknown; the first unreset rising edge establishes fetch and releases output_port to z." Scope: top-level display qualification by execution phase, reset and accepted instruction only. Within this scope only, the corrected law supersedes the original clause: The display expression is qualified by the accepted WWD execution interval, with high impedance during reset and every other initialized phase. The supplied Control OpenPort decoding is unchanged. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q32: Original clause: "- ORI (OPCODE_ORI = 5): Bitwise OR immediate: rt = rs | imm" Certain answer law (Q32, source@0d5742c8b2fc733b): "The low-six-bits-equal-28 exclusion is independent of opcode for immediate execution writes. ADI with I[5:0]=28 leaves rt unchanged; otherwise ADI writes (rs+sign_extend(I[7:0])) modulo 65536. Thus ADI +28, +92, -100 and -36 are suppressed. A subsequent WWD of rt displays its old value, assuming no intervening write. E0 accepts ADI, E1 executes it, and the destination remains unchanged immediately after E1 for these suppressed cases." Scope: immediate execution writes with instruction bits [5:0]=28, under the opcode-independent exclusion qualification frozen in Q32. Within this scope only, the corrected law supersedes the original clause: The destination is unchanged in this scope; the stated arithmetic or immediate-load result remains required for all other encodings. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+Amendment Q32: Original clause: "- LHI (OPCODE_LHI = 6): Load immediate to high 8 bits: rt = {imm, 8'b0}" Certain answer law (Q32, source@0d5742c8b2fc733b): "The low-six-bits-equal-28 exclusion is independent of opcode for immediate execution writes. ADI with I[5:0]=28 leaves rt unchanged; otherwise ADI writes (rs+sign_extend(I[7:0])) modulo 65536. Thus ADI +28, +92, -100 and -36 are suppressed. A subsequent WWD of rt displays its old value, assuming no intervening write. E0 accepts ADI, E1 executes it, and the destination remains unchanged immediately after E1 for these suppressed cases." Scope: immediate execution writes with instruction bits [5:0]=28, under the opcode-independent exclusion qualification frozen in Q32. Within this scope only, the corrected law supersedes the original clause: The destination is unchanged in this scope; the stated arithmetic or immediate-load result remains required for all other encodings. All unaffected requirements and the supplied submodule definitions remain unchanged.
+
+6. Worked trace
+The following trace is normative for the concrete 16-bit active-edge scenario and observation/setup scope described above. It does not replace the full asynchronous RTL obligations or establish unstated hardware power-up values.
+### stimulus 0
+| cycle | data | inputReady | reset_n | readM | address | num_inst | output_port |
+|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 0 | 1 | 0 | 16'x | 16'x | 16'x |
+| 1 | 16'hffff | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+
+### stimulus 1
+| cycle | data | inputReady | reset_n | readM | address | num_inst | output_port |
+|---|---|---|---|---|---|---|---|
+| 0 | 16'h1 | 1 | 0 | 0 | 16'h0 | 16'h0 | 16'z |
+| 1 | 16'h8000 | 0 | 0 | 0 | 16'h0 | 16'h0 | 16'z |
+| 2 | 16'h6080 | 1 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 3 | 16'hf01c | 1 | 1 | 0 | 16'h0 | 16'h0 | 16'z |
+| 4 | 16'hf01c | 0 | 1 | 1 | 16'h1 | 16'h1 | 16'z |
+
+### stimulus 2
+| cycle | data | inputReady | reset_n | readM | address | num_inst | output_port |
+|---|---|---|---|---|---|---|---|
+| 0 | 16'h155 | 1 | 1 | 0 | 16'x | 16'x | 16'x |
+| 1 | 16'h1155 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 2 | 16'h2155 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 3 | 16'h3155 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 4 | 16'h4155 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 5 | 16'h5155 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 6 | 16'h6155 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 7 | 16'h7155 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 8 | 16'h8155 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 9 | 16'h9155 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 10 | 16'ha155 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 11 | 16'hb155 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 12 | 16'hc155 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 13 | 16'hd155 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 14 | 16'he155 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 15 | 16'hf155 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+
+### stimulus 3
+| cycle | data | inputReady | reset_n | readM | address | num_inst | output_port |
+|---|---|---|---|---|---|---|---|
+| 0 | 16'hf000 | 1 | 1 | 0 | 16'x | 16'x | 16'x |
+| 1 | 16'hf001 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 2 | 16'hf002 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 3 | 16'hf003 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 4 | 16'hf004 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 5 | 16'hf005 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 6 | 16'hf006 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 7 | 16'hf007 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 8 | 16'hf008 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 9 | 16'hf009 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 10 | 16'hf00a | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 11 | 16'hf00b | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 12 | 16'hf00c | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 13 | 16'hf00d | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 14 | 16'hf00e | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 15 | 16'hf00f | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 16 | 16'hf010 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 17 | 16'hf011 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 18 | 16'hf012 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 19 | 16'hf013 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 20 | 16'hf014 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 21 | 16'hf015 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 22 | 16'hf016 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 23 | 16'hf017 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 24 | 16'hf018 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 25 | 16'hf019 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 26 | 16'hf01a | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 27 | 16'hf01b | 1 | 1 | 1 | 16'z | 16'x | 16'z |
+| 28 | 16'hf01c | 1 | 1 | 0 | 16'z | 16'x | 16'z |
+| 29 | 16'hf01d | 1 | 1 | 0 | 16'z | 16'x | 16'z |
+| 30 | 16'hf01e | 1 | 1 | 0 | 16'z | 16'x | 16'z |
+| 31 | 16'hf01f | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 32 | 16'hf020 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 33 | 16'hf021 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 34 | 16'hf022 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 35 | 16'hf023 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 36 | 16'hf024 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 37 | 16'hf025 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 38 | 16'hf026 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 39 | 16'hf027 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 40 | 16'hf028 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 41 | 16'hf029 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 42 | 16'hf02a | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 43 | 16'hf02b | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 44 | 16'hf02c | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 45 | 16'hf02d | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 46 | 16'hf02e | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 47 | 16'hf02f | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 48 | 16'hf030 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 49 | 16'hf031 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 50 | 16'hf032 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 51 | 16'hf033 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 52 | 16'hf034 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 53 | 16'hf035 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 54 | 16'hf036 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 55 | 16'hf037 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 56 | 16'hf038 | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 57 | 16'hf039 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 58 | 16'hf03a | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 59 | 16'hf03b | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 60 | 16'hf03c | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 61 | 16'hf03d | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 62 | 16'hf03e | 1 | 1 | 0 | 16'x | 16'x | 16'z |
+| 63 | 16'hf03f | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+
+### stimulus 4
+| cycle | data | inputReady | reset_n | readM | address | num_inst | output_port |
+|---|---|---|---|---|---|---|---|
+| 0 | 16'hf000 | 0 | 1 | 0 | 16'x | 16'x | 16'x |
+| 1 | 16'hf001 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 2 | 16'hf002 | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 3 | 16'hf003 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 4 | 16'hf004 | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 5 | 16'hf005 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 6 | 16'hf006 | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 7 | 16'hf007 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 8 | 16'hf008 | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 9 | 16'hf009 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 10 | 16'hf00a | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 11 | 16'hf00b | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 12 | 16'hf00c | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 13 | 16'hf00d | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 14 | 16'hf00e | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 15 | 16'hf00f | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 16 | 16'hf010 | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 17 | 16'hf011 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 18 | 16'hf012 | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 19 | 16'hf013 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 20 | 16'hf014 | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 21 | 16'hf015 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 22 | 16'hf016 | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 23 | 16'hf017 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 24 | 16'hf018 | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 25 | 16'hf019 | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+| 26 | 16'hf01a | 0 | 1 | 0 | 16'x | 16'x | 16'z |
+| 27 | 16'hf01b | 1 | 1 | 1 | 16'z | 16'x | 16'z |
+| 28 | 16'hf01c | 0 | 1 | 0 | 16'z | 16'x | 16'z |
+| 29 | 16'hf01d | 1 | 1 | 0 | 16'z | 16'x | 16'z |
+| 30 | 16'hf01e | 0 | 1 | 0 | 16'z | 16'x | 16'z |
+| 31 | 16'hf01f | 1 | 1 | 1 | 16'x | 16'x | 16'z |
+
+### stimulus 5
+| cycle | data | inputReady | reset_n | readM | address | num_inst | output_port |
+|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 0 | 0 | 0 | 16'h0 | 16'h0 | 16'z |
+| 1 | 16'h1 | 1 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 2 | 16'hffff | 1 | 1 | 0 | 16'h0 | 16'h0 | 16'z |
+| 3 | 16'h8000 | 1 | 1 | 1 | 16'h1 | 16'h1 | 16'z |
+| 4 | 16'h5555 | 1 | 1 | 0 | 16'h1 | 16'h1 | 16'z |
+| 5 | 16'hf01c | 1 | 1 | 0 | 16'h0 | 16'h1 | 16'z |
+
+### stimulus 6
+| cycle | data | inputReady | reset_n | readM | address | num_inst | output_port |
+|---|---|---|---|---|---|---|---|
+| 0 | 16'h6012 | 1 | 0 | 0 | 16'h0 | 16'h0 | 16'z |
+| 1 | 16'h4081 | 1 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 2 | 16'hf01c | 1 | 1 | 0 | 16'h0 | 16'h0 | 16'z |
+| 3 | 16'h9000 | 1 | 1 | 1 | 16'h1 | 16'h1 | 16'z |
+| 4 | 16'h6012 | 1 | 1 | 0 | 16'h1 | 16'h1 | 16'z |
+| 5 | 16'h4081 | 1 | 1 | 1 | 16'h0 | 16'h2 | 16'z |
+| 6 | 16'hf01c | 1 | 1 | 0 | 16'h0 | 16'h2 | 16'z |
+| 7 | 16'h9000 | 1 | 1 | 1 | 16'h1 | 16'h3 | 16'z |
+| 8 | 16'h6012 | 1 | 1 | 0 | 16'h1 | 16'h3 | 16'z |
+| 9 | 16'h4081 | 1 | 1 | 1 | 16'h0 | 16'h4 | 16'z |
+| 10 | 16'hf01c | 1 | 1 | 0 | 16'h0 | 16'h4 | 16'z |
+| 11 | 16'h9000 | 1 | 1 | 1 | 16'h1 | 16'h5 | 16'z |
+| 12 | 16'h6012 | 1 | 1 | 0 | 16'h1 | 16'h5 | 16'z |
+| 13 | 16'h4081 | 1 | 1 | 1 | 16'h0 | 16'h6 | 16'z |
+| 14 | 16'hf01c | 1 | 1 | 0 | 16'h0 | 16'h6 | 16'z |
+| 15 | 16'h9000 | 1 | 1 | 1 | 16'h1 | 16'h7 | 16'z |
+
+### stimulus 7
+| cycle | data | inputReady | reset_n | readM | address | num_inst | output_port |
+|---|---|---|---|---|---|---|---|
+| 0 | 16'h7001 | 1 | 0 | 0 | 16'h0 | 16'h0 | 16'z |
+| 1 | 16'h8001 | 0 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 2 | 16'hf01c | 1 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 3 | 16'h7001 | 1 | 1 | 0 | 16'h0 | 16'h0 | 16'h0 |
+| 4 | 16'h8001 | 1 | 1 | 1 | 16'h1 | 16'h1 | 16'z |
+| 5 | 16'hf01c | 0 | 1 | 0 | 16'h1 | 16'h1 | 16'z |
+| 6 | 16'h7001 | 1 | 1 | 0 | 16'h1 | 16'h1 | 16'z |
+| 7 | 16'h8001 | 1 | 1 | 1 | 16'h2 | 16'h2 | 16'z |
+| 8 | 16'hf01c | 1 | 0 | 0 | 16'h0 | 16'h0 | 16'z |
+| 9 | 16'h7001 | 0 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 10 | 16'h8001 | 1 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 11 | 16'hf01c | 1 | 1 | 0 | 16'h0 | 16'h0 | 16'z |
+| 12 | 16'h7001 | 1 | 1 | 0 | 16'h1 | 16'h0 | 16'z |
+| 13 | 16'h8001 | 0 | 1 | 1 | 16'h1 | 16'h1 | 16'z |
+| 14 | 16'hf01c | 1 | 1 | 1 | 16'h1 | 16'h1 | 16'z |
+| 15 | 16'h7001 | 1 | 1 | 0 | 16'h1 | 16'h1 | 16'h0 |
+| 16 | 16'h8001 | 1 | 1 | 1 | 16'h2 | 16'h2 | 16'z |
+| 17 | 16'hf01c | 0 | 1 | 0 | 16'h2 | 16'h2 | 16'z |
+
+### stimulus 8
+| cycle | data | inputReady | reset_n | readM | address | num_inst | output_port |
+|---|---|---|---|---|---|---|---|
+| 0 | 16'hf01d | 0 | 0 | 0 | 16'h0 | 16'h0 | 16'z |
+| 1 | 16'hf01d | 1 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 2 | 16'hf01d | 0 | 1 | 0 | 16'h0 | 16'h0 | 16'z |
+| 3 | 16'hf01d | 1 | 1 | 0 | 16'h0 | 16'h1 | 16'z |
+| 4 | 16'hf01d | 0 | 1 | 0 | 16'h0 | 16'h1 | 16'z |
+| 5 | 16'hf01d | 1 | 1 | 0 | 16'h0 | 16'h1 | 16'z |
+| 6 | 16'hf01d | 0 | 1 | 0 | 16'h0 | 16'h1 | 16'z |
+| 7 | 16'hf01d | 1 | 1 | 0 | 16'h0 | 16'h1 | 16'z |
+
+### stimulus 9
+| cycle | data | inputReady | reset_n | readM | address | num_inst | output_port |
+|---|---|---|---|---|---|---|---|
+| 0 | 16'hf01e | 1 | 0 | 0 | 16'h0 | 16'h0 | 16'z |
+| 1 | 16'hf01e | 1 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 2 | 16'hf01f | 1 | 1 | 0 | 16'h0 | 16'h0 | 16'z |
+| 3 | 16'hf01b | 0 | 1 | 1 | 16'h1 | 16'h1 | 16'z |
+| 4 | 16'hf01b | 1 | 1 | 1 | 16'h1 | 16'h1 | 16'z |
+| 5 | 16'hf01c | 1 | 1 | 0 | 16'h1 | 16'h1 | 16'z |
+
+### stimulus 10
+| cycle | data | inputReady | reset_n | readM | address | num_inst | output_port |
+|---|---|---|---|---|---|---|---|
+| 0 | 16'ha000 | 1 | 0 | 0 | 16'h0 | 16'h0 | 16'z |
+| 1 | 16'h9000 | 1 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 2 | 16'ha000 | 1 | 1 | 0 | 16'h0 | 16'h0 | 16'z |
+| 3 | 16'h9000 | 1 | 1 | 1 | 16'h0 | 16'h1 | 16'z |
+| 4 | 16'ha000 | 1 | 1 | 0 | 16'h0 | 16'h1 | 16'z |
+| 5 | 16'h9000 | 1 | 1 | 1 | 16'h0 | 16'h2 | 16'z |
+| 6 | 16'ha000 | 1 | 1 | 0 | 16'h0 | 16'h2 | 16'z |
+| 7 | 16'h9000 | 1 | 1 | 1 | 16'h0 | 16'h3 | 16'z |
+| 8 | 16'ha000 | 1 | 1 | 0 | 16'h0 | 16'h3 | 16'z |
+| 9 | 16'h9000 | 1 | 1 | 1 | 16'h0 | 16'h4 | 16'z |
+| 10 | 16'ha000 | 1 | 1 | 0 | 16'h0 | 16'h4 | 16'z |
+| 11 | 16'h9000 | 1 | 1 | 1 | 16'h0 | 16'h5 | 16'z |
+
+### stimulus 11
+| cycle | data | inputReady | reset_n | readM | address | num_inst | output_port |
+|---|---|---|---|---|---|---|---|
+| 0 | 16'h0 | 1 | 0 | 0 | 16'h0 | 16'h0 | 16'z |
+| 1 | 16'hffff | 1 | 0 | 0 | 16'h0 | 16'h0 | 16'z |
+| 2 | 16'h0 | 0 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 3 | 16'hffff | 0 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 4 | 16'h8000 | 0 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 5 | 16'h1 | 1 | 1 | 1 | 16'h0 | 16'h0 | 16'z |
+| 6 | 16'hf01c | 1 | 1 | 0 | 16'h0 | 16'h0 | 16'z |

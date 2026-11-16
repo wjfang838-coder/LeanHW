@@ -1,0 +1,154 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- rg_wrt_en: input 1 bit.
+- rg_wrt_dest: input [ADDRESS_WIDTH-1:0].
+- rg_rd_addr1: input [ADDRESS_WIDTH-1:0].
+- rg_rd_addr2: input [ADDRESS_WIDTH-1:0].
+- rg_wrt_data: input [DATA_WIDTH-1:0].
+- rg_rd_data1: output [DATA_WIDTH-1:0].
+- rg_rd_data2: output [DATA_WIDTH-1:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  DATA_WIDTH: default = 32.
+-  ADDRESS_WIDTH: default = 5.
+-  NUM_REGS: default = 32.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is active high and synchronous. Before any rising clock edge that asserts reset has occurred, each stored word is uninitialised. Consequently, each read output is unknown when it selects a word that has not yet been initialized by an effective reset or write edge, even if reset is currently asserted before its rising edge. The implementation must leave such storage uninitialised, with no initial block or declaration initialiser that supplies a value.
+
+At every rising edge with rst=1, all addressable words become zero; reset overrides a simultaneous enabled write. Both read outputs then show zero for their selected addresses immediately after that edge. Repeated rising edges while reset remains asserted clear all words again. Assertion or release of rst between rising edges has no immediate effect. On the first rising edge after release, rst=0 permits the normal write-or-retain rule: an enabled write occurs, while otherwise every word retains zero or its later stored value.
+
+4. Timing
+
+rg_rd_data1 and rg_rd_data2 are purely combinational read outputs with zero-cycle latency from rg_rd_addr1 and rg_rd_addr2, respectively. Changing a read address can change its output without a clock edge.
+
+State changes occur only on rising transitions of clk. Each full-cycle trace row samples outputs before that row's active edge, and the next row observes the state produced by that edge. Thus a same-edge read observes the old word in the pre-edge row, and the reset or written value becomes visible immediately after the edge. A full-cycle row k denotes k * step_ns after settling, using the interface timing step, and does not imply a 10 ns physical clock. The circuit law itself is one state transition per rising clock edge; no physical clock period or propagation delay is specified.
+
+Neither output is a pulse or an autonomous periodic signal. In the absence of an effective reset, write, or read-address change, each output retains its observed value indefinitely.
+
+5. Behaviour
+
+The storage contains NUM_REGS words, each DATA_WIDTH bits wide, addressed by ADDRESS_WIDTH-bit addresses. Read and write data are unsigned bit vectors. Values captured on rg_wrt_data are exactly DATA_WIDTH bits; there is no arithmetic widening or signed interpretation.
+
+Only a rising transition of clk captures an action. At every rising edge, rst has first priority. If rst=1, every word becomes zero and no write occurs. Otherwise, if rg_wrt_en=1, the word selected by rg_wrt_dest is replaced by the rg_wrt_data value present at that edge. Otherwise all words retain their values. Low clock levels, high levels without a transition, and falling transitions have no capture effect. Consecutive rising edges independently apply this rule, using the inputs present at each edge.
+
+rst is synchronous and active high: repeated rising edges with rst=1 repeat the clearing operation, while assertion or release between rising edges does not itself alter storage. With rst=0, each rising edge performs the enabled-write or retain behavior described above.
+
+rg_wrt_en is considered only at a rising edge with rst=0. A value of 1 performs one write on that edge, and a value of 0 retains every word. Consecutive eligible edges perform separate writes.
+
+rg_wrt_dest selects the word written only at a rising edge with rst=0 and rg_wrt_en=1. It has no effect while reset is active or writing is disabled. Changes between eligible edges are not captured; repeated eligible edges may target the same or different addresses according to the value present at each edge.
+
+rg_wrt_data is captured only at a rising edge with rst=0 and rg_wrt_en=1. It has no effect while reset is active or writing is disabled. Changes between eligible edges are not captured, and consecutive eligible edges independently capture the value present at each edge.
+
+rg_rd_addr1 continuously selects the stored word shown by rg_rd_data1, and rg_rd_addr2 continuously selects the stored word shown by rg_rd_data2. Neither read address is captured by reset or write activity. Their selection remains active during reset assertion and release, writes, inactive cycles, and consecutive transactions.
+
+rg_rd_data1 continuously shows the word selected by rg_rd_addr1, and rg_rd_data2 continuously shows the word selected by rg_rd_addr2. An uninitialized selected word reads unknown. A pre-edge observation shows the old word even when that edge will reset or write it; the new zero or written value is visible immediately after the rising edge. Otherwise, each selected word retains its stored value until an effective reset or write changes it, while an address change immediately selects another word.
+
+When a read and an effective write select the same address at one rising edge, the pre-edge observation is the old stored value and the post-edge observation is the new written value. When reset and write enable are both asserted, reset wins for every address: the post-edge value is zero and remains zero until a later effective write to that address.
+
+All encodings are covered by the declared port widths: rst, rg_wrt_en, and clk are one-bit signals; addresses are ADDRESS_WIDTH-bit values; and write data is a DATA_WIDTH-bit value.
+
+6. Worked trace
+
+The following evaluated trace is normative. Each row follows the pre-transition sampling convention stated above.
+
+### stimulus 0
+| cycle | rst | rg_wrt_en | rg_wrt_dest | rg_rd_addr1 | rg_rd_addr2 | rg_wrt_data | rg_rd_data1 | rg_rd_data2 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b11111 | 32'h0 | 32'x | 32'x |
+| 1 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h1 | 32'x | 32'x |
+| 2 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b11111 | 32'hffffffff | 32'h0 | 32'h0 |
+| 3 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b11111 | 32'h0 | 32'h0 | 32'h0 |
+
+### stimulus 1
+| cycle | rst | rg_wrt_en | rg_wrt_dest | rg_rd_addr1 | rg_rd_addr2 | rg_wrt_data | rg_rd_data1 | rg_rd_data2 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h0 | 32'x | 32'x |
+| 1 | 0 | 1 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h1 | 32'h0 | 32'h0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h0 | 32'h1 | 32'h1 |
+| 3 | 0 | 1 | 5'b00000 | 5'b00000 | 5'b00000 | 32'hffffffff | 32'h1 | 32'h1 |
+| 4 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h0 | 32'hffffffff | 32'hffffffff |
+
+### stimulus 2
+| cycle | rst | rg_wrt_en | rg_wrt_dest | rg_rd_addr1 | rg_rd_addr2 | rg_wrt_data | rg_rd_data1 | rg_rd_data2 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h0 | 32'x | 32'x |
+| 1 | 0 | 1 | 5'b11111 | 5'b11111 | 5'b00000 | 32'h80000000 | 32'h0 | 32'h0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b11111 | 5'b11111 | 32'h0 | 32'h80000000 | 32'h80000000 |
+| 3 | 0 | 1 | 5'b11111 | 5'b00000 | 5'b11111 | 32'h12345678 | 32'h0 | 32'h80000000 |
+| 4 | 0 | 0 | 5'b00000 | 5'b11111 | 5'b11111 | 32'h0 | 32'h12345678 | 32'h12345678 |
+
+### stimulus 3
+| cycle | rst | rg_wrt_en | rg_wrt_dest | rg_rd_addr1 | rg_rd_addr2 | rg_wrt_data | rg_rd_data1 | rg_rd_data2 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h0 | 32'x | 32'x |
+| 1 | 0 | 1 | 5'b10000 | 5'b10000 | 5'b00000 | 32'h80000000 | 32'h0 | 32'h0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b10000 | 5'b00000 | 32'h0 | 32'h80000000 | 32'h0 |
+| 3 | 0 | 0 | 5'b10000 | 5'b10000 | 5'b00000 | 32'hffffffff | 32'h80000000 | 32'h0 |
+| 4 | 0 | 0 | 5'b00000 | 5'b10000 | 5'b00000 | 32'h0 | 32'h80000000 | 32'h0 |
+
+### stimulus 4
+| cycle | rst | rg_wrt_en | rg_wrt_dest | rg_rd_addr1 | rg_rd_addr2 | rg_wrt_data | rg_rd_data1 | rg_rd_data2 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h0 | 32'x | 32'x |
+| 1 | 0 | 1 | 5'b00111 | 5'b00111 | 5'b01000 | 32'h12345678 | 32'h0 | 32'h0 |
+| 2 | 0 | 1 | 5'b01000 | 5'b00111 | 5'b01000 | 32'h1 | 32'h12345678 | 32'h0 |
+| 3 | 0 | 0 | 5'b00000 | 5'b00111 | 5'b01000 | 32'h0 | 32'h12345678 | 32'h1 |
+
+### stimulus 5
+| cycle | rst | rg_wrt_en | rg_wrt_dest | rg_rd_addr1 | rg_rd_addr2 | rg_wrt_data | rg_rd_data1 | rg_rd_data2 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h0 | 32'x | 32'x |
+| 1 | 1 | 1 | 5'b00101 | 5'b00101 | 5'b00000 | 32'h12345678 | 32'h0 | 32'h0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b00101 | 5'b00110 | 32'h0 | 32'h0 | 32'h0 |
+| 3 | 0 | 1 | 5'b00101 | 5'b00101 | 5'b00000 | 32'h1 | 32'h0 | 32'h0 |
+| 4 | 0 | 0 | 5'b00000 | 5'b00101 | 5'b00000 | 32'h0 | 32'h1 | 32'h0 |
+
+### stimulus 6
+| cycle | rst | rg_wrt_en | rg_wrt_dest | rg_rd_addr1 | rg_rd_addr2 | rg_wrt_data | rg_rd_data1 | rg_rd_data2 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h0 | 32'x | 32'x |
+| 1 | 0 | 1 | 5'b00010 | 5'b00000 | 5'b00000 | 32'h0 | 32'h0 | 32'h0 |
+| 2 | 0 | 1 | 5'b00010 | 5'b00010 | 5'b00000 | 32'h1 | 32'h0 | 32'h0 |
+| 3 | 0 | 0 | 5'b00000 | 5'b00010 | 5'b00000 | 32'h0 | 32'h1 | 32'h0 |
+| 4 | 0 | 1 | 5'b00010 | 5'b00000 | 5'b00000 | 32'h80000000 | 32'h0 | 32'h0 |
+| 5 | 0 | 0 | 5'b00000 | 5'b00010 | 5'b00000 | 32'h0 | 32'h80000000 | 32'h0 |
+
+### stimulus 7
+| cycle | rst | rg_wrt_en | rg_wrt_dest | rg_rd_addr1 | rg_rd_addr2 | rg_wrt_data | rg_rd_data1 | rg_rd_data2 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h0 | 32'x | 32'x |
+| 1 | 0 | 1 | 5'b00011 | 5'b00000 | 5'b00000 | 32'h12345678 | 32'h0 | 32'h0 |
+| 2 | 0 | 0 | 5'b00011 | 5'b00000 | 5'b00000 | 32'hffffffff | 32'h0 | 32'h0 |
+| 3 | 0 | 0 | 5'b00000 | 5'b00011 | 5'b00100 | 32'h0 | 32'h12345678 | 32'h0 |
+| 4 | 0 | 1 | 5'b00100 | 5'b00000 | 5'b00000 | 32'hffffffff | 32'h0 | 32'h0 |
+| 5 | 0 | 0 | 5'b00000 | 5'b00011 | 5'b00100 | 32'h0 | 32'h12345678 | 32'hffffffff |
+
+### stimulus 8
+| cycle | rst | rg_wrt_en | rg_wrt_dest | rg_rd_addr1 | rg_rd_addr2 | rg_wrt_data | rg_rd_data1 | rg_rd_data2 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h0 | 32'x | 32'x |
+| 1 | 0 | 1 | 5'b00000 | 5'b00000 | 5'b00001 | 32'h0 | 32'h0 | 32'h0 |
+| 2 | 0 | 0 | 5'b00000 | 5'b00000 | 5'b00001 | 32'h0 | 32'h0 | 32'h0 |
+| 3 | 0 | 0 | 5'b00001 | 5'b00001 | 5'b00000 | 32'h12345678 | 32'h0 | 32'h0 |
+| 4 | 0 | 0 | 5'b00000 | 5'b00001 | 5'b00000 | 32'h0 | 32'h0 | 32'h0 |
+
+### stimulus 9
+| cycle | rst | rg_wrt_en | rg_wrt_dest | rg_rd_addr1 | rg_rd_addr2 | rg_wrt_data | rg_rd_data1 | rg_rd_data2 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 5'b01001 | 5'b01001 | 5'b00000 | 32'h1 | 32'x | 32'x |
+| 1 | 0 | 0 | 5'b00000 | 5'b01001 | 5'b00000 | 32'h0 | 32'h1 | 32'x |
+| 2 | 1 | 0 | 5'b00000 | 5'b00000 | 5'b00000 | 32'h80000000 | 32'x | 32'x |
+| 3 | 0 | 1 | 5'b01001 | 5'b01001 | 5'b00000 | 32'h12345678 | 32'h0 | 32'h0 |
+| 4 | 0 | 0 | 5'b00000 | 5'b01001 | 5'b00000 | 32'h0 | 32'h12345678 | 32'h0 |

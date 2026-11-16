@@ -1,0 +1,95 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- d0: input [1:0].
+- d1: input [1:0].
+- d2: input [1:0].
+- d3: input [1:0].
+- sel: input [1:0].
+- mux_out: output [1:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+2. Reset.
+
+There is no reset input and no stored state. At power-up, including before any edge has occurred, mux_out is not an uninitialised value: it is the combinational value selected by the current inputs. Since there is no reset or state transition, reset assertion, reset release, and a first reset edge do not apply.
+
+3. Timing.
+
+mux_out is continuously combinational, with zero clock-cycle latency from d0, d1, d2, d3, and sel. There is no clock, capture edge, observation edge, pulse, periodic signal, circuit period, or state-dependent delay law. An input change, including simultaneous changes of sel and one or more data inputs, is reflected after combinational settling according to the newly current inputs; there is no transaction, cancellation, interruption, retention, completion, or restart behavior.
+
+The evaluated trace uses the interface's full-cycle observation convention only: row k denotes k times the interface step after settling, sampled at the interface sample offset. This trace-row spacing is an observation convention and does not impose a clock period or propagation-delay law on the combinational circuit. The interface provides no numerical step_ns or sample_offset_ns value.
+
+4. Behaviour.
+
+All inputs and mux_out are unsigned 2-bit values. For every possible 2-bit sel encoding, mux_out obeys the following complete law:
+
+- When sel is 2'b00, mux_out equals the current 2-bit value of d0; d1, d2, and d3 have no effect.
+- When sel is 2'b01, mux_out equals the current 2-bit value of d1; d0, d2, and d3 have no effect.
+- When sel is 2'b10, mux_out equals the current 2-bit value of d2; d0, d1, and d3 have no effect.
+- When sel is 2'b11, mux_out equals the current 2-bit value of d3; d0, d1, and d2 have no effect.
+
+d0 continuously determines mux_out exactly when sel is 2'b00, and mux_out then equals the current 2-bit d0 value.
+d1 continuously determines mux_out exactly when sel is 2'b01, and mux_out then equals the current 2-bit d1 value.
+d2 continuously determines mux_out exactly when sel is 2'b10, and mux_out then equals the current 2-bit d2 value.
+d3 continuously determines mux_out exactly when sel is 2'b11, and mux_out then equals the current 2-bit d3 value.
+sel continuously selects the source: 2'b00 selects d0, 2'b01 selects d1, 2'b10 selects d2, and 2'b11 selects d3.
+mux_out is continuously combinational and equals d0, d1, d2, or d3 for sel 2'b00, 2'b01, 2'b10, or 2'b11 respectively.
+
+5. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | d0 | d1 | d2 | d3 | sel | mux_out |
+|---|---|---|---|---|---|---|
+| 0 | 2'b11 | 2'b10 | 2'b01 | 2'b00 | 2'b00 | 2'b11 |
+
+### stimulus 1
+| cycle | d0 | d1 | d2 | d3 | sel | mux_out |
+|---|---|---|---|---|---|---|
+| 0 | 2'b11 | 2'b10 | 2'b01 | 2'b00 | 2'b01 | 2'b10 |
+
+### stimulus 2
+| cycle | d0 | d1 | d2 | d3 | sel | mux_out |
+|---|---|---|---|---|---|---|
+| 0 | 2'b11 | 2'b10 | 2'b01 | 2'b00 | 2'b10 | 2'b01 |
+
+### stimulus 3
+| cycle | d0 | d1 | d2 | d3 | sel | mux_out |
+|---|---|---|---|---|---|---|
+| 0 | 2'b11 | 2'b10 | 2'b01 | 2'b00 | 2'b11 | 2'b00 |
+
+### stimulus 4
+| cycle | d0 | d1 | d2 | d3 | sel | mux_out |
+|---|---|---|---|---|---|---|
+| 0 | 2'b00 | 2'b01 | 2'b10 | 2'b11 | 2'b00 | 2'b00 |
+| 1 | 2'b01 | 2'b11 | 2'b00 | 2'b10 | 2'b01 | 2'b11 |
+| 2 | 2'b10 | 2'b00 | 2'b11 | 2'b01 | 2'b10 | 2'b11 |
+| 3 | 2'b11 | 2'b10 | 2'b01 | 2'b00 | 2'b11 | 2'b00 |
+
+### stimulus 5
+| cycle | d0 | d1 | d2 | d3 | sel | mux_out |
+|---|---|---|---|---|---|---|
+| 0 | 2'b01 | 2'b00 | 2'b00 | 2'b00 | 2'b00 | 2'b01 |
+| 1 | 2'b00 | 2'b01 | 2'b00 | 2'b00 | 2'b01 | 2'b01 |
+
+### stimulus 6
+| cycle | d0 | d1 | d2 | d3 | sel | mux_out |
+|---|---|---|---|---|---|---|
+| 0 | 2'b00 | 2'b00 | 2'b10 | 2'b00 | 2'b10 | 2'b10 |
+| 1 | 2'b00 | 2'b00 | 2'b00 | 2'b11 | 2'b11 | 2'b11 |
+
+### stimulus 7
+| cycle | d0 | d1 | d2 | d3 | sel | mux_out |
+|---|---|---|---|---|---|---|
+| 0 | 2'b00 | 2'b11 | 2'b01 | 2'b10 | 2'b01 | 2'b11 |
+| 1 | 2'b11 | 2'b10 | 2'b01 | 2'b00 | 2'b01 | 2'b10 |

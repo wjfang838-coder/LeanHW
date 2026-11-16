@@ -1,0 +1,136 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design and implement an 8x3 priority encoder using Verilog. The priority encoder should take 8-bit input signal and output a 3-bit binary code representing the position of the highest-priority active input. The encoder should follow the priority order from the highest bit (bit 7) to the lowest bit (bit 0).
+
+**Specifications for module `priority_encoder_8x3 ` :**
+
+- Inputs:
+    - [7:0] in: An 8-bit input vector. The priority of the inputs decreases from bit 7 to bit 0.
+
+- Output:
+    - [2:0] out: A 3-bit output vector that represents the binary code corresponding to the highest-priority active input.
+
+**Priority Rules:**
+
+- The priority encoder should output the binary index of the highest active input line.
+    - For example, if in[7] is high, the output should be 3'b111 regardless of the state of the lower-priority bits.
+    - If none of the input lines are active (in is all zeros), the output should default to 3'b000.
+
+**Additional Details:**
+
+- Ensure that the output is updated immediately whenever there is a change in the input.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design and implement an 8x3 priority encoder using Verilog. The priority encoder should take 8-bit input signal and output a 3-bit binary code representing the position of the highest-priority active input. The encoder should follow the priority order from the highest bit (bit 7) to the lowest bit (bit 0).
+
+Named module interface binding
+
+Module: priority_encoder_8x3.
+Connect ports by name. The enumeration below does not establish positional order.
+- in: input; 8 bits in the concrete formal instance.
+- out: output; 3 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The top-level module name is priority_encoder_8x3. It has no public parameters.
+
+The ports are:
+
+input [7:0] in
+output [2:0] out
+
+The spellings, directions, and widths above are normative. Declaration order and positional instantiation are unverified; the module must be instantiated using named port connections.
+
+3. Reset.
+
+There is no reset input, reset behavior, or stored state. Consequently, reset polarity, assertion, release, and reset edges do not apply. At power-up, including before any event has occurred, out is already the combinational result of the current in value after propagation settles. No initialization sequence is required.
+
+4. Timing.
+
+out is combinational and continuously determined by the current in value. It updates immediately after each change of in, subject only to ordinary combinational settling; its latency is zero clock cycles. There is no clock, capture edge, registered latency, hold or clear interval, completion pulse, restart phase, or periodic signal.
+
+For the evaluated full-cycle trace, row k is an observation at k * step_ns after settling, with the sample taken at timing.sample_offset_ns as configured by the interface/driver; rows do not imply a clock or a 10 ns circuit period. This observation convention does not alter the circuit law that out is combinational.
+
+5. Behaviour.
+
+For every 8-bit value of in, out is the zero-based index of the highest-index asserted bit (bit 7 has highest priority), with out equal to 3'b000 when in is all zero; lower asserted bits have no effect while a higher bit is asserted, simultaneous assertions select the highest index, and because there are no modes or transaction controls each change, interruption, or repetition of in is governed by this same relation after the combinational result settles.
+
+Equivalently, the complete case law, in descending priority order, is:
+
+If in[7] is 1, out is 3'b111.
+Otherwise, if in[6] is 1, out is 3'b110.
+Otherwise, if in[5] is 1, out is 3'b101.
+Otherwise, if in[4] is 1, out is 3'b100.
+Otherwise, if in[3] is 1, out is 3'b011.
+Otherwise, if in[2] is 1, out is 3'b010.
+Otherwise, if in[1] is 1, out is 3'b001.
+Otherwise, out is 3'b000; this covers both in[0] alone being 1 and all bits being 0.
+
+out is a continuously determined combinational result of the current in value—3'b000 for in equal to zero and otherwise the index of its highest asserted bit—so there is no reset assertion or release, capture edge, pre-edge row, stored hold/clear interval, completion, or restart phase, and the first and every repeated result are observable after the corresponding input value settles rather than after a clock edge.
+
+6. Worked trace.
+
+The evaluated trace below is normative for the listed stimuli and uses the observation convention stated in the Timing section.
+
+### stimulus 0
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00000000 | 3'b000 |
+| 1 | 8'b00000001 | 3'b000 |
+| 2 | 8'b11111111 | 3'b111 |
+
+### stimulus 1
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b10000000 | 3'b111 |
+| 1 | 8'b10000001 | 3'b111 |
+| 2 | 8'b01111111 | 3'b110 |
+
+### stimulus 2
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00000010 | 3'b001 |
+| 1 | 8'b00000011 | 3'b001 |
+| 2 | 8'b10000010 | 3'b111 |
+
+### stimulus 3
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00000100 | 3'b010 |
+| 1 | 8'b00000101 | 3'b010 |
+| 2 | 8'b01000100 | 3'b110 |
+
+### stimulus 4
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00001000 | 3'b011 |
+| 1 | 8'b00001001 | 3'b011 |
+| 2 | 8'b10001000 | 3'b111 |
+
+### stimulus 5
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00010000 | 3'b100 |
+| 1 | 8'b00010001 | 3'b100 |
+| 2 | 8'b10010000 | 3'b111 |
+
+### stimulus 6
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00100000 | 3'b101 |
+| 1 | 8'b00100001 | 3'b101 |
+| 2 | 8'b10100000 | 3'b111 |
+
+### stimulus 7
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b01000000 | 3'b110 |
+| 1 | 8'b01000001 | 3'b110 |
+| 2 | 8'b11000000 | 3'b111 |

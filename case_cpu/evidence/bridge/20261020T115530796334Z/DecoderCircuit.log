@@ -1,0 +1,8 @@
+'CaseCPU.Bridge.circuit_w140' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ circuit_w140._native.bv_decide.ax_1_58]
+'CaseCPU.Bridge.circuit_w137' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ circuit_w137._native.bv_decide.ax_1_58]

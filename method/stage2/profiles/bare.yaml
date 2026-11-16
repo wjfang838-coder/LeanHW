@@ -1,0 +1,38 @@
+# The control arm.  Same framework, same gates, none of the accumulated help.
+#
+# It exists so that "the method arm scored X" is a sentence with a comparison in it.  Without a
+# control, X is a number about a benchmark and a model, and every reader is free to attribute it
+# to whichever part of the apparatus they already believed in.
+#
+# What is withheld is exactly the accumulated material: the proof library grown from earlier
+# benchmarks, the 61 distilled skill notes, the capability manual, the hard rules.  What is NOT
+# withheld is the framework, the DSL reference, the workspace tooling and every gate — those are
+# the apparatus, not the help, and an arm that lacked them would be measuring whether Lean
+# compiles rather than whether the accumulated material is worth anything.
+#
+# `authoring: single` here and `two-author` in the method arm means this control does not isolate
+# the assets alone.  That is deliberate and it is a limitation, stated rather than hidden: this is
+# the "no help, one author, straight at it" baseline.  An arm that varies only the assets is a
+# different file, and the day someone needs it they should write it rather than reinterpret this
+# one.
+name: bare
+description: >
+  Control.  One author writes the specification, the implementation and the proofs in a single
+  file, with the framework and the language reference and nothing accumulated — no proof library,
+  no skill notes, no capability manual, no authoring rules.  Same gates as the method arm, so a
+  green row means the same thing in both.
+
+authoring: single
+assets: []
+rules:  []
+
+max_spec_versions: 0        # there is one author; there is nobody to challenge
+
+gates:
+  builds:        true
+  proves_impl:   true
+  zero_sorry:    true
+  axiom_clean:   true
+  undriven_nets: true
+  asset_leak:    true
+  # No simdiff: one author, nothing to diff.  Its absence is a property of the arm.

@@ -1,0 +1,6 @@
+'CaseCPUMem.NativeRAM.mem_read_binding' depends on axioms: [propext, Quot.sound]
+'CaseCPUMem.NativeRAM.actual_ram_transition' depends on axioms: [propext, Classical.choice, Quot.sound]
+'CaseCPUMem.NativeRAM.actual_reset_preserves_ram' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ MemCPUShallow.topology._native.native_decide.ax_1_1]

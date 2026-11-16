@@ -1,0 +1,83 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- x3: input 1 bit.
+- x2: input 1 bit.
+- x1: input 1 bit.
+- f: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. The module has no state elements. At power-up, including before any edge has occurred, f is already the defined combinational value selected from the current inputs: f = x2 when x3 is 0, and f = x1 when x3 is 1. Because there is no reset or stored state, a first step and every later step leave this rule unchanged.
+
+4. Timing.
+
+The output f is combinational, with zero clock-cycle latency from x3, x2, and x1. It has no capture edge, registered delay, pulse width, period, or duty cycle. Changes to any input are reflected by evaluating the selector law on the current input values.
+
+For the normative worked trace, row k is an observation after settling at the kth full-cycle sampling step. A row samples the current combinational output before the abstract step transition. The object has no state transition, and neither a physical circuit period nor a propagation-delay law is specified; the trace's observation cadence does not impose either one.
+
+5. Behaviour.
+
+For every possible combination of the three one-bit inputs, f = x3 ? x1 : x2. Equivalently, when x3 is 0, f equals x2; when x3 is 1, f equals x1.
+
+The input x3 selects the controlling data input: changing x3 changes f exactly when x1 and x2 differ, and simultaneous input changes are resolved from the current values with no history.
+
+The input x2 directly determines f when x3 is 0 and has no effect when x3 is 1, when f equals x1.
+
+The input x1 directly determines f when x3 is 1 and has no effect when x3 is 0, when f equals x2.
+
+The output f is continuously the combinational value x3 ? x1 : x2, with no reset behavior, capture or observation edge, initialization, latency, hold or clear interval, completion, restart, mode, transaction, interruption, or retained result.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | x3 | x2 | x1 | f |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | x3 | x2 | x1 | f |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | x3 | x2 | x1 | f |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 1 |
+
+### stimulus 3
+| cycle | x3 | x2 | x1 | f |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 |
+
+### stimulus 4
+| cycle | x3 | x2 | x1 | f |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | x3 | x2 | x1 | f |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 1 |
+
+### stimulus 6
+| cycle | x3 | x2 | x1 | f |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | x3 | x2 | x1 | f |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 |

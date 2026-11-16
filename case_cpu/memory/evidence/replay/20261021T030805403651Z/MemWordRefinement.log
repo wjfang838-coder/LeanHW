@@ -1,0 +1,12 @@
+'CaseCPUMem.Raw.word_cycle_refinement' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CaseCPU.Bridge.read_resetRF._native.bv_decide.ax_1_5,
+ isolated_commit._native.bv_decide.ax_1_6,
+ unblocked_nonbarriers._native.bv_decide.ax_1_5]
+'CaseCPUMem.Raw.word_isa_refinement' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ CaseCPU.Bridge.read_resetRF._native.bv_decide.ax_1_5,
+ isolated_commit._native.bv_decide.ax_1_6,
+ unblocked_nonbarriers._native.bv_decide.ax_1_5]

@@ -1,0 +1,127 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- w: input 1 bit.
+- z: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  A: default = 0.
+-  B: default = 1.
+-  C: default = 2.
+-  D: default = 3.
+-  E: default = 4.
+-  F: default = 5.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+2. Reset.
+
+Reset is active high and synchronous to the rising edge of `clk`. Before any rising edge has sampled `reset=1`, the history phase is uninitialized and `z` is unknown; the implementation must leave that state and `z` uninitialized, with no initial block or declaration initializer that gives them a definite value. A rising edge with `reset=0` does not initialize an uninitialized history.
+
+Every rising edge that samples `reset=1` establishes phase 0, regardless of `w` or prior history. Immediately after that edge, `z` is 0. Repeated rising edges while reset remains asserted keep phase 0 and `z=0`. Changes of reset between rising edges have no immediate effect. On the first rising edge after reset is released, the ordinary transition for phase 0 and the sampled value of `w` occurs; there is no extra reset-release cycle.
+
+3. Timing.
+
+The only active transition is a rising edge of `clk`. The output `z` is registered state-derived behavior: it changes only as a consequence of a rising-edge capture and otherwise holds. Its latency from the sampled `w` value is one trace row: a pre-edge row shows the result of the preceding edge, and the result of the current capture is visible in the following row. There is no completion pulse, transaction interval, or periodic output.
+
+The evaluated trace uses full-cycle observation. Each row samples the settled output before that row's active edge, and the step then computes the state for the next row. This observation convention is separate from the circuit law that state changes only on rising edges; the interface specifies no numerical `step_ns` or `sample_offset_ns`, so this document assigns no implicit 10 ns interval or other physical clock period.
+
+4. Behaviour.
+
+Call the six history phases 0 through 5, corresponding to the public parameter values A through F in the interface contract. On every rising edge with `reset=0`, the sampled one-bit `w` selects the next phase by this complete law: from phase 0, `w=0` goes to 0 and `w=1` goes to 1; from phase 1, `w=0` goes to 3 and `w=1` goes to 2; from phase 2, `w=0` goes to 3 and `w=1` goes to 4; from phase 3, `w=0` goes to 0 and `w=1` goes to 5; from phase 4, `w=0` goes to 3 and `w=1` stays at 4; and from phase 5, `w=0` goes to 3 and `w=1` goes to 2.
+
+Only a rising edge of `clk` advances this recurrence. Steady clock levels and falling edges have no effect. Consecutive samples are processed on consecutive rising edges, with no busy state, cancellation, restart, completion, or interruption restriction. While `reset=1` is sampled on a rising edge, `w` is ignored. Reset changes and `w` changes between rising edges have no immediate effect.
+
+The output law is: `z` is 1 exactly in phases 4 and 5, and is 0 in phases 0, 1, 2, and 3. Before initialization it is unknown. Reset release alone does not change it, and after initialization its value is retained between rising edges.
+
+5. Worked trace.
+
+The following evaluated trace is normative. Each row observes outputs before applying that row's full-cycle transition.
+
+### stimulus 0
+| cycle | reset | w | z |
+|---|---|---|---|
+| 0 | 0 | 0 | x |
+| 1 | 1 | 1 | x |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+
+### stimulus 1
+| cycle | reset | w | z |
+|---|---|---|---|
+| 0 | 0 | 1 | x |
+| 1 | 1 | 0 | x |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | reset | w | z |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 |
+
+### stimulus 3
+| cycle | reset | w | z |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 1 |
+| 5 | 0 | 0 | 1 |
+| 6 | 0 | 0 | 0 |
+
+### stimulus 4
+| cycle | reset | w | z |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 1 |
+| 5 | 0 | 1 | 0 |
+| 6 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | reset | w | z |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 1 | 0 |
+
+### stimulus 6
+| cycle | reset | w | z |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 0 | 1 | 1 |
+| 6 | 0 | 0 | 0 |
+| 7 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | reset | w | z |
+|---|---|---|---|
+| 0 | 1 | 1 | x |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 0 |
+| 5 | 0 | 0 | 0 |

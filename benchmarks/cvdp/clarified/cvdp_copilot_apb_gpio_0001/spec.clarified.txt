@@ -1,0 +1,189 @@
+Module and integration contract
+
+Module: cvdp_copilot_apb_gpio.
+Ports below are in exact declaration order:
+- pclk: input 1 bit.
+- preset_n: input 1 bit.
+- psel: input 1 bit.
+- paddr: input [7:2].
+- penable: input 1 bit.
+- pwrite: input 1 bit.
+- pwdata: input [31:0].
+- gpio_in: input [GPIO_WIDTH-1:0].
+- prdata: output [31:0].
+- pready: output 1 bit.
+- pslverr: output 1 bit.
+- gpio_out: output [GPIO_WIDTH-1:0].
+- gpio_enable: output [GPIO_WIDTH-1:0].
+- gpio_int: output [GPIO_WIDTH-1:0].
+- comb_int: output 1 bit.
+
+Public parameters:
+-  GPIO_WIDTH: default = 8.
+- Verification-visible parameter `GPIO_WIDTH`: GPIO_WIDTH is visible with default value 8 and sets the symbolic [GPIO_WIDTH-1:0] ranges.
+- Verification-visible signal `comb_int`: This is the one-bit output named comb_int.
+- Verification-visible signal `gpio_enable`: This is the output named gpio_enable with range [GPIO_WIDTH-1:0].
+- Verification-visible signal `gpio_in`: This is the input named gpio_in with range [GPIO_WIDTH-1:0].
+- Verification-visible signal `gpio_out`: This is the output named gpio_out with range [GPIO_WIDTH-1:0].
+- Verification-visible signal `paddr`: This is the input named paddr with range [7:2].
+- Verification-visible signal `pclk`: This is the one-bit input named pclk.
+- Verification-visible signal `penable`: This is the one-bit input named penable.
+- Verification-visible signal `prdata`: This is the 32-bit output named prdata.
+- Verification-visible signal `preset_n`: This is the one-bit input named preset_n.
+- Verification-visible signal `psel`: This is the one-bit input named psel.
+- Verification-visible signal `pwdata`: This is the 32-bit input named pwdata.
+- Verification-visible signal `pwrite`: This is the one-bit input named pwrite.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+preset_n is an active-low asynchronous reset and dominates coincident pclk activity. While preset_n is low, the GPIO Output Data, GPIO Output Enable, GPIO Interrupt Enable, GPIO Interrupt Type, GPIO Interrupt Polarity, both GPIO synchronization stages, synchronized edge history, and interrupt status are 0. During reset, prdata is 0, pready is 1, pslverr is 0, gpio_out is 0, gpio_enable is 0, gpio_int is 0, and comb_int is 0. The exact original supporting clauses are: “All outputs and internal registers reset to `0` when `preset_n` is asserted (active-low).”, “All registers and outputs reset to `0` when `preset_n` is low.”, “Always-High Ready: The `pready` signal remains high, indicating no wait states are introduced.”, and “Error-Free Operation: The `pslverr` signal remains low, indicating no errors occur.” The always-high and always-low clauses are the specific exceptions to the general all-outputs-zero wording.
+
+Before preset_n has ever been asserted low, gpio_out, gpio_enable, gpio_int, and comb_int are hardware-unknown under the certain laws of Q7, Q4, Q5, and Q2 respectively. pready is 1 and pslverr is 0. prdata follows its combinational read law, and is 0 when psel is 0 or pwrite is 1. These initial unknowns do not persist after reset or an ordinary state-establishing event: a qualified write establishes gpio_out or gpio_enable, and an ordinary rising edge establishes interrupt status from the configuration and synchronized history then available. No reset-before-use restriction is imposed, and no hardware power-up value is inferred from the Lean initialization.
+
+Implementation choice C1. For the concrete GPIO_WIDTH=8 verification instance only, every initially invalid stored payload is chosen as 0. Thus a selected pre-reset read returns the zero-extended chosen payload, and the first ordinary rising edge evaluates from zero configuration and history. This exact choice lasts only until reset or the applicable ordinary write or capture establishes state. It is a compatible finite-instance completion, not a source-derived hardware power-up guarantee, and it does not replace the Q2, Q4, Q5, or Q7 initial hardware-unknown output laws.
+
+On reset release, all reset values remain until a normal law changes them. Release by itself causes no capture or interrupt event. The first rising pclk edge captures gpio_in into the first synchronization stage, advances the reset value into the second stage, updates interrupt status from the previously synchronized samples and current configuration, and accepts any qualified write.
+
+4. Timing.
+
+A rising pclk edge captures gpio_in into a two-edge synchronization path and, when preset_n is high, accepts qualified writes and updates gpio_int from the previously synchronized samples; repeated qualified edges repeat these actions, while low or falling pclk has no effect except that asynchronous reset remains effective.
+
+Each gpio_in value is captured on a rising pclk edge and reaches the synchronized sample on the following rising edge, so under pre-edge row sampling a value first applied in row k can affect input-read data, level interrupts, and edge detection from row k+2, with reset clearing the synchronization history and repeated samples advancing it normally.
+
+prdata is a zero-latency combinational result: it is 0 during reset unless an active read exposes reset state, 0 whenever psel is low or pwrite is high, and during psel-high pwrite-low reads it immediately shows the selected zero-extended GPIO_WIDTH-bit value at addresses 0 through 6 or 0 for an unsupported address, with no capture, hold, completion, or restart state and with each pre-edge row reflecting that row's controls and the state existing before its edge.
+
+pready is continuously 1 before, during, and after reset and throughout every setup, access, idle, interrupted, or repeated transaction, so it has no capture-to-observation latency under pre-edge sampling.
+
+pslverr is continuously 0 before, during, and after reset and for supported or unsupported, interrupted, or repeated accesses, so it has no capture-to-observation latency under pre-edge sampling.
+
+gpio_out is asynchronously cleared to 0 by preset_n low, otherwise retains its value and changes immediately after a rising edge that accepts a qualified paddr=1 write to pwdata[GPIO_WIDTH-1:0], so a write presented in pre-edge row k is observed from row k+1; nonmatching, interrupted, and repeated accesses respectively retain or repeatedly replace it.
+
+gpio_enable is asynchronously cleared to 0 by preset_n low, otherwise retains its value and changes immediately after a rising edge that accepts a qualified paddr=2 write to pwdata[GPIO_WIDTH-1:0], so a write presented in pre-edge row k is observed from row k+1; nonmatching, interrupted, and repeated accesses respectively retain or repeatedly replace it.
+
+gpio_int clears asynchronously with preset_n low and, on each rising edge after release, sets each disabled bit to 0, makes each enabled type-0 bit follow the previously synchronized input XOR polarity, and retains each enabled type-1 bit while latching the selected synchronized edge until a corresponding paddr=6 write-1 clears it, except a matching edge on that same edge wins; under pre-edge sampling each such update is visible in the next row and repeated or interrupted bus activity changes only the qualified cases.
+
+comb_int is the zero-latency OR reduction of gpio_int, is 0 whenever reset has cleared all interrupt bits, changes whenever any gpio_int bit changes, and otherwise retains the corresponding asserted or deasserted level with no separate completion or restart state under pre-edge sampling.
+
+No output is periodic and no output is a completion pulse. All outputs respond combinationally or within the stated one-rising-edge latency; the two-stage gpio_in synchronization requirement is the specific exception to the original general clause “The module introduces no additional latency; all outputs respond within a single clock cycle of the triggering input.”
+
+The evaluated trace uses full-cycle rows. Row k drives i[k], allows combinational settling, and observes out(s[k], i[k]) before the rising edge; that edge computes s[k+1]. A value captured at that edge is visible in the following row. Row k denotes k full-cycle steps after settling, not an implicit 10 ns tick. iface.json specifies no numeric timing.step_ns or timing.sample_offset_ns, so this document assigns no nanosecond period or sample offset. This observation convention is separate from the circuit's actual period and delay laws.
+
+5. Behaviour.
+
+The requirements authority is the original prose as modified only by the explicit scoped amendment below. The model and worked trace are a fallible concrete GPIO_WIDTH=8 translation and do not replace the parameterized requirements. The implementation shall be SystemVerilog, scalable, well documented, and free of ambiguities, and shall preserve configurable width, bidirectional control, interrupt generation, and robust two-stage synchronization.
+
+The APB interface has SETUP and ACCESS phases and supports reads and writes without wait states or error responses. psel high selects combinational reads when pwrite is low and permits a write only when penable and pwrite are also high at a rising pclk edge; psel low forces prdata to 0 and prevents writes, while GPIO sampling and interrupt evolution continue.
+
+penable affects writes only: a rising-edge write is accepted when psel, penable, and pwrite are all 1, repeated qualifying edges repeat writes, and penable low prevents writes but neither blocks reads nor GPIO sampling or interrupt evolution.
+
+With psel high, pwrite low enables the combinational read selected by paddr regardless of penable, whereas pwrite high suppresses prdata to 0 and, if penable is also high, enables a rising-edge write; otherwise it has no state effect.
+
+When a read or write is otherwise qualified, paddr selects offsets 0 input, 1 output data, 2 output enable, 3 interrupt enable, 4 interrupt type, 5 interrupt polarity, and 6 interrupt state, with unsupported addresses reading 0 and accepting no state change. These paddr[7:2] offsets correspond respectively to byte addresses 0x00, 0x04, 0x08, 0x0C, 0x10, 0x14, and 0x18. Writes to offset 0 or unsupported offsets have no effect.
+
+During a read at paddr=0, prdata is the zero-extended GPIO sample captured through two successive rising-edge stages, so with rows observed before their active edges an input value first presented in row k becomes readable in row k+2. Reads at offsets 1 through 5 return the zero-extended GPIO Output Data, GPIO Output Enable, GPIO Interrupt Enable, GPIO Interrupt Type, and GPIO Interrupt Polarity values. During a read with psel=1, pwrite=0, and paddr=6, prdata is zero-extended gpio_int, whose level-mode bits follow enabled synchronized active levels and whose edge-mode bits retain matching enabled transitions until cleared by corresponding 1 bits written to address 6.
+
+Whenever psel is 0 or pwrite is 1, prdata is 32'h00000000 regardless of paddr, penable, or retained peripheral state.
+
+On a qualified rising-edge write, pwdata[GPIO_WIDTH-1:0] replaces the selected output-data, output-enable, interrupt-enable, interrupt-type, or interrupt-polarity value at addresses 1 through 5, while at address 6 each 1 clears the corresponding latched edge interrupt and each 0 retains it subject to simultaneous matching-edge priority; pwdata has no effect otherwise. All operands and buses are unsigned. The explicit truncation boundary is the assignment of pwdata[GPIO_WIDTH-1:0] to GPIO_WIDTH-bit state; reads zero-extend that GPIO_WIDTH-bit value into the 32-bit prdata context.
+
+AMENDMENT NOTICE. Exact original clause superseded: “- `0x18`: **GPIO Interrupt State** (Read-only). Reflects the current interrupt status.” Question Q6's certain answer law is exactly: “For each enabled bit, interrupt type 0 makes gpio_int follow the synchronized input XOR its polarity bit, while type 1 latches gpio_int on a synchronized rising edge when polarity is 0 or falling edge when polarity is 1 until a 1 written to that bit at address 6 clears it, with a matching edge on the clear edge taking priority; disabled bits are 0.” Question Q19's certain answer law is exactly: “On a qualified rising-edge write, pwdata[GPIO_WIDTH-1:0] replaces the selected output-data, output-enable, interrupt-enable, interrupt-type, or interrupt-polarity value at addresses 1 through 5, while at address 6 each 1 clears the corresponding latched edge interrupt and each 0 retains it subject to simultaneous matching-edge priority; pwdata has no effect otherwise.” Only for a qualified write to paddr=6, and only for retained type-1 edge-interrupt bits, these corrected laws supersede the original read-only clause by allowing per-bit write-one-to-clear; a matching selected edge on the same rising edge wins. Offset 6 remains a status read in every other respect, a written 0 retains the edge bit, level-mode status is recomputed rather than retained, and no other address or access rule is amended.
+
+gpio_out continuously presents the retained GPIO Output Data. gpio_enable continuously presents GPIO Output Enable, with 1 meaning output and 0 meaning input.
+
+For each enabled GPIO bit, Interrupt Type 0 means level mode and gpio_int equals the synchronized input XOR Interrupt Polarity: polarity 0 is active high and polarity 1 is active low. Interrupt Type 1 means edge mode: polarity 0 selects a synchronized rising edge and polarity 1 selects a synchronized falling edge. A selected edge latches that status bit until reset, disable, or a qualified write-one-to-clear; a simultaneous matching edge wins over clearing. Disabled bits are 0. The exact original supporting clauses are: “**Edge-Sensitive Mode**: Interrupts are triggered on the rising or falling edge of the input signal, as configured.”, “**Level-Sensitive Mode**: Interrupts are triggered based on the sustained high or low state of the input signal.”, “The **GPIO Interrupt Polarity Register (`0x14`)** allows the configuration of **active-high or active-low behavior**, applicable to both edge-sensitive and level-sensitive modes.”, “Ensure edge-sensitive interrupts detect both rising and falling edges when configured.”, and “Level-sensitive interrupts reflect the sustained state of the input.” The type-bit encoding and retention details are the scoped clarification supplied by Q6.
+
+comb_int is 1 exactly when at least one bit of gpio_int is 1, and is otherwise 0. Simultaneous conditions assert every corresponding gpio_int bit. The original lower-GPIO-number priority applies to servicing order: the lowest-numbered asserted bit is serviced first, without suppressing any other asserted bit or changing the OR reduction.
+
+Synchronization and interrupt evolution continue during idle, SETUP, cancelled transactions, unsupported accesses, reads, repeated writes, and while public data outputs retain values. Bus controls affect that evolution only through accepted configuration or clear writes. Asynchronous reset cancels retained status and configuration. There is no terminal state.
+
+The verification-visible signal comb_int is enabled continuously, resets to 0, advances combinationally with gpio_int, and continues after every public output update. The verification-visible signal gpio_enable is enabled by qualified paddr=2 writes, resets to 0, otherwise retains, and remains writable indefinitely. The verification-visible signal gpio_in is sampled on every rising edge outside reset, pauses while reset is asserted, resumes on release, and continues indefinitely. The verification-visible signal gpio_out is enabled by qualified paddr=1 writes, resets to 0, otherwise retains, and remains writable indefinitely. The verification-visible signal paddr controls a read when psel is high and pwrite low and selects a write only when psel, penable, and pwrite are high; otherwise it has no effect, while independent GPIO activity continues indefinitely. The verification-visible signal pclk advances synchronous behavior only on rising edges, while asynchronous reset remains effective at all times, and has no terminal behavior. The verification-visible signal penable gates writes only; when low it pauses no independent GPIO behavior, and it has no terminal behavior. The verification-visible signal prdata is continuously enabled as a combinational output, resets to 0, resumes its read law immediately, and has no terminal behavior. The verification-visible signal preset_n enables normal behavior when high, asynchronously holds reset when low, permits resumption after release, and has no terminal behavior. The verification-visible signal psel enables reads and participates in write qualification, but when low it does not pause independent GPIO evolution and it has no terminal behavior. The verification-visible signal pwdata advances selected writable state only on a qualified write, otherwise has no effect, and remains usable indefinitely. The verification-visible signal pwrite selects reads when low and participates in write qualification when high; neither value stops independent GPIO evolution, and it has no terminal behavior.
+
+Functional verification shall cover valid and invalid reads and writes, output data and direction, both polarities in edge and level modes, simultaneous interrupts and lower-number servicing priority, reset assertion and release, power-up before reset, cancelled and repeated transactions, write-one-to-clear with simultaneous-edge priority, retained edge status, disabled interrupts, synchronization during bus inactivity, and multiple GPIO_WIDTH values.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete GPIO_WIDTH=8 instance under the pre-edge full-cycle observation convention stated above.
+
+### stimulus 0
+| cycle | preset_n | psel | paddr | penable | pwrite | pwdata | gpio_in | prdata | pready | pslverr | gpio_out | gpio_enable | gpio_int | comb_int |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b01011010 | 32'h0 | 1 | 0 | 8'x | 8'x | 8'x | x |
+| 1 | 0 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b10100101 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 2 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000001 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 3 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b10000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 4 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b11111111 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+
+### stimulus 1
+| cycle | preset_n | psel | paddr | penable | pwrite | pwdata | gpio_in | prdata | pready | pslverr | gpio_out | gpio_enable | gpio_int | comb_int |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 6'b000001 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 2 | 1 | 1 | 6'b000001 | 1 | 1 | 32'ha5 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 6'b000001 | 1 | 0 | 32'h0 | 8'b00000000 | 32'ha5 | 1 | 0 | 8'b10100101 | 8'b00000000 | 8'b00000000 | 0 |
+| 4 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b10100101 | 8'b00000000 | 8'b00000000 | 0 |
+
+### stimulus 2
+| cycle | preset_n | psel | paddr | penable | pwrite | pwdata | gpio_in | prdata | pready | pslverr | gpio_out | gpio_enable | gpio_int | comb_int |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 6'b000010 | 1 | 1 | 32'hff | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 2 | 1 | 1 | 6'b000010 | 1 | 0 | 32'h0 | 8'b00000000 | 32'hff | 1 | 0 | 8'b00000000 | 8'b11111111 | 8'b00000000 | 0 |
+| 3 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00111100 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b11111111 | 8'b00000000 | 0 |
+
+### stimulus 3
+| cycle | preset_n | psel | paddr | penable | pwrite | pwdata | gpio_in | prdata | pready | pslverr | gpio_out | gpio_enable | gpio_int | comb_int |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 6'b000011 | 1 | 1 | 32'h3 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 2 | 1 | 1 | 6'b000100 | 1 | 1 | 32'h1 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 6'b000101 | 1 | 1 | 32'h1 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 4 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 5 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000001 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 6 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000001 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 7 | 1 | 1 | 6'b000110 | 1 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+
+### stimulus 4
+| cycle | preset_n | psel | paddr | penable | pwrite | pwdata | gpio_in | prdata | pready | pslverr | gpio_out | gpio_enable | gpio_int | comb_int |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 6'b000011 | 1 | 1 | 32'h3 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 2 | 1 | 1 | 6'b000100 | 1 | 1 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 6'b000101 | 1 | 1 | 32'h2 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 4 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000011 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 5 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000010 | 1 |
+| 6 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000010 | 1 |
+
+### stimulus 5
+| cycle | preset_n | psel | paddr | penable | pwrite | pwdata | gpio_in | prdata | pready | pslverr | gpio_out | gpio_enable | gpio_int | comb_int |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 6'b000111 | 1 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 2 | 1 | 1 | 6'b111111 | 1 | 1 | 32'hffffffff | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 6'b000000 | 1 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+
+### stimulus 6
+| cycle | preset_n | psel | paddr | penable | pwrite | pwdata | gpio_in | prdata | pready | pslverr | gpio_out | gpio_enable | gpio_int | comb_int |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 6'b000001 | 1 | 1 | 32'h1 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 2 | 1 | 1 | 6'b000001 | 1 | 0 | 32'h0 | 8'b00000000 | 32'h1 | 1 | 0 | 8'b00000001 | 8'b00000000 | 8'b00000000 | 0 |
+| 3 | 1 | 1 | 6'b000001 | 1 | 1 | 32'h80000000 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000001 | 8'b00000000 | 8'b00000000 | 0 |
+| 4 | 1 | 1 | 6'b000001 | 1 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 5 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+
+### stimulus 7
+| cycle | preset_n | psel | paddr | penable | pwrite | pwdata | gpio_in | prdata | pready | pslverr | gpio_out | gpio_enable | gpio_int | comb_int |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 1 | 1 | 1 | 6'b000011 | 1 | 1 | 32'h1 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 2 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000001 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 3 | 0 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 4 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000001 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 5 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |
+| 6 | 1 | 0 | 6'b000000 | 0 | 0 | 32'h0 | 8'b00000000 | 32'h0 | 1 | 0 | 8'b00000000 | 8'b00000000 | 8'b00000000 | 0 |

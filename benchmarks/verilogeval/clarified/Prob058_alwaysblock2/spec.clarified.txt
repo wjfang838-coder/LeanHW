@@ -1,0 +1,107 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- a: input 1 bit.
+- b: input 1 bit.
+- out_assign: output 1 bit.
+- out_always_comb: output 1 bit.
+- out_always_ff: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports.
+
+
+
+Reset.
+
+There is no reset input and no reset behavior. out_assign and out_always_comb are defined from power-up onward as the XOR of the contemporaneous a and b inputs. Before the first rising edge of clk has occurred, out_always_ff is unknown. The implementation must leave that stored value uninitialised: it has no initial value, declaration initialiser, or reset value. On the first rising edge, out_always_ff captures the contemporaneous XOR of a and b; after that edge it has the captured definite value until another rising edge replaces it.
+
+Timing.
+
+out_assign is combinational with zero-cycle latency from a and b. out_always_comb is combinational with zero-cycle latency from a and b. A change to either input immediately changes both outputs according to XOR.
+
+out_always_ff is registered. Every rising edge of clk samples the contemporaneous a XOR b value, and the newly sampled result is visible after that edge. Equivalently, a row observed before an active edge shows the value captured at the preceding rising edge, giving one-cycle latency relative to the inputs in that row. A static clk level and falling edges have no effect. The captured value is retained for the full interval until the next rising edge. There are no pulses or periodic output signals.
+
+The evaluated full-cycle trace uses the interface timing convention: row k is the settled pre-edge observation for cycle k, followed by the active-edge transition that produces the state used by row k+1. The interface supplies no numeric step_ns or sample_offset_ns, so no nanosecond duration is implied; in particular, rows must not be interpreted as implicit 10 ns ticks. This observation convention is separate from the circuit law that out_always_ff changes only after rising edges of clk.
+
+Behaviour.
+
+For every one-bit combination of a and b, out_assign continuously equals a XOR b: it is 1'b1 exactly when a and b differ and 1'b0 when they are equal. For every one-bit combination of a and b, out_always_comb continuously equals a XOR b: it is 1'b1 exactly when a and b differ and 1'b0 when they are equal.
+
+Before the first rising edge of clk, out_always_ff is unknown. After every rising edge, out_always_ff equals the a XOR b value sampled at that edge and retains that value until the next rising edge. Repeated rising edges perform independent captures that replace the prior sample; there is no transaction, interruption, cancellation, priority, completion, reset, clear, or restart phase.
+
+A change of a immediately affects out_assign and out_always_comb according to a XOR b, while out_always_ff uses the new a only if it is present when clk rises and otherwise retains its previous sample.
+
+A change of b immediately affects out_assign and out_always_comb according to a XOR b, while out_always_ff uses the new b only if it is present when clk rises and otherwise retains its previous sample.
+
+Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | out_assign | out_always_comb | out_always_ff |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | x |
+| 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 1 | 1 | 0 |
+
+### stimulus 1
+| cycle | a | b | out_assign | out_always_comb | out_always_ff |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | x |
+| 1 | 0 | 1 | 1 | 1 | 1 |
+| 2 | 1 | 1 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | a | b | out_assign | out_always_comb | out_always_ff |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 1 | x |
+| 1 | 1 | 0 | 1 | 1 | 1 |
+| 2 | 0 | 0 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | a | b | out_assign | out_always_comb | out_always_ff |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | x |
+| 1 | 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 1 | 1 | 0 |
+
+### stimulus 4
+| cycle | a | b | out_assign | out_always_comb | out_always_ff |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | x |
+| 1 | 0 | 1 | 1 | 1 | 0 |
+| 2 | 1 | 0 | 1 | 1 | 1 |
+| 3 | 1 | 1 | 0 | 0 | 1 |
+| 4 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | a | b | out_assign | out_always_comb | out_always_ff |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 1 | x |
+| 1 | 0 | 1 | 1 | 1 | 1 |
+| 2 | 1 | 0 | 1 | 1 | 1 |
+| 3 | 0 | 1 | 1 | 1 | 1 |
+
+### stimulus 6
+| cycle | a | b | out_assign | out_always_comb | out_always_ff |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | x |
+| 1 | 0 | 0 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | a | b | out_assign | out_always_comb | out_always_ff |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | x |
+| 1 | 1 | 1 | 0 | 0 | 1 |
+| 2 | 1 | 0 | 1 | 1 | 0 |
+| 3 | 0 | 0 | 0 | 0 | 1 |
+| 4 | 0 | 1 | 1 | 1 | 0 |

@@ -1,0 +1,27 @@
+Checking ISA
+Checking Pipeline
+Checking Refinement
+Checking ImportedData
+Checking ImportCertificate
+Checking NetFacts
+Checking WordMath
+Checking RawCPU
+Checking DecodeSpec
+Checking DecoderTable
+Checking Circuit
+Checking Shallow
+Checking Physical
+Checking StorageCircuit
+Checking DecoderCircuit
+Checking ALUCircuit
+Checking DecodeFields
+Checking ControlCircuit
+Checking Forwarding
+Checking DispatchCircuit
+Checking AcceptCircuit
+Checking NetlistStep
+Checking SourceRefinement
+Checking PacketPC
+Checking Events
+Checking Audit
+PROVED; 330.907s certificate replay; /home/usr/leansilicon/case_cpu/evidence/bridge/20261020T115530796334Z

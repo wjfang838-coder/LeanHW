@@ -1,0 +1,207 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- winc: input 1 bit.
+- rinc: input 1 bit.
+- wdata: input [WIDTH-1:0].
+- wfull: output 1 bit.
+- rempty: output 1 bit.
+- rdata: output [WIDTH-1:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  WIDTH: default = 8.
+-  DEPTH: default = 16.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+2. Given submodules.
+
+The implementation file must contain the following provided module alongside the top-level module and must instantiate it rather than reimplementing its function inline.
+
+```
+module dual_port_RAM #(parameter DEPTH = 16,
+   parameter WIDTH = 8)(
+ input wclk
+,input wenc
+,input [$clog2(DEPTH)-1:0] waddr  
+,input [WIDTH-1:0] wdata      
+,input rclk
+,input renc
+,input [$clog2(DEPTH)-1:0] raddr 
+,output reg [WIDTH-1:0] rdata
+);
+
+reg [WIDTH-1:0] RAM_MEM [0:DEPTH-1];
+
+always @(posedge wclk) begin
+    if(wenc)
+        RAM_MEM[waddr] <= wdata;
+end 
+
+always @(posedge rclk) begin
+    if(renc)
+        rdata <= RAM_MEM[raddr];
+end 
+
+endmodule  
+```
+
+3. Reset.
+
+`rst_n` is an active-low asynchronous reset. Whenever `rst_n` is low, queued occupancy is zero, all queued words are discarded, `wfull` is 0, and `rempty` is 1. Reset overrides coincident and repeated read or write requests. The last successfully read `rdata` value is retained through reset assertion and release; if no successful read has occurred since power-up, `rdata` remains unknown. Reset must not initialize that stored read value: no initial block or declaration initializer may give it a defined power-up value.
+
+At power-up, before reset has first been asserted, `wfull` and `rempty` are unknown. `rdata` is also unknown until the first successful read. Thus none of the three outputs has the reset flag values merely by virtue of power-up.
+
+After reset is released, the FIFO remains empty until an eligible rising edge. On the first rising edge after release, an eligible write and an eligible read are evaluated against the empty pre-edge state. A write can therefore be accepted, while a read is blocked. The accepted edge effects are visible in the following pre-edge observation; `rdata` remains unknown unless a successful read had occurred before reset.
+
+4. Timing.
+
+FIFO transactions occur only on rising edges of `clk` while `rst_n` is high. No other clock transition changes port-visible FIFO state. `wfull` and `rempty` are combinational indications of current occupancy, except that asynchronous reset forces them immediately to 0 and 1 respectively. An accepted transaction changes these flags with no additional registered latency: the resulting values are visible in the observation following that rising edge.
+
+`rdata` is registered. A successful read at a rising edge places the oldest pre-edge queued word on `rdata` with one observation-step latency, visible in the following pre-edge row. Otherwise it retains its previous value. The interface specifies full-cycle sampling but supplies no numerical clock period, `step_ns`, or `sample_offset_ns`; consequently no physical period or delay is specified. In the normative trace, row k is the settled pre-edge observation at the kth full-cycle step, not an implicit 10 ns tick. There are no pulse or periodic output ports.
+
+5. Behaviour.
+
+The FIFO capacity is DEPTH words and each stored word is WIDTH bits. Accepted writes preserve arrival order, and each accepted read returns and removes the oldest queued word.
+
+With `rst_n` high, each rising edge evaluates reads and writes independently using the pre-edge boundary flags. A write is accepted exactly when `winc` is high and pre-edge `wfull` is low. An accepted write captures the WIDTH-bit `wdata` value and appends it to the FIFO tail. If `winc` is low or pre-edge `wfull` is high, no write occurs and `wdata` has no effect.
+
+A read is accepted exactly when `rinc` is high and pre-edge `rempty` is low. An accepted read removes the oldest word and makes `rdata` equal to that word in the following pre-edge observation. If `rinc` is low or pre-edge `rempty` is high, no read occurs, occupancy is unchanged by the read request, and `rdata` retains its prior value.
+
+When read and write are both eligible at the same edge, both occur: the oldest word is removed and the new `wdata` word is appended, preserving occupancy. Eligibility remains based on the pre-edge flags. Therefore a simultaneous read request does not unblock a write when the FIFO was full before the edge, and a simultaneous write request does not unblock a read when it was empty before the edge. Repeated eligible assertions accept one corresponding transaction per rising edge. Reset interrupts and blocks all transactions.
+
+Outside reset, `wfull` is 1 exactly when occupancy equals DEPTH and is otherwise 0. It clears after an accepted read from a full FIFO unless an independently accepted simultaneous write preserves full occupancy. Outside reset, `rempty` is 1 exactly when occupancy is zero and is otherwise 0. It clears after an accepted write to empty and asserts after the last queued word is successfully read. Each flag retains its value whenever occupancy is unchanged.
+
+`rdata` is unknown before the first successful read, regardless of writes, idle cycles, blocked reads, or reset assertions. Thereafter it retains the last successfully read word through idle cycles, writes, blocked reads, reset assertion and release. Repeated successful reads replace it once per rising edge.
+
+6. Worked trace.
+
+The following evaluated trace is normative. Each row samples outputs before that row's active-edge transition.
+
+### stimulus 0
+| cycle | rst_n | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 1 | 1 | 1 | 0 | 8'b00000001 | 0 | 1 | 8'x |
+| 2 | 1 | 0 | 1 | 8'b10000000 | 0 | 0 | 8'x |
+| 3 | 1 | 0 | 0 | 8'b11111111 | 0 | 1 | 8'b00000001 |
+
+### stimulus 1
+| cycle | rst_n | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b01011010 | x | x | 8'x |
+| 1 | 0 | 1 | 1 | 8'b10100101 | 0 | 1 | 8'x |
+| 2 | 1 | 0 | 0 | 8'b00000001 | 0 | 1 | 8'x |
+| 3 | 1 | 0 | 1 | 8'b00000000 | 0 | 1 | 8'x |
+
+### stimulus 2
+| cycle | rst_n | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 1 | 1 | 1 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 2 | 1 | 1 | 0 | 8'b11111111 | 0 | 0 | 8'x |
+| 3 | 1 | 1 | 0 | 8'b10000000 | 0 | 0 | 8'x |
+| 4 | 1 | 1 | 0 | 8'b01011010 | 0 | 0 | 8'x |
+| 5 | 1 | 0 | 1 | 8'b00000001 | 0 | 0 | 8'x |
+| 6 | 1 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 7 | 1 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b11111111 |
+| 8 | 1 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b10000000 |
+
+### stimulus 3
+| cycle | rst_n | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 1 | 1 | 0 | 1 | 8'b00000000 | 0 | 1 | 8'x |
+| 2 | 1 | 1 | 1 | 8'b00010001 | 0 | 1 | 8'x |
+| 3 | 1 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'x |
+
+### stimulus 4
+| cycle | rst_n | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 1 | 1 | 1 | 0 | 8'b00000001 | 0 | 1 | 8'x |
+| 2 | 1 | 1 | 0 | 8'b00000010 | 0 | 0 | 8'x |
+| 3 | 1 | 1 | 1 | 8'b00000011 | 0 | 0 | 8'x |
+| 4 | 1 | 1 | 1 | 8'b00000100 | 0 | 0 | 8'b00000001 |
+| 5 | 1 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000010 |
+| 6 | 1 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000011 |
+
+### stimulus 5
+| cycle | rst_n | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 1 | 1 | 1 | 0 | 8'b00010001 | 0 | 1 | 8'x |
+| 2 | 1 | 1 | 0 | 8'b00100010 | 0 | 0 | 8'x |
+| 3 | 1 | 1 | 0 | 8'b00110011 | 0 | 0 | 8'x |
+| 4 | 1 | 1 | 0 | 8'b01000100 | 0 | 0 | 8'x |
+| 5 | 1 | 1 | 0 | 8'b01010101 | 0 | 0 | 8'x |
+| 6 | 1 | 1 | 0 | 8'b01100110 | 0 | 0 | 8'x |
+| 7 | 1 | 1 | 0 | 8'b01110111 | 0 | 0 | 8'x |
+| 8 | 1 | 1 | 0 | 8'b10001000 | 0 | 0 | 8'x |
+| 9 | 1 | 1 | 0 | 8'b10011001 | 0 | 0 | 8'x |
+| 10 | 1 | 1 | 0 | 8'b10101010 | 0 | 0 | 8'x |
+| 11 | 1 | 1 | 0 | 8'b10111011 | 0 | 0 | 8'x |
+| 12 | 1 | 1 | 0 | 8'b11001100 | 0 | 0 | 8'x |
+| 13 | 1 | 1 | 0 | 8'b11011101 | 0 | 0 | 8'x |
+| 14 | 1 | 1 | 0 | 8'b11101110 | 0 | 0 | 8'x |
+| 15 | 1 | 1 | 0 | 8'b11111111 | 0 | 0 | 8'x |
+| 16 | 1 | 1 | 0 | 8'b00010000 | 0 | 0 | 8'x |
+| 17 | 1 | 1 | 0 | 8'b00100001 | 1 | 0 | 8'x |
+| 18 | 1 | 0 | 0 | 8'b00110010 | 1 | 0 | 8'x |
+| 19 | 1 | 0 | 0 | 8'b01000011 | 1 | 0 | 8'x |
+
+### stimulus 6
+| cycle | rst_n | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 1 | 1 | 1 | 0 | 8'b00000001 | 0 | 1 | 8'x |
+| 2 | 1 | 1 | 0 | 8'b00000010 | 0 | 0 | 8'x |
+| 3 | 1 | 1 | 0 | 8'b00000011 | 0 | 0 | 8'x |
+| 4 | 1 | 1 | 0 | 8'b00000100 | 0 | 0 | 8'x |
+| 5 | 1 | 1 | 0 | 8'b00000101 | 0 | 0 | 8'x |
+| 6 | 1 | 1 | 0 | 8'b00000110 | 0 | 0 | 8'x |
+| 7 | 1 | 1 | 0 | 8'b00000111 | 0 | 0 | 8'x |
+| 8 | 1 | 1 | 0 | 8'b00001000 | 0 | 0 | 8'x |
+| 9 | 1 | 1 | 0 | 8'b00001001 | 0 | 0 | 8'x |
+| 10 | 1 | 1 | 0 | 8'b00001010 | 0 | 0 | 8'x |
+| 11 | 1 | 1 | 0 | 8'b00001011 | 0 | 0 | 8'x |
+| 12 | 1 | 1 | 0 | 8'b00001100 | 0 | 0 | 8'x |
+| 13 | 1 | 1 | 0 | 8'b00001101 | 0 | 0 | 8'x |
+| 14 | 1 | 1 | 0 | 8'b00001110 | 0 | 0 | 8'x |
+| 15 | 1 | 1 | 0 | 8'b00001111 | 0 | 0 | 8'x |
+| 16 | 1 | 1 | 0 | 8'b00010000 | 0 | 0 | 8'x |
+| 17 | 1 | 0 | 1 | 8'b00010001 | 1 | 0 | 8'x |
+| 18 | 1 | 0 | 1 | 8'b00010010 | 0 | 0 | 8'b00000001 |
+| 19 | 1 | 0 | 1 | 8'b00010011 | 0 | 0 | 8'b00000010 |
+| 20 | 1 | 0 | 1 | 8'b00010100 | 0 | 0 | 8'b00000011 |
+| 21 | 1 | 0 | 1 | 8'b00010101 | 0 | 0 | 8'b00000100 |
+| 22 | 1 | 0 | 1 | 8'b00010110 | 0 | 0 | 8'b00000101 |
+| 23 | 1 | 0 | 1 | 8'b00010111 | 0 | 0 | 8'b00000110 |
+| 24 | 1 | 0 | 1 | 8'b00011000 | 0 | 0 | 8'b00000111 |
+| 25 | 1 | 0 | 1 | 8'b00011001 | 0 | 0 | 8'b00001000 |
+| 26 | 1 | 0 | 1 | 8'b00011010 | 0 | 0 | 8'b00001001 |
+| 27 | 1 | 0 | 1 | 8'b00011011 | 0 | 0 | 8'b00001010 |
+| 28 | 1 | 0 | 1 | 8'b00011100 | 0 | 0 | 8'b00001011 |
+| 29 | 1 | 0 | 1 | 8'b00011101 | 0 | 0 | 8'b00001100 |
+| 30 | 1 | 0 | 1 | 8'b00011110 | 0 | 0 | 8'b00001101 |
+| 31 | 1 | 0 | 1 | 8'b00011111 | 0 | 0 | 8'b00001110 |
+| 32 | 1 | 0 | 1 | 8'b00100000 | 0 | 0 | 8'b00001111 |
+| 33 | 1 | 0 | 1 | 8'b00100001 | 0 | 1 | 8'b00010000 |
+| 34 | 1 | 0 | 1 | 8'b00100010 | 0 | 1 | 8'b00010000 |
+
+### stimulus 7
+| cycle | rst_n | winc | rinc | wdata | wfull | rempty | rdata |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 1 | 8'x |
+| 1 | 1 | 1 | 0 | 8'b00110011 | 0 | 1 | 8'x |
+| 2 | 1 | 0 | 0 | 8'b01100110 | 0 | 0 | 8'x |
+| 3 | 0 | 0 | 1 | 8'b10011001 | 0 | 1 | 8'x |
+| 4 | 1 | 1 | 0 | 8'b11001100 | 0 | 1 | 8'x |
+| 5 | 1 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'x |

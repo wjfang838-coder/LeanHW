@@ -1,0 +1,2 @@
+'CaseCPU.Bridge.code_table' depends on axioms: [propext, Quot.sound, code_table._native.native_decide.ax_1_1]
+'CaseCPU.Bridge.bits_code' depends on axioms: [propext, Quot.sound, code_table._native.native_decide.ax_1_1]

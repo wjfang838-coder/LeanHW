@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob001_submodules_to_implement_comparison_of_three_input_numbers",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

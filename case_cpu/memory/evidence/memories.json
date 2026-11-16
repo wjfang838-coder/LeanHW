@@ -1,0 +1,11 @@
+[
+  {
+    "name": "ram",
+    "addr_width": 8,
+    "data_width": 32,
+    "size": 256,
+    "read_ports": 3,
+    "write_ports": 1,
+    "initial_contents": "arbitrary"
+  }
+]

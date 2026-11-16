@@ -1,0 +1,221 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+I would like you to implement a module named TopModule with the following
+interface. All input and output ports are one bit unless otherwise
+specified.
+
+ - input  clk
+ - input  rst
+ - input  data
+ - output reg flag
+
+The module should implement a Moore state machine using a two-stage
+description method. The state machine has five states (S0, S1, S2, S3, S4)
+and transitions based on the input data signal.
+
+The state machine should work as follows:
+- Input signal: data (wire type)
+- Output signal: flag (reg type)
+- Reset: rst is active low
+- Clock: clk for synchronous operation
+
+State transition table:
+                   data
+current state       1     0
+  S0   next state  S1    S0
+  S1               S2    S1
+  S2               S3    S2
+  S3               S4    S3
+  S4               S1    S0
+
+Output logic:
+- When current state is S4, the output flag should be 1
+- For all other states (S0, S1, S2, S3), the output flag should be 0
+
+Clarification: rst is an asynchronous active-low reset. Code the state register as always @(posedge clk or negedge rst), forcing the state to S0 (and flag to 0) immediately when rst is low, independent of the clock.
+
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- data: input 1 bit.
+- flag: output 1 bit.
+
+Public parameters:
+-  S0: default = 'd0.
+-  S1: default = 'd1.
+-  S2: default = 'd2.
+-  S3: default = 'd3.
+-  S4: default = 'd4.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+rst is asynchronous and active low. Assertion immediately establishes S0 and flag=0 after settling, independently of clk; holding rst low retains that baseline. Reset overrides data and a simultaneous rising clock edge. Repeated assertions discard all earlier progress, including a partially completed group or a high flag interval. Release alone leaves S0 and flag=0 and does not count a sample. The first rising edge after release applies the transition table to S0 and the data sampled at that edge.
+
+At startup without any reset event, flag settles to 0; the first rising edge establishes the baseline, and counting starts at subsequent edges.
+
+This startup law is established by the certain answers Q1 and Q3–Q6, rather than inferred from the model's initial state. Before that first rising edge, the source does not fix a physical state encoding; the specified observable is flag=0. The first rising edge with rst=1 establishes S0 regardless of data. No reset-before-use restriction applies.
+
+4. Timing
+
+clk advances history only on rising edges; falling edges and constant clock levels do not advance history or change flag.
+
+flag is a combinational Moore decode of the current state, with no additional output register latency: after settling it is 1 exactly in S4 and 0 in S0, S1, S2 and S3. Input data has no direct combinational effect on flag. The state transition at a rising edge uses the pre-edge state and the data sampled at that edge; the post-edge flag decodes the post-edge state. Asynchronous reset assertion is a separate state-changing event and clears flag without waiting for a clock edge.
+
+Let E0 denote entry into S0 by reset assertion, and release reset before the subsequent rising edges. With data=1 at each edge, E1, E2 and E3 leave flag=0, E4 leaves flag=1, and E5 leaves flag=0. E4 completes four qualifying samples; publication occurs at E4 itself, with no later publication edge. Before E4 flag is 0; before E5 it is 1. With no reset at startup, the first rising edge only establishes S0 and the following four qualifying edges are needed instead.
+
+Each high pulse lasts one rising-edge interval unless asynchronous reset shortens it. With continuous data=1 after the baseline is established, the period is four clock cycles: one cycle high and three cycles low. Zeros may lengthen low intervals; they cannot extend a high pulse beyond the next rising edge. No absolute clock period is specified.
+
+5. Behaviour
+
+The five states and the complete binary-input transition table remain as specified in the original source. The public parameters supplied by the interface contract retain their declared defaults and spellings; they represent the state labels, not a different counting algorithm. The finite model uses the default parameter instance and abstract state labels. There are no parameter-dependent port widths.
+
+At each rising edge with rst=1 after the baseline has been established, data=1 advances S0 to S1, S1 to S2, S2 to S3 and S3 to S4; data=0 retains each of S0 through S3.
+
+From S4, the next rising edge clears flag for either data value: data=1 enters S1 and counts as the first qualifying sample of the next group, while data=0 enters S0 and starts an empty group.
+
+Changes of data between rising edges do not alter state or flag, and reset overrides data and cancels progress.
+
+Thus the qualifying samples need not be consecutive. Every binary data value is covered in every reachable state. There is no separate start, busy or completion input, and counting continues through arbitrarily many groups without another reset. flag is the one-interval indication of reaching S4, rather than a permanently retained completion status.
+
+The source and certain answers do not specify corrupted or externally forced illegal state encodings. Implementation choice C1: for an abstract state outside S0 through S4, flag is 0 and the next rising edge with rst=1 recovers to S0. This completion applies only to otherwise unspecified illegal-state recovery and changes no reachable legal history, startup law or reset obligation. The ordinary model transitions never reach that case.
+
+6. Worked trace
+
+The following trace is normative for the concrete default-parameter instance and its declared active-edge scenario. Each row samples the settled output before its rising clock edge, then advances the state at that edge. clk is implicit in the finite input type but remains a physical public input. Reset-low rows represent assertion held through that row's active edge; the output already reflects asynchronous assertion before that edge. This finite projection does not represent a reset pulse asserted and released entirely between rows. The circuit must still honor such a pulse asynchronously and retain its reset baseline after release. The no-reset stimulus starts at startup before any edge or reset, using the certain startup law, not a reset-conditioned verification setup. No numerical step_ns or sample_offset_ns is supplied by the interface; no nanosecond clock period is inferred from row numbers.
+
+### stimulus 0
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+
+### stimulus 1
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 1 | 1 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 1 | 0 |
+| 9 | 1 | 1 | 1 |
+| 10 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 0 |
+| 10 | 1 | 0 | 1 |
+| 11 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 0 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 1 | 0 |
+| 9 | 1 | 0 | 1 |
+
+### stimulus 4
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 0 | 0 | 0 |
+| 2 | 0 | 1 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 |
+
+### stimulus 5
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 0 | 0 | 0 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+
+### stimulus 6
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 0 | 1 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 1 | 0 |
+| 9 | 1 | 1 | 0 |
+| 10 | 1 | 0 | 1 |
+| 11 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 1 | 1 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 1 | 0 |
+| 9 | 1 | 1 | 1 |
+| 10 | 1 | 1 | 0 |
+| 11 | 1 | 1 | 0 |
+| 12 | 1 | 1 | 0 |
+| 13 | 1 | 1 | 1 |
+| 14 | 1 | 1 | 0 |
+| 15 | 1 | 1 | 0 |
+| 16 | 1 | 1 | 0 |
+| 17 | 1 | 1 | 1 |
+
+### stimulus 8
+| cycle | rst | data | flag |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 0 |

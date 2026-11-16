@@ -1,0 +1,138 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- mode: input 1 bit.
+- too_cold: input 1 bit.
+- too_hot: input 1 bit.
+- fan_on: input 1 bit.
+- heater: output 1 bit.
+- aircon: output 1 bit.
+- fan: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. The design has no stored state. From power-up onward, including before any edge has occurred, every output is the definite combinational value of the current inputs stated below; no output has an uninitialised interval. Because reset assertion and release do not exist, there is no reset value or distinct first step after release.
+
+4. Timing.
+
+heater, aircon, and fan are combinational outputs with zero clock-cycle latency from mode, too_cold, too_hot, and fan_on. There are no pulses, periodic outputs, clocked periods, or circuit delay laws.
+
+For the evaluated autonomous-design trace, row k observes the settled combinational result at k times the interface timing.step_ns, using the interface timing.sample_offset_ns convention. This trace observation convention does not impose a clock period or propagation-delay law on the circuit.
+
+5. Behaviour.
+
+All inputs and outputs are one-bit unsigned values. At every input value, heater equals mode AND too_cold. Thus, when mode is 1, too_cold directly determines heater; when mode is 0, too_cold has no effect and heater is 0.
+
+At every input value, aircon equals (NOT mode) AND too_hot. Thus, when mode is 0, too_hot directly determines aircon; when mode is 1, too_hot has no effect and aircon is 0.
+
+At every input value, fan equals fan_on OR (too_cold when mode is 1, otherwise too_hot). fan_on never affects heater or aircon. When fan_on is 1, fan is 1 in either mode. When fan_on is 0, fan follows the selected temperature request: too_cold in heating mode and too_hot in cooling mode.
+
+Changes to any inputs, simultaneous input changes, interruption of any asserted request, and repeated input values take effect combinationally. There is no capture, retained state, completion, hold, clear, restart interval, transaction, or cancellation behavior.
+
+In heating mode, mode=1: heater equals too_cold, aircon is 0, and fan equals too_cold OR fan_on; in cooling mode, mode=0: heater is 0, aircon equals too_hot, and fan equals too_hot OR fan_on, and all changes take effect combinationally without retained state.
+
+When mode is 1, too_cold directly sets both heater and the temperature-demand contribution to fan; when mode is 0, too_cold has no effect on any output, while fan_on may independently keep fan asserted.
+
+When mode is 0, too_hot directly sets both aircon and the temperature-demand contribution to fan; when mode is 1, too_hot has no effect on any output, while fan_on may independently keep fan asserted.
+
+In either mode, fan_on asserts fan but has no effect on heater or aircon; otherwise fan follows too_cold in heating mode and too_hot in cooling mode.
+
+heater is continuously mode AND too_cold, so a trace row observes the value of that row's current inputs with no clock-cycle latency.
+
+aircon is continuously (NOT mode) AND too_hot, so a trace row observes the value of that row's current inputs with no clock-cycle latency.
+
+fan is continuously fan_on OR (too_cold in heating mode, otherwise too_hot), so a trace row observes the value of that row's current inputs with no clock-cycle latency.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 0 | 1 | 1 |
+
+### stimulus 3
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 1 | 0 | 1 | 1 |
+
+### stimulus 4
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 5
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 1 | 0 | 0 | 1 |
+
+### stimulus 6
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 0 | 0 | 1 | 1 |
+
+### stimulus 7
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 0 | 1 | 1 |
+
+### stimulus 8
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 9
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 1 | 0 | 0 | 1 |
+
+### stimulus 10
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 |
+
+### stimulus 11
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 1 | 0 | 0 | 1 |
+
+### stimulus 12
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 1 | 0 | 1 |
+
+### stimulus 13
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 1 | 1 | 0 | 1 |
+
+### stimulus 14
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 1 | 0 | 1 |
+
+### stimulus 15
+| cycle | mode | too_cold | too_hot | fan_on | heater | aircon | fan |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 | 0 | 1 |

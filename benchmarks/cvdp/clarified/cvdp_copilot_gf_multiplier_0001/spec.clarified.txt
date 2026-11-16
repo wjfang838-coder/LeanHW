@@ -1,0 +1,179 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design the System Verilog module `gf_multiplier` for a 4-bit Galois Field Multiplier (GF(2<sup>4</sup>)) by utilizing the irreducible polynomial **x<sup>4</sup> + x + 1**. The multiplication should be operated between two 4-bit values to result in a 4-bit product output.
+
+### Interface
+
+#### Inputs:
+
+- **A ([3:0], 4-bit)**: The multiplicand. It should contain a 4-bit value between 0000 and 1111.
+- **B ([3:0], 4-bit)**: The multiplier. It should contain a 4-bit value between 0000 and 1111.
+
+#### Output:
+
+- **result ([3:0], 4-bit)**: The product of the two input values using the GF multiplication algorithm.
+
+## Design Specification:
+
+- This design has to ensure that any overflow occurring during the multiplication process is reduced by the irreducible polynomial, ensuring the result remains within 4 bits.
+- The design should follow combinational logic and produce the multiplication output whenever the input changes
+- **Registers**: A set of 4-bit internal registers are to be used to hold the multiplicand and the intermediate result.
+- **Polynomial Reduction**: The irreducible polynomial **x<sup>4</sup> + x + 1** (represented as `5'b10011`) has to be used for polynomial reduction in case of overflow during the multiplication process.
+- For each bit of the multiplier, the multiplicand has to be conditionally XORed with the result and shifted to left by one bit. If overflow occurs, polynomial reduction is performed using the irreducible polynomial.
+
+The algorithm of the GF multiplier to be followed in the RTL design is given below:
+
+### Algorithm:
+
+```
+1. Initialize `result` = 0
+2. Set multiplicand = `A`
+3. For each bit (i) of the multiplier `B` (from LSB to MSB):
+   - If the bit (i) of `B` is 1, `result` = `result` XOR multiplicand
+      - Shift multiplicand to the left by 1 bit
+      - If the MSB of the multiplicand is 1 after shifting, perform polynomial reduction:
+         multiplicand = multiplicand XOR binary representation of irreducible polynomial (5'b10011)
+   - else if the bit (i) of B is 0, result remains the same as `result` = `result` XOR 0
+     - Shift multiplicand to the left by 1 bit
+     - If the MSB of the multiplicand is 1 after shifting, perform polynomial reduction:
+         multiplicand = multiplicand XOR binary representation of irreducible polynomial (5'b10011)
+4. Return the final result
+```
+
+### Example computation:
+
+Assume A = 3 (`0011`) and B = 7 (`0111`)
+
+1. **Initialization**:
+   - `A` = 3 (`0011`)
+   - `B` = 7 (`0111`)
+   - `result` = 0
+2. **Iteration 1** (Multiplier's LSB is 1, index B[0]):
+   - `result` = 0 XOR `0011` = `0011`
+   - Shift multiplicand: `0011` << 1 = `0110` (No polynomial reduction as MSB is 0)
+3. **Iteration 2** (Next bit is 1, index B[1]):
+   - `result` = `0011` XOR `0110` = `0101`
+   - Shift multiplicand: `0110` << 1 = `1100` (No polynomial reduction as MSB is 0)
+4. **Iteration 3** (Next bit is 1, index B[2]):
+   - `result` = `0101` XOR `1100` = `1001`
+   - Shift multiplicand: `1100` << 1 = `11000` (Perform polynomial reduction as MSB is 1)
+   - Polynomial reduction: `11000` XOR `10011` = `01011` (Multiplicand becomes `1011`)
+5. **Iteration 4** (Next bit is 0, index B[3]):
+   - `result` = `1001` XOR 0 = `1001`
+6. **Final Step**:
+   - The final result of GF multiplication after all iterations is `1001`, which is 9 in decimal.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design the System Verilog module `gf_multiplier` for a 4-bit Galois Field Multiplier (GF(2<sup>4</sup>)) by utilizing the irreducible polynomial **x<sup>4</sup> + x + 1**. The multiplication should be operated between two 4-bit values to result in a 4-bit product output.
+
+Named module interface binding
+
+Module: gf_multiplier.
+Connect ports by name. The enumeration below does not establish positional order.
+- A: input; 4 bits in the concrete formal instance.
+- B: input; 4 bits in the concrete formal instance.
+- result: output; 4 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly gf_multiplier. The harness confirms named connections; instantiate the module by name because positional declaration order is unverified.
+
+Inputs:
+A: 4-bit input, A[3:0].
+B: 4-bit input, B[3:0].
+
+Output:
+result: 4-bit output, result[3:0].
+
+The exact public names are A, B, and result. There are no public parameters or symbolic ranges established by the requirements. No positional port order is normative.
+
+3. Reset.
+
+There is no reset input and no reset behavior. The module has no persistent state. At power-up, before any reset edge could have occurred, result has the same combinational meaning as at every other time: after propagation it is determined solely by the simultaneously present A and B. No reset edge is required before use, and no prior result is retained.
+
+4. Timing.
+
+result is continuously combinational and, after propagation following any change of A or B, equals the 4-bit carryless product of A and B reduced modulo 5'b10011. Its latency is zero clock cycles: there is no physical clock, active edge, input capture, completion pulse, clear interval, restart event, or retained result.
+
+The evaluated full-cycle table uses an observation grid rather than a circuit clock. Row k denotes k * timing.step_ns after settling, sampled at timing.sample_offset_ns as preserved by the interface and driver. This observation convention establishes neither an actual circuit period nor an edge-triggered delay law. Under the table's pre-transition row convention, each row observes the combinational value determined by the inputs already applied for that row.
+
+5. Behaviour.
+
+Treat A and B as degree-at-most-three polynomials over GF(2), with bit index equal to coefficient degree. Multiply them carrylessly and reduce the complete product modulo x^4 + x + 1, represented by 5'b10011. result[3:0] is the four coefficients of the unique reduced remainder. XOR is coefficient addition, so no integer carries participate.
+
+For every 4-bit A and B, A supplies the multiplicand polynomial, and result is the low four coefficients of their carryless polynomial product after reduction modulo 5'b10011. Every change of A, including a change to zero, recomputes that value using the simultaneously present B. There is no inactive mode, interruption behavior, transaction boundary, or retained effect between repeated changes.
+
+For every 4-bit A and B, each set bit B[i] includes the carryless term A shifted by i, while each clear bit excludes that term. Reduce the resulting polynomial modulo 5'b10011 to produce result[3:0]. Every change of B, including a change to zero, recomputes that value using the simultaneously present A. There is no inactive mode, interruption behavior, transaction boundary, or retained effect between repeated changes.
+
+The four multiplier coefficients are processed from B[0] through B[3]. At each iteration, conditionally XOR the current multiplicand into the intermediate result when the corresponding B bit is one, and advance the multiplicand by multiplication by x modulo x^4 + x + 1. A zero B bit makes no contribution but does not suppress multiplicand advancement. All 16 encodings of each input are valid; there are no skipped, reserved, inactive, or don't-care encodings.
+
+Amendment A1 (question Q5, scope source@816366e9c2ec5b89).
+Exact original clause superseded: "If the MSB of the multiplicand is 1 after shifting, perform polynomial reduction:"
+Exact certain answer law: "At each LSB-to-MSB multiplier iteration, polynomial reduction of the shifted 4-bit multiplicand is governed by its pre-shift bit 3, equivalently bit 4 of the widened shift, so 4'b0110 advances to 4'b1100 without reduction while 4'b1100 overflows and is reduced modulo 5'b10011."
+This corrected law supersedes the quoted clause only when deciding which bit governs reduction during any of the four LSB-to-MSB iterations. It does not alter the polynomial, input domain, iteration order, conditional product accumulation, or final 4-bit result.
+
+Amendment A2 (question Q6, scope source@b45899a9672a24d7).
+Exact original clause superseded: "**Registers**: A set of 4-bit internal registers are to be used to hold the multiplicand and the intermediate result."
+Exact certain answer law: "The observable product is formed at sufficient width and every set coefficient above bit 3 is canceled by XORing 5'b10011 aligned to that coefficient before retaining bits [3:0]; equivalently for an iterative 4-bit step, a pre-shift bit 3 of one selects XOR of 4'b0011 into the truncated left shift."
+This corrected law supersedes the quoted clause only to the extent that it could require truncating a shift before preserving and reducing its overflow information. On any iteration with pre-shift bit 3 equal to one, evaluate the shift and XOR with 5'b10011 in a five-bit context and retain bits [3:0], equivalently truncate the left shift to four bits and XOR 4'b0011. The externally visible result remains result[3:0], and all unchanged functional requirements remain binding.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete 4-bit instance and uses the observation convention stated above.
+
+### stimulus 0
+| cycle | A | B | result |
+|---|---|---|---|
+| 0 | 4'b0000 | 4'b0000 | 4'b0000 |
+
+### stimulus 1
+| cycle | A | B | result |
+|---|---|---|---|
+| 0 | 4'b0001 | 4'b0001 | 4'b0001 |
+
+### stimulus 2
+| cycle | A | B | result |
+|---|---|---|---|
+| 0 | 4'b1111 | 4'b0001 | 4'b1111 |
+
+### stimulus 3
+| cycle | A | B | result |
+|---|---|---|---|
+| 0 | 4'b1000 | 4'b0010 | 4'b0011 |
+
+### stimulus 4
+| cycle | A | B | result |
+|---|---|---|---|
+| 0 | 4'b0110 | 4'b0101 | 4'b1101 |
+
+### stimulus 5
+| cycle | A | B | result |
+|---|---|---|---|
+| 0 | 4'b0001 | 4'b1111 | 4'b1111 |
+
+### stimulus 6
+| cycle | A | B | result |
+|---|---|---|---|
+| 0 | 4'b0010 | 4'b1000 | 4'b0011 |
+
+### stimulus 7
+| cycle | A | B | result |
+|---|---|---|---|
+| 0 | 4'b1010 | 4'b0110 | 4'b1001 |
+
+### stimulus 8
+| cycle | A | B | result |
+|---|---|---|---|
+| 0 | 4'b0011 | 4'b0111 | 4'b1001 |
+
+### stimulus 9
+| cycle | A | B | result |
+|---|---|---|---|
+| 0 | 4'b1111 | 4'b1111 | 4'b1010 |

@@ -1,0 +1,4 @@
+'CaseCPU.no_forward_counterexample' depends on axioms: [propext, Quot.sound]
+'CaseCPU.divide_zero_counterexample' depends on axioms: [propext, Quot.sound]
+'CaseCPU.stalled_retirement_counterexample' depends on axioms: [propext, Quot.sound]
+'CaseCPU.corrected_refinement' depends on axioms: [propext, Quot.sound]

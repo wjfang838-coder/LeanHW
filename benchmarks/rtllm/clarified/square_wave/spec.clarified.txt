@@ -1,0 +1,153 @@
+Module and integration contract
+
+Module: square_wave.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- freq: input [7:0].
+- wave_out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports.
+
+
+
+Reset.
+
+The module has no reset input or reset behavior. At power-up, before any rising edge has occurred, wave_out is 0 and the modulo-256 count of prior rising edges since initialization is 0. Both values are initialized to those definite values; wave_out is not unknown during this interval. The first rising edge applies the ordinary behavior stated below using that zero count and the freq value present at that edge.
+
+Timing.
+
+wave_out is registered. It changes only on a rising edge of clk and holds between rising edges, including during steady clk levels and falling edges. A qualifying rising edge toggles wave_out immediately after that edge; under the evaluated full-cycle observation convention, row k samples the settled value before the row's rising-edge transition, and the result of that transition first appears in row k+1. Each row therefore advances one clk cycle. The interface supplies no physical step_ns or sample_offset_ns, so the trace does not imply a 10 ns clock or any other physical period.
+
+For a constant nonzero freq value N, wave_out holds each level for exactly N rising-edge cycles and therefore has a complete period of exactly 2N rising-edge cycles: N cycles low and N cycles high. Each high and low interval is thus specified as a count of cycles, not merely as a duty-cycle ratio. For freq equal to 0, wave_out never toggles, so it has no finite periodic-signal period and remains low if freq has been 0 since initialization.
+
+Behaviour.
+
+Only a rising edge of clk changes state. Every rising edge is processed once by the same law; a steady clk level and a falling edge have no effect.
+
+The module maintains a modulo-256 count of prior rising edges since initialization or the most recent wave_out toggle. At each rising edge, the current 8-bit unsigned freq value is evaluated. If freq is nonzero and equals one plus that count, wave_out toggles and the count restarts at zero. Otherwise wave_out holds and the count advances by one modulo 256. Thus freq equal to 0 never causes a toggle, including when the count is 255.
+
+Changing freq has no immediate effect between rising edges. At the next rising edge, the new freq value replaces the previous comparison target without clearing or restarting the existing count. This law applies to every change and every 8-bit freq encoding from 0 through 255.
+
+wave_out begins at 0, holds across every nonqualifying edge, and toggles after every qualifying rising edge. After a toggle, the cadence restarts from count zero and repeats without a completion pulse, clear interval, disabled mode, transaction state, or separately retained result.
+
+Worked trace.
+
+The following evaluated trace is normative for the listed stimulus sequences and uses the pre-transition row convention stated above.
+
+### stimulus 0
+| cycle | freq | wave_out |
+|---|---|---|
+| 0 | 8'b00000000 | 0 |
+| 1 | 8'b00000001 | 0 |
+| 2 | 8'b11111111 | 0 |
+
+### stimulus 1
+| cycle | freq | wave_out |
+|---|---|---|
+| 0 | 8'b00000001 | 0 |
+| 1 | 8'b00000001 | 1 |
+| 2 | 8'b00000001 | 0 |
+| 3 | 8'b00000001 | 1 |
+
+### stimulus 2
+| cycle | freq | wave_out |
+|---|---|---|
+| 0 | 8'b11111111 | 0 |
+| 1 | 8'b11111111 | 0 |
+| 2 | 8'b11111111 | 0 |
+
+### stimulus 3
+| cycle | freq | wave_out |
+|---|---|---|
+| 0 | 8'b10000000 | 0 |
+| 1 | 8'b10000000 | 0 |
+| 2 | 8'b10000000 | 0 |
+
+### stimulus 4
+| cycle | freq | wave_out |
+|---|---|---|
+| 0 | 8'b00100101 | 0 |
+| 1 | 8'b00100101 | 0 |
+| 2 | 8'b00100101 | 0 |
+
+### stimulus 5
+| cycle | freq | wave_out |
+|---|---|---|
+| 0 | 8'b00000010 | 0 |
+| 1 | 8'b00000010 | 0 |
+| 2 | 8'b00000111 | 1 |
+| 3 | 8'b00000010 | 1 |
+| 4 | 8'b00000010 | 0 |
+| 5 | 8'b00000010 | 0 |
+| 6 | 8'b00000010 | 1 |
+
+### stimulus 6
+| cycle | freq | wave_out |
+|---|---|---|
+| 0 | 8'b00000100 | 0 |
+| 1 | 8'b00000100 | 0 |
+| 2 | 8'b00000100 | 0 |
+| 3 | 8'b00001001 | 0 |
+| 4 | 8'b00000100 | 0 |
+| 5 | 8'b00000100 | 0 |
+| 6 | 8'b00000100 | 0 |
+| 7 | 8'b00000100 | 0 |
+| 8 | 8'b00000100 | 0 |
+| 9 | 8'b00000100 | 0 |
+
+### stimulus 7
+| cycle | freq | wave_out |
+|---|---|---|
+| 0 | 8'b00001000 | 0 |
+| 1 | 8'b00001000 | 0 |
+| 2 | 8'b00001000 | 0 |
+| 3 | 8'b00001000 | 0 |
+| 4 | 8'b00001000 | 0 |
+| 5 | 8'b00001000 | 0 |
+| 6 | 8'b00001000 | 0 |
+| 7 | 8'b00001000 | 0 |
+| 8 | 8'b00001000 | 1 |
+| 9 | 8'b00001000 | 1 |
+| 10 | 8'b00001000 | 1 |
+| 11 | 8'b00001000 | 1 |
+| 12 | 8'b00001000 | 1 |
+| 13 | 8'b00001000 | 1 |
+| 14 | 8'b00001000 | 1 |
+| 15 | 8'b00001000 | 1 |
+| 16 | 8'b00001000 | 0 |
+| 17 | 8'b00001000 | 0 |
+| 18 | 8'b00001000 | 0 |
+| 19 | 8'b00001000 | 0 |
+| 20 | 8'b00001000 | 0 |
+| 21 | 8'b00001000 | 0 |
+| 22 | 8'b00001000 | 0 |
+| 23 | 8'b00001000 | 0 |
+| 24 | 8'b00001000 | 1 |
+| 25 | 8'b00001000 | 1 |
+| 26 | 8'b00001000 | 1 |
+| 27 | 8'b00001000 | 1 |
+| 28 | 8'b00001000 | 1 |
+| 29 | 8'b00001000 | 1 |
+| 30 | 8'b00001000 | 1 |
+| 31 | 8'b00001000 | 1 |
+| 32 | 8'b00001000 | 0 |
+| 33 | 8'b00001000 | 0 |
+| 34 | 8'b00001000 | 0 |
+| 35 | 8'b00001000 | 0 |
+| 36 | 8'b00001000 | 0 |
+| 37 | 8'b00001000 | 0 |
+| 38 | 8'b00001000 | 0 |
+| 39 | 8'b00001000 | 0 |
+| 40 | 8'b00001000 | 1 |
+| 41 | 8'b00001000 | 1 |
+| 42 | 8'b00001000 | 1 |
+| 43 | 8'b00001000 | 1 |
+| 44 | 8'b00001000 | 1 |
+| 45 | 8'b00001000 | 1 |
+| 46 | 8'b00001000 | 1 |
+| 47 | 8'b00001000 | 1 |

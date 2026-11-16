@@ -1,0 +1,17 @@
+read_verilog -formal -sv -Irtl -DPROPERTY=3 /home/usr/leansilicon/case_cpu/memory/rtl/cpu.sv
+hierarchy -check -top case_cpu_memory
+delete -output w:*
+prep -top case_cpu_memory -flatten
+async2sync
+chformal -lower
+memory_map
+opt
+dffunmap
+techmap
+setundef -undriven -anyseq
+abc -fast -g AND
+opt_clean
+aigmap
+expose -input t:$anyseq %x:o
+delete t:$anyseq
+write_aiger -zinit /home/usr/leansilicon/case_cpu/memory/evidence/pdr-sanity/design.aig

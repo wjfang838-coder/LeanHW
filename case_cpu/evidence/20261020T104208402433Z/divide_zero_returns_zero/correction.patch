@@ -1,0 +1,11 @@
+--- faulty.sv
++++ repaired.sv
+@@ -75,7 +75,7 @@
+         MULHSU: begin product=sa*ub; alu=product[63:32]; end
+         MULHU: begin prod_u=ua*{32'b0,b}; alu=prod_u[63:32]; end
+         DIV_: begin
+-          if (b==0) alu=32'b0;
++          if (b==0) alu=32'hffffffff;
+           else if (a==32'h80000000 && b==32'hffffffff) alu=a;
+           else alu=$signed(a)/$signed(b);
+         end

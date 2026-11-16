@@ -1,0 +1,549 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+
+Design a Verilog module named precision_counter_axi that implements a configurable AXI4-Lite Slave interface to manage a high-precision countdown counter. The module facilitates software control through read and write operations, supporting features such as starting and stopping the counter, interrupt generation based on configurable thresholds, and tracking elapsed time after countdown completion. The module adheres to the AXI4-Lite protocol, ensuring proper handshaking, flow control, and error handling for invalid or undefined operations.
+
+---
+
+## Design Specification
+
+### AXI4-Lite Protocol Features
+
+### 1. Handshake Mechanism
+The AXI4-Lite protocol uses a valid-and-ready handshake mechanism to ensure successful transactions:
+
+- **Write Transaction Handshake**:
+  - The AXI master asserts `axi_awvalid` to indicate a valid write address and control signals.
+  - The slave asserts `axi_awready` when ready to accept the address.
+  - After the write address handshake, the master asserts `axi_wvalid` with valid data, and the slave responds with `axi_wready` when ready to accept the data.
+  - Finally, the slave sends a write response (`axi_bresp`), asserting `axi_bvalid` when the response is valid. The master acknowledges the response by asserting `axi_bready`.
+
+- **Read Transaction Handshake**:
+  - The AXI master asserts `axi_arvalid` to indicate a valid read address.
+  - The slave asserts `axi_arready` when ready to accept the address.
+  - After address handshaking, the slave provides the requested data (`axi_rdata`) and response (`axi_rresp`), asserting `axi_rvalid` to indicate data availability. The master asserts `axi_rready` to acknowledge the data reception.
+
+### 2. Flow Control
+- The module ensures proper flow control by using `axi_awready`, `axi_wready`, and `axi_arready` signals. These signals allow the slave to introduce backpressure, preventing data loss or overflow when it is not ready to process requests.
+
+### 3. Address Decoding
+- The incoming address (`axi_awaddr` or `axi_araddr`) is decoded to access specific control and data registers. Unrecognized addresses result in error responses (`axi_bresp` or `axi_rresp` set to `2'b10`).
+
+---
+
+### Interface
+
+#### Parameters
+- `C_S_AXI_DATA_WIDTH`: Specifies the width of the AXI data bus. The default value is 32. This parameter defines the size of the data transferred during read and write operations, and it must be a positive integer greater than or equal to 8.
+- `C_S_AXI_ADDR_WIDTH`: Specifies the width of the AXI address bus. The default value is 8. This parameter determines the maximum addressable range of the registers. It must be a positive integer greater than or equal to 8.
+
+#### Inputs
+- **Clock and Reset Signals:**
+  - `axi_aclk`:The clock signal for synchronous operations. The design operates on the positive edge of the clock signal..
+  - `axi_aresetn`: Active-low asynchronous reset. When de-asserted, the module returns to its initial state.
+
+- **AXI Write Address Channel:**
+  - `[C_S_AXI_ADDR_WIDTH-1:0] axi_awaddr`: Write the address from the AXI master.
+  - `axi_awvalid`: Indicates that the write address and control signals are valid.
+
+- **AXI Write Data Channel:**
+  - `[C_S_AXI_DATA_WIDTH-1:0] axi_wdata`: Data to be written to the addressed location.
+  - `[(C_S_AXI_DATA_WIDTH/8)-1:0] axi_wstrb`: Write strobes, indicating which bytes in `axi_wdata` are valid.
+  - `axi_wvalid`: Indicates that valid write data is available.
+
+- **AXI Write Response Channel:**
+  - `axi_bready`: Indicates that the AXI master is ready to accept the write response.
+
+- **AXI Read Address Channel:**
+  - `[C_S_AXI_ADDR_WIDTH-1:0] axi_araddr`: Read address from the AXI master.
+  - `axi_arvalid`: Indicates that the read address and control signals are valid.
+
+- **AXI Read Response Channel:**
+  - `axi_rready`: Indicates that the AXI master is ready to accept the read data.
+
+#### Outputs
+- **AXI Write Address Channel:**
+  - `axi_awready`: Indicates that the module is ready to accept a write address.
+
+- **AXI Write Data Channel:**
+  - `axi_wready`: Indicates that the module is ready to accept write data.
+
+- **AXI Write Response Channel:**
+  - `[1:0] axi_bresp`: Write response, where `2'b00` indicates success and `2'b10` indicates an error.
+  - `axi_bvalid`: Indicates that the write response is valid.
+
+- **AXI Read Address Channel:**
+  - `axi_arready`: Indicates that the module is ready to accept a read address.
+
+- **AXI Read Data Channel:**
+  - `[C_S_AXI_DATA_WIDTH-1:0] axi_rdata`: Data being read by the AXI master.
+  - `[1:0] axi_rresp`: Read response, where `2'b00` indicates success and `2'b10` indicates an error.
+  - `axi_rvalid`: Indicates that the read data is valid.
+
+- **Control Outputs:**
+  - `axi_ap_done`: Indicates that the countdown has completed.
+  - `irq`: Interrupt request signal triggered when the interrupt threshold is reached.
+
+---
+
+### Register Map
+
+| Register             | Offset | Description                                   | Access      | Bit Width |
+|----------------------|--------|-----------------------------------------------|-------------|-----------|
+| `slv_reg_ctl`        | 0x00   | Control register (start/stop countdown)       | Read/Write  | 32        |
+| `slv_reg_t`          | 0x10   | Elapsed time counter                          | Read/Write  | 32        |
+| `slv_reg_v`          | 0x20   | Countdown value                               | Read/Write  | 32        |
+| `slv_reg_irq_mask`   | 0x24   | Mask to enable or disable interrupt requests  | Read/Write  | 32        |
+| `slv_reg_irq_thresh` | 0x28   | Threshold value for generating interrupts     | Read/Write  | 32        |
+
+---
+
+
+
+### Functional Description
+
+#### 1. **Control Register (`slv_reg_ctl`):**
+- **Bit 0 (Start/Stop):**
+  - Writing `1` starts the countdown.
+  - Writing `0` stops the countdown.
+  - When stopped, the countdown value (`slv_reg_v`) retains its current value.
+- **Reset Behavior:**
+  - Writing to this register resets the elapsed time register (`slv_reg_t`) to zero.
+- **Default Value:**
+  - Initializes to `0` after reset, meaning the countdown is stopped.
+
+#### 2. **Countdown Register (`slv_reg_v`):**
+- **Purpose:**
+  - Holds the countdown value.
+  - The counter decrements by `1` every clock cycle while running.
+- **Completion Behavior:**
+  - When the countdown reaches `0`, the `axi_ap_done` signal is asserted.
+- **Writing Behavior:**
+  - Writing a new value updates the countdown value, even while the counter is running.
+
+#### 3. **Elapsed Time Register (`slv_reg_t`):**
+- **Purpose:**
+  - Tracks the number of clock cycles elapsed after the countdown reaches `0`.
+- **Behavior:**
+  - Increments by `1` every clock cycle when the counter is finished (`slv_reg_v == 0`).
+- **Reset Behavior:**
+  - Automatically resets to `0` whenever the control register (`slv_reg_ctl`) is written.
+
+#### 4. **Interrupt Mechanism:**
+- **Interrupt Mask Register (`slv_reg_irq_mask`):**
+  - Enables or disables interrupt generation.
+  - Interrupts are enabled when `slv_reg_irq_mask[0]` is set to `1`.
+- **Interrupt Threshold Register (`slv_reg_irq_thresh`):**
+  - Defines the countdown value at which the interrupt is triggered.
+- **IRQ Signal (`irq`):**
+  - Asserted when the countdown value (`slv_reg_v`) matches the interrupt threshold (`slv_reg_irq_thresh`) and interrupts are enabled.
+  - Automatically cleared when:
+    - The countdown stops.
+    - The threshold condition is no longer met.
+    - The reset signal (`axi_aresetn`) is asserted.
+
+#### 5. **Write Response (`axi_bresp`):**
+- **Purpose:**
+  - Indicates the success or failure of a write transaction.
+- **Conditions:**
+  - **`2'b00` (OKAY):**
+    - The write operation completed successfully.
+    - Generated when the write address and data handshake (`axi_awvalid`, `axi_wvalid`) are completed and processed correctly.
+  - **`2'b10` (SLVERR - Slave Error):**
+    - The write operation failed due to invalid conditions, such as accessing an unsupported address.
+    - Generated when the address is outside the implemented range or the operation is otherwise invalid.
+
+#### 6. **Read Response (`axi_rresp`):**
+- **Purpose:**
+  - Indicates the success or failure of a read transaction.
+- **Conditions:**
+  - **`2'b00` (OKAY):**
+    - The read operation completed successfully.
+    - Generated when a valid read address (`axi_arvalid`) is provided, and the requested data is available.
+  - **`2'b10` (SLVERR - Slave Error):**
+    - The read operation failed due to invalid conditions, such as accessing an unsupported address.
+    - Generated when the address is outside the implemented range.
+
+
+---
+
+### Timing and Synchronization
+
+- **Clock:** The module operates on the rising edge of `axi_aclk`.
+- **Reset:** Active-low (`axi_aresetn`). Resets all internal registers and outputs to their default state.
+
+---
+
+### Constraints and Edge Cases
+
+1. **Reset Behavior:**
+   - When reset is asserted, all registers are cleared to zero.
+
+2. **Invalid AXI Operations:**
+   - Writing to undefined or reserved addresses is ignored, and the registers remain unchanged.
+   - Read/write transactions without proper handshaking (valid and ready signals) are ignored to ensure AXI protocol compliance.
+
+3. **Interrupt Handling:**
+   - Interrupts are only generated if `slv_reg_irq_mask` is enabled and the counter value matches the threshold.
+
+---
+
+### Example Operations
+
+#### Write Operation Example
+- **Operation:** Start the counter and set the countdown value.
+  - Write `0x1` to the control register (`slv_reg_ctl`) to start the countdown.
+    - Address: `0x00`
+    - Data: `0x00000001`
+    - **Result:** The countdown starts, and `slv_reg_ctl[0]` is set to `1`.
+
+  - Write `0x00000010` to the countdown value register (`slv_reg_v`).
+    - Address: `0x20`
+    - Data: `0x00000010`
+    - **Result:** The countdown value is set to `16`.
+
+#### Read Operation Example
+- **Operation:** Read the elapsed time and status.
+  - Read from the elapsed time register (`slv_reg_t`).
+    - Address: `0x10`
+    - **Result:** The current elapsed time value is returned.
+
+  - Read the `axi_ap_done` status by accessing the control register.
+    - Address: `0x0C`
+    - **Result:** Returns `1` if the countdown is complete, otherwise `0`.
+
+#### Interrupt Example
+- **Condition:** Set the interrupt threshold and enable interrupts.
+  - Write `0x00000005` to the interrupt threshold register (`slv_reg_irq_thresh`).
+    - Address: `0x28`
+    - Data: `0x00000005`
+    - **Result:** The interrupt threshold is set to `5`.
+
+  - Write `0x00000001` to the interrupt mask register (`slv_reg_irq_mask`) to enable interrupts.
+    - Address: `0x24`
+    - Data: `0x00000001`
+    - **Result:** Interrupts are enabled.
+
+  - **Trigger:** When the countdown value reaches `5`, the `irq` signal is asserted.
+
+---
+
+#### Write Transaction Handshake
+ {
+"signal": [
+{ "name": "axi_aclk", "wave": "p............." },
+{ "name": "axi_aresetn", "wave": "01............" },
+
+{ "name": "axi_awaddr", "wave": "x.=....=......", "data": ["0x00","0x20"] },
+{ "name": "axi_wdata", "wave": "x.=....=......", "data": ["0x00000001","0xABCDEF01"] },
+{ "name": "axi_awvalid", "wave": "0.1.0..1.0....", "data": ["Write Addr Valid"] },
+{ "name": "axi_wvalid", "wave": "0.1.0..1.0....", "data": ["Write Data Valid"] },
+{ "name": "axi_wstrb", "wave": "x.=...........", "data": ["0xF"] },
+{ "name": "axi_awready", "wave": "0..10...10....", "data": ["Write Addr Ready"] },
+
+{ "name": "axi_wready", "wave": "0..10...10....", "data": ["Write Data Ready"] },
+{ "name": "slv_reg_ctl[31:0]", "wave": "x...=.........", "data": ["0x00000001"] },
+{ "name": "slv_reg_v[31:0]", "wave": "x.=......=====", "data": ["0x00000000","0xABCDEF01","ABCD EF00","ABCD EEFF","ABCD EEFE","ABCD EEFD"] },
+
+{ "name": "axi_bvalid", "wave": "0...10...10...", "data": ["Write Response Valid"] },
+{ "name": "axi_bready", "wave": "0...10...10...", "data": ["Write Data Ready"] },
+{ "name": "axi_bresp", "wave": "x...==...==...", "data": ["00","10","00","10"] },
+
+],
+"head": {
+"text": "AXI4-Lite Write Transaction Handshake"
+}
+}
+
+---
+#### Read  Transaction Handshake
+{
+"signal": [
+{ "name": "axi_aclk", "wave": "p............." },
+{ "name": "axi_aresetn", "wave": "1............0" },
+{ "name": "slv_reg_ctl[31:0]", "wave": "x=............", "data": ["0x00000001"] },
+{ "name": "slv_reg_v[31:0]", "wave": "x.============", "data": ["0x00000000","0xABCDEF01","ABCDEF00","ABCDEEFF","ABCDEEFE","ABCDEEFD","ABCDEEFC","ABCDEEFB","ABCDEEFA","ABCDEEF9","ABCDEEF8","ABCDEEF7"] },
+{ "name": "axi_araddr", "wave": "x.=....=......", "data": ["0x00","0x20"] },
+{ "name": "axi_arvalid", "wave": "0.1.0..1.0....", "data": ["Read Addr Valid"] },
+{ "name": "axi_arready", "wave": "0..10...10....", "data": ["Read Addr Ready"] },
+{ "name": "axi_rready", "wave": "0.1..0.1..0...", "data": ["Read Data Ready"] },
+
+{ "name": "axi_rvalid", "wave": "0...10...10...", "data": ["Read Data Valid"] },
+
+{ "name": "axi_rdata", "wave": "x...=....=....", "data": ["0x00000001","ABCDEEFC"] },
+{ "name": "axi_rresp", "wave": "x...==...==...", "data": ["00","10","00","10"] },
+],
+"head": {
+"text": "AXI4-Lite Read Transaction Handshake"
+}
+}
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a Verilog module named precision_counter_axi that implements a configurable AXI4-Lite Slave interface to manage a high-precision countdown counter. The module facilitates software control through read and write operations, supporting features such as starting and stopping the counter, interrupt generation based on configurable thresholds, and tracking elapsed time after countdown completion. The module adheres to the AXI4-Lite protocol, ensuring proper handshaking, flow control, and error handling for invalid or undefined operations.
+
+Module and integration contract
+
+Module: precision_counter_axi.
+Ports below are in exact declaration order:
+- axi_aclk: input 1 bit.
+- axi_aresetn: input 1 bit.
+- axi_awaddr: input [C_S_AXI_ADDR_WIDTH-1:0].
+- axi_awvalid: input 1 bit.
+- axi_awready: output 1 bit.
+- axi_wdata: input [C_S_AXI_DATA_WIDTH-1:0].
+- axi_wstrb: input [(C_S_AXI_DATA_WIDTH/8)-1:0].
+- axi_wvalid: input 1 bit.
+- axi_wready: output 1 bit.
+- axi_bresp: output [1:0].
+- axi_bvalid: output 1 bit.
+- axi_bready: input 1 bit.
+- axi_araddr: input [C_S_AXI_ADDR_WIDTH-1:0].
+- axi_arvalid: input 1 bit.
+- axi_arready: output 1 bit.
+- axi_rdata: output [C_S_AXI_DATA_WIDTH-1:0].
+- axi_rresp: output [1:0].
+- axi_rvalid: output 1 bit.
+- axi_rready: input 1 bit.
+- axi_ap_done: output 1 bit.
+- irq: output 1 bit.
+
+Public parameters:
+- integer C_S_AXI_DATA_WIDTH: default = 32.
+- integer C_S_AXI_ADDR_WIDTH: default = 8.
+- Verification-visible parameter `C_S_AXI_ADDR_WIDTH`: This harness-visible integer parameter has default 8 and sets both AXI address-port ranges to [C_S_AXI_ADDR_WIDTH-1:0].
+- Verification-visible parameter `C_S_AXI_DATA_WIDTH`: This harness-visible integer parameter has default 32 and sets AXI data-port ranges to [C_S_AXI_DATA_WIDTH-1:0] and the write-strobe range to [(C_S_AXI_DATA_WIDTH/8)-1:0].
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+
+3. Reset.
+
+axi_aresetn is active low and asynchronous. Driving it low immediately clears every writable value (control, elapsed count, remaining count, interrupt mask, and interrupt threshold), both independently buffered write-channel items, and all read/write response state and payloads to zero. While low, axi_awready, axi_wready, axi_bvalid, axi_arready, axi_rdata, axi_rresp, axi_rvalid, and irq are zero; axi_bresp is 2'b00 and axi_ap_done is one because the cleared remaining count is zero. Reset dominates simultaneous activity. Release itself does not accept a transfer or advance state. Immediately after release and before the first rising edge, both write ready outputs and axi_arready are one, axi_ap_done remains one, and all other outputs retain their reset values. The first rising edge after release applies the normal laws below from the cleared state.
+
+Implementation choice C1 (power-up scope only): before any reset assertion has been observed, this compatible implementation starts in the same fully cleared state described above. The source does not establish a hardware power-up value. This choice is not a reset-before-use restriction and does not alter the asynchronous reset contract or any subsequent behavior.
+
+Amendment A1. The original clause is exactly: “`axi_aresetn`: Active-low asynchronous reset. When de-asserted, the module returns to its initial state.” Question Q12 supplies the certain answer law exactly: “Driving axi_aresetn low asynchronously clears all bus response state and all writable values to zero, which makes all ready outputs 0, axi_ap_done 1, and irq 0; after it returns high, readiness reflects pending-response state immediately and normal rising-edge operation resumes from the cleared state, with reset dominating simultaneous activity and repeated assertions repeating the clear.” Only the second sentence's assertion/de-assertion event and its immediate consequences are superseded; active-low polarity and asynchronous reset remain unchanged.
+
+4. Timing.
+
+All sequential acceptance and updates occur on the rising edge of axi_aclk except asynchronous reset. A full-cycle model row k drives its listed inputs, permits combinational settling, and samples out(s[k], i[k]) before active edge k; that edge computes s[k+1]. With the interface timing metadata, row k denotes k * step_ns after settling and uses timing.sample_offset_ns; it is not an implicit 10 ns tick. This finite active-edge scenario includes reset held low at an observed active edge and does not represent every between-edge event or restrict legal asynchronous reset pulses.
+
+For a write channel item, E0 is the rising edge on which its valid and ready are both one. Address and data can have distinct E0 edges. Once both were pending before a rising edge E1, E1 processes them; axi_bvalid and axi_bresp publish after E1, in the next pre-edge observation. If both are first accepted together at E0, one subsequent interval completes at E1, so publication is row E0+2 under the pre-edge convention. axi_bvalid remains asserted until a rising edge accepting the response; its width is therefore one or more complete cycles, with no fixed maximum. axi_bresp retains its last generated value.
+
+For a read, E0 is the rising edge accepting axi_araddr. Registered axi_rdata, axi_rresp, and axi_rvalid are determined from that address and readable state before E0 and publish after E0, in the immediately following pre-edge observation. They retain through response completion. Under Amendment A3, a pending response clears after a rising edge with axi_rvalid=1, axi_rready=1, and axi_arvalid=0; asserted axi_arvalid on that edge prevents the clear.
+
+axi_awready, axi_wready, axi_arready, axi_ap_done, and irq are combinational functions of current state and reset as stated below. All counters and stored register values use unsigned C_S_AXI_DATA_WIDTH-bit arithmetic in the parameterized RTL; the concrete model uses unsigned 32-bit values, with addition, subtraction, byte merge, and stored results truncated modulo 2^32 at the stated register-write/update boundary.
+
+5. Behaviour.
+
+Write address and write data are accepted independently and in either order. Amendment A2. The original sequence clause is exactly: “After the write address handshake, the master asserts `axi_wvalid` with valid data, and the slave responds with `axi_wready` when ready to accept the data.” Question Q13 supplies the certain answer law exactly: “axi_awaddr is sampled only on a rising edge where axi_awvalid and axi_awready are both 1, is ignored at all other times, may be accepted before or after the corresponding write data, and the accepted address selects both the eventual response and any write effect when the independently accepted address and data are later processed.” Only the claimed ordering of the independently handshaken address and data is superseded; both handshakes and the later response remain required.
+
+Amendment A3. The original clause is exactly: “The master asserts `axi_rready` to acknowledge the data reception.” Question Q8 supplies the certain answer law exactly: “axi_rvalid is 0 on reset, becomes 1 in the pre-edge row after an edge accepting axi_araddr, remains 1 while axi_rready is 0, clears after an edge with axi_rvalid and axi_rready both 1 only when axi_arvalid is 0, and therefore remains asserted if axi_arvalid is held high during that attempted completion.” Only the conditions under which an asserted axi_rready completes this module's pending read response are superseded: acknowledgement requires axi_rvalid=1 and axi_arvalid=0 at that rising edge. All other read handshaking obligations remain unchanged.
+
+Amendment A4. The original clause is exactly: “Increments by `1` every clock cycle when the counter is finished (`slv_reg_v == 0`).” Question Q11 supplies the certain answer law exactly: “While axi_aresetn is 1, each rising edge of axi_aclk accepts eligible AXI channel transfers, advances or completes pending responses, decrements a nonzero remaining count or increments the elapsed count when enabled at zero, and applies eligible writes with write effects taking priority over same-edge autonomous updates to the same externally readable value; without a rising edge inputs cause no sequential change, while reset assertion acts independently of the clock.” Only elapsed-count advancement is superseded: it increments at zero only while control bit 0 enables operation. The definition of completion, register access, reset behavior, and all nonzero countdown behavior remain unchanged.
+
+Each asserted axi_wstrb bit replaces its corresponding byte and each clear bit preserves it. Valid write offsets are 8'h00, 8'h10, 8'h20, 8'h24, and 8'h28. Every other write offset produces SLVERR 2'b10 and changes no writable value. A write to 8'h00 also clears elapsed count. If a processed write and an autonomous update target the same externally readable value on one edge, the write effect has priority.
+
+While control bit 0 is one, a nonzero remaining count decrements by one at each rising edge. While control bit 0 is one and remaining count is zero, elapsed count increments by one at each rising edge. While control bit 0 is zero, both autonomous actions are disabled. axi_ap_done is one exactly when remaining count is zero. irq is one exactly when control bit 0 and interrupt-mask bit 0 are one and remaining count equals interrupt threshold.
+
+Read offsets 8'h00, 8'h0c, 8'h10, 8'h20, 8'h24, and 8'h28 return, respectively, control, completion zero-extended to the data width, elapsed count, remaining count, interrupt mask, and interrupt threshold, with OKAY 2'b00. Every other read offset returns zero with SLVERR 2'b10.
+
+The certain rule laws below apply generally, not merely at their headline stimuli.
+
+While axi_aresetn is 1, each rising edge of axi_aclk accepts eligible AXI channel transfers, advances or completes pending responses, decrements a nonzero remaining count or increments the elapsed count when enabled at zero, and applies eligible writes with write effects taking priority over same-edge autonomous updates to the same externally readable value; without a rising edge inputs cause no sequential change, while reset assertion acts independently of the clock.
+
+Driving axi_aresetn low asynchronously clears all bus response state and all writable values to zero, which makes all ready outputs 0, axi_ap_done 1, and irq 0; after it returns high, readiness reflects pending-response state immediately and normal rising-edge operation resumes from the cleared state, with reset dominating simultaneous activity and repeated assertions repeating the clear.
+
+axi_awaddr is sampled only on a rising edge where axi_awvalid and axi_awready are both 1, is ignored at all other times, may be accepted before or after the corresponding write data, and the accepted address selects both the eventual response and any write effect when the independently accepted address and data are later processed.
+
+axi_awvalid causes axi_awaddr to be accepted only on a rising edge where axi_awready is also 1, has no effect while low or while ready is low, and repeated assertion cannot accept another address until the prior address and data have produced and completed their write response.
+
+axi_wdata is sampled only on a rising edge where axi_wvalid and axi_wready are both 1, is ignored at all other times, may be accepted before or after the corresponding write address, and its accepted byte values are applied only for asserted byte strobes when the independently accepted address and data are later processed.
+
+axi_wstrb is sampled with axi_wdata only on a rising edge where axi_wvalid and axi_wready are both 1, each asserted bit enables replacement of the corresponding data byte and each clear bit preserves that byte, and strobes have no effect for an invalid address or without an accepted write-data transfer.
+
+axi_wvalid causes axi_wdata and axi_wstrb to be accepted only on a rising edge where axi_wready is also 1, has no effect while low or while ready is low, and repeated assertion cannot accept another data beat until the prior data and address have produced and completed their write response.
+
+axi_bready has no effect while axi_bvalid is 0, and when both are 1 at a rising edge it clears axi_bvalid for the next pre-edge row and permits fresh address and data acceptance, with reset taking priority and a newly generated response taking priority over completion in the same edge.
+
+axi_araddr is sampled only on a rising edge where axi_arvalid and axi_arready are both 1, is ignored otherwise, and selects the read data and 2-bit response observed in the next pre-edge row.
+
+axi_arvalid causes axi_araddr to be accepted only on a rising edge where axi_arready is 1, has no read-request effect while low or ready is low, and if held high while an existing response is accepted it prevents that response from clearing, so another read cannot be accepted until a later completion edge on which axi_arvalid is low.
+
+axi_rready has no effect while axi_rvalid is 0, and when both are 1 at a rising edge it clears axi_rvalid for the next pre-edge row only if axi_arvalid is 0, with reset taking priority and asserted axi_arvalid preventing completion from clearing the pending response.
+
+axi_awready is 0 throughout reset, becomes 1 immediately after reset release when no address or response is pending, goes low in the pre-edge row after an address handshake, remains low through response generation and retention, and returns high after the edge completing the response unless another condition blocks it; row k is sampled before its active edge, so a handshake at row k first changes this output in row k+1.
+
+axi_wready is 0 throughout reset, becomes 1 immediately after reset release when no data or response is pending, goes low in the pre-edge row after a data handshake, remains low through response generation and retention, and returns high after the edge completing the response unless another condition blocks it; row k is sampled before its active edge, so a handshake at row k first changes this output in row k+1.
+
+axi_bresp is 2'b00 on reset and changes in the pre-edge row after processing a previously accepted address and data to 2'b00 for addresses 8'h00, 8'h10, 8'h20, 8'h24, or 8'h28 and 2'b10 otherwise, then retains that value through response completion and until another response or reset; because row k is pre-edge, channels first accepted together at row k cannot change axi_bresp before row k+2.
+
+axi_bvalid is 0 throughout reset, becomes 1 in the pre-edge row after processing both previously accepted write channels, remains 1 across any number of rows with axi_bready low, and becomes 0 after an edge accepting the response; because row k is pre-edge, channels first accepted together at row k yield earliest assertion at row k+2, and a new transaction starts only after the pending response clears.
+
+axi_arready is 0 throughout reset, becomes 1 immediately after reset release while no response is pending, goes low in the pre-edge row after a read-address handshake, remains low while axi_rvalid remains asserted, and returns high after an edge that clears axi_rvalid; row k is pre-edge, so an accepted address at row k first lowers it in row k+1.
+
+axi_rdata is zero throughout reset and, one pre-edge row after a read-address handshake, becomes the selected value for that address—control at 8'h00, zero-extended completion at 8'h0c, elapsed count at 8'h10, remaining count at 8'h20, interrupt mask at 8'h24, interrupt threshold at 8'h28, or zero otherwise—and retains it through response completion until another accepted read or reset.
+
+axi_rresp is 2'b00 throughout reset and, one pre-edge row after a read-address handshake, becomes 2'b00 for addresses 8'h00, 8'h0c, 8'h10, 8'h20, 8'h24, or 8'h28 and 2'b10 otherwise, retaining that response through completion until another accepted read or reset.
+
+axi_rvalid is 0 throughout reset, asserts one pre-edge row after a read-address handshake, remains asserted while axi_rready is low, and clears one row after an edge with axi_rready high only if axi_arvalid is low on that edge; repeated reads cannot be accepted while it is asserted, and holding axi_arvalid high during completion keeps it asserted.
+
+axi_ap_done is combinationally 1 throughout reset and whenever the remaining count is zero, becomes 0 immediately after an accepted write is later applied to make that count nonzero, returns to 1 immediately after a decrement or applied write makes it zero, remains 1 while enabled operation at zero advances only the elapsed count, and repeats this behavior after restart; row k is pre-edge, so edge-caused count changes appear in row k+1.
+
+irq is combinationally 0 throughout reset and otherwise is 1 exactly when control bit 0 and interrupt-mask bit 0 are both 1 and the remaining count equals the interrupt threshold, changing in the pre-edge row after any edge that changes one of those values and retaining its level while the condition is unchanged; completion, restart, interruption, and repeated transactions affect irq only through that condition.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete C_S_AXI_DATA_WIDTH=32, C_S_AXI_ADDR_WIDTH=8 active-edge verification instance and Implementation choice C1. Each stimulus begins from that chosen initial state; reset-low rows also establish the same state through the RTL reset law.
+
+### stimulus 0
+| cycle | axi_aresetn | axi_awaddr | axi_awvalid | axi_wdata | axi_wstrb | axi_wvalid | axi_bready | axi_araddr | axi_arvalid | axi_rready | axi_awready | axi_wready | axi_bresp | axi_bvalid | axi_arready | axi_rdata | axi_rresp | axi_rvalid | axi_ap_done | irq |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 1 | 32'h1 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 1 | 1 | 8'b00100000 | 1 | 32'h3 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 1 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 2 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 3 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 4 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 5 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 6 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | axi_aresetn | axi_awaddr | axi_awvalid | axi_wdata | axi_wstrb | axi_wvalid | axi_bready | axi_araddr | axi_arvalid | axi_rready | axi_awready | axi_wready | axi_bresp | axi_bvalid | axi_arready | axi_rdata | axi_rresp | axi_rvalid | axi_ap_done | irq |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 1 | 1 | 8'b00100000 | 1 | 32'hffffffff | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 1 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 2 | 1 | 8'b00000000 | 1 | 32'h1 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 3 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 4 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 5 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | axi_aresetn | axi_awaddr | axi_awvalid | axi_wdata | axi_wstrb | axi_wvalid | axi_bready | axi_araddr | axi_arvalid | axi_rready | axi_awready | axi_wready | axi_bresp | axi_bvalid | axi_arready | axi_rdata | axi_rresp | axi_rvalid | axi_ap_done | irq |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 1 | 1 | 8'b00100000 | 1 | 32'h80000000 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 1 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 2 | 1 | 8'b00000000 | 1 | 32'h1 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 3 | 1 | 8'b00000000 | 1 | 32'h0 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 4 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 5 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+
+### stimulus 3
+| cycle | axi_aresetn | axi_awaddr | axi_awvalid | axi_wdata | axi_wstrb | axi_wvalid | axi_bready | axi_araddr | axi_arvalid | axi_rready | axi_awready | axi_wready | axi_bresp | axi_bvalid | axi_arready | axi_rdata | axi_rresp | axi_rvalid | axi_ap_done | irq |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 1 | 1 | 8'b00100000 | 1 | 32'h12345678 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 1 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 2 | 1 | 8'b00000000 | 1 | 32'h1 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 3 | 1 | 8'b00100000 | 1 | 32'h1 | 4'b0011 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 4 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 5 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+
+### stimulus 4
+| cycle | axi_aresetn | axi_awaddr | axi_awvalid | axi_wdata | axi_wstrb | axi_wvalid | axi_bready | axi_araddr | axi_arvalid | axi_rready | axi_awready | axi_wready | axi_bresp | axi_bvalid | axi_arready | axi_rdata | axi_rresp | axi_rvalid | axi_ap_done | irq |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 1 | 1 | 8'b00101000 | 1 | 32'h1 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 1 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 2 | 1 | 8'b00100100 | 1 | 32'h1 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 3 | 1 | 8'b00100000 | 1 | 32'h5 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 4 | 1 | 8'b00000000 | 1 | 32'h1 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 5 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 6 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 7 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 8 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 9 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | axi_aresetn | axi_awaddr | axi_awvalid | axi_wdata | axi_wstrb | axi_wvalid | axi_bready | axi_araddr | axi_arvalid | axi_rready | axi_awready | axi_wready | axi_bresp | axi_bvalid | axi_arready | axi_rdata | axi_rresp | axi_rvalid | axi_ap_done | irq |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 1 | 1 | 8'b11111111 | 1 | 32'hffffffff | 4'b1111 | 1 | 1 | 8'b00000000 | 0 | 0 | 1 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 2 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b11111111 | 1 | 1 | 0 | 0 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 3 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b10 | 1 | 0 | 32'h0 | 2'b10 | 1 | 1 | 0 |
+| 4 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b10 | 1 | 0 | 32'h0 | 2'b10 | 1 | 1 | 0 |
+
+### stimulus 6
+| cycle | axi_aresetn | axi_awaddr | axi_awvalid | axi_wdata | axi_wstrb | axi_wvalid | axi_bready | axi_araddr | axi_arvalid | axi_rready | axi_awready | axi_wready | axi_bresp | axi_bvalid | axi_arready | axi_rdata | axi_rresp | axi_rvalid | axi_ap_done | irq |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 1 | 1 | 8'b00100000 | 1 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 2 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 3 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 4 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 1 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 5 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+
+### stimulus 7
+| cycle | axi_aresetn | axi_awaddr | axi_awvalid | axi_wdata | axi_wstrb | axi_wvalid | axi_bready | axi_araddr | axi_arvalid | axi_rready | axi_awready | axi_wready | axi_bresp | axi_bvalid | axi_arready | axi_rdata | axi_rresp | axi_rvalid | axi_ap_done | irq |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 1 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 1 | 0 | 1 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 2 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 1 | 2'b00 | 0 | 0 | 32'h0 | 2'b00 | 1 | 1 | 0 |
+| 3 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 1 | 1 | 1 | 2'b00 | 0 | 0 | 32'h0 | 2'b00 | 1 | 1 | 0 |
+| 4 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00001100 | 1 | 1 | 1 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 5 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00010000 | 1 | 1 | 1 | 1 | 2'b00 | 0 | 0 | 32'h1 | 2'b00 | 1 | 1 | 0 |
+| 6 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00100000 | 1 | 1 | 1 | 1 | 2'b00 | 0 | 0 | 32'h1 | 2'b00 | 1 | 1 | 0 |
+
+### stimulus 8
+| cycle | axi_aresetn | axi_awaddr | axi_awvalid | axi_wdata | axi_wstrb | axi_wvalid | axi_bready | axi_araddr | axi_arvalid | axi_rready | axi_awready | axi_wready | axi_bresp | axi_bvalid | axi_arready | axi_rdata | axi_rresp | axi_rvalid | axi_ap_done | irq |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 1 | 1 | 8'b00100000 | 1 | 32'h2 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 1 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 2 | 1 | 8'b00000000 | 1 | 32'h1 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 3 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 4 | 1 | 8'b00100000 | 1 | 32'h3 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 5 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 6 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 7 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 8 | 1 | 8'b00000000 | 1 | 32'h1 | 4'b1111 | 1 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 9 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 10 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 11 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 12 | 1 | 8'b00000000 | 0 | 32'h0 | 4'b0000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+
+### stimulus 9
+| cycle | axi_aresetn | axi_awaddr | axi_awvalid | axi_wdata | axi_wstrb | axi_wvalid | axi_bready | axi_araddr | axi_arvalid | axi_rready | axi_awready | axi_wready | axi_bresp | axi_bvalid | axi_arready | axi_rdata | axi_rresp | axi_rvalid | axi_ap_done | irq |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00010000 | 1 | 1 | 0 | 0 | 2'b00 | 0 | 0 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 1 | 1 | 8'b00100000 | 1 | 32'h5 | 4'b1111 | 1 | 0 | 8'b00100000 | 0 | 1 | 1 | 1 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 2 | 1 | 8'b00000000 | 1 | 32'h1 | 4'b1111 | 1 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 0 | 1 | 32'h0 | 2'b00 | 0 | 1 | 0 |
+| 3 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 4 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 5 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00010000 | 1 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 6 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 2'b00 | 1 | 0 | 0 |
+| 7 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 8 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 9 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 10 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00010000 | 1 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 11 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 2'b00 | 1 | 0 | 0 |
+| 12 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 13 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 14 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 15 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00010000 | 1 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 16 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 2'b00 | 1 | 0 | 0 |
+| 17 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 18 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 19 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 20 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00010000 | 1 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 21 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 2'b00 | 1 | 0 | 0 |
+| 22 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 23 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 24 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 25 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00010000 | 1 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 26 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 2'b00 | 1 | 0 | 0 |
+| 27 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 28 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 29 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 30 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00010000 | 1 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 31 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 0 | 32'h0 | 2'b00 | 1 | 0 | 0 |
+| 32 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 33 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 34 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00100000 | 0 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+| 35 | 1 | 8'b00000000 | 0 | 32'h1 | 4'b1111 | 0 | 0 | 8'b00010000 | 1 | 1 | 0 | 0 | 2'b00 | 1 | 1 | 32'h0 | 2'b00 | 0 | 0 | 0 |
+

@@ -1,0 +1,129 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- p1a: input 1 bit.
+- p1b: input 1 bit.
+- p1c: input 1 bit.
+- p1d: input 1 bit.
+- p1e: input 1 bit.
+- p1f: input 1 bit.
+- p1y: output 1 bit.
+- p2a: input 1 bit.
+- p2b: input 1 bit.
+- p2c: input 1 bit.
+- p2d: input 1 bit.
+- p2y: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset behavior. The module has no state elements. From power-up, including before any edge has occurred, p1y and p2y have the definite combinational values specified below; neither output is uninitialised or unknown.
+
+Timing
+
+p1y and p2y are combinational outputs with zero clock-cycle latency from all of their named inputs. There are no pulses, periodic outputs, clocked captures, retained results, transactions, completion states, or restart behavior.
+
+For the evaluated object, a full-cycle trace row k is an observation at k times the interface step duration after settling, sampled at the interface sample offset before the row transition. This observation convention does not define a clock period or propagation-delay law for the circuit; the circuit itself is continuously combinational.
+
+Behaviour
+
+Each input is a one-bit value, so the following laws cover every input encoding.
+
+p1y continuously equals (p1a & p1b & p1c) | (p1d & p1e & p1f).
+
+p2y continuously equals (p2a & p2b) | (p2c & p2d).
+
+p1a is continuously effective: p1y equals p1a exactly when p1b and p1c are both 1 and (p1d & p1e & p1f) is 0; otherwise p1a has no effect.
+
+p1b is continuously effective: p1y equals p1b exactly when p1a and p1c are both 1 and (p1d & p1e & p1f) is 0; otherwise p1b has no effect.
+
+p1c is continuously effective: p1y equals p1c exactly when p1a and p1b are both 1 and (p1d & p1e & p1f) is 0; otherwise p1c has no effect.
+
+p1d is continuously effective: p1y equals p1d exactly when p1e and p1f are both 1 and (p1a & p1b & p1c) is 0; otherwise p1d has no effect.
+
+p1e is continuously effective: p1y equals p1e exactly when p1d and p1f are both 1 and (p1a & p1b & p1c) is 0; otherwise p1e has no effect.
+
+p1f is continuously effective: p1y equals p1f exactly when p1d and p1e are both 1 and (p1a & p1b & p1c) is 0; otherwise p1f has no effect.
+
+p2a is continuously effective: p2y equals p2a exactly when p2b is 1 and (p2c & p2d) is 0; otherwise p2a has no effect.
+
+p2b is continuously effective: p2y equals p2b exactly when p2a is 1 and (p2c & p2d) is 0; otherwise p2b has no effect.
+
+p2c is continuously effective: p2y equals p2c exactly when p2d is 1 and (p2a & p2b) is 0; otherwise p2c has no effect.
+
+p2d is continuously effective: p2y equals p2d exactly when p2c is 1 and (p2a & p2b) is 0; otherwise p2d has no effect.
+
+For every input, simultaneous or repeated changes immediately recompute these same relations. No input is disabled in any mode, and there is no transaction cancellation, first-result special case, retained data, or terminal state.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | p1a | p1b | p1c | p1d | p1e | p1f | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | p1a | p1b | p1c | p1d | p1e | p1f | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 2
+| cycle | p1a | p1b | p1c | p1d | p1e | p1f | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 3
+| cycle | p1a | p1b | p1c | p1d | p1e | p1f | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 4
+| cycle | p1a | p1b | p1c | p1d | p1e | p1f | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | p1a | p1b | p1c | p1d | p1e | p1f | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 6
+| cycle | p1a | p1b | p1c | p1d | p1e | p1f | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 1 |
+
+### stimulus 7
+| cycle | p1a | p1b | p1c | p1d | p1e | p1f | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 0 | 1 |
+
+### stimulus 8
+| cycle | p1a | p1b | p1c | p1d | p1e | p1f | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 | 0 | 1 |
+
+### stimulus 9
+| cycle | p1a | p1b | p1c | p1d | p1e | p1f | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
+
+### stimulus 10
+| cycle | p1a | p1b | p1c | p1d | p1e | p1f | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 0 | 1 | 1 |
+
+### stimulus 11
+| cycle | p1a | p1b | p1c | p1d | p1e | p1f | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |

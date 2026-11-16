@@ -1,0 +1,410 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Please act as a professional verilog designer.
+
+Implement an ALU for a 32-bit MIPS-ISA CPU. The “a” and “b” are the two operands of the ALU, the “aluc” is the opcode, and the “r” gives out the result. “zero” means if the result is zero, “carry” means if there is a carry bit, “negative” means if the result is negative, “overflow” means if the computation is overflow, the “flag” is the result of “slt” and “sltu” instructions. The supported operations and corresponding opcode are shown below:
+    parameter ADD = 6'b100000;
+    parameter ADDU = 6'b100001;
+    parameter SUB = 6'b100010;
+    parameter SUBU = 6'b100011;
+    parameter AND = 6'b100100;
+    parameter OR = 6'b100101;
+    parameter XOR = 6'b100110;
+    parameter NOR = 6'b100111;
+    parameter SLT = 6'b101010;
+    parameter SLTU = 6'b101011;
+    parameter SLL = 6'b000000;
+    parameter SRL = 6'b000010;
+    parameter SRA = 6'b000011;
+    parameter SLLV = 6'b000100;
+    parameter SRLV = 6'b000110;
+    parameter SRAV = 6'b000111;
+    parameter LUI = 6'b001111;
+
+Module name:  
+    alu               
+Input ports:
+    a: a 32-bit input operand
+    b: a 32-bit input operand
+    aluc: a 6-bit control signal for selecting the operation to be performed
+Output ports:
+    r: a 32-bit output representing the result of the operation
+    zero: a 1-bit output indicating whether the result is zero
+    carry: a 1-bit output indicating whether a carry occurred during the operation
+    negative: a 1-bit output indicating whether the result is negative
+    overflow: a 1-bit output indicating whether an overflow occurred during the operation
+    flag: a 1-bit output representing a general flag, which is set based on specific operations (SLT and SLTU)
+
+Implementation:
+The module uses parameters to define the control signals for various operations, such as ADD, SUB, AND, OR, etc. 
+The module assigns the input operands to the signed wires and the output result (r) to the lower 32 bits of the register (res[31:0]). The flag output is determined based on the control signal (aluc) and is set to '1' when the operation is SLT or SLTU, and 'z' (high-impedance) otherwise. The zero output is set to '1' when the result is all zeros, and '0' otherwise.
+Inside the always block, a case statement is used to perform the appropriate operation based on the control signal (aluc). The result is assigned to the register (res) accordingly. For shift operations (SLL, SRL, SRA, SLLV, SRLV, SRAV), the shift amount is determined by the value of 'a' or 'a[4:0]'. For the LUI operation, the lower 16 bits a[15:0] are concatenated with 16 zeros to form the result r={a[15:0],16'b0}. This explicit local benchmark correction agrees with its native oracle.
+If the control signal (aluc) does not match any defined operation, the result is assigned as 'z' (high-impedance).
+
+Give me the complete code.
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Module and integration contract
+
+Module: alu.
+Ports below are in exact declaration order:
+- a: input [31:0].
+- b: input [31:0].
+- aluc: input [5:0].
+- r: output [31:0].
+- zero: output 1 bit.
+- carry: output 1 bit.
+- negative: output 1 bit.
+- overflow: output 1 bit.
+- flag: output 1 bit.
+
+Public parameters:
+-  ADD: default = 6'b100000.
+-  ADDU: default = 6'b100001.
+-  SUB: default = 6'b100010.
+-  SUBU: default = 6'b100011.
+-  AND: default = 6'b100100.
+-  OR: default = 6'b100101.
+-  XOR: default = 6'b100110.
+-  NOR: default = 6'b100111.
+-  SLT: default = 6'b101010.
+-  SLTU: default = 6'b101011.
+-  SLL: default = 6'b000000.
+-  SRL: default = 6'b000010.
+-  SRA: default = 6'b000011.
+-  SLLV: default = 6'b000100.
+-  SRLV: default = 6'b000110.
+-  SRAV: default = 6'b000111.
+-  JR: default = 6'b001000.
+-  LUI: default = 6'b001111.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. If the behavioral rules specify an asynchronous reset, its assertion takes effect without waiting for that edge; a synchronous reset acts only on its stated edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+3. Reset
+There is no reset or clock port and no reset assertion, release, reset edge, or reset-dependent state. No reset-defined initial value is promised for r, zero or flag before initial operand/control evaluation; their pre-evaluation power-up values are unconstrained by the requirements. This does not require hardware X or delay normal evaluation. carry, negative and overflow are z even before the first input change. After initial evaluation and settling, every output obeys the laws below, including at trace row zero. The finite model has no stored hardware data; its Unit initial state promises no power-up data value. No initialization implementation choice is required.
+
+4. Timing
+r and zero are combinational outputs with zero clock-cycle latency: each a, b or aluc change recomputes them at the same simulation time after the deferred result update and subsequent delta-cycle settling. flag is combinational with zero clock-cycle latency and follows the comparison after continuous-expression delta-cycle settling. carry, negative and overflow remain continuously z, independently of all input events. There are no completion pulses, periodic outputs, bounded transactions, acceptance edges or restart edges.
+
+Stable inputs preserve settled values; simultaneous changes use the resulting input tuple, and repeated changes recompute without a transaction hold interval. A pre-edge observation sees the settled output for inputs already present before an external edge. A change on that external edge produces the new settled output at the same time; no subsequent E1 edge is required. No external edge advances hardware state. There is no enable or inactive control level: every aluc value selects an operation or the unmatched branch. No output retention from a previous opcode is permitted after a new tuple settles.
+
+Observation convention, separately from circuit timing: the finite fullCycle model samples out before its inert step, for fully known 32-bit operands and a 6-bit control with default public opcode parameters. Each row is an independently settled current-input observation, including row zero. This interface supplies neither timing.step_ns nor timing.sample_offset_ns; no numerical sampling interval, 10 ns clock tick, physical period or propagation delay is inferred. Where an external observation schedule supplies step_ns, row k denotes k * step_ns after settling, subject to that schedule's sample_offset_ns. The model covers settled tuples rather than delta-cycle transients or pre-evaluation power-up observations.
+
+5. Behaviour
+The retained original prose remains authoritative except for the individually scoped amendments below. These are amendments, not preservation claims. All exact old excerpts in the notices are superseded-source quotations only. Public opcode parameters retain the declarations rendered in section 1; the finite trace uses their default values. JR is public but introduces no additional supported operation: its default value selects the unmatched branch. The operation laws refer to the corresponding public opcode parameters; parameter overrides do not change port widths or the arithmetic laws. No new parameter-domain restriction is introduced.
+
+For fully known operands, ADD and ADDU give the low 32 bits of a+b; SUB and SUBU give the low 32 bits of a-b. Signed ADD and SUB operate on two's-complement operands sign-extended to a 33-bit expression context; unsigned ADDU and SUBU operate on zero-extended operands in that context. Arithmetic wraps modulo 2^33 before the low 32-bit r projection. AND gives a & b; OR gives a | b; XOR gives a ^ b; NOR gives the low 32 bits of ~(a | b). The bitwise operands are zero-extended in the 33-bit result context, so NOR's extra result bit is 1. No saturation is specified.
+
+SLT gives r=1 exactly when signed two's-complement a is less than signed b, otherwise r=0; SLTU gives r=1 exactly when unsigned a is less than unsigned b, otherwise r=0. These are 32-bit results. For SLT, flag is 1 iff signed two's-complement a < signed b; for SLTU, flag is 1 iff unsigned a < unsigned b. It is 0 for the corresponding false comparison and z for every other opcode.
+
+SLL, SRL and SRA use the full 32-bit bit pattern of a as an unsigned shift count. SLLV, SRLV and SRAV use a[4:0], ignoring a[31:5]. SLL and SLLV shift b left; SRL and SRLV shift b right with zero fill; SRA and SRAV shift signed b right with b[31] fill. The expression context is 33 bits; r is projected to its low 32 bits only after shifting. Counts >=32 give r=0 for left and logical right shifts, and 32 copies of b[31] for arithmetic right shifts. Do not truncate a left shift to 32 bits before computing zero. A count with a[31]=1 remains an unsigned count, including for SRA. These choices resolve the original full-a versus a[4:0] ambiguity through certain question Q21, scope source@50de02abe6034355; they do not amend another operation.
+
+LUI gives r={a[15:0],16'b0} and ignores b. This preserves the original explicit local correction. Any opcode not matching a supported operation gives high impedance on all 32 bits of r, zero=x, flag=z, carry=z, negative=z and overflow=z. The x on zero is a hardware-unknown equality result explicitly authorized by Q8, restricted to the unmatched branch; it is not epistemic uncertainty or an arbitrary value choice.
+
+For fully known operands, zero tests the complete 33-bit expression value, not merely the low 32-bit r. For ADD, zero=1 exactly when the sum of sign-extended operands modulo 2^33 is zero; for ADDU it tests the zero-extended sum modulo 2^33. For SUB and SUBU, zero=1 exactly when a=b. For AND, OR and XOR, zero=1 exactly when their 32-bit bitwise result is zero. NOR always gives zero=0, including when a|b=32'hffffffff. For SLT and SLTU, zero=1 exactly when the corresponding signed or unsigned comparison is false. For SLL and SLLV with the corresponding count n, zero=1 exactly when (unsigned b * 2^n) modulo 2^33 is zero: n=32 tests b[0]=0 and n>=33 always gives zero=1. For SRL and SRLV, zero=1 exactly when the logical right-shift result is zero. For SRA and SRAV, zero=1 exactly when sign-extended 33-bit two's-complement b shifted arithmetically by the corresponding unsigned count is zero. For LUI, zero=1 exactly when a[15:0]=0. Otherwise zero=0 in these known-operand supported-operation branches.
+
+b is ignored for LUI and unmatched opcodes; every other operation uses it according to its law. a supplies arithmetic, logical or comparison data, the applicable shift count, or the LUI low half. Operand changes have no effect on the constant z status outputs; aluc selects the current operation for every value. There is no disabled mode, pending computation, cancellation, warm-up interval or omitted repeated request.
+
+carry=z continuously for every operand and opcode, including before the first input change. negative=z continuously for every operand and opcode, including before the first input change. overflow=z continuously for every operand and opcode, including before the first input change. No input event or external sampling edge captures, clears, initializes or completes these outputs.
+
+Amendment A1 — flag, certain Q2 (flag@flag_on_comparison).
+Exact original clause: "The flag output is determined based on the control signal (aluc) and is set to '1' when the operation is SLT or SLTU, and 'z' (high-impedance) otherwise."
+Exact certain-answer law excerpt: "For SLT, flag is 1 iff signed two's-complement a < signed b; for SLTU, flag is 1 iff unsigned a < unsigned b. It is 0 for the corresponding false comparison and z for every other opcode."
+This corrected law supersedes the constant-1 comparison claim only when SLT or SLTU is selected. The noncomparison z clause is preserved. The introductory statement that flag is the comparison result is preserved. Q19 confirms same-time comparison evaluation and Q9 confirms noncomparison z.
+
+Amendment A2 — zero, certain Q7 (zero@zero_depends_on_unspecified_result).
+Exact original clauses: "“zero” means if the result is zero"; "zero: a 1-bit output indicating whether the result is zero"; "The zero output is set to '1' when the result is all zeros, and '0' otherwise."
+Exact certain-answer law excerpt: "For fully known operands, zero tests a 33-bit arithmetic value, not only r. ADD uses the sum of sign-extended operands modulo 2^33, ADDU the sum of zero-extended operands modulo 2^33; zero is 1 iff that sum is zero."
+Further exact certain-answer law excerpts: "NOR always gives zero=0, including a|b=32'hffffffff."; "For SLL/SLLV let n be respectively unsigned a/a[4:0]: zero=1 iff ((unsigned b)*2^n) modulo 2^33 is zero; in particular n=32 gives zero=1 iff b[0]=0, and n>=33 gives zero=1."
+The complete operation-specific zero laws above supersede these three result-zero descriptions only for fully known operands at supported operations, within Q7's output-value scope; r itself is unchanged. Q15 confirms the same zero laws. For unmatched opcodes certain Q8 (zero@zero_for_high_impedance_result) separately supersedes the otherwise-zero reading with this exact law: "For every unmatched opcode and all operands, zero=x after same-time result settling." That amendment is limited to unmatched opcodes and preserves their high-impedance r.
+
+Amendment A3 — carry, certain Q1 (carry@carry_operation_law).
+Exact original clauses: "“carry” means if there is a carry bit"; "carry: a 1-bit output indicating whether a carry occurred during the operation".
+Exact certain-answer law: "carry=z for all a, b and aluc, continuously; arithmetic, logical, comparison, shift, LUI and unmatched opcodes all have the same high-impedance carry output."
+This law supersedes only the carry-indication descriptions, for all operands and opcodes. It does not change arithmetic results. Certain Q16 (rule@output.carry) establishes the pre-first-change scope by this exact excerpt: "carry=z continuously for every operand and opcode, including before the first input change."
+
+Amendment A4 — negative, certain Q3 (negative@negative_result_and_signedness_law) and Q4 (negative@negative_for_high_impedance_result).
+Exact original clauses: "“negative” means if the result is negative"; "negative: a 1-bit output indicating whether the result is negative".
+Exact certain Q3 law: "negative=z continuously for every operand and supported opcode, regardless of result sign or signedness."
+Exact certain Q4 law: "For every unmatched opcode, negative=z continuously, independent of operands and the high-impedance result."
+These laws supersede only the negative-indication descriptions in their respective supported and unmatched opcode scopes. Operand signedness and r remain unchanged. Certain Q17 (rule@output.negative) establishes the pre-first-change scope by this exact excerpt: "negative=z continuously for every operand and opcode, including before the first input change."
+
+Amendment A5 — overflow, certain Q5 (overflow@overflow_operation_law).
+Exact original clauses: "“overflow” means if the computation is overflow"; "overflow: a 1-bit output indicating whether an overflow occurred during the operation".
+Exact certain-answer law: "overflow=z continuously for every a, b and aluc, including all arithmetic, logical, comparison, shift, LUI and unmatched opcodes."
+This law supersedes only the overflow-indication descriptions, for all operands and opcodes; wrapped arithmetic results are unchanged. Certain Q18 (rule@output.overflow) establishes the pre-first-change scope by this exact excerpt: "overflow=z continuously for every operand and opcode, including before the first input change."
+
+6. Worked trace
+The following evaluated trace is normative for the concrete default-parameter, fully known-input observation instance described above; it does not replace the public parameter family or assert pre-evaluation power-up data.
+### stimulus 0
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b100000 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b100000 | 32'h2 | 0 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b100000 | 32'h0 | 1 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b100000 | 32'h0 | 0 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b100000 | 32'h99999999 | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b100000 | 32'hffffffff | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b100000 | 32'h80000001 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b100000 | 32'h8000001e | 0 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b100000 | 32'h21 | 0 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b100000 | 32'h12355677 | 0 | z | z | z | z |
+
+### stimulus 1
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b100001 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b100001 | 32'h2 | 0 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b100001 | 32'h0 | 0 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b100001 | 32'h0 | 0 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b100001 | 32'h99999999 | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b100001 | 32'hffffffff | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b100001 | 32'h80000001 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b100001 | 32'h8000001e | 0 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b100001 | 32'h21 | 0 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b100001 | 32'h12355677 | 0 | z | z | z | z |
+
+### stimulus 2
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b100010 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b100010 | 32'h0 | 1 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b100010 | 32'hfffffffe | 0 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b100010 | 32'h0 | 1 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b100010 | 32'h8acf1357 | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b100010 | 32'h1 | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b100010 | 32'h80000001 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b100010 | 32'h80000020 | 0 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b100010 | 32'h1f | 0 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b100010 | 32'hedcca987 | 0 | z | z | z | z |
+
+### stimulus 3
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b100011 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b100011 | 32'h0 | 1 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b100011 | 32'hfffffffe | 0 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b100011 | 32'h0 | 1 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b100011 | 32'h8acf1357 | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b100011 | 32'h1 | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b100011 | 32'h80000001 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b100011 | 32'h80000020 | 0 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b100011 | 32'h1f | 0 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b100011 | 32'hedcca987 | 0 | z | z | z | z |
+
+### stimulus 4
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b100100 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b100100 | 32'h1 | 0 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b100100 | 32'h1 | 0 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b100100 | 32'h80000000 | 0 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b100100 | 32'h2244220 | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b100100 | 32'h0 | 1 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b100100 | 32'h0 | 1 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b100100 | 32'h1f | 0 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b100100 | 32'h0 | 1 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b100100 | 32'h5678 | 0 | z | z | z | z |
+
+### stimulus 5
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b100101 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b100101 | 32'h1 | 0 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b100101 | 32'hffffffff | 0 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b100101 | 32'h80000000 | 0 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b100101 | 32'h97755779 | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b100101 | 32'hffffffff | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b100101 | 32'h80000001 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b100101 | 32'h7fffffff | 0 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b100101 | 32'h21 | 0 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b100101 | 32'h1234ffff | 0 | z | z | z | z |
+
+### stimulus 6
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b100110 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b100110 | 32'h0 | 1 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b100110 | 32'hfffffffe | 0 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b100110 | 32'h0 | 1 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b100110 | 32'h95511559 | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b100110 | 32'hffffffff | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b100110 | 32'h80000001 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b100110 | 32'h7fffffe0 | 0 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b100110 | 32'h21 | 0 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b100110 | 32'h1234a987 | 0 | z | z | z | z |
+
+### stimulus 7
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b100111 | 32'hffffffff | 0 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b100111 | 32'hfffffffe | 0 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b100111 | 32'h0 | 0 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b100111 | 32'h7fffffff | 0 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b100111 | 32'h688aa886 | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b100111 | 32'h0 | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b100111 | 32'h7ffffffe | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b100111 | 32'h80000000 | 0 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b100111 | 32'hffffffde | 0 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b100111 | 32'hedcb0000 | 0 | z | z | z | z |
+
+### stimulus 8
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b101010 | 32'h0 | 1 | z | z | z | 0 |
+| 1 | 32'h1 | 32'h1 | 6'b101010 | 32'h0 | 1 | z | z | z | 0 |
+| 2 | 32'hffffffff | 32'h1 | 6'b101010 | 32'h1 | 0 | z | z | z | 1 |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b101010 | 32'h0 | 1 | z | z | z | 0 |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b101010 | 32'h0 | 1 | z | z | z | 0 |
+| 5 | 32'h0 | 32'hffffffff | 6'b101010 | 32'h0 | 1 | z | z | z | 0 |
+| 6 | 32'h1 | 32'h80000000 | 6'b101010 | 32'h0 | 1 | z | z | z | 0 |
+| 7 | 32'h1f | 32'h7fffffff | 6'b101010 | 32'h1 | 0 | z | z | z | 1 |
+| 8 | 32'h20 | 32'h1 | 6'b101010 | 32'h0 | 1 | z | z | z | 0 |
+| 9 | 32'hffff | 32'h12345678 | 6'b101010 | 32'h1 | 0 | z | z | z | 1 |
+
+### stimulus 9
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b101011 | 32'h0 | 1 | z | z | z | 0 |
+| 1 | 32'h1 | 32'h1 | 6'b101011 | 32'h0 | 1 | z | z | z | 0 |
+| 2 | 32'hffffffff | 32'h1 | 6'b101011 | 32'h0 | 1 | z | z | z | 0 |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b101011 | 32'h0 | 1 | z | z | z | 0 |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b101011 | 32'h1 | 0 | z | z | z | 1 |
+| 5 | 32'h0 | 32'hffffffff | 6'b101011 | 32'h1 | 0 | z | z | z | 1 |
+| 6 | 32'h1 | 32'h80000000 | 6'b101011 | 32'h1 | 0 | z | z | z | 1 |
+| 7 | 32'h1f | 32'h7fffffff | 6'b101011 | 32'h1 | 0 | z | z | z | 1 |
+| 8 | 32'h20 | 32'h1 | 6'b101011 | 32'h0 | 1 | z | z | z | 0 |
+| 9 | 32'hffff | 32'h12345678 | 6'b101011 | 32'h1 | 0 | z | z | z | 1 |
+
+### stimulus 10
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b000000 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b000000 | 32'h2 | 0 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b000000 | 32'h0 | 1 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b000000 | 32'h0 | 1 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b000000 | 32'h0 | 1 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b000000 | 32'hffffffff | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b000000 | 32'h0 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b000000 | 32'h80000000 | 0 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b000000 | 32'h0 | 0 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b000000 | 32'h0 | 1 | z | z | z | z |
+
+### stimulus 11
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b000010 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b000010 | 32'h0 | 1 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b000010 | 32'h0 | 1 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b000010 | 32'h0 | 1 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b000010 | 32'h0 | 1 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b000010 | 32'hffffffff | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b000010 | 32'h40000000 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b000010 | 32'h0 | 1 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b000010 | 32'h0 | 1 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b000010 | 32'h0 | 1 | z | z | z | z |
+
+### stimulus 12
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b000011 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b000011 | 32'h0 | 1 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b000011 | 32'h0 | 1 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b000011 | 32'hffffffff | 0 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b000011 | 32'hffffffff | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b000011 | 32'hffffffff | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b000011 | 32'hc0000000 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b000011 | 32'h0 | 1 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b000011 | 32'h0 | 1 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b000011 | 32'h0 | 1 | z | z | z | z |
+
+### stimulus 13
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b000100 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b000100 | 32'h2 | 0 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b000100 | 32'h80000000 | 0 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b000100 | 32'h80000000 | 0 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b000100 | 32'h21000000 | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b000100 | 32'hffffffff | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b000100 | 32'h0 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b000100 | 32'h80000000 | 0 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b000100 | 32'h1 | 0 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b000100 | 32'h0 | 1 | z | z | z | z |
+
+### stimulus 14
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b000110 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b000110 | 32'h0 | 1 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b000110 | 32'h0 | 1 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b000110 | 32'h80000000 | 0 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b000110 | 32'h87 | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b000110 | 32'hffffffff | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b000110 | 32'h40000000 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b000110 | 32'h0 | 1 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b000110 | 32'h1 | 0 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b000110 | 32'h0 | 1 | z | z | z | z |
+
+### stimulus 15
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b000111 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b000111 | 32'h0 | 1 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b000111 | 32'h0 | 1 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b000111 | 32'h80000000 | 0 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b000111 | 32'hffffff87 | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b000111 | 32'hffffffff | 0 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b000111 | 32'hc0000000 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b000111 | 32'h0 | 1 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b000111 | 32'h1 | 0 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b000111 | 32'h0 | 1 | z | z | z | z |
+
+### stimulus 16
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b001111 | 32'h0 | 1 | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b001111 | 32'h10000 | 0 | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b001111 | 32'hffff0000 | 0 | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b001111 | 32'h0 | 1 | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b001111 | 32'h56780000 | 0 | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b001111 | 32'h0 | 1 | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b001111 | 32'h10000 | 0 | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b001111 | 32'h1f0000 | 0 | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b001111 | 32'h200000 | 0 | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b001111 | 32'hffff0000 | 0 | z | z | z | z |
+
+### stimulus 17
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b111111 | 32'z | x | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b111111 | 32'z | x | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b111111 | 32'z | x | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b111111 | 32'z | x | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b111111 | 32'z | x | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b111111 | 32'z | x | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b111111 | 32'z | x | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b111111 | 32'z | x | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b111111 | 32'z | x | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b111111 | 32'z | x | z | z | z | z |
+
+### stimulus 18
+| cycle | a | b | aluc | r | zero | carry | negative | overflow | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 6'b000001 | 32'z | x | z | z | z | z |
+| 1 | 32'h1 | 32'h1 | 6'b000001 | 32'z | x | z | z | z | z |
+| 2 | 32'hffffffff | 32'h1 | 6'b000001 | 32'z | x | z | z | z | z |
+| 3 | 32'h80000000 | 32'h80000000 | 6'b000001 | 32'z | x | z | z | z | z |
+| 4 | 32'h12345678 | 32'h87654321 | 6'b000001 | 32'z | x | z | z | z | z |
+| 5 | 32'h0 | 32'hffffffff | 6'b000001 | 32'z | x | z | z | z | z |
+| 6 | 32'h1 | 32'h80000000 | 6'b000001 | 32'z | x | z | z | z | z |
+| 7 | 32'h1f | 32'h7fffffff | 6'b000001 | 32'z | x | z | z | z | z |
+| 8 | 32'h20 | 32'h1 | 6'b000001 | 32'z | x | z | z | z | z |
+| 9 | 32'hffff | 32'h12345678 | 6'b000001 | 32'z | x | z | z | z | z |

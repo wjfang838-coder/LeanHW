@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "edge_detect",
+  "toplevel": "edge_detect",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

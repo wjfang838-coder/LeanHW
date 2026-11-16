@@ -1,0 +1,189 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a **data width converter** that concatenates four 32-bit input data samples into a single 128-bit output. The module should only generate a valid output after receiving four consecutive valid inputs, as indicated by a control signal. The design must ensure efficient data aggregation and handle edge cases such as reset conditions and incomplete input sequences. The detailed design specification for the 32-to-128-bit data width converter is given below:
+
+## Design Specification:
+
+**Module Name:**  
+`data_width_converter`
+
+### Key Considerations:
+- The design should handle sequential 32-bit data inputs and combine them into a single 128-bit output.
+- The module operates on the positive edge of the clock signal.
+- The output should be generated once four valid 32-bit inputs have been received.
+- The output must be flagged as valid with the `o_data_out_valid` signal.
+- The system should reset when the `reset` signal is asserted, clearing any internal states.
+
+### Interface:
+
+**Inputs:**
+- `clk`:  Data operations will be performed during positive edge of this clock. The clock operates at 50:50 dutycycle.
+- `reset`: Asynchronous Active-high reset signal to initialize the system.
+- `data_in` (32bits,[31:0]): 32-bit data input to be concatenated into the output.
+- `data_valid`: A signal indicating whether the current `data_in` is valid.
+
+**Outputs:**
+- `o_data_out` (128-bits,[127:0]): 128-bit concatenated data output, generated after four valid 32-bit inputs.
+- `o_data_out_valid`: A signal indicating that the output data is valid.
+
+### Edge Cases:
+- **Reset Condition:** When `reset` is asserted, all internal states and buffers should be cleared, and no output should be produced until valid inputs are received.
+- **Incomplete Data:** If fewer than four valid inputs are received before `reset` is asserted, no output is generated, and the system waits for further valid inputs.
+- **Continuous Operation:** After producing a valid 128-bit output, the system will reset its internal counters and buffers to prepare for the next set of four 32-bit inputs.
+
+### Example Operation:
+
+**Concatenation Example:**  
+    
+Clock cycles | Reset | data_in| data_valid 
+-- | -- | -- | -- 
+1 | 1’b1 | 32'hA1B2C3D4 | 1’b1
+2 | 1’b1 | 32'h55667788 | 1’b1 
+3 | 1’b1 | 32'h11223344 | 1’b1 
+4 | 1’b1 | 32'h99AABBCC | 1’b1 
+
+- Output:
+    - `o_data_out = 128'hA1B2C3D4_55667788_11223344_99AABBCC`
+    - `o_data_out_valid = 1` (for one clock cycle)
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Named module interface binding
+
+Module: data_width_converter.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- reset: input; 1 bits in the concrete formal instance.
+- data_in: input; 32 bits in the concrete formal instance.
+- data_valid: input; 1 bits in the concrete formal instance.
+- o_data_out: output; 128 bits in the concrete formal instance.
+- o_data_out_valid: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports
+
+[[SPECIR_INTERFACE_CONTRACT]]
+
+The integration answer Q13 establishes named wiring as portable consumer guidance. Its displayed enumeration is not a verified positional declaration order. This document therefore guarantees the exact named connections rendered above but does not guarantee positional order. A caller possessing the actual module declaration may instantiate it in that declaration's order.
+
+3. Reset
+
+reset is active high and asynchronous. Assertion immediately takes priority over data_valid and data_in, clears the incomplete group and accepted-word count, clears o_data_out to 128'b0, and deasserts o_data_out_valid. No input word is accepted while reset is asserted. Holding reset through a positive edge preserves those reset values.
+
+Reset release by itself accepts no data and changes no registered value. On the first positive edge after release, data_valid=1 accepts data_in as the first word of a new group; data_valid=0 leaves the empty group unchanged. The first result still requires four accepted words.
+
+Implementation choice C1 — concrete initial and pre-reset state. At hardware power-up, before any reset assertion or clock edge, o_data_out is 128'b0, o_data_out_valid is 1'b0, the incomplete-group storage is zero, and the accepted-word count is zero. This is a compatible implementation choice because the source states no different power-up value. It is not a source-derived hardware fact and does not impose a reset-before-use restriction: with reset low, ordinary positive edges operate normally from this initial state.
+
+The finite model begins in exactly the C1 state. That state is also the state reached by asserting reset and holding it through a positive edge. Thus every modeled initial value is concrete and consistent with the documented reset sequence, without claiming that the source itself guaranteed power-up initialization.
+
+Example erratum E1 — concatenation illustration only. The source label is exactly “**Concatenation Example:**”. The erroneous excerpt is “1’b1” in each of the four Reset cells; replace each such cell with exactly “1’b0”. The unchanged governing rules are “`reset`: Asynchronous Active-high reset signal to initialize the system.” and “When `reset` is asserted, all internal states and buffers should be cleared, and no output should be produced until valid inputs are received.” With reset equal to 1 on all four displayed positive edges, every edge clears the group and o_data_out_valid cannot become 1; with reset equal to 0, the four displayed valid samples produce the displayed packed result. This correction applies only to those four Reset cells. Every normative reset, packing, and timing rule remains unchanged.
+
+4. Timing
+
+clk has a 50:50 duty cycle: each complete cycle contains one high half-cycle and one low half-cycle. Data operations occur on positive edges.
+
+For one group, E0 is the positive edge accepting its first word A. E1, E2, and E3 are the later positive edges accepting B, C, and D. An intervening positive edge with data_valid=0 is not an acceptance and does not advance this sequence. Immediately after E3, the registered o_data_out equals {A,B,C,D} and registered o_data_out_valid is 1. The pre-E3 partial value {A,B,C} and the D sampled at E3 determine that post-edge result; resetting the accepted-word count on E3 is a separate same-edge state update and does not alter the published result.
+
+o_data_out is registered. It changes to the completed packed value on E3 and retains the most recently completed value at other non-reset edges. Before the first completion it is zero by C1, and asynchronous reset makes it zero.
+
+Implementation choice C2 — non-result output retention. Whenever o_data_out_valid is 0, o_data_out retains the most recently completed result, or zero if no group has completed since initialization or reset. This source-compatible choice defines a phase for which the source gives no competing data value. It does not change any completed result, completion event, reset effect, or later transaction.
+
+o_data_out_valid is a one-cycle registered pulse. It is 1 for the complete interval immediately after E3 and returns to 0 immediately after the next positive edge, unless that next edge independently completes another group. It is 0 after E0, E1, and E2 and is forced low asynchronously during reset.
+
+The finite model has no physical clk input; one full-cycle step represents one positive-edge opportunity. Each trace row samples outputs before that row's represented transition, so the row after E3 displays E3's registered effects. Row k is observed at k * timing.step_ns after settling, with timing.sample_offset_ns as the interface observation offset; these are observation coordinates, not an implicit 10 ns circuit period. A reset-high row represents assertion settled before observation and reset held through the associated edge. This finite active-edge scenario does not represent every between-edge instant and does not restrict the circuit's asynchronous-reset obligations.
+
+5. Behaviour
+
+At every positive edge with reset low and data_valid=1, the low 32 bits of data_in are accepted. In temporal acceptance order, the first through fourth words are A, B, C, and D. On the fourth acceptance, `o_data_out = {A,B,C,D}`: A occupies bits [127:96], B bits [95:64], C bits [63:32], and D bits [31:0]. This is unsigned bit concatenation in a 128-bit expression. Each operand is first limited at its declared 32-bit input boundary; the completed result is limited at the declared 128-bit output boundary. No signed extension or narrower intermediate truncation is applied.
+
+At a positive edge with reset low and data_valid=0, data_in has no effect, the incomplete group and accepted-word count do not advance, o_data_out retains its prior value, and o_data_out_valid becomes 0. Thus “four consecutive valid inputs” means four consecutive accepted valid samples; clock edges with data_valid=0 are ignored rather than treated as samples. Reset, unlike an invalid edge, discards every incomplete group.
+
+After a completion, the next accepted word starts a new independent four-word group. Continuous data_valid=1 traffic therefore produces one result on every fourth positive edge. The fourth word of one group is not reused as the first word of the next group. Reset always has priority when reset and data_valid are simultaneously high.
+
+Event audit: reset assertion immediately clears state and outputs; reset release alone does nothing; a positive edge with reset low accepts and advances only if data_valid=1; and the fourth such acceptance both completes the group and publishes the result. From reset assertion through release, the first three accepted positive edges can only collect the first three words, and the fourth accepted edge publishes the first result. Repeated reset assertions have the same clearing effect, and a reset interrupting a partial group cancels that group.
+
+6. Worked trace
+
+The evaluated trace below is normative for the concrete 32-to-128-bit instance and the finite observation convention stated above.
+
+### stimulus 0
+| cycle | reset | data_in | data_valid | o_data_out | o_data_out_valid |
+|---|---|---|---|---|---|
+| 0 | 1 | 32'ha1b2c3d4 | 1 | 128'h0 | 0 |
+| 1 | 1 | 32'h55667788 | 1 | 128'h0 | 0 |
+| 2 | 1 | 32'h11223344 | 1 | 128'h0 | 0 |
+| 3 | 1 | 32'h99aabbcc | 1 | 128'h0 | 0 |
+
+### stimulus 1
+| cycle | reset | data_in | data_valid | o_data_out | o_data_out_valid |
+|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 128'h0 | 0 |
+| 1 | 0 | 32'h1 | 1 | 128'h0 | 0 |
+| 2 | 0 | 32'hffffffff | 1 | 128'h0 | 0 |
+| 3 | 0 | 32'h80000000 | 1 | 128'h0 | 0 |
+| 4 | 0 | 32'h13579bdf | 1 | 128'h0 | 0 |
+| 5 | 0 | 32'h0 | 0 | 128'h1ffffffff8000000013579bdf | 1 |
+
+### stimulus 2
+| cycle | reset | data_in | data_valid | o_data_out | o_data_out_valid |
+|---|---|---|---|---|---|
+| 0 | 1 | 32'hffffffff | 1 | 128'h0 | 0 |
+| 1 | 0 | 32'h0 | 0 | 128'h0 | 0 |
+| 2 | 0 | 32'h2468ace0 | 1 | 128'h0 | 0 |
+| 3 | 0 | 32'h0 | 0 | 128'h0 | 0 |
+| 4 | 0 | 32'h1 | 1 | 128'h0 | 0 |
+| 5 | 0 | 32'h80000000 | 1 | 128'h0 | 0 |
+| 6 | 0 | 32'hffffffff | 1 | 128'h0 | 0 |
+| 7 | 0 | 32'h0 | 0 | 128'h2468ace00000000180000000ffffffff | 1 |
+
+### stimulus 3
+| cycle | reset | data_in | data_valid | o_data_out | o_data_out_valid |
+|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 128'h0 | 0 |
+| 1 | 0 | 32'h1 | 1 | 128'h0 | 0 |
+| 2 | 0 | 32'h2 | 1 | 128'h0 | 0 |
+| 3 | 1 | 32'h3 | 1 | 128'h0 | 0 |
+| 4 | 0 | 32'h4 | 1 | 128'h0 | 0 |
+| 5 | 0 | 32'h5 | 1 | 128'h0 | 0 |
+| 6 | 0 | 32'h6 | 1 | 128'h0 | 0 |
+| 7 | 0 | 32'h7 | 1 | 128'h0 | 0 |
+| 8 | 0 | 32'h0 | 0 | 128'h4000000050000000600000007 | 1 |
+
+### stimulus 4
+| cycle | reset | data_in | data_valid | o_data_out | o_data_out_valid |
+|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 128'h0 | 0 |
+| 1 | 0 | 32'h10 | 1 | 128'h0 | 0 |
+| 2 | 0 | 32'h20 | 1 | 128'h0 | 0 |
+| 3 | 0 | 32'h30 | 1 | 128'h0 | 0 |
+| 4 | 0 | 32'h40 | 1 | 128'h0 | 0 |
+| 5 | 0 | 32'h50 | 1 | 128'h10000000200000003000000040 | 1 |
+| 6 | 0 | 32'h60 | 1 | 128'h10000000200000003000000040 | 0 |
+| 7 | 0 | 32'h70 | 1 | 128'h10000000200000003000000040 | 0 |
+| 8 | 0 | 32'h80 | 1 | 128'h10000000200000003000000040 | 0 |
+| 9 | 0 | 32'h0 | 0 | 128'h50000000600000007000000080 | 1 |
+
+### stimulus 5
+| cycle | reset | data_in | data_valid | o_data_out | o_data_out_valid |
+|---|---|---|---|---|---|
+| 0 | 0 | 32'hdeadbeef | 1 | 128'h0 | 0 |
+| 1 | 0 | 32'h0 | 0 | 128'h0 | 0 |
+| 2 | 1 | 32'h0 | 0 | 128'h0 | 0 |
+| 3 | 0 | 32'h0 | 0 | 128'h0 | 0 |
+
+### stimulus 6
+| cycle | reset | data_in | data_valid | o_data_out | o_data_out_valid |
+|---|---|---|---|---|---|
+| 0 | 1 | 32'h0 | 0 | 128'h0 | 0 |
+| 1 | 0 | 32'h1 | 0 | 128'h0 | 0 |
+| 2 | 0 | 32'h2 | 1 | 128'h0 | 0 |
+| 3 | 0 | 32'h3 | 0 | 128'h0 | 0 |
+
+### stimulus 7
+| cycle | reset | data_in | data_valid | o_data_out | o_data_out_valid |
+|---|---|---|---|---|---|
+| 0 | 0 | 32'h80000000 | 1 | 128'h0 | 0 |
+| 1 | 0 | 32'h0 | 0 | 128'h0 | 0 |

@@ -1,0 +1,261 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+
+
+Design a **SystemVerilog RTL module** named `axis_joiner` that merges multiple AXI Stream (AXIS) inputs into a single AXIS output. This module should allow seamless data transfer from three independent input streams (`s_axis`) to a single output stream (`m_axis`).  
+
+The design should incorporate the following key features:  
+
+### **1. AXI Stream Interfaces**  
+#### **Input Ports and output ports**  
+- The module receives data from **three independent AXI Stream interfaces** (`s_axis_tdata_1`, `s_axis_tdata_2`, `s_axis_tdata_3`).  
+- Each input stream includes the standard **AXI Stream handshake signals**:  
+  - `tdata` (data bus)  
+  - `tvalid` (data valid indicator)  
+  - `tready` (ready signal for backpressure handling)  
+  - `tlast` (indicating the last transfer of a packet)  
+
+#### **Output Port:**  
+- A **single merged AXI Stream output** (`m_axis`) that transmits data from one of the three input streams at any given time.  
+- The output interface follows the **AXI Stream protocol**, including the standard signals:  
+  - `tdata`, `tvalid`, `tready`, `tlast`, and `tuser`.  
+
+Port Name | Direction | Width | Description
+-- | -- | -- | --
+clk | Input | 1 bit | System clock signal.
+rst | Input | 1 bit | Asynchronous active-high reset.
+s_axis_tdata_1 | Input | 8-bit | Data from AXI Stream 1.
+s_axis_tvalid_1 | Input | 1 bit | Valid signal for AXIS 1.
+s_axis_tready_1 | Output | 1 bit | Ready signal for AXIS 1.
+s_axis_tlast_1 | Input | 1 bit | Last data word indicator for AXIS 1.
+s_axis_tdata_2 | Input | 8-bit  | Data from AXI Stream 2.
+s_axis_tvalid_2 | Input | 1 bit | Valid signal for AXIS 2.
+s_axis_tready_2 | Output | 1 bit | Ready signal for AXIS 2.
+s_axis_tlast_2 | Input | 1 bit | Last data word indicator for AXIS 2.
+s_axis_tdata_3 | Input | 8-bit  | Data from AXI Stream 3.
+s_axis_tvalid_3 | Input | 1 bit | Valid signal for AXIS 3.
+s_axis_tready_3 | Output | 1 bit | Ready signal for AXIS 3.
+s_axis_tlast_3 | Input | 1 bit | Last data word indicator for AXIS 3.
+m_axis_tdata | Output | 8-bit  | Merged output data.
+m_axis_tvalid | Output | 1 bit | Valid signal for merged stream.
+m_axis_tready | Input | 1 bit | Ready signal for merged stream.
+m_axis_tlast | Output | 1 bit | Last data word indicator for output.
+m_axis_tuser | Output | 2-bit  | Identifies source of output data with TAG_ID.
+busy | Output | 1 bit | Indicates module is processing data.
+
+
+### **2. Arbitration and Control Logic**  
+The module should operate based on a simple round-robin arbitration scheme, prioritizing valid input streams.
+- The module uses a **Finite State Machine (FSM)** to control the selection of input streams.  
+- The FSM operates in the following states:  
+  - `STATE_IDLE`: Waits for a valid input stream.  
+  - `STATE_1`: Transfers data from `s_axis_tdata_1`.  
+  - `STATE_2`: Transfers data from `s_axis_tdata_2`.  
+  - `STATE_3`: Transfers data from `s_axis_tdata_3`.  
+- The selection priority is determined as follows:  
+  1. If `s_axis_tvalid_1` is asserted, the FSM transitions to `STATE_1`.  
+  2. If `s_axis_tvalid_2` is asserted and `s_axis_tvalid_1` is not available, the FSM transitions to `STATE_2`.  
+  3. If `s_axis_tvalid_3` is asserted and both `s_axis_tvalid_1` and `s_axis_tvalid_2` are unavailable, the FSM transitions to `STATE_3`.  
+- Once the selected input stream completes its packet (`tlast` asserted), the FSM returns to `STATE_IDLE` and waits for the next available stream.  
+
+### **3. Data Buffering and Synchronization**  
+- If `m_axis_tready` is deasserted while transferring data, the module should **temporarily store the current data** in internal registers.  
+- Buffered data should be output once `m_axis_tready` is reasserted to maintain **seamless and lossless data transfer**.  
+- The `temp` flag ensures that data is retained when output is stalled.  
+
+### **4. Signal Assignments and Muxing**  
+- A multiplexer (`MUX`) selects the appropriate input data (`tdata`, `tvalid`, `tlast`, `tuser`) based on the current FSM state.  
+- The `tuser` field is assigned a unique tag (`TAG_ID_1`, `TAG_ID_2`, `TAG_ID_3`) to indicate the originating stream.  
+    `TAG_ID_1`: TAG_ID for AXI stream input 1 is 0x1.
+    `TAG_ID_2`: TAG_ID for AXI stream input 2 is 0x2.
+    `TAG_ID_3`: TAG_ID for AXI stream input 3 is 0x3.
+- `tready` signals are managed based on the FSM state, ensuring that only the active input stream is acknowledged.  
+
+
+### **5. Reset Behavior**  
+- The design should include an **asynchronous reset (`rst`)** that properly initializes all state variables and output signals.  
+
+### **6. Status Signals**  
+- A `busy` output signal should indicate when the module is actively processing data from any input stream.  
+
+
+
+
+
+
+
+
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a **SystemVerilog RTL module** named `axis_joiner` that merges multiple AXI Stream (AXIS) inputs into a single AXIS output. This module should allow seamless data transfer from three independent input streams (`s_axis`) to a single output stream (`m_axis`).  
+
+Named module interface binding
+
+Module: axis_joiner.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- rst: input; 1 bits in the concrete formal instance.
+- s_axis_tdata_1: input; 8 bits in the concrete formal instance.
+- s_axis_tvalid_1: input; 1 bits in the concrete formal instance.
+- s_axis_tlast_1: input; 1 bits in the concrete formal instance.
+- s_axis_tdata_2: input; 8 bits in the concrete formal instance.
+- s_axis_tvalid_2: input; 1 bits in the concrete formal instance.
+- s_axis_tlast_2: input; 1 bits in the concrete formal instance.
+- s_axis_tdata_3: input; 8 bits in the concrete formal instance.
+- s_axis_tvalid_3: input; 1 bits in the concrete formal instance.
+- s_axis_tlast_3: input; 1 bits in the concrete formal instance.
+- m_axis_tready: input; 1 bits in the concrete formal instance.
+- s_axis_tready_1: output; 1 bits in the concrete formal instance.
+- s_axis_tready_2: output; 1 bits in the concrete formal instance.
+- s_axis_tready_3: output; 1 bits in the concrete formal instance.
+- m_axis_tdata: output; 8 bits in the concrete formal instance.
+- m_axis_tvalid: output; 1 bits in the concrete formal instance.
+- m_axis_tlast: output; 1 bits in the concrete formal instance.
+- m_axis_tuser: output; 2 bits in the concrete formal instance.
+- busy: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is axis_joiner. The certain integration answer confirms the following named connections, directions, and widths. Positional declaration order is unverified; this document therefore does not guarantee an order. Portable consumers should use the named wiring below. A consumer possessing the actual module declaration may instantiate it in that declaration's order. There are no public parameters or symbolic port-width expressions.
+
+clk: input, 1 bit
+rst: input, 1 bit
+s_axis_tdata_1: input, 8 bits
+s_axis_tvalid_1: input, 1 bit
+s_axis_tready_1: output, 1 bit
+s_axis_tlast_1: input, 1 bit
+s_axis_tdata_2: input, 8 bits
+s_axis_tvalid_2: input, 1 bit
+s_axis_tready_2: output, 1 bit
+s_axis_tlast_2: input, 1 bit
+s_axis_tdata_3: input, 8 bits
+s_axis_tvalid_3: input, 1 bit
+s_axis_tready_3: output, 1 bit
+s_axis_tlast_3: input, 1 bit
+m_axis_tdata: output, 8 bits
+m_axis_tvalid: output, 1 bit
+m_axis_tready: input, 1 bit
+m_axis_tlast: output, 1 bit
+m_axis_tuser: output, 2 bits
+busy: output, 1 bit
+
+3. Reset.
+
+rst is active high and asynchronous. Its assertion immediately cancels packet ownership and any retained beat, establishes idle selection state and the input-1/input-2/input-3 priority, and takes priority over simultaneous stream activity. While rst is asserted, s_axis_tready_1, s_axis_tready_2, s_axis_tready_3, m_axis_tdata, m_axis_tvalid, m_axis_tlast, m_axis_tuser, and busy are all zero. Reset release alone neither accepts a transaction nor changes state. On the first active edge after release, the pre-edge valid inputs are arbitrated; if none is valid, the module remains idle.
+
+Implementation choice C1: the source requires asynchronous reset to initialize all state variables and output signals but does not specify their numeric reset values or pre-reset power-up values. This compatible implementation starts, even before the first reset assertion, in the same state established by reset: idle with no selected input, no retained beat, retained data and retained last equal to zero, initial priority input 1 then input 2 then input 3, and every output zero. Idle non-result output fields are also zero. This is a chosen implementation guarantee, not a source-derived power-up fact, and it creates no reset-before-use requirement.
+
+The first active edge after release uses the pre-edge inputs. If it selects a stream, ownership is visible in the immediately following interval. The next active edge accepts the then-presented beat only when the pre-edge output valid and ready are both one.
+
+4. Timing.
+
+Implementation choice C2: the rising edge of clk is the active data-clock edge. Ordinary arbitration, beat retention, transfer acceptance, and packet-completion changes occur only on rising edges. A falling edge and reset release do not advance state; reset assertion remains asynchronous.
+
+Ownership is registered. All public outputs are combinational functions of reset, established ownership, a retained beat if present, the selected stream's current signals, and m_axis_tready. There is no additional output pipeline cycle, timeout, fixed packet length, serialized-output schedule, periodic output, or distinct completion pulse.
+
+Let E0 be a rising edge at which idle arbitration observes one or more asserted pre-edge input-valid signals. E0 establishes ownership. During the interval immediately after E0, the selected input determines m_axis_tdata, m_axis_tvalid, and m_axis_tlast, its identity determines m_axis_tuser, busy is one, and only that input can see ready.
+
+At a later rising edge E1, a beat is accepted exactly when the pre-E1 m_axis_tvalid and m_axis_tready are both one. The transferred data, last, and tag are the pre-E1 values. If the accepted last is zero, ownership continues after E1. If it is one, E1 itself is the completion edge and the post-E1 interval is idle. Any same-edge return to idle does not alter the operands accepted at E1. Arbitration of a new packet occurs on a later rising edge while idle; completion does not implicitly accept a new packet on E1.
+
+If a valid selected beat is presented while m_axis_tready is zero, that rising edge retains the complete beat. Every subsequent interval presents the retained data, asserted valid, retained last, and unchanged source tag until an accepting rising edge. No input ready is asserted while that beat is retained. A selected interval with input valid zero neither accepts nor retains a beat.
+
+Trace observation convention: this full-cycle model samples out(s[k], i[k]) before applying the transition producing s[k+1]. Row k denotes k times timing.step_ns after settling when timing.step_ns is present; it is not an implicit 10 ns clock tick. The supplied interface specifies neither a numeric timing.step_ns nor timing.sample_offset_ns, so this trace is cycle-indexed. This observation convention is separate from the circuit's rising-edge and asynchronous-reset laws.
+
+5. Behaviour.
+
+Whenever the module is idle, valid inputs are selected with fixed priority: input 1 is selected whenever s_axis_tvalid_1 is asserted; otherwise input 2 is selected whenever s_axis_tvalid_2 is asserted; otherwise input 3 is selected whenever s_axis_tvalid_3 is asserted; otherwise the module remains idle. This specific numbered priority applies after reset and after every completed packet. The source's general “round-robin arbitration scheme” wording does not introduce a rotating post-completion priority that would contradict those explicit unconditional selection rules.
+
+Once selected, one stream exclusively owns the merged output until its packet completes. For owners 1, 2, and 3 respectively, m_axis_tdata equals that owner's 8-bit s_axis_tdata, m_axis_tvalid equals that owner's s_axis_tvalid, m_axis_tlast equals that owner's s_axis_tlast, and m_axis_tuser equals 2'b01, 2'b10, and 2'b11 respectively. Nonowner inputs do not affect the presented beat.
+
+Exact certain-answer law Q29: “For the explicitly tested ready-high continuous-valid transfer from input 1, m_axis_tuser is 2'b01 on every sampled presented beat; the harness separately samples 2'b10 for input 2 and 2'b11 for input 3.” In that scope, every presented input-1 beat has tag 2'b01, every presented input-2 beat has tag 2'b10, and every presented input-3 beat has tag 2'b11. This preserves the original tag requirement and is not an amendment.
+
+When no retained beat is pending, the selected owner's s_axis_tready equals m_axis_tready and the other two input-ready outputs are zero. When a retained beat is pending, all three input-ready outputs are zero. busy is one exactly while a stream owns the output and zero in idle and reset.
+
+Implementation choice C3: to complete the source's seamless and lossless buffering requirement concretely, a valid selected-stream beat encountered with m_axis_tready zero remains pending as its complete data, valid, last, and source-tag tuple until it is accepted. A retained last beat completes its packet only when accepted, not merely when last is observed under backpressure. This choice applies only to a valid presented beat and never converts an invalid interval into a transfer.
+
+Implementation choice C4: ownership remains with the selected stream across a temporary deassertion of its s_axis_tvalid until an accepted last beat. During the gap, m_axis_tvalid is zero, no beat is accepted or retained, and another stream is not interleaved. This compatible choice covers only the otherwise unstated valid-gap behavior, imposes no restriction on inputs, and preserves exclusive packet ownership.
+
+When idle, all three input-ready outputs, m_axis_tdata, m_axis_tvalid, m_axis_tlast, m_axis_tuser, and busy are zero under C1. Assertion of rst immediately interrupts an active or retained transaction. Across reset assertion, release, and the first three rising edges: assertion immediately establishes the reset state and outputs; release causes no state transition; the first rising edge with an eligible valid input is E0 and establishes ownership; the next rising edge accepts the pre-edge presented beat only if valid and ready are both one; an accepted non-last beat preserves ownership, while an accepted last beat ends ownership on that edge. At every later idle arbitration, simultaneous valid inputs obey the same fixed 1-over-2-over-3 priority.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete finite model and its disclosed implementation choices. It does not replace the original requirements or broaden the certain answers' scopes.
+
+### stimulus 0
+| cycle | rst | s_axis_tdata_1 | s_axis_tvalid_1 | s_axis_tlast_1 | s_axis_tdata_2 | s_axis_tvalid_2 | s_axis_tlast_2 | s_axis_tdata_3 | s_axis_tvalid_3 | s_axis_tlast_3 | m_axis_tready | s_axis_tready_1 | s_axis_tready_2 | s_axis_tready_3 | m_axis_tdata | m_axis_tvalid | m_axis_tlast | m_axis_tuser | busy |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000001 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 1 | 0 | 8'b10000000 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 2 | 0 | 8'b11111111 | 1 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 1 | 0 | 0 | 8'b11111111 | 1 | 1 | 2'b01 | 1 |
+| 3 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 4 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+
+### stimulus 1
+| cycle | rst | s_axis_tdata_1 | s_axis_tvalid_1 | s_axis_tlast_1 | s_axis_tdata_2 | s_axis_tvalid_2 | s_axis_tlast_2 | s_axis_tdata_3 | s_axis_tvalid_3 | s_axis_tlast_3 | m_axis_tready | s_axis_tready_1 | s_axis_tready_2 | s_axis_tready_3 | m_axis_tdata | m_axis_tvalid | m_axis_tlast | m_axis_tuser | busy |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000001 | 1 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 2 | 0 | 8'b00000000 | 0 | 0 | 8'b11111111 | 1 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 1 | 0 | 8'b11111111 | 1 | 1 | 2'b10 | 1 |
+| 3 | 0 | 8'b00000000 | 0 | 0 | 8'b01011010 | 1 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 4 | 0 | 8'b00000000 | 0 | 0 | 8'b10000000 | 1 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 1 | 0 | 8'b10000000 | 1 | 1 | 2'b10 | 1 |
+
+### stimulus 2
+| cycle | rst | s_axis_tdata_1 | s_axis_tvalid_1 | s_axis_tlast_1 | s_axis_tdata_2 | s_axis_tvalid_2 | s_axis_tlast_2 | s_axis_tdata_3 | s_axis_tvalid_3 | s_axis_tlast_3 | m_axis_tready | s_axis_tready_1 | s_axis_tready_2 | s_axis_tready_3 | m_axis_tdata | m_axis_tvalid | m_axis_tlast | m_axis_tuser | busy |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 1 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 2 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000001 | 1 | 0 | 1 | 0 | 0 | 1 | 8'b00000001 | 1 | 0 | 2'b11 | 1 |
+| 3 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b10100101 | 1 | 1 | 1 | 0 | 0 | 1 | 8'b10100101 | 1 | 1 | 2'b11 | 1 |
+
+### stimulus 3
+| cycle | rst | s_axis_tdata_1 | s_axis_tvalid_1 | s_axis_tlast_1 | s_axis_tdata_2 | s_axis_tvalid_2 | s_axis_tlast_2 | s_axis_tdata_3 | s_axis_tvalid_3 | s_axis_tlast_3 | m_axis_tready | s_axis_tready_1 | s_axis_tready_2 | s_axis_tready_3 | m_axis_tdata | m_axis_tvalid | m_axis_tlast | m_axis_tuser | busy |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 1 | 0 | 8'b00010001 | 1 | 0 | 8'b00100010 | 1 | 0 | 8'b00110011 | 1 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 2 | 0 | 8'b00010010 | 1 | 1 | 8'b00100011 | 1 | 0 | 8'b00110100 | 1 | 0 | 1 | 1 | 0 | 0 | 8'b00010010 | 1 | 1 | 2'b01 | 1 |
+| 3 | 0 | 8'b00010011 | 1 | 0 | 8'b00100100 | 1 | 0 | 8'b00110101 | 1 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+
+### stimulus 4
+| cycle | rst | s_axis_tdata_1 | s_axis_tvalid_1 | s_axis_tlast_1 | s_axis_tdata_2 | s_axis_tvalid_2 | s_axis_tlast_2 | s_axis_tdata_3 | s_axis_tvalid_3 | s_axis_tlast_3 | m_axis_tready | s_axis_tready_1 | s_axis_tready_2 | s_axis_tready_3 | m_axis_tdata | m_axis_tvalid | m_axis_tlast | m_axis_tuser | busy |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 1 | 0 | 8'b01000000 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 2 | 0 | 8'b01000001 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b01000001 | 1 | 0 | 2'b01 | 1 |
+| 3 | 0 | 8'b01100011 | 1 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b01000001 | 1 | 0 | 2'b01 | 1 |
+| 4 | 0 | 8'b00000111 | 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 | 8'b01000001 | 1 | 0 | 2'b01 | 1 |
+| 5 | 0 | 8'b00001000 | 1 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 1 | 0 | 0 | 8'b00001000 | 1 | 1 | 2'b01 | 1 |
+
+### stimulus 5
+| cycle | rst | s_axis_tdata_1 | s_axis_tvalid_1 | s_axis_tlast_1 | s_axis_tdata_2 | s_axis_tvalid_2 | s_axis_tlast_2 | s_axis_tdata_3 | s_axis_tvalid_3 | s_axis_tlast_3 | m_axis_tready | s_axis_tready_1 | s_axis_tready_2 | s_axis_tready_3 | m_axis_tdata | m_axis_tvalid | m_axis_tlast | m_axis_tuser | busy |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 1 | 0 | 8'b00000000 | 0 | 0 | 8'b10000000 | 1 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 2 | 1 | 8'b00000000 | 0 | 0 | 8'b11111111 | 1 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 3 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b10000000 | 1 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 4 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b11111111 | 1 | 1 | 1 | 0 | 0 | 1 | 8'b11111111 | 1 | 1 | 2'b11 | 1 |
+
+### stimulus 6
+| cycle | rst | s_axis_tdata_1 | s_axis_tvalid_1 | s_axis_tlast_1 | s_axis_tdata_2 | s_axis_tvalid_2 | s_axis_tlast_2 | s_axis_tdata_3 | s_axis_tvalid_3 | s_axis_tlast_3 | m_axis_tready | s_axis_tready_1 | s_axis_tready_2 | s_axis_tready_3 | m_axis_tdata | m_axis_tvalid | m_axis_tlast | m_axis_tuser | busy |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 1 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 2 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 3 | 0 | 8'b01010101 | 1 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 4 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b10101010 | 1 | 1 | 1 | 1 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b01 | 1 |
+
+### stimulus 7
+| cycle | rst | s_axis_tdata_1 | s_axis_tvalid_1 | s_axis_tlast_1 | s_axis_tdata_2 | s_axis_tvalid_2 | s_axis_tlast_2 | s_axis_tdata_3 | s_axis_tvalid_3 | s_axis_tlast_3 | m_axis_tready | s_axis_tready_1 | s_axis_tready_2 | s_axis_tready_3 | m_axis_tdata | m_axis_tvalid | m_axis_tlast | m_axis_tuser | busy |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 1 | 0 | 8'b00000001 | 1 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 0 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 2 | 0 | 8'b00000010 | 1 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 1 | 1 | 0 | 0 | 8'b00000010 | 1 | 1 | 2'b01 | 1 |
+| 3 | 0 | 8'b00000000 | 0 | 0 | 8'b00000011 | 1 | 1 | 8'b00000000 | 0 | 0 | 1 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 2'b00 | 0 |
+| 4 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000100 | 1 | 1 | 1 | 0 | 1 | 0 | 8'b00000000 | 0 | 0 | 2'b10 | 1 |

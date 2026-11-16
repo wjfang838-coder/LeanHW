@@ -1,0 +1,72 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- zero: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. The module has no state. From power-up, including before any observation or hypothetical reset edge, zero reads LOW (1'b0). It is never unknown and requires no initialization event to become valid.
+
+4. Timing.
+
+zero is combinational and continuously reads 1'b0. It has no input-to-output latency because there are no inputs, and it is neither a pulse nor a periodic signal.
+
+The evaluated trace uses an observation step of 1 ns and samples 0.001 ns after each observation point. For this autonomous design, row k denotes the settled observation at k × 1 ns (with the stated sampling offset). This is only the trace observation convention; the circuit has no clock, actual period, duty cycle, or propagation-delay law.
+
+5. Behaviour.
+
+For every observation and under all circumstances, zero is continuously 1'b0. Because the interface has no clock, reset, control, or data inputs, there are no assertion, release, capture, completion, interruption, hold, clear, or restart transitions that can alter zero.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | zero |
+|---|---|
+| 0 | 0 |
+
+### stimulus 1
+| cycle | zero |
+|---|---|
+| 0 | 0 |
+
+### stimulus 2
+| cycle | zero |
+|---|---|
+| 0 | 0 |
+
+### stimulus 3
+| cycle | zero |
+|---|---|
+| 0 | 0 |
+
+### stimulus 4
+| cycle | zero |
+|---|---|
+| 0 | 0 |
+
+### stimulus 5
+| cycle | zero |
+|---|---|
+| 0 | 0 |
+
+### stimulus 6
+| cycle | zero |
+|---|---|
+| 0 | 0 |
+
+### stimulus 7
+| cycle | zero |
+|---|---|
+| 0 | 0 |

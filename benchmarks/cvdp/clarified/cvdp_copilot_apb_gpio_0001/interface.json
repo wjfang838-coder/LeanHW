@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_apb_gpio_0001",
+  "toplevel": "cvdp_copilot_apb_gpio",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

@@ -1,0 +1,125 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- x: input 1 bit.
+- z: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports.
+
+
+
+Reset.
+
+There is no reset input or reset operation. At power-up, before any rising edge has occurred, all three state bits are zero and z is 1; this is the same defined initial condition used when the machine begins. No reset edge is required to establish it. Because no reset exists, there is no reset-release step or special first step after release. The first rising edge samples x and updates all three state bits according to the behaviour below.
+
+Timing.
+
+All sequential state changes occur only on a low-to-high transition of clk. A steady clk level and a high-to-low transition cause no state change. In the executable full-cycle observation model, row k is observed before its active edge, at k times timing.step_ns after settling and at the interface's timing.sample_offset_ns within that observation convention; this trace-table spacing is separate from the circuit law that only rising edges advance state.
+
+The output z is a registered-state-derived output: immediately after each rising edge it reflects the newly updated state and then holds until the next rising edge. Its latency from the x value sampled at a rising edge to the corresponding z value is zero full clock cycles: z changes after that same edge. There are no pulse, completion, busy, or periodic-output protocols.
+
+Behaviour.
+
+Number rising edges from zero. Let x_n be the one-bit value of x sampled at rising edge n, and let A_n, B_n, and C_n denote the three state bits before that edge. The initial state is A_0 = B_0 = C_0 = 0. Every rising edge independently performs exactly one update, including uninterrupted or repeated rising-edge sequences:
+
+A_(n+1) = A_n XOR x_n.
+
+B_(n+1) = (NOT B_n) AND x_n.
+
+C_(n+1) = (NOT C_n) OR x_n.
+
+Changes of x between rising edges have no effect. There is no inactive transaction, cancellation, interruption, restart suppression, reset, busy state, or completion mode; every rising edge samples x and is the start of the next update.
+
+At all times, z = NOT (A OR B OR C) for the current state. Thus z is 1 before the first rising edge. If a pre-edge observation has state A_n, B_n, C_n, the following rising edge applies the recurrence above and z then becomes NOT (A_(n+1) OR B_(n+1) OR C_(n+1)), holding that value until the next rising edge.
+
+Worked trace.
+
+The following evaluated trace is normative. Each row observes the output before that row's active transition.
+
+### stimulus 0
+| cycle | x | z |
+|---|---|---|
+| 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | x | z |
+|---|---|---|
+| 0 | 1 | 1 |
+
+### stimulus 2
+| cycle | x | z |
+|---|---|---|
+| 0 | 0 | 1 |
+| 1 | 0 | 0 |
+| 2 | 0 | 1 |
+| 3 | 0 | 0 |
+| 4 | 0 | 1 |
+| 5 | 0 | 0 |
+| 6 | 0 | 1 |
+
+### stimulus 3
+| cycle | x | z |
+|---|---|---|
+| 0 | 1 | 1 |
+| 1 | 1 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+| 4 | 1 | 0 |
+| 5 | 1 | 0 |
+| 6 | 1 | 0 |
+
+### stimulus 4
+| cycle | x | z |
+|---|---|---|
+| 0 | 0 | 1 |
+| 1 | 1 | 0 |
+| 2 | 0 | 0 |
+| 3 | 1 | 0 |
+| 4 | 0 | 0 |
+| 5 | 1 | 1 |
+| 6 | 0 | 0 |
+| 7 | 1 | 0 |
+
+### stimulus 5
+| cycle | x | z |
+|---|---|---|
+| 0 | 1 | 1 |
+| 1 | 0 | 0 |
+| 2 | 0 | 0 |
+| 3 | 1 | 0 |
+| 4 | 0 | 0 |
+| 5 | 0 | 1 |
+| 6 | 1 | 0 |
+| 7 | 0 | 0 |
+| 8 | 0 | 0 |
+
+### stimulus 6
+| cycle | x | z |
+|---|---|---|
+| 0 | 1 | 1 |
+| 1 | 0 | 0 |
+| 2 | 1 | 0 |
+| 3 | 1 | 0 |
+| 4 | 0 | 0 |
+| 5 | 1 | 0 |
+| 6 | 0 | 0 |
+| 7 | 0 | 1 |
+
+### stimulus 7
+| cycle | x | z |
+|---|---|---|
+| 0 | 0 | 1 |
+| 1 | 0 | 0 |
+| 2 | 1 | 1 |
+| 3 | 1 | 0 |
+| 4 | 1 | 0 |
+| 5 | 0 | 0 |
+| 6 | 0 | 0 |
+| 7 | 1 | 0 |

@@ -1,0 +1,340 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- wave_choice: input [1:0].
+- wave: output [4:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+rst_n is an active-low asynchronous reset. Whenever rst_n is low, wave is 5'b00000 immediately, regardless of clk and wave_choice; reset assertion has priority over a simultaneous rising clk edge. Reset also places the square-wave cadence at the beginning of its 20-edge cycle and establishes downward travel for triangle mode. Keeping rst_n low keeps all of this reset state unchanged. A rising transition of rst_n alone causes no update. On the first rising clk edge after release, the selected mode applies its recurrence from the reset state: choice 00 retains wave at 0 and advances its cadence by one edge, choice 01 changes wave from 0 to 1, choice 10 changes wave from 0 to 31, and choice 11 retains wave at 0.
+
+Before rst_n has ever been asserted low, wave is unknown. The implementation must leave its stored value uninitialised, with no initial block and no declaration initialiser. It remains unknown under choices 00, 01, and 10 until reset is asserted; a rising clk edge with choice 11 makes it 0.
+
+Timing
+
+wave is a registered 5-bit output, except that assertion of rst_n forces it asynchronously to 0. With rst_n high, wave changes only on a rising edge of clk and retains its value on falling edges and while clk is steady. Changes to wave_choice have no effect between rising edges. An update selected at a rising edge is observable immediately after that edge and in the following pre-edge sampled row. Reset release alone retains the current reset value until the next rising edge.
+
+The square waveform has a period of 20 consecutive rising clk edges in choice 00: 10 edges in its low phase and 10 edges in its high phase. A reset or any edge in another choice restarts this cadence. Its first nine choice-00 rising edges retain the existing wave value, its tenth edge sets wave to 20, its next nine edges retain 20, and its twentieth edge sets wave to 0.
+
+In a SpecIR worked trace, row k is the settled observation before that row's active edge, and successive rows are separated by timing.step_ns when that interface timing quantity is supplied. This observation convention is distinct from the circuit laws above: the circuit responds to rising clk edges and has no implicit 10 ns period or delay.
+
+Behaviour
+
+All wave_choice encodings are defined. With rst_n high, every rising clk edge applies exactly one of these laws:
+
+For wave_choice 2'b00, the 20-edge square cadence advances. Changing into this choice starts a new cadence without independently reinitialising wave: the first nine consecutive edges retain the existing value, the tenth sets wave to 20, edges eleven through nineteen retain 20, and the twentieth sets wave to 0, after which the same cadence repeats.
+
+For wave_choice 2'b01, wave becomes 0 if its prior value is 20; otherwise wave becomes its prior value plus one modulo 32. Thus a reset value of 0 becomes 1 on the first such edge. This rule applies on every repeated edge and on the edge at which wave_choice changes to 01.
+
+For wave_choice 2'b10, triangle travel is downward immediately after reset and after any preceding edge in a non-10 choice. A downward step subtracts one modulo 32. Reaching 0 changes subsequent travel upward; an upward step adds one, and reaching 20 changes subsequent travel downward. Consequently, continuous triangle-mode pre-edge values after reset are 0, 31, 30, ..., 1, 0, 1, ..., 19, 20, 19, ... and repeat with a 40-rising-edge period after the initial 0-to-31 step. Changing into choice 10 applies the downward step to the existing wave value on that edge, without reinitialising wave.
+
+For wave_choice 2'b11, wave becomes 0 on every rising clk edge.
+
+Changing wave_choice does not itself change wave before the associated rising edge. Changing away from choice 00 restarts its cadence for a later return. Changing away from choice 10 establishes downward travel for a later return. Repeated rising edges repeatedly apply the currently selected rule. Because row k is sampled before its active edge, asynchronous reset assertion is visible in row k, while an ordinary choice-dependent update at row k's rising edge first appears in row k+1. Public-output updates occur only as stated here; there are no verification-visible observer bindings.
+
+Worked trace
+
+The following evaluated trace is normative for the concrete sampled instance of this specification.
+
+### stimulus 0
+| cycle | rst_n | wave_choice | wave |
+|---|---|---|---|
+| 0 | 0 | 2'b00 | 5'b00000 |
+| 1 | 1 | 2'b00 | 5'b00000 |
+| 2 | 1 | 2'b00 | 5'b00000 |
+| 3 | 1 | 2'b00 | 5'b00000 |
+| 4 | 1 | 2'b00 | 5'b00000 |
+| 5 | 1 | 2'b00 | 5'b00000 |
+| 6 | 1 | 2'b00 | 5'b00000 |
+| 7 | 1 | 2'b00 | 5'b00000 |
+| 8 | 1 | 2'b00 | 5'b00000 |
+| 9 | 1 | 2'b00 | 5'b00000 |
+| 10 | 1 | 2'b00 | 5'b00000 |
+| 11 | 1 | 2'b00 | 5'b10100 |
+| 12 | 1 | 2'b00 | 5'b10100 |
+| 13 | 1 | 2'b00 | 5'b10100 |
+| 14 | 1 | 2'b00 | 5'b10100 |
+| 15 | 1 | 2'b00 | 5'b10100 |
+| 16 | 1 | 2'b00 | 5'b10100 |
+| 17 | 1 | 2'b00 | 5'b10100 |
+| 18 | 1 | 2'b00 | 5'b10100 |
+| 19 | 1 | 2'b00 | 5'b10100 |
+| 20 | 1 | 2'b00 | 5'b10100 |
+| 21 | 1 | 2'b00 | 5'b00000 |
+| 22 | 1 | 2'b00 | 5'b00000 |
+| 23 | 1 | 2'b00 | 5'b00000 |
+| 24 | 1 | 2'b00 | 5'b00000 |
+| 25 | 1 | 2'b00 | 5'b00000 |
+| 26 | 1 | 2'b00 | 5'b00000 |
+| 27 | 1 | 2'b00 | 5'b00000 |
+| 28 | 1 | 2'b00 | 5'b00000 |
+| 29 | 1 | 2'b00 | 5'b00000 |
+| 30 | 1 | 2'b00 | 5'b00000 |
+| 31 | 1 | 2'b00 | 5'b10100 |
+| 32 | 1 | 2'b00 | 5'b10100 |
+| 33 | 1 | 2'b00 | 5'b10100 |
+| 34 | 1 | 2'b00 | 5'b10100 |
+| 35 | 1 | 2'b00 | 5'b10100 |
+| 36 | 1 | 2'b00 | 5'b10100 |
+| 37 | 1 | 2'b00 | 5'b10100 |
+| 38 | 1 | 2'b00 | 5'b10100 |
+| 39 | 1 | 2'b00 | 5'b10100 |
+| 40 | 1 | 2'b00 | 5'b10100 |
+| 41 | 1 | 2'b00 | 5'b00000 |
+| 42 | 1 | 2'b00 | 5'b00000 |
+| 43 | 1 | 2'b00 | 5'b00000 |
+| 44 | 1 | 2'b00 | 5'b00000 |
+| 45 | 1 | 2'b00 | 5'b00000 |
+| 46 | 1 | 2'b00 | 5'b00000 |
+| 47 | 1 | 2'b00 | 5'b00000 |
+| 48 | 1 | 2'b00 | 5'b00000 |
+| 49 | 1 | 2'b00 | 5'b00000 |
+| 50 | 1 | 2'b00 | 5'b00000 |
+| 51 | 1 | 2'b00 | 5'b10100 |
+| 52 | 1 | 2'b00 | 5'b10100 |
+| 53 | 1 | 2'b00 | 5'b10100 |
+| 54 | 1 | 2'b00 | 5'b10100 |
+| 55 | 1 | 2'b00 | 5'b10100 |
+| 56 | 1 | 2'b00 | 5'b10100 |
+| 57 | 1 | 2'b00 | 5'b10100 |
+| 58 | 1 | 2'b00 | 5'b10100 |
+| 59 | 1 | 2'b00 | 5'b10100 |
+| 60 | 1 | 2'b00 | 5'b10100 |
+
+### stimulus 1
+| cycle | rst_n | wave_choice | wave |
+|---|---|---|---|
+| 0 | 0 | 2'b01 | 5'b00000 |
+| 1 | 1 | 2'b01 | 5'b00000 |
+| 2 | 1 | 2'b01 | 5'b00001 |
+| 3 | 1 | 2'b01 | 5'b00010 |
+| 4 | 1 | 2'b01 | 5'b00011 |
+| 5 | 1 | 2'b01 | 5'b00100 |
+| 6 | 1 | 2'b01 | 5'b00101 |
+| 7 | 1 | 2'b01 | 5'b00110 |
+| 8 | 1 | 2'b01 | 5'b00111 |
+| 9 | 1 | 2'b01 | 5'b01000 |
+| 10 | 1 | 2'b01 | 5'b01001 |
+| 11 | 1 | 2'b01 | 5'b01010 |
+| 12 | 1 | 2'b01 | 5'b01011 |
+| 13 | 1 | 2'b01 | 5'b01100 |
+| 14 | 1 | 2'b01 | 5'b01101 |
+| 15 | 1 | 2'b01 | 5'b01110 |
+| 16 | 1 | 2'b01 | 5'b01111 |
+| 17 | 1 | 2'b01 | 5'b10000 |
+| 18 | 1 | 2'b01 | 5'b10001 |
+| 19 | 1 | 2'b01 | 5'b10010 |
+| 20 | 1 | 2'b01 | 5'b10011 |
+| 21 | 1 | 2'b01 | 5'b10100 |
+| 22 | 1 | 2'b01 | 5'b00000 |
+| 23 | 1 | 2'b01 | 5'b00001 |
+| 24 | 1 | 2'b01 | 5'b00010 |
+| 25 | 1 | 2'b01 | 5'b00011 |
+| 26 | 1 | 2'b01 | 5'b00100 |
+| 27 | 1 | 2'b01 | 5'b00101 |
+| 28 | 1 | 2'b01 | 5'b00110 |
+| 29 | 1 | 2'b01 | 5'b00111 |
+| 30 | 1 | 2'b01 | 5'b01000 |
+| 31 | 1 | 2'b01 | 5'b01001 |
+| 32 | 1 | 2'b01 | 5'b01010 |
+| 33 | 1 | 2'b01 | 5'b01011 |
+| 34 | 1 | 2'b01 | 5'b01100 |
+| 35 | 1 | 2'b01 | 5'b01101 |
+| 36 | 1 | 2'b01 | 5'b01110 |
+| 37 | 1 | 2'b01 | 5'b01111 |
+| 38 | 1 | 2'b01 | 5'b10000 |
+| 39 | 1 | 2'b01 | 5'b10001 |
+| 40 | 1 | 2'b01 | 5'b10010 |
+| 41 | 1 | 2'b01 | 5'b10011 |
+| 42 | 1 | 2'b01 | 5'b10100 |
+| 43 | 1 | 2'b01 | 5'b00000 |
+| 44 | 1 | 2'b01 | 5'b00001 |
+| 45 | 1 | 2'b01 | 5'b00010 |
+| 46 | 1 | 2'b01 | 5'b00011 |
+| 47 | 1 | 2'b01 | 5'b00100 |
+| 48 | 1 | 2'b01 | 5'b00101 |
+| 49 | 1 | 2'b01 | 5'b00110 |
+| 50 | 1 | 2'b01 | 5'b00111 |
+| 51 | 1 | 2'b01 | 5'b01000 |
+| 52 | 1 | 2'b01 | 5'b01001 |
+| 53 | 1 | 2'b01 | 5'b01010 |
+| 54 | 1 | 2'b01 | 5'b01011 |
+| 55 | 1 | 2'b01 | 5'b01100 |
+| 56 | 1 | 2'b01 | 5'b01101 |
+| 57 | 1 | 2'b01 | 5'b01110 |
+| 58 | 1 | 2'b01 | 5'b01111 |
+| 59 | 1 | 2'b01 | 5'b10000 |
+| 60 | 1 | 2'b01 | 5'b10001 |
+| 61 | 1 | 2'b01 | 5'b10010 |
+| 62 | 1 | 2'b01 | 5'b10011 |
+| 63 | 1 | 2'b01 | 5'b10100 |
+
+### stimulus 2
+| cycle | rst_n | wave_choice | wave |
+|---|---|---|---|
+| 0 | 0 | 2'b10 | 5'b00000 |
+| 1 | 1 | 2'b10 | 5'b00000 |
+| 2 | 1 | 2'b10 | 5'b11111 |
+| 3 | 1 | 2'b10 | 5'b11110 |
+| 4 | 1 | 2'b10 | 5'b11101 |
+| 5 | 1 | 2'b10 | 5'b11100 |
+| 6 | 1 | 2'b10 | 5'b11011 |
+| 7 | 1 | 2'b10 | 5'b11010 |
+| 8 | 1 | 2'b10 | 5'b11001 |
+| 9 | 1 | 2'b10 | 5'b11000 |
+| 10 | 1 | 2'b10 | 5'b10111 |
+| 11 | 1 | 2'b10 | 5'b10110 |
+| 12 | 1 | 2'b10 | 5'b10101 |
+| 13 | 1 | 2'b10 | 5'b10100 |
+| 14 | 1 | 2'b10 | 5'b10011 |
+| 15 | 1 | 2'b10 | 5'b10010 |
+| 16 | 1 | 2'b10 | 5'b10001 |
+| 17 | 1 | 2'b10 | 5'b10000 |
+| 18 | 1 | 2'b10 | 5'b01111 |
+| 19 | 1 | 2'b10 | 5'b01110 |
+| 20 | 1 | 2'b10 | 5'b01101 |
+| 21 | 1 | 2'b10 | 5'b01100 |
+| 22 | 1 | 2'b10 | 5'b01011 |
+| 23 | 1 | 2'b10 | 5'b01010 |
+| 24 | 1 | 2'b10 | 5'b01001 |
+| 25 | 1 | 2'b10 | 5'b01000 |
+| 26 | 1 | 2'b10 | 5'b00111 |
+| 27 | 1 | 2'b10 | 5'b00110 |
+| 28 | 1 | 2'b10 | 5'b00101 |
+| 29 | 1 | 2'b10 | 5'b00100 |
+| 30 | 1 | 2'b10 | 5'b00011 |
+| 31 | 1 | 2'b10 | 5'b00010 |
+| 32 | 1 | 2'b10 | 5'b00001 |
+| 33 | 1 | 2'b10 | 5'b00000 |
+| 34 | 1 | 2'b10 | 5'b00001 |
+| 35 | 1 | 2'b10 | 5'b00010 |
+| 36 | 1 | 2'b10 | 5'b00011 |
+| 37 | 1 | 2'b10 | 5'b00100 |
+| 38 | 1 | 2'b10 | 5'b00101 |
+| 39 | 1 | 2'b10 | 5'b00110 |
+| 40 | 1 | 2'b10 | 5'b00111 |
+| 41 | 1 | 2'b10 | 5'b01000 |
+| 42 | 1 | 2'b10 | 5'b01001 |
+| 43 | 1 | 2'b10 | 5'b01010 |
+| 44 | 1 | 2'b10 | 5'b01011 |
+| 45 | 1 | 2'b10 | 5'b01100 |
+| 46 | 1 | 2'b10 | 5'b01101 |
+| 47 | 1 | 2'b10 | 5'b01110 |
+| 48 | 1 | 2'b10 | 5'b01111 |
+| 49 | 1 | 2'b10 | 5'b10000 |
+| 50 | 1 | 2'b10 | 5'b10001 |
+| 51 | 1 | 2'b10 | 5'b10010 |
+| 52 | 1 | 2'b10 | 5'b10011 |
+| 53 | 1 | 2'b10 | 5'b10100 |
+| 54 | 1 | 2'b10 | 5'b10011 |
+| 55 | 1 | 2'b10 | 5'b10010 |
+| 56 | 1 | 2'b10 | 5'b10001 |
+| 57 | 1 | 2'b10 | 5'b10000 |
+| 58 | 1 | 2'b10 | 5'b01111 |
+| 59 | 1 | 2'b10 | 5'b01110 |
+| 60 | 1 | 2'b10 | 5'b01101 |
+| 61 | 1 | 2'b10 | 5'b01100 |
+| 62 | 1 | 2'b10 | 5'b01011 |
+| 63 | 1 | 2'b10 | 5'b01010 |
+| 64 | 1 | 2'b10 | 5'b01001 |
+| 65 | 1 | 2'b10 | 5'b01000 |
+| 66 | 1 | 2'b10 | 5'b00111 |
+| 67 | 1 | 2'b10 | 5'b00110 |
+| 68 | 1 | 2'b10 | 5'b00101 |
+| 69 | 1 | 2'b10 | 5'b00100 |
+| 70 | 1 | 2'b10 | 5'b00011 |
+| 71 | 1 | 2'b10 | 5'b00010 |
+| 72 | 1 | 2'b10 | 5'b00001 |
+| 73 | 1 | 2'b10 | 5'b00000 |
+| 74 | 1 | 2'b10 | 5'b00001 |
+| 75 | 1 | 2'b10 | 5'b00010 |
+| 76 | 1 | 2'b10 | 5'b00011 |
+| 77 | 1 | 2'b10 | 5'b00100 |
+| 78 | 1 | 2'b10 | 5'b00101 |
+| 79 | 1 | 2'b10 | 5'b00110 |
+| 80 | 1 | 2'b10 | 5'b00111 |
+| 81 | 1 | 2'b10 | 5'b01000 |
+| 82 | 1 | 2'b10 | 5'b01001 |
+| 83 | 1 | 2'b10 | 5'b01010 |
+| 84 | 1 | 2'b10 | 5'b01011 |
+| 85 | 1 | 2'b10 | 5'b01100 |
+| 86 | 1 | 2'b10 | 5'b01101 |
+| 87 | 1 | 2'b10 | 5'b01110 |
+| 88 | 1 | 2'b10 | 5'b01111 |
+| 89 | 1 | 2'b10 | 5'b10000 |
+| 90 | 1 | 2'b10 | 5'b10001 |
+| 91 | 1 | 2'b10 | 5'b10010 |
+| 92 | 1 | 2'b10 | 5'b10011 |
+| 93 | 1 | 2'b10 | 5'b10100 |
+| 94 | 1 | 2'b10 | 5'b10011 |
+| 95 | 1 | 2'b10 | 5'b10010 |
+| 96 | 1 | 2'b10 | 5'b10001 |
+| 97 | 1 | 2'b10 | 5'b10000 |
+| 98 | 1 | 2'b10 | 5'b01111 |
+| 99 | 1 | 2'b10 | 5'b01110 |
+| 100 | 1 | 2'b10 | 5'b01101 |
+| 101 | 1 | 2'b10 | 5'b01100 |
+| 102 | 1 | 2'b10 | 5'b01011 |
+| 103 | 1 | 2'b10 | 5'b01010 |
+| 104 | 1 | 2'b10 | 5'b01001 |
+| 105 | 1 | 2'b10 | 5'b01000 |
+| 106 | 1 | 2'b10 | 5'b00111 |
+| 107 | 1 | 2'b10 | 5'b00110 |
+| 108 | 1 | 2'b10 | 5'b00101 |
+| 109 | 1 | 2'b10 | 5'b00100 |
+| 110 | 1 | 2'b10 | 5'b00011 |
+| 111 | 1 | 2'b10 | 5'b00010 |
+| 112 | 1 | 2'b10 | 5'b00001 |
+| 113 | 1 | 2'b10 | 5'b00000 |
+| 114 | 1 | 2'b10 | 5'b00001 |
+| 115 | 1 | 2'b10 | 5'b00010 |
+| 116 | 1 | 2'b10 | 5'b00011 |
+| 117 | 1 | 2'b10 | 5'b00100 |
+| 118 | 1 | 2'b10 | 5'b00101 |
+| 119 | 1 | 2'b10 | 5'b00110 |
+| 120 | 1 | 2'b10 | 5'b00111 |
+
+### stimulus 3
+| cycle | rst_n | wave_choice | wave |
+|---|---|---|---|
+| 0 | 0 | 2'b00 | 5'b00000 |
+| 1 | 1 | 2'b01 | 5'b00000 |
+| 2 | 1 | 2'b01 | 5'b00001 |
+
+### stimulus 4
+| cycle | rst_n | wave_choice | wave |
+|---|---|---|---|
+| 0 | 1 | 2'b11 | 5'x |
+
+### stimulus 5
+| cycle | rst_n | wave_choice | wave |
+|---|---|---|---|
+| 0 | 1 | 2'b00 | 5'x |
+| 1 | 1 | 2'b00 | 5'x |
+| 2 | 1 | 2'b10 | 5'x |
+| 3 | 1 | 2'b10 | 5'x |
+
+### stimulus 6
+| cycle | rst_n | wave_choice | wave |
+|---|---|---|---|
+| 0 | 0 | 2'b10 | 5'b00000 |
+| 1 | 0 | 2'b01 | 5'b00000 |
+
+### stimulus 7
+| cycle | rst_n | wave_choice | wave |
+|---|---|---|---|
+| 0 | 1 | 2'b01 | 5'x |
+| 1 | 0 | 2'b11 | 5'b00000 |
+| 2 | 1 | 2'b11 | 5'b00000 |

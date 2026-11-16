@@ -1,0 +1,96 @@
+Module and integration contract
+
+Module: adder_16bit.
+Ports below are in exact declaration order:
+- a: input [15:0].
+- b: input [15:0].
+- Cin: input 1 bit.
+- y: output [15:0].
+- Co: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+There is no reset input, reset behavior, reset edge, initialization interval, or stored state. From power-up onward, both outputs are defined solely by the input values currently present: y is the low 16 bits of the unsigned sum a + b + Cin, and Co is bit 16 of that same 17-bit sum. Thus neither output is unknown before any edge, and there is no first step after reset release.
+
+4. Timing
+
+y and Co are continuously combinational outputs with zero clock-cycle latency from a, b, and Cin. Any change to any input immediately recomputes both outputs; simultaneous and repeated input changes have the same rule. There is no clock, active edge, pulse, periodic output, capture, pause, completion, restart, retention interval, or circuit period. Physical propagation delay is not specified.
+
+For the evaluated trace only, each full-cycle row is an observation of the settled combinational result for that row's inputs before the abstract transition. The state transition is inert. Consecutive row numbers are abstract observation steps and do not imply a 10 ns clock tick or any physical circuit period or delay.
+
+5. Behaviour
+
+Treat a and b as unsigned 16-bit operands and Cin as an unsigned 1-bit carry input. Form the unsigned 17-bit mathematical sum T = a + b + Cin. For every input combination, including overflow cases, y continuously equals T modulo 65536, and Co continuously equals floor(T / 65536). Equivalently, y is the low 16 bits of T and Co is bit 16 of T. Overflow never forces y to zero; it discards only bits above bit 15 from y while Co reports bit 16.
+
+Every value or change of a immediately contributes its unsigned 16-bit value to T in the sole continuously active combinational mode, including simultaneous or repeated input changes, with no inactive level, capture, interruption, state, or retention behavior.
+
+Every value or change of b immediately contributes its unsigned 16-bit value to T in the sole continuously active combinational mode, including simultaneous or repeated input changes, with no inactive level, capture, interruption, state, or retention behavior.
+
+Cin immediately contributes zero when low and one when high to T in the sole continuously active combinational mode, including simultaneous or repeated input changes, with no inactive control level, capture, interruption, state, or retention behavior.
+
+y continuously equals the low 16 bits of a + b + Cin; a pre-transition trace row observes the inputs present for that row with no capture-to-observation latency, and there is no reset, initialization, hold, clear, completion, or restart interval because every input change recomputes y combinationally.
+
+Co continuously equals the carry-out bit of the 17-bit unsigned sum a + b + Cin; a pre-transition trace row observes the inputs present for that row with no capture-to-observation latency, and there is no reset, initialization, hold, clear, completion, or restart interval because every input change recomputes Co combinationally.
+
+6. Worked trace
+
+The following evaluated trace is normative for the listed stimuli and observation convention.
+
+### stimulus 0
+| cycle | a | b | Cin | y | Co |
+|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 0 | 16'h0 | 0 |
+
+### stimulus 1
+| cycle | a | b | Cin | y | Co |
+|---|---|---|---|---|---|
+| 0 | 16'h0 | 16'h0 | 1 | 16'h1 | 0 |
+
+### stimulus 2
+| cycle | a | b | Cin | y | Co |
+|---|---|---|---|---|---|
+| 0 | 16'h1 | 16'h1 | 0 | 16'h2 | 0 |
+
+### stimulus 3
+| cycle | a | b | Cin | y | Co |
+|---|---|---|---|---|---|
+| 0 | 16'h1 | 16'h1 | 1 | 16'h3 | 0 |
+
+### stimulus 4
+| cycle | a | b | Cin | y | Co |
+|---|---|---|---|---|---|
+| 0 | 16'hffff | 16'h0 | 0 | 16'hffff | 0 |
+
+### stimulus 5
+| cycle | a | b | Cin | y | Co |
+|---|---|---|---|---|---|
+| 0 | 16'hffff | 16'h1 | 1 | 16'h1 | 1 |
+
+### stimulus 6
+| cycle | a | b | Cin | y | Co |
+|---|---|---|---|---|---|
+| 0 | 16'h8000 | 16'h8000 | 0 | 16'h0 | 1 |
+
+### stimulus 7
+| cycle | a | b | Cin | y | Co |
+|---|---|---|---|---|---|
+| 0 | 16'h8000 | 16'h7fff | 1 | 16'h0 | 1 |
+
+### stimulus 8
+| cycle | a | b | Cin | y | Co |
+|---|---|---|---|---|---|
+| 0 | 16'h1234 | 16'habcd | 0 | 16'hbe01 | 0 |
+
+### stimulus 9
+| cycle | a | b | Cin | y | Co |
+|---|---|---|---|---|---|
+| 0 | 16'ha5a5 | 16'h5a5a | 1 | 16'h0 | 1 |

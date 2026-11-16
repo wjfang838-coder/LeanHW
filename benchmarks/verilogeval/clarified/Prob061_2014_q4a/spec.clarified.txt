@@ -1,0 +1,105 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- w: input 1 bit.
+- R: input 1 bit.
+- E: input 1 bit.
+- L: input 1 bit.
+- Q: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset operation. Q and its stored one-bit stage value have no defined power-up value. Before any effective rising edge has supplied a value, Q is unknown; the implementation must leave that stored value uninitialised, with no initial block or declaration initialiser. The first rising edge does not receive special treatment: if L is asserted it makes Q take R, otherwise if E is asserted it makes Q take w, and otherwise Q remains unknown. Because there is no reset, there is no reset assertion, reset edge, or reset-release step that assigns Q or state.
+
+Timing
+
+Q is a registered output. On each positive edge of clk it is updated from inputs sampled at that edge according to the behavior below, and the updated value is observable after that edge, a latency of one clock cycle from a row's sampled inputs to the next row's pre-edge observation. Q has no completion phase or pulse behavior; every positive edge independently performs another possible capture. Steady clock levels and falling edges do not update Q.
+
+For the normative evaluated trace, the object uses a full-cycle timebase: row k samples Q before transition k, then transition k represents the positive edge and determines the state observed in row k+1. Thus rows count successive clock cycles; they do not imply a 10 ns clock tick. The interface supplies no numeric step duration or sample offset, and the circuit specification imposes no clock period or propagation delay.
+
+Behaviour
+
+At every rising edge, if L is 1, Q captures R; this has priority when E is also 1 and is independent of w.
+
+If L is 0 and E is 1 at a rising edge, Q captures the then-current w; R has no effect.
+
+If L is 0 and E is 0 at a rising edge, Q retains its preceding value regardless of R and w.
+
+Changes to w, R, E, or L between rising edges have no effect on Q. Each rising edge, including consecutive rising edges with controls still asserted, resamples the current inputs and independently applies the same priority law. In particular, E has no effect while L is asserted; w affects Q only when L is 0 and E is 1; and R affects Q only when L is 1.
+
+All ports are one bit, so the cases above cover every input encoding. Q always denotes the retained stage value and there is no separate valid, busy, done, cancellation, or terminal state visible at the interface.
+
+Worked trace
+
+The following evaluated trace is normative. Each row observes the pre-edge state and supplies the inputs captured by that row's following positive edge.
+
+### stimulus 0
+| cycle | w | R | E | L | Q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | x |
+| 1 | 1 | 1 | 0 | 0 | x |
+
+### stimulus 1
+| cycle | w | R | E | L | Q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | x |
+| 1 | 1 | 1 | 0 | 0 | 0 |
+| 2 | 0 | 0 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | w | R | E | L | Q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 | x |
+| 1 | 0 | 1 | 0 | 0 | 1 |
+| 2 | 0 | 1 | 0 | 1 | 1 |
+
+### stimulus 3
+| cycle | w | R | E | L | Q |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | x |
+| 1 | 0 | 0 | 0 | 0 | 1 |
+| 2 | 1 | 0 | 1 | 0 | 1 |
+
+### stimulus 4
+| cycle | w | R | E | L | Q |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 1 | x |
+| 1 | 0 | 1 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 | 0 | 1 |
+
+### stimulus 5
+| cycle | w | R | E | L | Q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 1 | x |
+| 1 | 1 | 0 | 1 | 0 | 0 |
+| 2 | 0 | 1 | 0 | 1 | 1 |
+| 3 | 0 | 0 | 0 | 0 | 1 |
+
+### stimulus 6
+| cycle | w | R | E | L | Q |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 1 | x |
+| 1 | 0 | 0 | 1 | 0 | 1 |
+| 2 | 0 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 1 | 0 |
+| 4 | 0 | 0 | 1 | 0 | 1 |
+
+### stimulus 7
+| cycle | w | R | E | L | Q |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 1 | x |
+| 1 | 1 | 1 | 1 | 1 | 0 |
+| 2 | 1 | 0 | 0 | 1 | 1 |
+| 3 | 0 | 0 | 0 | 1 | 0 |
+| 4 | 1 | 1 | 1 | 0 | 0 |

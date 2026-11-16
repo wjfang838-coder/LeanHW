@@ -1,0 +1,159 @@
+Module and integration contract
+
+Module: LIFObuffer.
+Ports below are in exact declaration order:
+- dataIn: input [3:0].
+- RW: input 1 bit.
+- EN: input 1 bit.
+- Rst: input 1 bit.
+- Clk: input 1 bit.
+- EMPTY: output 1 bit.
+- FULL: output 1 bit.
+- dataOut: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+2. Reset.
+
+Reset is active high and synchronous to the rising edge of Clk, and it is effective only when EN is 1. At an enabled rising edge with Rst equal to 1, reset has priority over RW: the stack contents are cleared, the occupancy becomes zero, EMPTY becomes 1, dataOut becomes 4'b0000, and FULL retains its prior value. Repeated enabled reset edges repeat those effects. If Rst is asserted while EN is 0, no state or output changes. After reset is released, the first rising edge with EN equal to 1 and Rst equal to 0 performs the operation selected by RW; there is no additional release delay.
+
+At power-up, before any rising edge has taken effect, the stack is empty but EMPTY, FULL, and dataOut are all unknown. EMPTY remains unknown until the first enabled rising edge. FULL remains unknown until the first enabled non-reset rising edge, because an enabled reset edge retains it. dataOut remains unknown until the first enabled reset edge or successful pop edge. Each unknown output must remain uninitialised: no initial assignment or declaration initialiser may give it a definite value.
+
+3. Timing.
+
+All three outputs are registered and change only as an immediate result of a rising edge of Clk; they retain their values between rising edges. Each qualifying input condition sampled at a rising edge affects the outputs immediately after that edge, a latency of one edge and zero additional clock cycles. EMPTY and FULL are level flags, not pulses. dataOut is a retained or unknown registered value under the rules below, not a pulse. The design specifies no periodic output.
+
+The evaluated trace uses full-cycle pre-edge sampling: row k shows the settled outputs before the active edge for the inputs in row k, and those inputs first affect row k+1. Row k denotes k interface steps after settling. The interface supplies no numerical step duration or sample offset, so this observation convention does not imply a 10 ns clock, nor does it add any circuit delay or clock-period requirement.
+
+4. Behaviour.
+
+The stack holds at most four 4-bit words and has an occupancy from zero through four. At each rising edge, dataIn is captured as a new top word only when EN=1, Rst=0, RW=0, and the stack is not full; otherwise it has no observable effect, while repeated qualifying edges push successive words and later successful pops return them in reverse order.
+
+On a rising edge with EN=1 and Rst=0, RW=0 requests a push that succeeds unless full and RW=1 requests a pop that succeeds unless empty; only one request is handled per edge, repeated requests act once per rising edge, and RW has no observable effect during reset or while EN=0.
+
+EN=1 permits the rising edge to perform reset when Rst=1 or otherwise one RW-selected stack operation, whereas EN=0 makes the rising edge retain all observable outputs and stack contents, so disabled intervals interrupt activity without clearing it and re-enabling resumes from the retained state.
+
+At a rising edge with EN=1, Rst=1 has priority over RW, empties the stack, makes EMPTY=1 and dataOut=4'b0000 while retaining FULL, whereas Rst=0 permits the RW-selected operation; reset asserted while EN=0 has no effect, repeated enabled reset edges repeat those results, and release takes effect on the first enabled rising edge with Rst=0.
+
+Inputs affect the design only on each rising edge of Clk, with outputs reflecting that edge immediately afterward and retaining between rising edges; because each table row is sampled before its active edge, an input shown in row k first affects the values sampled in row k+1.
+
+EMPTY is unknown before its first assigning edge, becomes 1 immediately after an enabled reset edge, and after each enabled non-reset edge is 1 exactly when the resulting occupancy is zero and 0 otherwise, retaining through disabled edges; under pre-edge row sampling, each row's reset or operation is therefore observed in the following row.
+
+FULL is unknown until an enabled non-reset rising edge, after which it is 1 exactly when the resulting occupancy is four and 0 otherwise; it retains through disabled and enabled-reset edges, and with pre-edge row sampling any non-reset edge's result first appears in the following row.
+
+dataOut is unknown at power-up, becomes 4'b0000 immediately after an enabled reset edge, becomes the removed top word immediately after a successful enabled pop edge, becomes unknown after every other enabled non-reset edge, and retains across disabled edges; with pre-edge row sampling each edge result is observed in the following row.
+
+A push request at occupancy four does not change the stack or occupancy. A pop request at occupancy zero does not change the stack or occupancy. Both are enabled non-reset edges, so they still update EMPTY and FULL from the unchanged resulting occupancy and make dataOut unknown. All 1-bit inputs have only the encodings 0 and 1, and every combination is governed by reset priority, enable gating, and RW selection above. Every accepted dataIn bit pattern from 4'b0000 through 4'b1111 is stored and returned unchanged.
+
+5. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | dataIn | RW | EN | Rst | EMPTY | FULL | dataOut |
+|---|---|---|---|---|---|---|---|
+| 0 | 4'b0000 | 0 | 0 | 1 | x | x | 4'x |
+| 1 | 4'b0001 | 0 | 1 | 1 | x | x | 4'x |
+| 2 | 4'b0010 | 0 | 1 | 0 | 1 | x | 4'b0000 |
+| 3 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'x |
+| 4 | 4'b0000 | 1 | 1 | 0 | 1 | 0 | 4'b0010 |
+
+### stimulus 1
+| cycle | dataIn | RW | EN | Rst | EMPTY | FULL | dataOut |
+|---|---|---|---|---|---|---|---|
+| 0 | 4'b0000 | 0 | 1 | 1 | x | x | 4'x |
+| 1 | 4'b0000 | 0 | 1 | 0 | 1 | x | 4'b0000 |
+| 2 | 4'b0001 | 0 | 1 | 0 | 0 | 0 | 4'x |
+| 3 | 4'b1111 | 0 | 1 | 0 | 0 | 0 | 4'x |
+| 4 | 4'b1000 | 0 | 1 | 0 | 0 | 0 | 4'x |
+| 5 | 4'b0110 | 0 | 1 | 0 | 0 | 1 | 4'x |
+| 6 | 4'b0000 | 1 | 1 | 0 | 0 | 1 | 4'x |
+| 7 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'b1000 |
+| 8 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'b1111 |
+| 9 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'b0001 |
+| 10 | 4'b0000 | 1 | 1 | 0 | 1 | 0 | 4'b0000 |
+
+### stimulus 2
+| cycle | dataIn | RW | EN | Rst | EMPTY | FULL | dataOut |
+|---|---|---|---|---|---|---|---|
+| 0 | 4'b0000 | 0 | 1 | 1 | x | x | 4'x |
+| 1 | 4'b0101 | 0 | 1 | 0 | 1 | x | 4'b0000 |
+| 2 | 4'b1010 | 0 | 1 | 0 | 0 | 0 | 4'x |
+| 3 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'x |
+| 4 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'b1010 |
+| 5 | 4'b0011 | 0 | 1 | 0 | 1 | 0 | 4'b0101 |
+| 6 | 4'b1100 | 0 | 1 | 0 | 0 | 0 | 4'x |
+| 7 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'x |
+| 8 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'b1100 |
+
+### stimulus 3
+| cycle | dataIn | RW | EN | Rst | EMPTY | FULL | dataOut |
+|---|---|---|---|---|---|---|---|
+| 0 | 4'b0000 | 0 | 1 | 1 | x | x | 4'x |
+| 1 | 4'b1001 | 0 | 1 | 0 | 1 | x | 4'b0000 |
+| 2 | 4'b0000 | 1 | 0 | 0 | 0 | 0 | 4'x |
+| 3 | 4'b0111 | 0 | 0 | 0 | 0 | 0 | 4'x |
+| 4 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'x |
+
+### stimulus 4
+| cycle | dataIn | RW | EN | Rst | EMPTY | FULL | dataOut |
+|---|---|---|---|---|---|---|---|
+| 0 | 4'b0000 | 0 | 1 | 1 | x | x | 4'x |
+| 1 | 4'b0100 | 0 | 1 | 0 | 1 | x | 4'b0000 |
+| 2 | 4'b1011 | 0 | 1 | 0 | 0 | 0 | 4'x |
+| 3 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'x |
+| 4 | 4'b1101 | 0 | 1 | 0 | 0 | 0 | 4'b1011 |
+| 5 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'x |
+| 6 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'b1101 |
+
+### stimulus 5
+| cycle | dataIn | RW | EN | Rst | EMPTY | FULL | dataOut |
+|---|---|---|---|---|---|---|---|
+| 0 | 4'b0000 | 0 | 0 | 1 | x | x | 4'x |
+| 1 | 4'b1000 | 0 | 1 | 0 | x | x | 4'x |
+| 2 | 4'b0000 | 0 | 1 | 1 | 0 | 0 | 4'x |
+| 3 | 4'b1111 | 0 | 1 | 0 | 1 | 0 | 4'b0000 |
+| 4 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'x |
+
+### stimulus 6
+| cycle | dataIn | RW | EN | Rst | EMPTY | FULL | dataOut |
+|---|---|---|---|---|---|---|---|
+| 0 | 4'b0000 | 0 | 1 | 1 | x | x | 4'x |
+| 1 | 4'b0001 | 0 | 1 | 0 | 1 | x | 4'b0000 |
+| 2 | 4'b0010 | 0 | 1 | 0 | 0 | 0 | 4'x |
+| 3 | 4'b0000 | 0 | 1 | 1 | 0 | 0 | 4'x |
+| 4 | 4'b0000 | 1 | 1 | 0 | 1 | 0 | 4'b0000 |
+| 5 | 4'b1110 | 0 | 1 | 0 | 1 | 0 | 4'x |
+| 6 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'x |
+
+### stimulus 7
+| cycle | dataIn | RW | EN | Rst | EMPTY | FULL | dataOut |
+|---|---|---|---|---|---|---|---|
+| 0 | 4'b0011 | 0 | 1 | 0 | x | x | 4'x |
+| 1 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'x |
+| 2 | 4'b0000 | 0 | 1 | 1 | 1 | 0 | 4'b0011 |
+| 3 | 4'b0011 | 0 | 1 | 0 | 1 | 0 | 4'b0000 |
+| 4 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'x |
+
+### stimulus 8
+| cycle | dataIn | RW | EN | Rst | EMPTY | FULL | dataOut |
+|---|---|---|---|---|---|---|---|
+| 0 | 4'b0000 | 0 | 1 | 1 | x | x | 4'x |
+| 1 | 4'b0010 | 0 | 1 | 0 | 1 | x | 4'b0000 |
+| 2 | 4'b0100 | 0 | 1 | 0 | 0 | 0 | 4'x |
+| 3 | 4'b0110 | 0 | 1 | 0 | 0 | 0 | 4'x |
+| 4 | 4'b1000 | 0 | 1 | 0 | 0 | 0 | 4'x |
+| 5 | 4'b0000 | 1 | 1 | 0 | 0 | 1 | 4'x |
+| 6 | 4'b1010 | 1 | 1 | 0 | 0 | 0 | 4'b1000 |
+| 7 | 4'b1100 | 0 | 1 | 0 | 0 | 0 | 4'b0110 |
+| 8 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'x |
+| 9 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'b1100 |
+| 10 | 4'b0000 | 1 | 1 | 0 | 0 | 0 | 4'b0100 |
+| 11 | 4'b0000 | 1 | 1 | 0 | 1 | 0 | 4'b0010 |

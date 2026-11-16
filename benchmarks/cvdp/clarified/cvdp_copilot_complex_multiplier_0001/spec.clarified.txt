@@ -1,0 +1,180 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Write System Verilog RTL for complex number multiplier. The design should have an asynchronous active low reset and the latency of the design should be one cycle.
+Port List:
+`clk`:  1 bit input to the design. This is the Clock signal for the design
+`arst_n`: 1 bit input to the design. This is asynchronous active-low reset for the design. 
+`a_real`: 16 bit input to the design. This is the real part of first complex number
+`a_imag`: 16 bit input to the design. This is the imaginary part of first complex number
+`b_real`: 16 bit input to the design. This is the real part of second complex number
+`b_imag`: 16 bit input to the design. This is the imaginary part of second complex number
+`result_real`: 32 bit output from the design. This is the real part of the result
+`result_imag`: 32 bit output from the design. This is the imaginary part of the result
+
+complex multiplier
+
+A complex multiplier is a digital system that multiplies two complex numbers. Given two complex numbers in the form  (a+bj) and (c+dj), where a, b, c and d are real numbers and j is the imaginary unit, the multiplication follows this formula:
+
+    (a+bj)×(c+dj)=(ac−bd)+(ad+bc)j
+
+Algorithm: 
+Real Part Calculation: The real part of the result is computed by multiplying the real components of the two complex numbers and subtracting the product of their imaginary components:
+
+    Real_Result=(a×c)−(b×d)
+
+Imaginary Part Calculation: The imaginary part is calculated by multiplying the real part of one number by the imaginary part of the other, then summing these results:
+
+    Imaginary_Result=(a×d)+(b×c)
+
+The algorithm efficiently computes both real and imaginary parts using simple multiplications and additions, and these results are often stored for output in the next clock cycle.
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Write System Verilog RTL for complex number multiplier. The design should have an asynchronous active low reset and the latency of the design should be one cycle.
+Port List:
+`clk`:  1 bit input to the design. This is the Clock signal for the design
+`arst_n`: 1 bit input to the design. This is asynchronous active-low reset for the design. 
+`a_real`: 16 bit input to the design. This is the real part of first complex number
+`a_imag`: 16 bit input to the design. This is the imaginary part of first complex number
+`b_real`: 16 bit input to the design. This is the real part of second complex number
+`b_imag`: 16 bit input to the design. This is the imaginary part of second complex number
+`result_real`: 32 bit output from the design. This is the real part of the result
+`result_imag`: 32 bit output from the design. This is the imaginary part of the result
+
+Named module interface binding
+
+Module: complex_multiplier.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- arst_n: input; 1 bits in the concrete formal instance.
+- a_real: input; 16 bits in the concrete formal instance.
+- a_imag: input; 16 bits in the concrete formal instance.
+- b_real: input; 16 bits in the concrete formal instance.
+- b_imag: input; 16 bits in the concrete formal instance.
+- result_real: output; 32 bits in the concrete formal instance.
+- result_imag: output; 32 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly complex_multiplier. Connections shall be made by exact name. The integration answer confirms the named boundary but says positional declaration order is unverified; therefore the module must be instantiated by name. The following sequence reproduces the source port list but is not a normative positional order.
+
+clk: input, 1 bit.
+arst_n: input, 1 bit.
+a_real: input, 16 bits.
+a_imag: input, 16 bits.
+b_real: input, 16 bits.
+b_imag: input, 16 bits.
+result_real: output, 32 bits.
+result_imag: output, 32 bits.
+
+There are no public parameters, parameter defaults, or symbolic port-width expressions in the original source or the certain integration answer.
+
+3. Reset.
+
+arst_n is an asynchronous active-low reset. While arst_n is low, asynchronous reset immediately sets both outputs and both stored result components to zero and prevents operand acceptance. On the first rising edge after release, the current operands are accepted, and their result becomes observable exactly one cycle later. A later assertion immediately clears both outputs and cancels the visibility of any pending or retained result.
+
+Implementation choice C1: both stored 32-bit result components, result_real and result_imag, shall be zero at hardware power-up before any reset edge, throughout assertion of arst_n, and after reset release until the first later accepted multiplication becomes observable. Reset clears both stored result components to zero. This is a compatible implementation decision closing source-unconstrained initial and reset-phase behavior; it is not a fact established by the original source or an answer, and it adds no reset-before-use restriction or claim that unspecified hardware would otherwise power up to zero.
+
+Implementation choice C3: arst_n is sampled by level at a rising edge. Low has reset priority and prevents operand acceptance at that edge; high permits acceptance, including when reset release has settled coincident with that edge. Deassertion without a rising edge does not itself accept operands or change the stored zero values. The sources leave simultaneous reset-edge sampling and priority unstated, so this is a compatible reset-scope completion rather than a source fact.
+
+4. Timing.
+
+Implementation choice C2: the active data-clock edge is the rising edge of clk. Neither the original source nor any certain scoped answer states the active edge, so selecting rising edge is a compatible implementation completion, not a source fact. It preserves the required one-cycle latency and does not restrict legal inputs.
+
+result_real and result_imag are registered outputs. The result pair for operands accepted at rising edge k is observable exactly one clock cycle later, in cycle k+1. Consecutive rising edges with arst_n high accept consecutive transactions and produce one result pair per cycle after the one-cycle latency. Changes between rising edges have no immediate output effect. Each result remains observable until replaced by the next result or cleared asynchronously by reset. There are no pulse or periodic outputs.
+
+For the finite worked trace, row k denotes abstract cycle k after settling: it samples outputs before the row's active-edge transition and then advances the state. The interface supplies no timing.step_ns or timing.sample_offset_ns values, so no physical duration, implicit 10 ns tick, duty cycle, or propagation delay is assigned to a row. This observation convention is separate from the circuit's rising-edge and one-cycle-latency laws.
+
+5. Behaviour.
+
+At every rising edge with arst_n high, all four operands are accepted together as one transaction. There is no enable or start port, no disabled operating mode, and no terminal mode. Reset is the only cancellation event; after reset release, the first and all repeated transactions follow the same law.
+
+At every rising edge with arst_n high, a_real is accepted as a signed 16-bit two's-complement operand for both products that use the first complex number's real component.
+
+At every rising edge with arst_n high, a_imag is accepted as a signed 16-bit two's-complement operand for the subtracted real product and the added imaginary product.
+
+At every rising edge with arst_n high, b_real is accepted as a signed 16-bit two's-complement operand for the real-by-real and imaginary-by-real products.
+
+At every rising edge with arst_n high, b_imag is accepted as a signed 16-bit two's-complement operand for the imaginary-by-imaginary and real-by-imaginary products.
+
+For each accepted transaction, result_real is the low 32 bits of the two's-complement signed expression signed16(a_real) * signed16(b_real) - signed16(a_imag) * signed16(b_imag).
+
+For each accepted transaction, result_imag is the low 32 bits of the two's-complement signed expression signed16(a_real) * signed16(b_imag) + signed16(a_imag) * signed16(b_real).
+
+Every multiplication uses signed 16-bit operands. Each addition and subtraction is evaluated in a context wide enough to preserve its complete mathematical intermediate. Truncation occurs exactly once, at the registered low-32-bit output boundary. These laws cover all 16-bit input encodings, including encodings whose most-significant bit is one.
+
+The result_real output for operands accepted at rising edge k is observable one cycle later as the low 32 bits of the complete signed real-part expression.
+
+The result_imag output for operands accepted at rising edge k is observable one cycle later as the low 32 bits of the complete signed imaginary-part expression.
+
+Q3 and Q6 are scoped clarifications, not amendments: they specify signed two's-complement interpretation and the low-32-bit result boundary consistently with the original real and imaginary complex-product equations. No certain answer changes an original clause, so there is no superseded-source amendment notice.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete Lean instance, including Implementation choices C1 and C2 and the stated pre-transition observation convention.
+
+### stimulus 0
+| cycle | arst_n | a_real | a_imag | b_real | b_imag | result_real | result_imag |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 32'h0 |
+| 1 | 1 | 16'h1 | 16'h0 | 16'h1 | 16'h0 | 32'h0 | 32'h0 |
+| 2 | 1 | 16'h2 | 16'h3 | 16'h4 | 16'h5 | 32'h1 | 32'h0 |
+| 3 | 1 | 16'h7 | 16'hb | 16'hd | 16'h11 | 32'hfffffff9 | 32'h16 |
+
+### stimulus 1
+| cycle | arst_n | a_real | a_imag | b_real | b_imag | result_real | result_imag |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 16'h1 | 16'h1 | 16'h1 | 16'h1 | 32'h0 | 32'h0 |
+| 1 | 1 | 16'hffff | 16'h0 | 16'h1 | 16'h0 | 32'h0 | 32'h2 |
+| 2 | 1 | 16'h8000 | 16'h1 | 16'h8000 | 16'h1 | 32'hffffffff | 32'h0 |
+| 3 | 1 | 16'h1234 | 16'h4567 | 16'h2345 | 16'h6789 | 32'h3fffffff | 32'hffff0000 |
+
+### stimulus 2
+| cycle | arst_n | a_real | a_imag | b_real | b_imag | result_real | result_imag |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 32'h0 | 32'h0 |
+| 1 | 0 | 16'h8000 | 16'h0 | 16'h0 | 16'h8000 | 32'h0 | 32'h0 |
+| 2 | 1 | 16'h0 | 16'h1 | 16'h1 | 16'h0 | 32'h0 | 32'h0 |
+| 3 | 1 | 16'h1 | 16'h0 | 16'h0 | 16'h1 | 32'h0 | 32'h1 |
+
+### stimulus 3
+| cycle | arst_n | a_real | a_imag | b_real | b_imag | result_real | result_imag |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 16'hffff | 16'hffff | 16'hffff | 16'hffff | 32'h0 | 32'h0 |
+| 1 | 1 | 16'h8000 | 16'h8000 | 16'h8000 | 16'h8000 | 32'h0 | 32'h2 |
+| 2 | 1 | 16'h0 | 16'h0 | 16'hffff | 16'h8000 | 32'h0 | 32'h80000000 |
+
+### stimulus 4
+| cycle | arst_n | a_real | a_imag | b_real | b_imag | result_real | result_imag |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 16'h1234 | 16'h0 | 16'h0 | 16'h4567 | 32'h0 | 32'h0 |
+| 1 | 1 | 16'h0 | 16'h2345 | 16'h6789 | 16'h0 | 32'h0 | 32'h4ef56ec |
+| 2 | 1 | 16'h1 | 16'hffff | 16'h8000 | 16'h1 | 32'h0 | 32'he43a2ed |
+
+### stimulus 5
+| cycle | arst_n | a_real | a_imag | b_real | b_imag | result_real | result_imag |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 16'h3 | 16'h5 | 16'h7 | 16'hb | 32'h0 | 32'h0 |
+| 1 | 0 | 16'hd | 16'h11 | 16'h13 | 16'h17 | 32'h0 | 32'h0 |
+| 2 | 1 | 16'h1d | 16'h1f | 16'h25 | 16'h29 | 32'h0 | 32'h0 |
+| 3 | 1 | 16'h2b | 16'h2f | 16'h35 | 16'h3b | 32'hffffff3a | 32'h920 |
+
+### stimulus 6
+| cycle | arst_n | a_real | a_imag | b_real | b_imag | result_real | result_imag |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 16'h1 | 16'h2 | 16'h3 | 16'h4 | 32'h0 | 32'h0 |
+| 1 | 1 | 16'h7fff | 16'h8000 | 16'h7fff | 16'h8000 | 32'h0 | 32'h0 |
+| 2 | 1 | 16'h4000 | 16'h2000 | 16'h1000 | 16'h800 | 32'hffff0001 | 32'h80010000 |
+
+### stimulus 7
+| cycle | arst_n | a_real | a_imag | b_real | b_imag | result_real | result_imag |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 16'h0 | 16'h0 | 16'h0 | 16'h0 | 32'h0 | 32'h0 |
+| 1 | 1 | 16'h1 | 16'h0 | 16'hffff | 16'h0 | 32'h0 | 32'h0 |
+| 2 | 1 | 16'h0 | 16'h1 | 16'h0 | 16'hffff | 32'hffffffff | 32'h0 |

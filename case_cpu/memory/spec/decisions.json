@@ -1,0 +1,16 @@
+{
+  "provenance": "Synthetic case-author decisions for this demo; no claim of automatically proving natural-language prose equivalent to Lean.",
+  "workflow": "Repair the contradictions first, compare live readings, then freeze ISA and cycle semantics. Mutations are applied only to private RTL copies.",
+  "decisions": [
+    {"draft":"O02","kind":"ambiguity","decision":"Little endian: word 0x11223344 at byte address zero yields 0x44.","revised":"R04","certificate":"MemoryDiagnosis.endian_ambiguity"},
+    {"draft":"O02","kind":"incompleteness","decision":"LH sign extends; LHU zero extends.","revised":"R04","certificate":"MemoryDiagnosis.signed_half_hole"},
+    {"draft":"O03","kind":"incompleteness","decision":"SB/SH preserve every unselected byte and every other word.","revised":"R04","certificate":"MemoryDiagnosis.partial_store_hole"},
+    {"draft":"O04,O05","kind":"contradiction","decision":"Every reset preserves RAM; a nonzero word stays nonzero. Reset suppresses pending writes.","revised":"R06","certificate":"MemoryDiagnosis.reset_contradiction"},
+    {"draft":"O06","kind":"timing omission","decision":"Asynchronous reads see pre-edge RAM; successful WB stores commit at the edge. Backend memory operations serialize.","revised":"R04,R08","certificate":"CaseCPUMem.NativeRAM.mem_read_binding"},
+    {"draft":"O07","kind":"incompleteness","decision":"Alignment precedes range; codes 1..4; fault preserves PC/regs/RAM and halts until reset.","revised":"R05","certificate":"MemoryDiagnosis.fault_priority_hole"},
+    {"draft":"O08","kind":"ambiguity","decision":"Sample delay once at EX-to-MEM transfer; external MEM stall freezes its countdown.","revised":"R09","certificate":"MemoryDiagnosis.delay_ambiguity"},
+    {"draft":"O09","kind":"contradiction","decision":"Retire fault once, explicitly abort younger accepted work; do not require younger retirement after halt.","revised":"R05,R12","certificate":"MemoryDiagnosis.younger_contradiction"},
+    {"draft":"O10","kind":"contradiction","decision":"Arbitrary permanent stalls are legal; remove unconditional completion deadline.","revised":"R12","certificate":"MemoryDiagnosis.progress_contradiction"}
+  ],
+  "limits": ["Eight clause-local contexts and a finite projected observation universe; not exhaustive enumeration of CPU executions.","revised_determined is about this finite diagnostic projection.","The independent ISA and cycle semantics are the proof targets; no NL parser correctness theorem is claimed."]
+}

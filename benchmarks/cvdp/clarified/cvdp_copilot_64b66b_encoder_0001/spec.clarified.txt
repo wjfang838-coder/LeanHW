@@ -1,0 +1,149 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a 64b/66b encoder that supports data encoding with a 2-bit sync header. The encoder should take a 64-bit data input and a corresponding 8-bit control word. The 8-bit control word indicates which data octets (8-bit segments) within the 64-bit word are either pure data or contain control characters. Implement only pure data encoding that encodes 64b to 66b when the 8-bit control word is 8'b00000000.
+
+### Design Specification:
+
+A 64b/66b encoder is a digital circuit that converts a 64-bit data word into a 66-bit encoded output, commonly used in high-speed communication protocol like Ethernet. This encoding scheme appends a 2-bit sync header to the data to maintain synchronization and differentiate data from control words using 8-bit control input.
+
+#### Control Word Interpretation:
+The encoder receives both:
+- A **64-bit data word**: Represented as 8 octets (8-bit segments).
+- An **8-bit control word**: Each bit represents whether the corresponding data octet contains pure data (`0`) or a control character (`1`).
+- **Control Bit = 0**: Indicates a pure data octet.
+- **Control Bit = 1**: Indicates a control character in the corresponding data octet, but only pure data encoding has to be implemented in the RTL.
+
+#### Supported Sync Word and Output Behavior:
+The encoder appends a 2-bit sync header at the MSBs of the encoded output, based on the presence of control characters:
+- **Sync Word and Output data**:
+  - `2'b01`: All 8 octets are pure data. The 64-bit data word is passed directly to the encoded output.
+  - `2'b10`: At least one of the 8 octets is a control character. However, 64'd0 is passed in the output as control word encoding is not supported.
+
+### Inputs and Outputs:
+
+- **Inputs**:
+  - `clk_in`:  clock signal, triggering on the rising edge.
+  - `rst_in`: 1-bit Active HIGH asynchronous reset. When HIGH, the `encoder_data_out` is zero
+  - `encoder_data_in ([63:0])`: 64-bit data word.
+  - `encoder_control_in ([7:0])`: 8-bit control word indicating pure data (`0`) or control character (`1`) per octet. A value of `8'b00000000` indicates data encoding.
+
+- **Output**:
+  - `encoder_data_out ([65:0])`: 66-bit encoded output, consisting of a 2-bit sync word at the MSBs followed by 64-bit data word. Output Latency is one clock cycle.
+
+### Example Operations:
+
+**Example 1**: Encoding a Data Word (All Data Octets)
+
+- **Input**: `encoder_control_in = 8'b00000000`, `encoder_data_in = 64'hA5A5A5A5A5A5A5A5`
+- **Expected Output**: `encoder_data_out = {2'b01, 64'hA5A5A5A5A5A5A5A5}`
+
+**Example 2**: Control Word (Not Supported in RTL)
+
+- **Input**: `encoder_control_in = 8'b00001111`, `encoder_data_in = 64'hA5A5A5A5A5A5A5A5`
+- **Expected Output**: `encoder_data_out = {2'b10, 64'h0000000000000000}`
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Named module interface binding
+
+Module: encoder_64b66b.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk_in: input; 1 bits in the concrete formal instance.
+- rst_in: input; 1 bits in the concrete formal instance.
+- encoder_data_in: input; 64 bits in the concrete formal instance.
+- encoder_control_in: input; 8 bits in the concrete formal instance.
+- encoder_data_out: output; 66 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly encoder_64b66b. The confirmed boundary has these ports, listed in the order in which the original Inputs and Outputs sections present them: input clk_in, 1 bit; input rst_in, 1 bit; input encoder_data_in, 64 bits; input encoder_control_in, 8 bits; and output encoder_data_out, 66 bits. Q7 confirms these exact spellings, directions, and widths and requires connections by name. Positional declaration order is unverified, so this listing is not a normative positional order; the module must be instantiated by name. No public parameter or symbolic port-width range is established.
+
+3. Reset.
+
+rst_in is an active-high asynchronous reset. Whenever rst_in is high, encoder_data_out is 66'b0 immediately, independently of clk_in, encoder_data_in, and encoder_control_in. Reset has priority over a coincident rising edge. On release of rst_in, the zero reset value remains visible until the next rising edge captures a non-reset encoding; after that edge the newly captured value is visible. Reasserting reset interrupts ordinary operation immediately and forces zero; repeated assertion has the same effect.
+
+Implementation choice C1: before reset has ever been asserted, encoder_data_out is 66'b0. The source fixes the value while reset is asserted but does not establish a power-up value, and the certain answers establish none. This zero is a compatible implementation decision limited to the initial pre-reset interval, not a source-derived power-up guarantee. It imposes no reset-before-use restriction: an ordinary rising edge while rst_in is low establishes the specified encoded value.
+
+The sole stored state is the current 66-bit registered output value. It is zero during reset. On the first rising edge after reset release, it becomes the encoding selected from the encoder_data_in and encoder_control_in values present immediately before that edge.
+
+4. Timing.
+
+clk_in triggers on its rising edge. encoder_data_out is registered with exactly one clock-cycle latency from encoder_data_in and encoder_control_in. For an accepted input at rising edge E0, the pre-edge values of encoder_data_in and encoder_control_in determine the registered value immediately after E0; that value is the output observed during the completed interval following E0 and before the next rising edge E1. There is no separate completion pulse, timeout, serialization, counter, or index advancement.
+
+Asynchronous reset is an exception to the registered data timing: asserting rst_in high forces encoder_data_out to zero without waiting for a rising edge. On reset release, the output remains zero through the interval before the first subsequent rising edge.
+
+The evaluated full-cycle table uses the following observation convention: row k denotes k full clock cycles after settling. Each row samples the settled output before that row's rising-edge transition, and then the transition captures that row's inputs for the next row. This table convention does not replace or modify the circuit laws above; the circuit's active edge is the rising edge and its data latency is one clock cycle.
+
+5. Behaviour.
+
+All input widths are interpreted over their full declared bit-vector domains. When rst_in is low and encoder_control_in is 8'b00000000, the rising edge captures encoder_data_out = {2'b01, encoder_data_in}. Thus every one of the eight control bits being zero denotes eight pure-data octets, and the entire 64-bit input is preserved without arithmetic reinterpretation or truncation beyond its declared width.
+
+When rst_in is low and encoder_control_in is any nonzero 8-bit value, at least one octet is marked as containing a control character. Control-word encoding is unsupported, so the rising edge captures encoder_data_out = {2'b10, 64'b0}, independently of encoder_data_in. This rule covers every nonzero control encoding, including values not shown in the examples.
+
+Each rising edge independently applies the rule to the pre-edge inputs. Consecutive inputs are accepted on consecutive rising edges. A later input replaces the prior registered result after its own acceptance edge; until then the prior result is retained. There is no start, enable, ready, valid, cancellation, warm-up, or transaction suppression input. While rst_in is high, reset overrides both encoding cases.
+
+The clk_in law is the source-stated rising-edge rule; low levels and falling edges do not capture data. The rst_in law is the active-high asynchronous zero-output rule described in section 2. The encoder_data_in law is exact payload preservation only in the all-zero control case and irrelevance in every nonzero-control case. The encoder_control_in law selects exactly between those two complete cases. The encoder_data_out law is asynchronous zero under reset and otherwise the one-cycle-latency registered result of the most recent rising-edge capture.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete sampled instance and uses the observation convention stated in section 3.
+
+### stimulus 0
+| cycle | rst_in | encoder_data_in | encoder_control_in | encoder_data_out |
+|---|---|---|---|---|
+| 0 | 1 | 64'h0 | 8'b00000000 | 66'h0 |
+| 1 | 0 | 64'h1 | 8'b00000000 | 66'h0 |
+| 2 | 0 | 64'hffffffffffffffff | 8'b00000000 | 66'h10000000000000001 |
+| 3 | 0 | 64'h8000000000000000 | 8'b00000000 | 66'h1ffffffffffffffff |
+
+### stimulus 1
+| cycle | rst_in | encoder_data_in | encoder_control_in | encoder_data_out |
+|---|---|---|---|---|
+| 0 | 0 | 64'h123456789abcdef0 | 8'b00000000 | 66'h0 |
+| 1 | 0 | 64'ha5a5a5a5a5a5a5a5 | 8'b00000000 | 66'h1123456789abcdef0 |
+
+### stimulus 2
+| cycle | rst_in | encoder_data_in | encoder_control_in | encoder_data_out |
+|---|---|---|---|---|
+| 0 | 1 | 64'ha5a5a5a5a5a5a5a5 | 8'b00001111 | 66'h0 |
+| 1 | 0 | 64'h1 | 8'b00001111 | 66'h0 |
+| 2 | 0 | 64'hffffffffffffffff | 8'b00001111 | 66'h20000000000000000 |
+
+### stimulus 3
+| cycle | rst_in | encoder_data_in | encoder_control_in | encoder_data_out |
+|---|---|---|---|---|
+| 0 | 0 | 64'h0 | 8'b00000001 | 66'h0 |
+| 1 | 0 | 64'h8000000000000000 | 8'b00000001 | 66'h20000000000000000 |
+
+### stimulus 4
+| cycle | rst_in | encoder_data_in | encoder_control_in | encoder_data_out |
+|---|---|---|---|---|
+| 0 | 0 | 64'h1 | 8'b10000000 | 66'h0 |
+| 1 | 0 | 64'h123456789abcdef0 | 8'b10000000 | 66'h20000000000000000 |
+
+### stimulus 5
+| cycle | rst_in | encoder_data_in | encoder_control_in | encoder_data_out |
+|---|---|---|---|---|
+| 0 | 0 | 64'hffffffffffffffff | 8'b11111111 | 66'h0 |
+| 1 | 0 | 64'h0 | 8'b11111111 | 66'h20000000000000000 |
+
+### stimulus 6
+| cycle | rst_in | encoder_data_in | encoder_control_in | encoder_data_out |
+|---|---|---|---|---|
+| 0 | 0 | 64'h123456789abcdef0 | 8'b01010101 | 66'h0 |
+| 1 | 0 | 64'h1 | 8'b00000000 | 66'h20000000000000000 |
+| 2 | 0 | 64'h8000000000000000 | 8'b00000000 | 66'h10000000000000001 |
+| 3 | 0 | 64'h0 | 8'b01010101 | 66'h18000000000000000 |
+| 4 | 0 | 64'hffffffffffffffff | 8'b00000000 | 66'h20000000000000000 |
+
+### stimulus 7
+| cycle | rst_in | encoder_data_in | encoder_control_in | encoder_data_out |
+|---|---|---|---|---|
+| 0 | 0 | 64'h1 | 8'b00000000 | 66'h0 |
+| 1 | 1 | 64'hffffffffffffffff | 8'b00000000 | 66'h0 |
+| 2 | 0 | 64'h123456789abcdef0 | 8'b00000000 | 66'h0 |
+| 3 | 0 | 64'h8000000000000000 | 8'b00000000 | 66'h1123456789abcdef0 |

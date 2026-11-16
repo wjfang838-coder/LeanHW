@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_thermostat_0001",
+  "toplevel": "thermostat",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

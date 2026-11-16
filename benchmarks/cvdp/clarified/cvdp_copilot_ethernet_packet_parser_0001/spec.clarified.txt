@@ -1,0 +1,234 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+**Design a Verilog module to extract specific bytes from a data stream in digital logic. The module interfaces with a simple bus protocol commonly used in FPGA designs. The objective is to extract exactly 2 bytes from a specific beat (the 2nd beat in a burst) of the data stream and output them based on the defined protocol signals. Each data transfer, or beat, sends 32-bit chunks (4 bytes) of data in each cycle.**
+
+### Module Interface:
+
+#### Inputs:
+1. **`clk` (Clock Signal):**  
+   - The module operates synchronously with this clock signal.
+  
+2. **`rst` (Reset Signal):**  
+   - A high-level signal that resets the module, returning it to an idle state and clearing internal state variables.
+
+3. **Protocol Signals from Transmitter:**
+   - **`vld` (1-bit Valid Signal):**  
+     - Indicates that the current data on the bus is valid for processing.
+   - **`sof` (1-bit Start-of-Frame Signal):**  
+     - Asserts at the start of a new packet, initializing the extraction process.
+   - **`data` (32-bit Data Signal):**  
+     - Carries 32 bits of data per cycle, with each beat containing exactly 4 valid bytes.
+   - **`eof` (1-bit End-of-Frame Signal):**  
+     - Marks the end of the current data burst, signaling the module to return to an idle state after completing the extraction.
+
+#### Outputs:
+1. **Protocol Signal to Transmitter:**
+   - **`ack` (1-bit Acknowledge Signal):**  
+     - Fixed as `1`, indicating the receiver always accepts valid data without delay.
+
+2. **Field Extraction Outputs:**
+   - **`field` (16-bit Output):**  
+     - Contains the 2 extracted bytes from the 2nd beat of the burst, specifically the most significant two bytes of the `data` signal (`data[31:16]`).
+   - **`field_vld` (1-bit Field Valid Signal):**  
+     - Signals the validity of the extracted `field`. It is asserted after extracting the 2 bytes from the 2nd beat and cleared once `eof` is asserted.
+
+### Internal Design and Operation:
+
+1. **Beat Counter (`beat_cnt`):**
+   - A 4-bit counter that increments with each valid beat (`vld` asserted). It counts the beats in each burst, ensuring the extraction occurs precisely at the 2nd beat.
+
+2. **Temporary Storage (`temp_extracted_field`):**
+   - A 16-bit register for temporarily storing the extracted bytes. Once the correct beat is reached, the `temp_extracted_field` stores the value of `data[31:16]` from the 2nd beat.
+
+3. **State Machine:**
+   - The module utilizes a 2-bit state machine with four states:
+     - **IDLE (0):**  
+       - Awaits the start of a new packet (`vld` and `sof` asserted together). Initializes internal registers, including clearing the `beat_cnt`, `field`, and `field_vld`.
+     - **EXTRACTING (1):**  
+       - Monitors the beats. At the 2nd beat (`beat_cnt == 1`), the module captures `data[31:16]` into `temp_extracted_field` and prepares to complete extraction.
+     - **DONE (2):**  
+       - Assigns the `temp_extracted_field` to the `field` output and asserts `field_vld`. The `field` output is held steady until `eof` is received, indicating burst completion.
+     - **FAIL_FINAL (3):**  
+       - Clears `field_vld` and resets to IDLE upon detecting `eof`, preparing for the next burst.
+
+### Protocol Compliance:
+
+- The module initiates byte extraction when a new burst begins (`sof` asserted).
+- The beat counter (`beat_cnt`) increments for each beat, tracking the position within the burst.
+- Upon reaching the 2nd beat, it extracts the 2 most significant bytes (`data[31:16]`) and outputs them on `field` once `DONE` is entered.
+- The `ack` signal remains constantly high (`1`), as the receiver does not apply backpressure to the transmitter.
+- At the end of the burst (signaled by `eof`), `field_vld` is cleared, and the state returns to `IDLE`.
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+**Design a Verilog module to extract specific bytes from a data stream in digital logic. The module interfaces with a simple bus protocol commonly used in FPGA designs. The objective is to extract exactly 2 bytes from a specific beat (the 2nd beat in a burst) of the data stream and output them based on the defined protocol signals. Each data transfer, or beat, sends 32-bit chunks (4 bytes) of data in each cycle.**
+
+Named module interface binding
+
+Module: field_extract.
+Connect ports by name. The enumeration below does not establish positional order.
+- clk: input; 1 bits in the concrete formal instance.
+- rst: input; 1 bits in the concrete formal instance.
+- vld: input; 1 bits in the concrete formal instance.
+- sof: input; 1 bits in the concrete formal instance.
+- data: input; 32 bits in the concrete formal instance.
+- eof: input; 1 bits in the concrete formal instance.
+- ack: output; 1 bits in the concrete formal instance.
+- field: output; 16 bits in the concrete formal instance.
+- field_vld: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is field_extract. The exact public ports are input clk, 1 bit; input rst, 1 bit; input vld, 1 bit; input sof, 1 bit; input data, 32 bits; input eof, 1 bit; output ack, 1 bit; output field, 16 bits; and output field_vld, 1 bit. There are no public parameters.
+
+The integration answer establishes the named connections field_extract(clk, rst, vld, sof, data, eof, ack, field, field_vld), but positional declaration order is unverified. This enumeration is normative for names, directions, and widths, not for positional order. Portable consumers can use the named wiring. A caller possessing the actual module declaration may instantiate positionally in that declaration's order; the missing order evidence imposes no RTL syntax restriction.
+
+3. Reset.
+
+rst is active high. Implementation choice C2 selects the rising edge of clk as the active data-clock edge because no source clause states the active edge.
+
+Implementation choice C3 selects synchronous reset sampling at the rising edge and gives reset priority over simultaneous vld, sof, data, and eof. This is compatible with the source requirements that operation is synchronous and that high rst returns the module to idle and clears internal state. On every rising edge whose pre-edge rst is 1, the post-edge state is IDLE, the 4-bit beat counter is 0, the 16-bit temporary extracted value is 0, field is 0, and field_vld is 0. The transaction-completion state is cleared. ack remains 1. Before that edge, merely changing rst does not alter registered state or outputs. Deasserting rst causes no event by itself. At the first rising edge after release, the ordinary transition law applies to the pre-edge state and inputs; release does not consume a transfer.
+
+Implementation choice C1: before any reset edge has occurred, field is 0 and field_vld is 0, while ack is 1. In every non-result phase, field_vld is 0. Before the first result of a transaction, field is 0. After eof, field retains its last published value until reset or a later accepted start clears it. These are compatible concrete choices for phases whose output values the source and certain answers do not fix. They are not source-derived hardware power-up guarantees, do not require reset before use, and do not prevent a normal rising edge from establishing state. A finite verification stimulus that holds rst through a modeled rising edge thereby starts later rows in the documented reset state; that table setup does not add a reset-before-use input restriction.
+
+4. Timing.
+
+ack is combinationally constant 1 at all times. field and field_vld are registered outputs.
+
+Let E0 be a rising edge at which the pre-edge state is IDLE and vld=1 and sof=1. E0 accepts the start transfer and enters EXTRACTING, but the amended counting law excludes that transfer from the subsequent beat count. After E0, field=0 and field_vld=0. Intervals ending at rising edges with vld=0 do not count as accepted-beat intervals.
+
+Let E1 be the next rising edge after E0 with pre-edge rst=0, eof=0, and vld=1. E1 completes the first subsequent accepted-transfer interval. Its post-edge beat count is 1; field remains 0 and field_vld remains 0. Let E2 be the next such rising edge. E2 completes the second subsequent accepted-transfer interval. The post-E2 temporary extracted value and field are computed from pre-E2 data[31:16], field_vld becomes 1, and the state becomes DONE. The simultaneous post-E2 counter advancement to 2 does not change which pre-edge operand is captured. There is no additional publication edge after E2.
+
+While DONE and before eof, later rising edges retain field and keep field_vld at 1. Let EF be a rising edge in EXTRACTING or DONE with pre-edge rst=0 and eof=1. At EF, eof takes priority over vld and enters FAIL_FINAL; immediately after EF, field_vld is 0 and field retains its value. On the next rising edge with rst=0, FAIL_FINAL returns to IDLE. Thus field_vld is a retained level, not a fixed-width pulse. A start presented during FAIL_FINAL is not accepted; a start can be accepted on a later edge whose pre-edge state is IDLE.
+
+The finite Lean interface has no physical clk input. Its full-cycle step denotes one rising active edge. Row k observes settled outputs from state s[k] before that edge, and the step computes s[k+1], which the next row observes. iface.json supplies no step_ns or sample_offset_ns, so row indices are active-edge scenario indices and are not implicit 10 ns ticks. A modeled row with rst=1 applies synchronous reset only when its corresponding modeled active edge occurs. This finite observation scope does not restrict legal RTL clock spacing or reset pulses.
+
+5. Behaviour.
+
+All control inputs use their one-bit values. A transfer is accepted on a rising edge when vld=1 and the state law admits it; ack is always 1 and applies no backpressure.
+
+In IDLE, vld=1 together with sof=1 accepts a new packet, clears the 4-bit beat counter, temporary extracted value, field, and field_vld, and enters EXTRACTING. sof without vld does not start a packet. vld without sof does not start a packet. eof alone in IDLE has no state effect. Under Implementation choice C3, if rst is 0 and vld, sof, and eof are all 1 in IDLE, the start condition is accepted; reset still has priority whenever rst is 1.
+
+Amendment Q24. The following are the exact original clauses affected in this scope:
+
+"The objective is to extract exactly 2 bytes from a specific beat (the 2nd beat in a burst) of the data stream and output them based on the defined protocol signals."
+
+"Contains the 2 extracted bytes from the 2nd beat of the burst, specifically the most significant two bytes of the `data` signal (`data[31:16]`)."
+
+"A 4-bit counter that increments with each valid beat (`vld` asserted). It counts the beats in each burst, ensuring the extraction occurs precisely at the 2nd beat."
+
+"The beat counter (`beat_cnt`) increments for each beat, tracking the position within the burst."
+
+"Once the correct beat is reached, the `temp_extracted_field` stores the value of `data[31:16]` from the 2nd beat."
+
+"Awaits the start of a new packet (`vld` and `sof` asserted together). Initializes internal registers, including clearing the `beat_cnt`, `field`, and `field_vld`."
+
+"At the 2nd beat (`beat_cnt == 1`), the module captures `data[31:16]` into `temp_extracted_field` and prepares to complete extraction."
+
+"Upon reaching the 2nd beat, it extracts the 2 most significant bytes (`data[31:16]`) and outputs them on `field` once `DONE` is entered."
+
+Question Q24's exact certain-answer law is: "The accepted transfer carrying vld=1 and sof=1 initializes the transaction but is excluded from the subsequent beat count. Starting from idle with rst=0 and eof=0, if that transfer carries data[31:16]=16'h1111, the next accepted vld transfer carries 16'h2222, and the following accepted vld transfer carries 16'h3333, the extracted field is derived from 16'h3333. This follows the harness's asymmetric sequence: its sof transfer is followed by 16'hAAAA and then 16'h1234, and the final asserted integer is 16'h1234."
+
+Only when an accepted vld=1, sof=1 start is followed, while rst=0 and eof=0, by accepted vld transfers does the corrected law supersede the quoted clauses' conflicting implication that the SOF transfer itself may count as the first of the two beats. In that limited scope, the start transfer initializes the transaction but is excluded from the subsequent beat count; the next accepted vld transfer is subsequent beat 1, and the following accepted vld transfer is subsequent beat 2. All portions of the quoted clauses unrelated to that counting interpretation, and all other original requirements, remain normative.
+
+Accordingly, during EXTRACTING, a rising edge with rst=0, eof=0, and vld=0 retains the state and count. The first later accepted vld transfer advances the 4-bit count from 0 to 1 without publishing a result. The second later accepted vld transfer extracts exactly data[31:16], stores that 16-bit value in the temporary extracted value, publishes it on field, asserts field_vld, and enters DONE. data[15:0] has no effect on the result. The 4-bit counter wraps modulo 16 on accepted vld transfers that advance it; the amended result is reached at count 1 before wrap.
+
+In EXTRACTING, eof=1 terminates the packet before any same-edge vld data can be counted or extracted and enters FAIL_FINAL. In DONE, additional vld, sof, and data values do not replace the published field. eof=1 enters FAIL_FINAL and clears field_vld after that edge. FAIL_FINAL clears field_vld and returns to IDLE on the following rising edge. A later accepted start begins a fresh transaction and clears the prior field before applying the same E0/E1/E2 law.
+
+Reset assertion through the first three active edges is therefore: a rising edge with rst=1 establishes IDLE and all cleared values; reset release itself changes nothing; the first post-release rising edge is E0 only if its pre-edge vld=1 and sof=1; the next accepted qualifying edges are E1 and E2 as defined above. A repeated sof while EXTRACTING or DONE does not restart or cancel the current transaction. A vld gap pauses counting. eof cancels an incomplete transaction under its stated priority. Since DONE retains the result until eof, no second request is accepted before termination; after FAIL_FINAL returns to IDLE, the next qualifying start is accepted.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete 32-bit data and 16-bit field finite scenarios and for the pre-edge active-edge observation convention stated above.
+
+### stimulus 0
+| cycle | rst | vld | sof | data | eof | ack | field | field_vld |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+| 1 | 0 | 1 | 1 | 32'h11112222 | 0 | 1 | 16'h0 | 0 |
+| 2 | 0 | 1 | 0 | 32'habcd1234 | 0 | 1 | 16'h0 | 0 |
+| 3 | 0 | 1 | 0 | 32'h33334444 | 0 | 1 | 16'h0 | 0 |
+| 4 | 0 | 0 | 0 | 32'h0 | 1 | 1 | 16'h3333 | 1 |
+| 5 | 0 | 0 | 0 | 32'h0 | 0 | 1 | 16'h3333 | 0 |
+
+### stimulus 1
+| cycle | rst | vld | sof | data | eof | ack | field | field_vld |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+| 1 | 1 | 1 | 1 | 32'hffffffff | 0 | 1 | 16'h0 | 0 |
+| 2 | 0 | 1 | 1 | 32'h80000000 | 0 | 1 | 16'h0 | 0 |
+| 3 | 0 | 1 | 0 | 32'h1 | 0 | 1 | 16'h0 | 0 |
+| 4 | 0 | 0 | 0 | 32'h0 | 1 | 1 | 16'h0 | 0 |
+
+### stimulus 2
+| cycle | rst | vld | sof | data | eof | ack | field | field_vld |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+| 1 | 1 | 0 | 0 | 32'h13579bdf | 0 | 1 | 16'h0 | 0 |
+| 2 | 0 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+| 3 | 0 | 1 | 1 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+| 4 | 0 | 0 | 0 | 32'hffffffff | 0 | 1 | 16'h0 | 0 |
+| 5 | 0 | 1 | 0 | 32'hffff0000 | 0 | 1 | 16'h0 | 0 |
+| 6 | 0 | 0 | 0 | 32'h0 | 1 | 1 | 16'h0 | 0 |
+| 7 | 0 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+
+### stimulus 3
+| cycle | rst | vld | sof | data | eof | ack | field | field_vld |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+| 1 | 0 | 1 | 1 | 32'h1 | 0 | 1 | 16'h0 | 0 |
+| 2 | 0 | 0 | 0 | 32'h80000000 | 1 | 1 | 16'h0 | 0 |
+| 3 | 0 | 1 | 1 | 32'h2468ace0 | 0 | 1 | 16'h0 | 0 |
+| 4 | 0 | 1 | 0 | 32'h10000 | 0 | 1 | 16'h0 | 0 |
+| 5 | 0 | 0 | 0 | 32'h0 | 1 | 1 | 16'h0 | 0 |
+| 6 | 0 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+
+### stimulus 4
+| cycle | rst | vld | sof | data | eof | ack | field | field_vld |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+| 1 | 0 | 1 | 1 | 32'h10000 | 0 | 1 | 16'h0 | 0 |
+| 2 | 0 | 1 | 0 | 32'h12345678 | 0 | 1 | 16'h0 | 0 |
+| 3 | 0 | 1 | 0 | 32'hffffffff | 0 | 1 | 16'h0 | 0 |
+| 4 | 0 | 0 | 0 | 32'h0 | 1 | 1 | 16'hffff | 1 |
+| 5 | 0 | 1 | 1 | 32'h80000000 | 0 | 1 | 16'hffff | 0 |
+| 6 | 0 | 1 | 0 | 32'hfedcba98 | 0 | 1 | 16'hffff | 0 |
+| 7 | 0 | 0 | 0 | 32'h0 | 1 | 1 | 16'hffff | 0 |
+| 8 | 0 | 0 | 0 | 32'h0 | 0 | 1 | 16'hffff | 0 |
+
+### stimulus 5
+| cycle | rst | vld | sof | data | eof | ack | field | field_vld |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+| 1 | 0 | 0 | 1 | 32'haaaaaaaa | 0 | 1 | 16'h0 | 0 |
+| 2 | 0 | 1 | 0 | 32'hbbbbcccc | 0 | 1 | 16'h0 | 0 |
+| 3 | 0 | 1 | 0 | 32'hddddeeee | 0 | 1 | 16'h0 | 0 |
+| 4 | 0 | 0 | 0 | 32'h0 | 1 | 1 | 16'h0 | 0 |
+
+### stimulus 6
+| cycle | rst | vld | sof | data | eof | ack | field | field_vld |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+| 1 | 0 | 1 | 1 | 32'h7fffffff | 1 | 1 | 16'h0 | 0 |
+| 2 | 0 | 1 | 0 | 32'h80000000 | 0 | 1 | 16'h0 | 0 |
+| 3 | 0 | 0 | 0 | 32'h0 | 1 | 1 | 16'h0 | 0 |
+| 4 | 0 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+
+### stimulus 7
+| cycle | rst | vld | sof | data | eof | ack | field | field_vld |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+| 1 | 0 | 1 | 1 | 32'h1020304 | 0 | 1 | 16'h0 | 0 |
+| 2 | 0 | 1 | 1 | 32'h5060708 | 0 | 1 | 16'h0 | 0 |
+| 3 | 1 | 0 | 0 | 32'hffffffff | 1 | 1 | 16'h0 | 0 |
+| 4 | 0 | 0 | 0 | 32'h0 | 0 | 1 | 16'h0 | 0 |
+| 5 | 0 | 1 | 1 | 32'h11111111 | 0 | 1 | 16'h0 | 0 |
+| 6 | 0 | 1 | 0 | 32'h22222222 | 0 | 1 | 16'h0 | 0 |
+| 7 | 0 | 0 | 0 | 32'h0 | 1 | 1 | 16'h0 | 0 |

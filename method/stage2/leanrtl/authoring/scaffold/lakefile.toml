@@ -1,0 +1,13 @@
+name = "leanRTL"
+defaultTargets = ["LeanRTL", "leanrtl"]
+
+# Core framework + all examples/dataset modules live under the LeanRTL.* namespace.
+# `globs` forces every submodule (including proof files nothing else imports) to be
+# built and proof-checked by `lake build`.
+[[lean_lib]]
+name = "LeanRTL"
+globs = ["LeanRTL", "LeanRTL.+"]
+
+[[lean_exe]]
+name = "leanrtl"
+root = "Main"

@@ -1,0 +1,149 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- shift_ena: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+-  B0: default = 0.
+-  B1: default = 1.
+-  B2: default = 2.
+-  B3: default = 3.
+-  Done: default = 4.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+Reset is active high and synchronous. It has no effect merely from being asserted or released between rising edges. On every rising edge at which reset is asserted, reset takes priority and restarts the sequence at the first asserted-output position. Thus, immediately after that edge, shift_ena is 1. Every state position is reset to that first position. If reset remains asserted, every rising edge restarts the sequence there, so shift_ena remains 1. On the first rising edge after reset is released, the sequence advances to the second asserted-output position and shift_ena remains 1.
+
+At power-up, before any rising edge has sampled reset asserted, shift_ena is unknown. Rising edges with reset deasserted do not make it known. The implementation must leave this power-up state uninitialised: it must not use an initial block or declaration initialiser to force shift_ena or its state to a known value.
+
+Timing
+
+All state changes occur on the rising edge of clk. Low clock levels and falling edges have no effect. Rows are sampled before the active edge: row k is the settled output immediately before rising-edge transition k, and the transition produces the state observed by the following row. There is no implicit 10 ns clock period in this observation convention.
+
+shift_ena is registered. A rising edge sampling reset high makes shift_ena equal to 1 immediately after that edge. With reset low, it remains 1 through the next three rising edges and becomes 0 immediately after the fourth rising edge. Its asserted interval is therefore exactly four complete clock cycles following the reset-bearing edge. It then remains 0 indefinitely until another rising edge samples reset high.
+
+Behaviour
+
+Before any reset-bearing rising edge, shift_ena is unknown, and clock edges with reset deasserted do not make it known.
+
+Only a rising edge of clk changes the sequence: with reset asserted it synchronously restarts at the first asserted-output position, otherwise each rising edge advances one of the four asserted-output positions toward completion, completion is retained on repeated rising edges, reset has priority when coincident with a rising edge, and low levels and falling edges have no effect.
+
+Reset is active high and synchronous: assertion affects behavior only when captured on a rising clk edge, where it has priority and restarts the four-edge asserted-output interval even if it interrupts an interval or completion; continued assertion restarts it on every rising edge, while deassertion has no direct effect and permits advancement on each rising edge.
+
+With rows sampled before the active edge, a row containing the first rising edge with reset asserted still shows the preceding value, shift_ena becomes 1 immediately after that edge, remains 1 after the next three rising edges with reset low, becomes 0 immediately after the fourth such edge, then remains 0 until a later reset-bearing rising edge restarts the interval; reset assertion or release between rising edges does not itself change the output, repeated reset-bearing edges keep it at 1, and before any reset-bearing rising edge it is unknown.
+
+For every sampled input value, reset is interpreted by its one-bit port value: 0 permits the sequence behavior just stated, and 1 performs the synchronous restart just stated. There are no other one-bit encodings.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | reset | shift_ena |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 0 | 1 |
+| 2 | 0 | 1 |
+| 3 | 0 | 1 |
+| 4 | 0 | 1 |
+| 5 | 0 | 0 |
+| 6 | 0 | 0 |
+
+### stimulus 1
+| cycle | reset | shift_ena |
+|---|---|---|
+| 0 | 0 | x |
+| 1 | 1 | x |
+| 2 | 0 | 1 |
+| 3 | 0 | 1 |
+| 4 | 0 | 1 |
+| 5 | 0 | 1 |
+| 6 | 0 | 0 |
+| 7 | 0 | 0 |
+
+### stimulus 2
+| cycle | reset | shift_ena |
+|---|---|---|
+| 0 | 0 | x |
+| 1 | 0 | x |
+| 2 | 0 | x |
+| 3 | 0 | x |
+| 4 | 0 | x |
+
+### stimulus 3
+| cycle | reset | shift_ena |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 1 | 1 |
+| 2 | 0 | 1 |
+| 3 | 0 | 1 |
+| 4 | 0 | 1 |
+| 5 | 0 | 1 |
+| 6 | 0 | 0 |
+
+### stimulus 4
+| cycle | reset | shift_ena |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 0 | 1 |
+| 2 | 0 | 1 |
+| 3 | 1 | 1 |
+| 4 | 0 | 1 |
+| 5 | 0 | 1 |
+| 6 | 0 | 1 |
+| 7 | 0 | 1 |
+| 8 | 0 | 0 |
+
+### stimulus 5
+| cycle | reset | shift_ena |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 0 | 1 |
+| 2 | 0 | 1 |
+| 3 | 0 | 1 |
+| 4 | 0 | 1 |
+| 5 | 1 | 0 |
+| 6 | 0 | 1 |
+| 7 | 0 | 1 |
+| 8 | 0 | 1 |
+| 9 | 0 | 1 |
+| 10 | 0 | 0 |
+
+### stimulus 6
+| cycle | reset | shift_ena |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 0 | 1 |
+| 2 | 1 | 1 |
+| 3 | 1 | 1 |
+| 4 | 0 | 1 |
+| 5 | 0 | 1 |
+| 6 | 0 | 1 |
+| 7 | 0 | 1 |
+| 8 | 0 | 0 |
+
+### stimulus 7
+| cycle | reset | shift_ena |
+|---|---|---|
+| 0 | 1 | x |
+| 1 | 0 | 1 |
+| 2 | 0 | 1 |
+| 3 | 0 | 1 |
+| 4 | 0 | 1 |
+| 5 | 0 | 0 |
+| 6 | 0 | 0 |
+| 7 | 1 | 0 |
+| 8 | 0 | 1 |
+| 9 | 0 | 1 |
+| 10 | 0 | 1 |
+| 11 | 0 | 1 |
+| 12 | 0 | 0 |

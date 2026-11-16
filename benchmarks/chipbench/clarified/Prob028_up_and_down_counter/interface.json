@@ -1,0 +1,6 @@
+{
+  "benchmark": "chipbench",
+  "design": "Prob028_up_and_down_counter",
+  "toplevel": "TopModule",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

@@ -1,0 +1,199 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- valid_in: input 1 bit.
+- data_in: input [23:0].
+- valid_out: output 1 bit.
+- data_out: output [127:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+`rst_n` is an asynchronous active-low reset. While it is low, `valid_out` is 0 and `data_out` is 128-bit zero regardless of the other inputs. Reset assertion takes priority over a simultaneous rising edge of `clk`, immediately clears both outputs, and discards every partially accumulated stream bit and the accepted-word position.
+
+Releasing `rst_n` does not itself change either output. On the first rising edge after release, `data_in` is accepted only if `valid_in` is high; that accepted word is word 1 of a fresh 16-accepted-word sequence. Until the sixth accepted word completes the first result, `valid_out` remains 0 and `data_out` remains zero.
+
+At power-up before reset has ever been asserted, both outputs have the same values as during reset: `valid_out` is 0 and `data_out` is 128-bit zero. These values remain until an accepted input causes the specified update.
+
+Timing
+
+The circuit accepts inputs only on rising edges of `clk` while `rst_n` is high. A steady clock level and falling edges have no effect. `valid_out` and `data_out` are registered outputs: a qualifying input accepted at a rising edge updates them immediately after that edge, which is one sampled-row latency under the pre-edge observation convention.
+
+`valid_out` is asserted for exactly one clock cycle after an edge accepting word ordinal 6, 11, or 16 of the repeating 16-accepted-word sequence. It is deasserted after every other rising edge, including an edge with `valid_in` low. `data_out` retains its last completed value on all nonqualifying edges.
+
+The evaluated full-cycle trace uses the interface time step: row k denotes k * step_ns after settling, with sampling at sample_offset_ns. This observation convention does not impose a 10 ns clock. The circuit law itself is stated in rising clock cycles and does not specify a physical clock period or propagation delay.
+
+Behaviour
+
+With `rst_n` high, each rising edge of `clk` samples `valid_in` and `data_in`, accepting `data_in` only when `valid_in` is high and updating the outputs for that acceptance after the edge; a steady `clk` level and falling edges have no effect, while a simultaneous reset assertion takes priority, and repeated rising edges support an uninterrupted repeating stream.
+
+`rst_n` is an asynchronous active-low reset that immediately forces `valid_out` low and `data_out` to zero, takes priority over a simultaneous rising `clk` edge and discards any interrupted partial stream, while release alone changes neither output and the next accepted word begins a fresh 16-word sequence.
+
+At each rising `clk` edge with `rst_n` high, `valid_in` high accepts `data_in` and advances the repeating 16-word packing sequence, whereas `valid_in` low accepts nothing, preserves the partial sequence and `data_out`, and deasserts `valid_out`, so any pause—including at a completion boundary—delays the next acceptance without discarding progress.
+
+On a rising `clk` edge with `rst_n` high and `valid_in` high, all 24 bits of `data_in` are appended in most-significant-bit-first order to the accepted input bit stream, while `data_in` has no effect when `valid_in` is low or reset is asserted, and repeated accepted words supply consecutive stream bits to successive 128-bit outputs.
+
+Reset assertion asynchronously makes `valid_out` 0 and release retains 0; thereafter it becomes 1 immediately after an edge accepting accepted-word ordinal 6, 11, or 16 modulo 16 and becomes 0 immediately after every other rising edge, so under pre-edge row sampling a qualifying row still shows the prior value and its pulse is observable from just after that edge until the next rising edge, with pauses producing no pulse and reset restarting the ordinal count.
+
+Reset assertion asynchronously sets `data_out` to zero and release leaves it zero; immediately after the edges accepting words 6, 11, and 16 modulo 16 it becomes the next consecutive 128-bit big-endian slice of the concatenated accepted 24-bit words and otherwise retains its last value, so with pre-edge row sampling a boundary row shows the preceding value and the newly completed slice is observable beginning just after that edge, pauses retain both partial progress and the output, and reset discards partial progress and restarts packing.
+
+Equivalently, the accepted 24-bit words form one continuous big-endian bit stream. Each output is the next 128 consecutive bits. In every repeating group of 16 accepted words, the first boundary consumes five whole words and the high 8 bits of word 6; the second consumes the remaining low 16 bits of word 6, four whole words, and the high 16 bits of word 11; the third consumes the remaining low 8 bits of word 11, four whole words, and all 24 bits of word 16. The same 6, 5, 5 boundary pattern then repeats. Every possible 24-bit `data_in` value participates exactly as its unsigned 24-bit bit pattern; there are no reserved encodings.
+
+Worked trace
+
+The following evaluated trace is normative. Each row samples outputs before that row's active transition.
+
+### stimulus 0
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 24'h0 | 0 | 128'h0 |
+| 1 | 1 | 1 | 24'h1 | 0 | 128'h0 |
+| 2 | 1 | 1 | 24'h2 | 0 | 128'h0 |
+| 3 | 1 | 1 | 24'h3 | 0 | 128'h0 |
+| 4 | 1 | 1 | 24'h4 | 0 | 128'h0 |
+| 5 | 1 | 1 | 24'h5 | 0 | 128'h0 |
+
+### stimulus 1
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 24'h800000 | 0 | 128'h0 |
+| 1 | 1 | 1 | 24'h800001 | 0 | 128'h0 |
+| 2 | 1 | 1 | 24'h800002 | 0 | 128'h0 |
+| 3 | 1 | 1 | 24'h800003 | 0 | 128'h0 |
+| 4 | 1 | 1 | 24'h800004 | 0 | 128'h0 |
+| 5 | 1 | 1 | 24'h800005 | 0 | 128'h0 |
+| 6 | 1 | 1 | 24'h800006 | 1 | 128'h80000080000180000280000380000480 |
+| 7 | 1 | 1 | 24'h800007 | 0 | 128'h80000080000180000280000380000480 |
+| 8 | 1 | 1 | 24'h800008 | 0 | 128'h80000080000180000280000380000480 |
+| 9 | 1 | 1 | 24'h800009 | 0 | 128'h80000080000180000280000380000480 |
+| 10 | 1 | 1 | 24'h80000a | 0 | 128'h80000080000180000280000380000480 |
+
+### stimulus 2
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 24'hffffff | 0 | 128'h0 |
+| 1 | 1 | 1 | 24'hfffffe | 0 | 128'h0 |
+| 2 | 1 | 1 | 24'hfffffd | 0 | 128'h0 |
+| 3 | 1 | 1 | 24'hfffffc | 0 | 128'h0 |
+| 4 | 1 | 1 | 24'hfffffb | 0 | 128'h0 |
+| 5 | 1 | 1 | 24'hfffffa | 0 | 128'h0 |
+| 6 | 1 | 1 | 24'hfffff9 | 1 | 128'hfffffffffffefffffdfffffcfffffbff |
+| 7 | 1 | 1 | 24'hfffff8 | 0 | 128'hfffffffffffefffffdfffffcfffffbff |
+| 8 | 1 | 1 | 24'hfffff7 | 0 | 128'hfffffffffffefffffdfffffcfffffbff |
+| 9 | 1 | 1 | 24'hfffff6 | 0 | 128'hfffffffffffefffffdfffffcfffffbff |
+| 10 | 1 | 1 | 24'hfffff5 | 0 | 128'hfffffffffffefffffdfffffcfffffbff |
+| 11 | 1 | 1 | 24'hfffff4 | 1 | 128'hfffafffff9fffff8fffff7fffff6ffff |
+| 12 | 1 | 1 | 24'hfffff3 | 0 | 128'hfffafffff9fffff8fffff7fffff6ffff |
+| 13 | 1 | 1 | 24'hfffff2 | 0 | 128'hfffafffff9fffff8fffff7fffff6ffff |
+| 14 | 1 | 1 | 24'hfffff1 | 0 | 128'hfffafffff9fffff8fffff7fffff6ffff |
+| 15 | 1 | 1 | 24'hfffff0 | 0 | 128'hfffafffff9fffff8fffff7fffff6ffff |
+| 16 | 1 | 1 | 24'hffffef | 1 | 128'hf5fffff4fffff3fffff2fffff1fffff0 |
+
+### stimulus 3
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 24'h0 | 0 | 128'h0 |
+| 1 | 1 | 1 | 24'h123456 | 0 | 128'h0 |
+| 2 | 1 | 1 | 24'h2468ac | 0 | 128'h0 |
+| 3 | 1 | 1 | 24'h369d02 | 0 | 128'h0 |
+| 4 | 1 | 1 | 24'h48d158 | 0 | 128'h0 |
+| 5 | 1 | 1 | 24'h5b05ae | 0 | 128'h0 |
+| 6 | 1 | 1 | 24'h6d3a04 | 1 | 128'h1234562468ac369d0248d1585b |
+| 7 | 1 | 1 | 24'h7f6e5a | 0 | 128'h1234562468ac369d0248d1585b |
+| 8 | 1 | 1 | 24'h91a2b0 | 0 | 128'h1234562468ac369d0248d1585b |
+| 9 | 1 | 1 | 24'ha3d706 | 0 | 128'h1234562468ac369d0248d1585b |
+| 10 | 1 | 1 | 24'hb60b5c | 0 | 128'h1234562468ac369d0248d1585b |
+| 11 | 1 | 1 | 24'hc83fb2 | 1 | 128'h5ae6d3a047f6e5a91a2b0a3d706b60b |
+| 12 | 1 | 1 | 24'hda7408 | 0 | 128'h5ae6d3a047f6e5a91a2b0a3d706b60b |
+| 13 | 1 | 1 | 24'heca85e | 0 | 128'h5ae6d3a047f6e5a91a2b0a3d706b60b |
+| 14 | 1 | 1 | 24'hfedcb4 | 0 | 128'h5ae6d3a047f6e5a91a2b0a3d706b60b |
+| 15 | 1 | 1 | 24'h11110a | 0 | 128'h5ae6d3a047f6e5a91a2b0a3d706b60b |
+| 16 | 1 | 1 | 24'h234560 | 1 | 128'h5cc83fb2da7408eca85efedcb411110a |
+| 17 | 1 | 1 | 24'h3579b6 | 0 | 128'h5cc83fb2da7408eca85efedcb411110a |
+| 18 | 1 | 1 | 24'h47ae0c | 0 | 128'h5cc83fb2da7408eca85efedcb411110a |
+| 19 | 1 | 1 | 24'h59e262 | 0 | 128'h5cc83fb2da7408eca85efedcb411110a |
+| 20 | 1 | 1 | 24'h6c16b8 | 0 | 128'h5cc83fb2da7408eca85efedcb411110a |
+| 21 | 1 | 1 | 24'h7e4b0e | 0 | 128'h5cc83fb2da7408eca85efedcb411110a |
+| 22 | 1 | 1 | 24'h907f64 | 1 | 128'h2345603579b647ae0c59e2626c16b87e |
+| 23 | 1 | 1 | 24'ha2b3ba | 0 | 128'h2345603579b647ae0c59e2626c16b87e |
+| 24 | 1 | 1 | 24'hb4e810 | 0 | 128'h2345603579b647ae0c59e2626c16b87e |
+| 25 | 1 | 1 | 24'hc71c66 | 0 | 128'h2345603579b647ae0c59e2626c16b87e |
+| 26 | 1 | 1 | 24'hd950bc | 0 | 128'h2345603579b647ae0c59e2626c16b87e |
+| 27 | 1 | 1 | 24'heb8512 | 1 | 128'h4b0e907f64a2b3bab4e810c71c66d950 |
+| 28 | 1 | 1 | 24'hfdb968 | 0 | 128'h4b0e907f64a2b3bab4e810c71c66d950 |
+| 29 | 1 | 1 | 24'hfedbe | 0 | 128'h4b0e907f64a2b3bab4e810c71c66d950 |
+| 30 | 1 | 1 | 24'h222214 | 0 | 128'h4b0e907f64a2b3bab4e810c71c66d950 |
+| 31 | 1 | 1 | 24'h34566a | 0 | 128'h4b0e907f64a2b3bab4e810c71c66d950 |
+| 32 | 1 | 1 | 24'h468ac0 | 1 | 128'hbceb8512fdb9680fedbe22221434566a |
+| 33 | 1 | 1 | 24'h58bf16 | 0 | 128'hbceb8512fdb9680fedbe22221434566a |
+| 34 | 1 | 1 | 24'h6af36c | 0 | 128'hbceb8512fdb9680fedbe22221434566a |
+| 35 | 1 | 1 | 24'h7d27c2 | 0 | 128'hbceb8512fdb9680fedbe22221434566a |
+| 36 | 1 | 1 | 24'h8f5c18 | 0 | 128'hbceb8512fdb9680fedbe22221434566a |
+| 37 | 1 | 1 | 24'ha1906e | 0 | 128'hbceb8512fdb9680fedbe22221434566a |
+| 38 | 1 | 1 | 24'hb3c4c4 | 1 | 128'h468ac058bf166af36c7d27c28f5c18a1 |
+| 39 | 1 | 1 | 24'hc5f91a | 0 | 128'h468ac058bf166af36c7d27c28f5c18a1 |
+| 40 | 1 | 1 | 24'hd82d70 | 0 | 128'h468ac058bf166af36c7d27c28f5c18a1 |
+| 41 | 1 | 1 | 24'hea61c6 | 0 | 128'h468ac058bf166af36c7d27c28f5c18a1 |
+| 42 | 1 | 1 | 24'hfc961c | 0 | 128'h468ac058bf166af36c7d27c28f5c18a1 |
+| 43 | 1 | 1 | 24'heca72 | 1 | 128'h906eb3c4c4c5f91ad82d70ea61c6fc96 |
+| 44 | 1 | 1 | 24'h20fec8 | 0 | 128'h906eb3c4c4c5f91ad82d70ea61c6fc96 |
+| 45 | 1 | 1 | 24'h33331e | 0 | 128'h906eb3c4c4c5f91ad82d70ea61c6fc96 |
+| 46 | 1 | 1 | 24'h456774 | 0 | 128'h906eb3c4c4c5f91ad82d70ea61c6fc96 |
+| 47 | 1 | 1 | 24'h579bca | 0 | 128'h906eb3c4c4c5f91ad82d70ea61c6fc96 |
+| 48 | 1 | 1 | 24'h69d020 | 1 | 128'h1c0eca7220fec833331e456774579bca |
+
+### stimulus 4
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 24'h0 | 0 | 128'h0 |
+| 1 | 0 | 1 | 24'h1 | 0 | 128'h0 |
+| 2 | 1 | 1 | 24'hffffff | 0 | 128'h0 |
+| 3 | 1 | 1 | 24'h800000 | 0 | 128'h0 |
+| 4 | 1 | 1 | 24'h123456 | 0 | 128'h0 |
+| 5 | 1 | 1 | 24'h0 | 0 | 128'h0 |
+| 6 | 1 | 1 | 24'h1 | 0 | 128'h0 |
+| 7 | 1 | 1 | 24'hffffff | 0 | 128'h0 |
+
+### stimulus 5
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 24'h1 | 0 | 128'h0 |
+| 1 | 1 | 1 | 24'h2 | 0 | 128'h0 |
+| 2 | 1 | 0 | 24'hffffff | 0 | 128'h0 |
+| 3 | 1 | 0 | 24'h800000 | 0 | 128'h0 |
+| 4 | 1 | 1 | 24'h3 | 0 | 128'h0 |
+| 5 | 1 | 1 | 24'h4 | 0 | 128'h0 |
+| 6 | 1 | 1 | 24'h5 | 0 | 128'h0 |
+| 7 | 1 | 1 | 24'h6 | 0 | 128'h0 |
+
+### stimulus 6
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 24'h111111 | 0 | 128'h0 |
+| 1 | 1 | 1 | 24'h222222 | 0 | 128'h0 |
+| 2 | 0 | 1 | 24'h444444 | 0 | 128'h0 |
+| 3 | 1 | 0 | 24'h888888 | 0 | 128'h0 |
+| 4 | 1 | 1 | 24'hffffff | 0 | 128'h0 |
+| 5 | 1 | 1 | 24'h800000 | 0 | 128'h0 |
+| 6 | 1 | 1 | 24'h1 | 0 | 128'h0 |
+| 7 | 1 | 1 | 24'h0 | 0 | 128'h0 |
+
+### stimulus 7
+| cycle | rst_n | valid_in | data_in | valid_out | data_out |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 24'h0 | 0 | 128'h0 |
+| 1 | 1 | 0 | 24'h1 | 0 | 128'h0 |
+| 2 | 1 | 0 | 24'hffffff | 0 | 128'h0 |
+| 3 | 1 | 0 | 24'h800000 | 0 | 128'h0 |
+| 4 | 1 | 0 | 24'h123456 | 0 | 128'h0 |

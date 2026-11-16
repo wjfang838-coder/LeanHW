@@ -1,0 +1,107 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- in: input [7:0].
+- pedge: output [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. At power-up, before any rising edge of clk has occurred, pedge is unknown. The implementation must leave its stored output and preceding input sample uninitialised: no initial block or declaration initialiser may give either a defined value.
+
+At the first rising edge, all eight bits of in are sampled. For each bit whose first sampled value is 0, the ensuing pedge bit is 0. For each bit whose first sampled value is 1, the ensuing pedge bit is unknown because there is no preceding sample against which to determine a 0-to-1 transition.
+
+4. Timing.
+
+pedge is a registered eight-bit output. Every rising edge of clk samples in and updates pedge; changes of in between rising edges have no immediate effect. The result calculated from the sample at a rising edge becomes observable immediately after that edge and is retained until the next rising edge. In the normative worked trace, rows are sampled before their active edge, so a capture at row k first appears in row k+1. Each row k denotes k full-cycle steps after settling; it does not imply a 10 ns clock. The circuit's clock period is supplied externally and is not fixed by this specification.
+
+There is no pulse, completion interval, disabled interval, transaction, or terminal mode. Every rising edge independently performs a new comparison, including consecutive rising edges with no idle cycle between them.
+
+5. Behaviour.
+
+Only a 0-to-1 transition of clk samples in. Falling edges and steady clk levels have no effect. Every rising edge performs the sampling operation using the in value present at that edge; no mode, interruption, busy condition, or priority rule suppresses an edge.
+
+For every bit position b from 0 through 7, after two or more rising-edge samples, `pedge[b] = in_current[b] & ~in_previous[b]`. Thus pedge[b] is 1 exactly when the current rising edge samples that bit as 1 and the preceding rising edge sampled it as 0; it is 0 for 0-to-0, 1-to-0, and 1-to-1. All eight bits are evaluated independently and simultaneously. Repeated identical samples and arbitrary simultaneous changes follow the same law.
+
+The first sample is compared against an undefined predecessor: a first sampled 0 produces a known 0 in that bit, while a first sampled 1 leaves that bit unknown. pedge is updated after every rising edge and holds that result until the next rising edge, with continuous restart on every edge and no separate completion interval.
+
+6. Worked trace.
+
+The following evaluated trace is normative. Its observation convention is pre-transition sampling at one full-cycle step per row; this convention is separate from, and does not specify, the physical clock period.
+
+### stimulus 0
+| cycle | in | pedge |
+|---|---|---|
+| 0 | 8'b00000000 | 8'x |
+| 1 | 8'b00000001 | 8'b00000000 |
+| 2 | 8'b00000000 | 8'b00000001 |
+| 3 | 8'b00000001 | 8'b00000000 |
+
+### stimulus 1
+| cycle | in | pedge |
+|---|---|---|
+| 0 | 8'b00000000 | 8'x |
+| 1 | 8'b11111111 | 8'b00000000 |
+| 2 | 8'b00000000 | 8'b11111111 |
+| 3 | 8'b11111111 | 8'b00000000 |
+
+### stimulus 2
+| cycle | in | pedge |
+|---|---|---|
+| 0 | 8'b11111111 | 8'x |
+| 1 | 8'b00000000 | 8'x |
+| 2 | 8'b11111111 | 8'b00000000 |
+| 3 | 8'b11111111 | 8'b11111111 |
+
+### stimulus 3
+| cycle | in | pedge |
+|---|---|---|
+| 0 | 8'b00000000 | 8'x |
+| 1 | 8'b10000000 | 8'b00000000 |
+| 2 | 8'b00000000 | 8'b10000000 |
+| 3 | 8'b10000000 | 8'b00000000 |
+
+### stimulus 4
+| cycle | in | pedge |
+|---|---|---|
+| 0 | 8'b00000000 | 8'x |
+| 1 | 8'b01011010 | 8'b00000000 |
+| 2 | 8'b10100101 | 8'b01011010 |
+| 3 | 8'b01011010 | 8'b10100101 |
+
+### stimulus 5
+| cycle | in | pedge |
+|---|---|---|
+| 0 | 8'b00000001 | 8'x |
+| 1 | 8'b00000001 | 8'x |
+| 2 | 8'b00000011 | 8'b00000000 |
+| 3 | 8'b00000010 | 8'b00000010 |
+| 4 | 8'b00000110 | 8'b00000000 |
+
+### stimulus 6
+| cycle | in | pedge |
+|---|---|---|
+| 0 | 8'b11111111 | 8'x |
+| 1 | 8'b10000000 | 8'x |
+| 2 | 8'b00000001 | 8'b00000000 |
+| 3 | 8'b00000000 | 8'b00000001 |
+
+### stimulus 7
+| cycle | in | pedge |
+|---|---|---|
+| 0 | 8'b00000000 | 8'x |
+| 1 | 8'b11111111 | 8'b00000000 |
+| 2 | 8'b00000000 | 8'b11111111 |
+| 3 | 8'b11111111 | 8'b00000000 |
+| 4 | 8'b00000000 | 8'b11111111 |
+| 5 | 8'b11111111 | 8'b00000000 |

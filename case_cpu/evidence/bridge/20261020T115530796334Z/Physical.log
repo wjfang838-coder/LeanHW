@@ -1,0 +1,5 @@
+'CaseCPU.Bridge.projected_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ read_resetRF._native.bv_decide.ax_1_5]
+'CaseCPU.Bridge.legal_cycle' depends on axioms: [propext, Quot.sound]

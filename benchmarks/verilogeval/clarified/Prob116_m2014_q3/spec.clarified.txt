@@ -1,0 +1,83 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- x: input [3:0].
+- f: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+There is no reset input and no reset behavior. The module has no state elements. From power-up onward, including before any edge has occurred, f is determined solely by the current x according to the behavior below; for inputs designated as don't-care, f is unknown. No initialization event changes this relation.
+
+4. Timing
+
+f is combinational from x with zero clock-cycle latency. It has no capture, completion pulse, retention interval, or periodic behavior. Repeated or simultaneous input changes apply the same relation immediately to the current x.
+
+For the normative evaluated trace, row k is the observation after k full-cycle steps and settling, sampled before that row's no-op transition. The observation convention does not imply a 10 ns clock tick. The circuit itself has no clock, period, or delay law specified.
+
+5. Behaviour
+
+At all times and without modes, transactions, interruption, or event priority, x selects f combinationally: f is 1'b1 for x in {4'h4, 4'h6, 4'hb, 4'hc, 4'he}, 1'b0 for x in {4'h2, 4'h7, 4'h8, 4'h9}, and unknown for x in {4'h0, 4'h1, 4'h3, 4'h5, 4'ha, 4'hd, 4'hf}; repeated or simultaneous changes simply apply the same relation to the current x.
+
+f has no reset, capture, completion, hold, clear, or restart interval and continuously reflects the current x with no clock-edge latency; therefore a row sampled before an active edge already reports the value selected by that row's x, namely 1'b1 for {4'h4, 4'h6, 4'hb, 4'hc, 4'he}, 1'b0 for {4'h2, 4'h7, 4'h8, 4'h9}, and unknown for {4'h0, 4'h1, 4'h3, 4'h5, 4'ha, 4'hd, 4'hf}.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | x | f |
+|---|---|---|
+| 0 | 4'b0000 | x |
+| 1 | 4'b0001 | x |
+
+### stimulus 1
+| cycle | x | f |
+|---|---|---|
+| 0 | 4'b0010 | 0 |
+| 1 | 4'b0011 | x |
+
+### stimulus 2
+| cycle | x | f |
+|---|---|---|
+| 0 | 4'b0100 | 1 |
+| 1 | 4'b0101 | x |
+
+### stimulus 3
+| cycle | x | f |
+|---|---|---|
+| 0 | 4'b0110 | 1 |
+| 1 | 4'b0111 | 0 |
+
+### stimulus 4
+| cycle | x | f |
+|---|---|---|
+| 0 | 4'b1000 | 0 |
+| 1 | 4'b1001 | 0 |
+
+### stimulus 5
+| cycle | x | f |
+|---|---|---|
+| 0 | 4'b1010 | x |
+| 1 | 4'b1011 | 1 |
+
+### stimulus 6
+| cycle | x | f |
+|---|---|---|
+| 0 | 4'b1100 | 1 |
+| 1 | 4'b1101 | x |
+
+### stimulus 7
+| cycle | x | f |
+|---|---|---|
+| 0 | 4'b1110 | 1 |
+| 1 | 4'b1111 | x |

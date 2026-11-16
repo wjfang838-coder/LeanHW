@@ -1,0 +1,11 @@
+read_verilog -sv case_cpu/rtl/cpu.sv
+hierarchy -check -top case_cpu
+proc
+flatten
+memory_collect
+memory_map -keepdc
+pmuxtree
+opt -nodffe -nosdff
+wreduce
+opt -nodffe -nosdff
+write_json -noscopeinfo /home/usr/leansilicon/case_cpu/evidence/bridge/20261020T115530796334Z/import.rtlil.json

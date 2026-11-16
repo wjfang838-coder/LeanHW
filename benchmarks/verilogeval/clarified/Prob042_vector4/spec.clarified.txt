@@ -1,0 +1,75 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input [7:0].
+- out: output [31:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+There is no reset input and no reset behavior. The design has no state elements. From power-up onward, including before any clock edge has occurred, out is defined by the current value of in according to the behavior below; it is never an uninitialized or unknown stored value.
+
+4. Timing
+
+out is combinational from the current in. Its latency is zero clock cycles: each observation reads the value determined by in in that same observation row. There are no pulses or periodic output signals, and the circuit has no clock-dependent period or delay law.
+
+The evaluated trace uses the interface's full-cycle observation cadence. Each row is an observation point in that external cadence; this sampling convention does not impose a clock period or propagation delay on the combinational circuit.
+
+5. Behaviour
+
+For every possible 8-bit value of in, out continuously equals its 32-bit two's-complement sign extension: out[7:0] equals in[7:0], and every bit of out[31:8] equals in[7]. This law applies immediately after every input change, including repeated or simultaneous bit changes, because there are no modes, inactive levels, reset, transactions, interruption state, capture, hold interval, completion state, or restart behavior.
+
+Equivalently, when in[7] is 0, out[31:8] is 24 zero bits; when in[7] is 1, out[31:8] is 24 one bits. These two cases cover every input encoding.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00000000 | 32'h0 |
+
+### stimulus 1
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00000001 | 32'h1 |
+
+### stimulus 2
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b11111111 | 32'hffffffff |
+
+### stimulus 3
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b10000000 | 32'hffffff80 |
+
+### stimulus 4
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b01011010 | 32'h5a |
+
+### stimulus 5
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b01111111 | 32'h7f |
+
+### stimulus 6
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b10000001 | 32'hffffff81 |
+
+### stimulus 7
+| cycle | in | out |
+|---|---|---|
+| 0 | 8'b00001101 | 32'hd |

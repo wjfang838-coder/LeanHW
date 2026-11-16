@@ -1,0 +1,6 @@
+{
+  "benchmark": "rtllm",
+  "design": "width_8to16",
+  "toplevel": "width_8to16",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

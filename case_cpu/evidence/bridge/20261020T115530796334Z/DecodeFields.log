@@ -1,0 +1,11 @@
+'CaseCPU.Bridge.calculate_immediate' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ code_I._native.bv_decide.ax_1_5,
+ code_U._native.bv_decide.ax_1_5,
+ code_table._native.native_decide.ax_1_1]
+'CaseCPU.Bridge.instruction_fields' depends on axioms: [propext, Quot.sound]
+'CaseCPU.Bridge.circuit_immediate' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ circuit_immediate._native.bv_decide.ax_1_8]

@@ -1,0 +1,92 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- c: input 1 bit.
+- d: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+TopModule has no reset and no state. At power-up, including before any edge or reset event, out is already the combinational value specified below for the current inputs. There is no first reset edge and no first step after reset release.
+
+Timing
+
+out is continuously combinational from the current values of a, b, c, and d, with zero clock-cycle latency. There is no physical clock, pulse, periodic signal, circuit period, or delay law. For the evaluated trace, row k is the settled observation at sampling step k under the interface timebase; it does not imply a 10 ns clock tick.
+
+Behaviour
+
+Inputs are interpreted as one-bit values. For abcd from 4'h0 through 4'hf, out is respectively 1'b0, 1'b0, 1'b1, 1'b1, 1'bx, 1'b0, 1'b0, 1'b0, 1'b1, 1'bx, 1'b1, 1'b1, 1'b1, 1'bx, 1'b1, and 1'b1.
+
+Equivalently, for every current bcd value from 3'b000 through 3'b111, respectively, a=1'b0 makes out equal 1'b0, 1'b0, 1'b1, 1'b1, 1'bx, 1'b0, 1'b0, 1'b0 and a=1'b1 makes out equal 1'b1, 1'bx, 1'b1, 1'b1, 1'b1, 1'bx, 1'b1, 1'b1.
+
+For every current acd value from 3'b000 through 3'b111, respectively, b=1'b0 makes out equal 1'b0, 1'b0, 1'b1, 1'b1, 1'b1, 1'bx, 1'b1, 1'b1 and b=1'b1 makes out equal 1'bx, 1'b0, 1'b0, 1'b0, 1'b1, 1'bx, 1'b1, 1'b1.
+
+For every current abd value from 3'b000 through 3'b111, respectively, c=1'b0 makes out equal 1'b0, 1'b0, 1'bx, 1'b0, 1'b1, 1'bx, 1'b1, 1'bx and c=1'b1 makes out equal 1'b1, 1'b1, 1'b0, 1'b0, 1'b1, 1'b1, 1'b1, 1'b1.
+
+For every current abc value from 3'b000 through 3'b111, respectively, d=1'b0 makes out equal 1'b0, 1'b1, 1'bx, 1'b0, 1'b1, 1'b1, 1'b1, 1'b1 and d=1'b1 makes out equal 1'b0, 1'b1, 1'b0, 1'b0, 1'bx, 1'b1, 1'bx, 1'b1.
+
+The three values 1'bx are genuine don't-care results at abcd = 4'h4, 4'h9, and 4'hd. There is no inactive mode, event priority, interruption, transaction history, capture delay, hold or clear interval, completion behavior, or restart behavior.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 0 | 0 | 0 | 1 | 0 |
+
+### stimulus 1
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 0 | 1 |
+| 1 | 0 | 0 | 1 | 1 | 1 |
+
+### stimulus 2
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | x |
+| 1 | 0 | 1 | 0 | 1 | 0 |
+
+### stimulus 3
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 0 | 0 |
+| 1 | 0 | 1 | 1 | 1 | 0 |
+
+### stimulus 4
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 | 1 |
+| 1 | 1 | 0 | 0 | 1 | x |
+
+### stimulus 5
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 0 | 1 |
+| 1 | 1 | 0 | 1 | 1 | 1 |
+
+### stimulus 6
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 | 1 |
+| 1 | 1 | 1 | 0 | 1 | x |
+
+### stimulus 7
+| cycle | a | b | c | d | out |
+|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 1 |
+| 1 | 1 | 1 | 1 | 1 | 1 |

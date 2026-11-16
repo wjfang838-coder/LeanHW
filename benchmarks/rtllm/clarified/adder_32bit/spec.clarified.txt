@@ -1,0 +1,77 @@
+Module and integration contract
+
+Module: adder_32bit.
+Ports below are in exact declaration order:
+- A: input [32:1].
+- B: input [32:1].
+- S: output [32:1].
+- C32: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset behavior. There are no state elements. From power-up onward, including before any edge has occurred, S and C32 are defined combinationally by the current values of A and B; neither output is uninitialised or unknown.
+
+Timing
+
+S is combinational with zero clock-cycle latency from the current A and B inputs. C32 is combinational with zero clock-cycle latency from the current A and B inputs. There are no pulses, periodic outputs, clocked state changes, or retained results.
+
+The evaluated trace uses full-cycle observation rows. Because the design is autonomous and stateless, each row samples the outputs for the inputs in that row before the vacuous state transition. Row numbering is only the interface observation convention; it does not impose a clock period, circuit period, or propagation-delay law. The interface defines no numeric step_ns or sample_offset_ns value.
+
+Behaviour
+
+A and B are unsigned 32-bit operands. At all times, A contributes its current 32-bit unsigned value and B contributes its simultaneously current 32-bit unsigned value to the combinational addition. Any change to either input immediately recomputes both outputs, with no mode, inactive level, capture, interruption, transaction history, reset, completion state, or restart requirement.
+
+For every possible A and B, form their 33-bit unsigned sum A + B. S continuously equals the low 32 bits of that sum. C32 continuously equals bit 32 of that sum: C32 is 1 exactly when A + B exceeds 32'hffffffff, and is 0 otherwise. Thus the truncation boundary applies to S after the wider addition; it does not discard the carry used for C32.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | A | B | S | C32 |
+|---|---|---|---|---|
+| 0 | 32'h0 | 32'h0 | 32'h0 | 0 |
+
+### stimulus 1
+| cycle | A | B | S | C32 |
+|---|---|---|---|---|
+| 0 | 32'h1 | 32'h0 | 32'h1 | 0 |
+
+### stimulus 2
+| cycle | A | B | S | C32 |
+|---|---|---|---|---|
+| 0 | 32'h0 | 32'h1 | 32'h1 | 0 |
+
+### stimulus 3
+| cycle | A | B | S | C32 |
+|---|---|---|---|---|
+| 0 | 32'hffffffff | 32'h0 | 32'hffffffff | 0 |
+
+### stimulus 4
+| cycle | A | B | S | C32 |
+|---|---|---|---|---|
+| 0 | 32'h0 | 32'hffffffff | 32'hffffffff | 0 |
+
+### stimulus 5
+| cycle | A | B | S | C32 |
+|---|---|---|---|---|
+| 0 | 32'h80000000 | 32'h80000000 | 32'h0 | 1 |
+
+### stimulus 6
+| cycle | A | B | S | C32 |
+|---|---|---|---|---|
+| 0 | 32'h12345678 | 32'h9abcdef0 | 32'hacf13568 | 0 |
+
+### stimulus 7
+| cycle | A | B | S | C32 |
+|---|---|---|---|---|
+| 0 | 32'hffffffff | 32'h1 | 32'h0 | 1 |

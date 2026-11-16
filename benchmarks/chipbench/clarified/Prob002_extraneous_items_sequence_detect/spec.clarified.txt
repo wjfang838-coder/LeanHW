@@ -1,0 +1,182 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst_n: input 1 bit.
+- a: input 1 bit.
+- match: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+Reset is active low and asserts asynchronously. Whenever rst_n is low, match is 0 immediately, independent of clk and a, and all previously captured input-stream context is discarded. Reset remains dominant if its assertion coincides with a rising edge and on repeated rising edges while it remains low.
+
+Before reset has ever been asserted and before the first rising edge, match is unknown. The implementation must leave that power-up value uninitialised, with no initial block or declaration initialiser that gives it a definite value. If reset has not occurred, the first rising edge makes match 0; later rising edges make it determined according to the behavior below.
+
+Deasserting rst_n has no immediate effect: match remains 0. On the first step after release, and until enough post-reset samples exist to qualify a window, match is 0. The discarded sampled-stream context remains empty at release; subsequent rising edges populate a fresh context.
+
+Timing
+
+Input a is sampled only on each rising edge of clk while rst_n is high. Changes to a at steady clock levels or on falling edges have no effect. Match is registered and holds its value for the entire interval following each rising edge. A nine-sample pattern ending at one rising edge produces its match value after the next rising edge, which is a two-cycle pre-edge observation latency from the row where that full pattern is first present.
+
+Each qualifying nine-sample window contributes one clock-cycle-high match interval. Qualifying overlapping windows, including windows on successive evaluations, may make match remain high for consecutive cycles; there is no completion or restart delay. A nonqualifying evaluation clears match on the next rising edge.
+
+The evaluated trace uses the interface timing observation convention: after initial settling, row k denotes k * step_ns and is sampled at sample_offset_ns within that step. This trace convention is separate from the circuit law above; it does not introduce an implicit 10 ns clock period or alter the rising-edge latency.
+
+Behaviour
+
+While rst_n is high, every rising edge captures a and evaluates the nine samples that preceded the current sample. Match becomes 1 for the following edge interval exactly when those nine samples, from oldest to newest, have oldest three bits 011 and newest three bits 110. The middle three bits may have any values. For every other nine-sample encoding, match becomes 0.
+
+Equivalently, at pre-edge row k, match reports the evaluation performed at edge k-1 over a samples captured at edges k-10 through k-2. Thus the first possible post-reset 1 is observed before the eleventh post-reset rising edge. Before nine prior post-reset samples are available, unavailable history is supplied as reset zeros, so the required oldest bits 011 cannot be present and match is 0.
+
+Each captured a bit joins the continuously evaluated, overlapping sample stream. Values of a while rst_n is low and changes between rising edges have no effect. Repeated rising edges evaluate successive windows regardless of the preceding match value; there is no busy state, transaction cancellation, completion phase, or retained successful result. Reset assertion at any time overrides public-output updating, immediately clears match, and cancels all earlier sampled context; reset release merely permits a fresh sequence to begin.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst_n | a | match |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 0 | 1 | 0 |
+| 2 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+
+### stimulus 1
+| cycle | rst_n | a | match |
+|---|---|---|---|
+| 0 | 1 | 0 | x |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 1 | 0 | 0 |
+| 10 | 1 | 0 | 1 |
+| 11 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | rst_n | a | match |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 1 | 0 |
+| 9 | 1 | 0 | 0 |
+| 10 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 1 |
+
+### stimulus 3
+| cycle | rst_n | a | match |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 1 | 0 |
+| 9 | 1 | 0 | 0 |
+| 10 | 1 | 0 | 0 |
+| 11 | 0 | 1 | 0 |
+| 12 | 1 | 0 | 0 |
+| 13 | 1 | 1 | 0 |
+
+### stimulus 4
+| cycle | rst_n | a | match |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 0 |
+| 10 | 1 | 0 | 0 |
+| 11 | 1 | 1 | 0 |
+
+### stimulus 5
+| cycle | rst_n | a | match |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 0 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 1 | 0 |
+| 9 | 1 | 0 | 0 |
+| 10 | 1 | 0 | 0 |
+| 11 | 1 | 0 | 1 |
+| 12 | 1 | 1 | 0 |
+| 13 | 1 | 1 | 0 |
+| 14 | 1 | 0 | 0 |
+| 15 | 1 | 1 | 0 |
+| 16 | 1 | 0 | 1 |
+| 17 | 1 | 1 | 0 |
+| 18 | 1 | 1 | 0 |
+| 19 | 1 | 0 | 0 |
+| 20 | 1 | 0 | 0 |
+
+### stimulus 6
+| cycle | rst_n | a | match |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 1 | 1 | 0 |
+| 5 | 1 | 1 | 0 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 1 | 0 |
+| 9 | 1 | 1 | 0 |
+| 10 | 1 | 1 | 0 |
+| 11 | 1 | 1 | 0 |
+
+### stimulus 7
+| cycle | rst_n | a | match |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+| 4 | 0 | 1 | 0 |
+| 5 | 1 | 0 | 0 |
+| 6 | 1 | 1 | 0 |
+| 7 | 1 | 1 | 0 |
+| 8 | 1 | 0 | 0 |
+| 9 | 1 | 1 | 0 |
+| 10 | 1 | 0 | 0 |
+| 11 | 1 | 1 | 0 |
+| 12 | 1 | 1 | 0 |
+| 13 | 1 | 0 | 0 |
+| 14 | 1 | 0 | 0 |

@@ -1,0 +1,6 @@
+{
+  "benchmark": "cvdp",
+  "design": "cvdp_copilot_axil_precision_counter_0001",
+  "toplevel": "precision_counter_axi",
+  "interface_source": "Declared benchmark module identity; remaining interface is in clarified NL spec."
+}

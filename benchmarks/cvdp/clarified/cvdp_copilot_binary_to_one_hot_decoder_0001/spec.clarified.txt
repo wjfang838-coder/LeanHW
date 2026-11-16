@@ -1,0 +1,129 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+## Problem Description
+Design a parameterized binary to one-hot decoder module named `binary_to_one_hot_decoder` in Verilog that converts a binary-encoded input signal into a one-hot encoded output signal. This module will use two parameters, `BINARY_WIDTH` and `OUTPUT_WIDTH`, to configure the width of the binary input and the one-hot encoded output, respectively.
+
+## Module Parameters
+1. **`BINARY_WIDTH`**: Specifies the bit width of the binary input `binary_in`. This parameter determines the maximum binary value that can be decoded. Default `BINARY_WIDTH=5`.
+2. **`OUTPUT_WIDTH`**: Defines the width of the output `one_hot_out`, which should have `2<sup>BINARY_WIDTH</sup>` bits if fully utilized. However, `OUTPUT_WIDTH` can be set independently to limit the number of one-hot output bits.`OUTPUT_WIDTH=32`
+
+## Inputs and Outputs
+- **Input**: `binary_in` (`BINARY_WIDTH` bits) — Binary input signal.
+  - Represents a binary-encoded value up to `2<sup>BINARY_WIDTH</sup> - 1`.
+  - Example: For `BINARY_WIDTH = 5`, `binary_in` can range from `5'd0` to `5'd31`.
+
+- **Output**: `one_hot_out` (`OUTPUT_WIDTH` bits) — One-hot encoded output signal.
+  - A one-hot encoded output where only the bit at index `binary_in` is set to `1`, with all other bits set to `0`.
+  - Example: If `binary_in = 5'd3` and `OUTPUT_WIDTH = 32`, `one_hot_out` should output `00000000000000000000000000001000`.
+
+## Behavioral Definition
+- This is achieved using a combinational logic
+  
+- **Example**: With `binary_in = 3'd2` and `OUTPUT_WIDTH = 8`, the output `one_hot_out` should be `00000100`.
+
+## Constraints and Edge Cases
+1. **Parameter Constraints**: Ensure that `BINARY_WIDTH` and `OUTPUT_WIDTH` are set such that `OUTPUT_WIDTH` is large enough to represent all values up to `2<sup>BINARY_WIDTH</sup> - 1`.
+2. **Out-of-Range Handling**: If `binary_in` is greater than or equal to `OUTPUT_WIDTH`, the module should output `0` for `one_hot_out`
+
+## Timing and Synchronization
+- This is a purely combinational module without a clock or reset.
+
+## Test Cases
+1. **Basic Decoding**: For each binary input, verify that only the corresponding bit in `one_hot_out` is high.
+2. **Boundary Conditions**: Test minimum (`binary_in = 0`) and maximum values (`binary_in = 2<sup>BINARY_WIDTH</sup> - 1`).
+3. **Out-of-Range Handling**: Confirm that if `binary_in` exceeds the range of `OUTPUT_WIDTH`, `one_hot_out` outputs `0` (if specified).
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+## Problem Description
+Design a parameterized binary to one-hot decoder module named `binary_to_one_hot_decoder` in Verilog that converts a binary-encoded input signal into a one-hot encoded output signal. This module will use two parameters, `BINARY_WIDTH` and `OUTPUT_WIDTH`, to configure the width of the binary input and the one-hot encoded output, respectively.
+
+Named module interface binding
+
+Module: binary_to_one_hot_decoder.
+Connect ports by name. The enumeration below does not establish positional order.
+- binary_in: input; 5 bits in the concrete formal instance.
+- one_hot_out: output; 32 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is exactly `binary_to_one_hot_decoder`.
+
+Public parameters are `BINARY_WIDTH`, default 5, and `OUTPUT_WIDTH`, default 32. `binary_in` has width `BINARY_WIDTH`; `one_hot_out` has width `OUTPUT_WIDTH`.
+
+The interface lists the ports in this declaration order:
+
+1. input `binary_in`, width `BINARY_WIDTH`
+2. output `one_hot_out`, width `OUTPUT_WIDTH`
+
+Neither the original prose nor the integration answer verifies positional declaration order. Therefore that order is not normative, and the module must be instantiated using the exact named bindings `binary_in` and `one_hot_out`.
+
+3. Reset.
+
+The module has no reset and no state. Consequently there is no reset assertion, reset edge, release step, or stored state element. At power-up before any reset could have occurred, including the first observation, `one_hot_out` is already the combinational value specified by the current `binary_in`; it is not an initialized register value and is not unconstrained merely because no reset exists.
+
+4. Timing.
+
+`one_hot_out` is purely combinational from `binary_in`, with zero clock-cycle latency. There is no clock, registered output, pulse, completion event, periodic signal, retention interval, or transaction state. Repeated or consecutive changes of `binary_in` independently produce the corresponding combinational result after propagation settling.
+
+For the evaluated Lean trace, the timebase is a full-cycle table with `timing.step_ns` and `timing.sample_offset_ns` absent from the interface. Row k is therefore an indexed settled observation, not an implicit 10 ns clock tick. This observation convention does not introduce a circuit clock, period, or delay requirement. The source establishes combinational behavior but does not specify a numerical propagation delay.
+
+5. Behaviour.
+
+For every value representable by `binary_in`, if `binary_in < OUTPUT_WIDTH`, exactly bit index `binary_in` of `one_hot_out` is 1 and every other output bit is 0. Equivalently, within the `OUTPUT_WIDTH`-bit result, `one_hot_out = 1 << binary_in`.
+
+If `binary_in >= OUTPUT_WIDTH`, every bit of `one_hot_out` is 0. This rule applies immediately and independently to every input assignment, including the first assignment and repeated consecutive assignments; there is no inactive level, interruption, simultaneous-event behavior, hold, clear, or restart state.
+
+The original parameter clauses leave an unresolved tension: one clause permits `OUTPUT_WIDTH` to be set independently to limit the available one-hot bits, while another says it must be large enough to represent all values through `2^BINARY_WIDTH - 1`. Q4's answer is unclear and authorizes no amendment. Both source obligations remain retained; no parameter-domain amendment is asserted here. For any implementation configuration admitted by the source in which an input encoding is at least `OUTPUT_WIDTH`, the explicit all-zero out-of-range law above remains binding.
+
+For the concrete evaluated model, `BINARY_WIDTH=5` and `OUTPUT_WIDTH=32`. The five-bit input is interpreted at that width, and the output is truncated at the documented 32-bit output boundary. The shift is formed as the mathematical one-hot value before that output-width truncation; it is not implicitly truncated to the width of the literal 1.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete default-width instance and its listed stimuli.
+
+### stimulus 0
+| cycle | binary_in | one_hot_out |
+|---|---|---|
+| 0 | 5'b00000 | 32'h1 |
+
+### stimulus 1
+| cycle | binary_in | one_hot_out |
+|---|---|---|
+| 0 | 5'b00001 | 32'h2 |
+
+### stimulus 2
+| cycle | binary_in | one_hot_out |
+|---|---|---|
+| 0 | 5'b11111 | 32'h80000000 |
+
+### stimulus 3
+| cycle | binary_in | one_hot_out |
+|---|---|---|
+| 0 | 5'b10000 | 32'h10000 |
+
+### stimulus 4
+| cycle | binary_in | one_hot_out |
+|---|---|---|
+| 0 | 5'b01101 | 32'h2000 |
+
+### stimulus 5
+| cycle | binary_in | one_hot_out |
+|---|---|---|
+| 0 | 5'b00010 | 32'h4 |
+
+### stimulus 6
+| cycle | binary_in | one_hot_out |
+|---|---|---|
+| 0 | 5'b00011 | 32'h8 |
+
+### stimulus 7
+| cycle | binary_in | one_hot_out |
+|---|---|---|
+| 0 | 5'b11110 | 32'h40000000 |

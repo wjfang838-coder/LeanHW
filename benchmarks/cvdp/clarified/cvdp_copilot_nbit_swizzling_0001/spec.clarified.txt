@@ -1,0 +1,123 @@
+Original implementation instruction (verbatim):
+
+Design a System Verilog module `nbit_swizzling` that performs selective bit-reversal with `sel` input signal. The module should take a `DATA_WIDTH`-bit wide input and reverse the bits in the following configurations based on a 2-bit selection signal `sel`.
+
+Named module interface binding
+
+Module: nbit_swizzling.
+Connect ports by name. The enumeration below does not establish positional order.
+- data_in: input; 64 bits in the concrete formal instance.
+- sel: input; 2 bits in the concrete formal instance.
+- data_out: output; 64 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name shall be spelled exactly nbit_swizzling.
+
+The public parameter DATA_WIDTH has default value 64. DATA_WIDTH shall be greater than or equal to 16 and shall be a multiple of 8.
+
+The exact named ports are:
+
+input data_in [DATA_WIDTH-1:0]
+input sel [1:0]
+output data_out [DATA_WIDTH-1:0]
+
+The original requirements and the integration answer do not establish positional declaration order. The order shown above is not normative. The module shall be instantiated by the exact names data_in, sel, and data_out; positional instantiation shall not be relied upon.
+
+3. Reset.
+
+There is no reset port, clock, or stored state. At power-up, including before any input transition, data_out is the combinational result of the current binary data_in and sel under the laws below; no reset or clock edge is needed to establish it. The source assumes that data_in contains only 0 and 1 values and does not require separate handling of invalid data_in values.
+
+4. Timing.
+
+data_out is combinational with respect to the current data_in and sel and has zero clock-cycle latency. It is not registered or retained. There are no pulses, periodic signals, handshakes, transactions, cancellation states, completion states, or restart behavior.
+
+The executable model uses full-cycle rows solely as an observation convention. Each successive row is the next ordered observation after combinational settling. iface.json supplies no numeric step_ns or sample_offset_ns, so the rows create no implicit 10 ns tick. The circuit itself has no clock, period, duty cycle, or source-specified numeric propagation delay.
+
+5. Behaviour.
+
+For every supported DATA_WIDTH, partition data_in from least-significant bit to most-significant bit into the selected number of equal contiguous groups. Reverse the bit order within each group without exchanging groups. If G is the selected group count, W is DATA_WIDTH / G, and output bit j belongs to the group beginning at B = (j / W) * W, then data_out[j] equals data_in[B + W - 1 - (j modulo W)].
+
+For sel = 2'b00, G is 1: reverse the order of all DATA_WIDTH bits.
+
+For sel = 2'b01, G is 2: divide data_in into two equal contiguous halves and reverse each half independently.
+
+For sel = 2'b10, G is 4: divide data_in into four equal contiguous sections and reverse each section independently.
+
+For sel = 2'b11, G is 8: divide data_in into eight equal contiguous sections and reverse each section independently.
+
+Every binary value of sel is active: 2'b00, 2'b01, 2'b10, and 2'b11 select respectively 1, 2, 4, and 8 equal contiguous groups.
+
+All four binary encodings of the two-bit sel input are covered. In the default case, the output shall match the input. That default is unreachable for a binary two-bit sel and does not alter any of the four listed results.
+
+For every supported DATA_WIDTH, the current data_in determines data_out by the selected group-reversal law for the current sel value. Changes to data_in or sel produce the corresponding new combinational result, and repeated input combinations obey the same mapping independently.
+
+The original DATA_WIDTH = 16 example is reproduced verbatim below. Its WaveDrom initial and final x regions, hold/change pattern, DATA_WIDTH waveform, and display metadata are part of this supplied example. They do not add an RTL unknown-value rule outside the example; the RTL contract assumes binary data_in values.
+
+```wavedrom
+ 
+{"signal": [
+  { "name": "data_in[DATA_WIDTH-1:0]", "wave": "x.=.=.=.=.=.=.=.=.x", "data": ["2a5c","2cbe","2df9","32cb","34d0","47f6","410a","2859"] },
+  { "name": "sel[1:0]", "wave": "x.=.=.=.=.=.=.=.=.x", "data": ["0","0","1","1","2","2","3","3"] },
+  { "name": "data_out[DATA_WIDTH-1:0]", "wave": "x.=.=.=.=.=.=.=.=.x", "data": ["3a54","7d34","b49f","4cd3","c2b0","2ef6","8205","14a6"] },
+{ "name": "DATA_WIDTH", "wave": "x.=...............x", "data": ["16"] }
+],
+"head": {
+"text": "Module:: nbit_swizzling, data_in and data_out represented in hex format"
+}
+}
+
+```
+
+Answer and amendment disposition: Q1, scoped to data_out@s8.c0, states exactly: "For sel=2'b00, data_out is data_in with the order of all DATA_WIDTH bits reversed, so reversing 64'hf0f0f0f0f0f0f0f0 yields 64'h0f0f0f0f0f0f0f0f." This confirms the existing whole-input reversal clause and is not an amendment. No certain scoped answer supersedes an original clause, so there are no amendments. Q2, Q3, Q4, and Q5 are unclear and create no amendments or additional timing laws.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete DATA_WIDTH = 64 sampled instance. It supplements and does not replace the parameterized requirements or the supplied DATA_WIDTH = 16 example.
+
+### stimulus 0
+| cycle | data_in | sel | data_out |
+|---|---|---|---|
+| 0 | 64'h0 | 2'b00 | 64'h0 |
+
+### stimulus 1
+| cycle | data_in | sel | data_out |
+|---|---|---|---|
+| 0 | 64'h1 | 2'b01 | 64'h80000000 |
+
+### stimulus 2
+| cycle | data_in | sel | data_out |
+|---|---|---|---|
+| 0 | 64'hffffffffffffffff | 2'b10 | 64'hffffffffffffffff |
+
+### stimulus 3
+| cycle | data_in | sel | data_out |
+|---|---|---|---|
+| 0 | 64'h8000000000000000 | 2'b11 | 64'h100000000000000 |
+
+### stimulus 4
+| cycle | data_in | sel | data_out |
+|---|---|---|---|
+| 0 | 64'h123456789abcdef | 2'b00 | 64'hf7b3d591e6a2c480 |
+
+### stimulus 5
+| cycle | data_in | sel | data_out |
+|---|---|---|---|
+| 0 | 64'ha5a5a5a5a5a5a5a5 | 2'b01 | 64'ha5a5a5a5a5a5a5a5 |
+
+### stimulus 6
+| cycle | data_in | sel | data_out |
+|---|---|---|---|
+| 0 | 64'h123456789abcdef0 | 2'b10 | 64'h2c481e6a3d590f7b |
+
+### stimulus 7
+| cycle | data_in | sel | data_out |
+|---|---|---|---|
+| 0 | 64'hf0f0f0f0f0f0f0f | 2'b11 | 64'hf0f0f0f0f0f0f0f0 |
+
+### stimulus 8
+| cycle | data_in | sel | data_out |
+|---|---|---|---|
+| 0 | 64'hf0f0f0f0f0f0f0f0 | 2'b00 | 64'hf0f0f0f0f0f0f0f |

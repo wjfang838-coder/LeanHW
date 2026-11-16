@@ -1,0 +1,95 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- p1a: input 1 bit.
+- p1b: input 1 bit.
+- p1c: input 1 bit.
+- p1d: input 1 bit.
+- p1y: output 1 bit.
+- p2a: input 1 bit.
+- p2b: input 1 bit.
+- p2c: input 1 bit.
+- p2d: input 1 bit.
+- p2y: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+There is no reset input and no reset behavior. The module has no state elements. From power-up, including before any edge has occurred, p1y and p2y are defined solely by the current input levels; neither output is uninitialized or unknown.
+
+4. Timing.
+
+p1y and p2y are combinational outputs with zero clock-cycle latency from their respective named inputs. Input changes, whether simultaneous or repeated, are reflected continuously. There are no pulses, periodic outputs, capture edges, hold intervals, or completion behavior.
+
+For the evaluated autonomous trace, row k is the settled observation at k times the interface step_ns, sampled at the interface sample_offset_ns. This observation cadence is not a circuit clock period or propagation-delay law. The circuit itself has no specified clock, period, or numeric propagation delay.
+
+5. Behaviour.
+
+p1y continuously equals the four-input NAND of the current p1a, p1b, p1c, and p1d levels: p1y is 0 exactly when all four inputs are 1, and is 1 for every other input combination. Equivalently, at all times, p1a=0 forces p1y=1, while p1a=1 makes p1y equal to the NAND of p1b, p1c, and p1d; simultaneous or repeated input changes are reflected combinationally with no modes, capture, retention, or interruption behavior. At all times, p1b=0 forces p1y=1, while p1b=1 makes p1y equal to the NAND of p1a, p1c, and p1d. At all times, p1c=0 forces p1y=1, while p1c=1 makes p1y equal to the NAND of p1a, p1b, and p1d. At all times, p1d=0 forces p1y=1, while p1d=1 makes p1y equal to the NAND of p1a, p1b, and p1c. p1y continuously equals the NAND of the current p1a, p1b, p1c, and p1d levels, so a pre-edge row observes that same row's input function with no reset, initialization, capture edge, latency, hold or clear interval, completion, or restart behavior.
+
+p2y continuously equals the four-input NAND of the current p2a, p2b, p2c, and p2d levels: p2y is 0 exactly when all four inputs are 1, and is 1 for every other input combination. Equivalently, at all times, p2a=0 forces p2y=1, while p2a=1 makes p2y equal to the NAND of p2b, p2c, and p2d; simultaneous or repeated input changes are reflected combinationally with no modes, capture, retention, or interruption behavior. At all times, p2b=0 forces p2y=1, while p2b=1 makes p2y equal to the NAND of p2a, p2c, and p2d. At all times, p2c=0 forces p2y=1, while p2c=1 makes p2y equal to the NAND of p2a, p2b, and p2d. At all times, p2d=0 forces p2y=1, while p2d=1 makes p2y equal to the NAND of p2a, p2b, and p2c. p2y continuously equals the NAND of the current p2a, p2b, p2c, and p2d levels, so a pre-edge row observes that same row's input function with no reset, initialization, capture edge, latency, hold or clear interval, completion, or restart behavior.
+
+The two NAND functions are independent: p1 inputs affect only p1y, and p2 inputs affect only p2y. Every possible one-bit input encoding is covered by these laws.
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | p1a | p1b | p1c | p1d | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 |
+
+### stimulus 1
+| cycle | p1a | p1b | p1c | p1d | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 0 |
+
+### stimulus 2
+| cycle | p1a | p1b | p1c | p1d | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 0 |
+
+### stimulus 3
+| cycle | p1a | p1b | p1c | p1d | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 0 |
+
+### stimulus 4
+| cycle | p1a | p1b | p1c | p1d | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 |
+
+### stimulus 5
+| cycle | p1a | p1b | p1c | p1d | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 0 |
+
+### stimulus 6
+| cycle | p1a | p1b | p1c | p1d | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 0 | 1 |
+
+### stimulus 7
+| cycle | p1a | p1b | p1c | p1d | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 0 | 1 |
+
+### stimulus 8
+| cycle | p1a | p1b | p1c | p1d | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 0 | 1 |
+
+### stimulus 9
+| cycle | p1a | p1b | p1c | p1d | p2a | p2b | p2c | p2d | p1y | p2y |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 0 | 1 |

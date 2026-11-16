@@ -1,0 +1,77 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- in: input [2:0].
+- out: output [1:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+Module and ports
+
+
+
+Reset
+
+There is no reset input and no reset behavior. The circuit has no state elements. At power-up, including before any edge or other event has occurred, out is already the combinational population count of the current value of in; it has no separate unknown or initialization interval.
+
+Timing
+
+out is combinational from the current input in, with zero clock-cycle latency. There is no clock, active circuit edge, pulse, periodic output, actual circuit period, or delay law.
+
+For the evaluated autonomous trace, row k denotes the settled observation at k * step_ns, using the interface's sample offset when one is specified. This observation convention is only a trace timebase; it does not impose an implicit 10 ns clock, circuit period, storage element, or latency.
+
+Behaviour
+
+In every reachable condition, the 3-bit input in continuously determines out as the unsigned count of its bits that are 1; there are no inactive levels, modes, controls, transactions, stored state, or interruption behavior, so simultaneous changes and repeated input values simply produce the corresponding count without priority or history dependence.
+
+The 2-bit output out is continuously the unsigned population count of the current 3-bit input in, with no reset, initialization, capture edge, completion event, clearing interval, restart protocol, or cycle latency; therefore a pre-active-edge row observes the count of the input present before that edge, and out is retained only while that input's population count remains unchanged.
+
+For every possible 3-bit input encoding, out equals the sum of the three unsigned input bits. Thus the complete mapping is: 000 produces 0, 001 produces 1, 010 produces 1, 011 produces 2, 100 produces 1, 101 produces 2, 110 produces 2, and 111 produces 3. The 2-bit output represents these unsigned values without truncation.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | in | out |
+|---|---|---|
+| 0 | 3'b000 | 2'b00 |
+
+### stimulus 1
+| cycle | in | out |
+|---|---|---|
+| 0 | 3'b001 | 2'b01 |
+
+### stimulus 2
+| cycle | in | out |
+|---|---|---|
+| 0 | 3'b010 | 2'b01 |
+
+### stimulus 3
+| cycle | in | out |
+|---|---|---|
+| 0 | 3'b011 | 2'b10 |
+
+### stimulus 4
+| cycle | in | out |
+|---|---|---|
+| 0 | 3'b100 | 2'b01 |
+
+### stimulus 5
+| cycle | in | out |
+|---|---|---|
+| 0 | 3'b101 | 2'b10 |
+
+### stimulus 6
+| cycle | in | out |
+|---|---|---|
+| 0 | 3'b110 | 2'b10 |
+
+### stimulus 7
+| cycle | in | out |
+|---|---|---|
+| 0 | 3'b111 | 2'b11 |

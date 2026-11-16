@@ -1,0 +1,89 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- code: input [7:0].
+- out: output [3:0].
+- valid: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports.
+
+
+
+3. Reset.
+
+The module has no reset input, reset behavior, or state elements. From power-up onward, including before any hypothetical reset edge, both outputs are defined combinationally by the current code input. There is no uninitialized interval: out and valid always have the values specified below.
+
+4. Timing.
+
+out and valid are continuously combinational functions of the current code. Each has zero clock-cycle latency; there is no clock, capture edge, completion pulse, periodic signal, retention interval, or restart behavior.
+
+For the normative evaluated trace, each row is the settled observation for that row's current code input before the abstract transition to the next row. The interface supplies no numeric step_ns or sample_offset_ns, so the rows must not be interpreted as implicit 10 ns clock ticks. This observation convention is separate from circuit timing: the circuit has no clock period or cycle-based delay law.
+
+5. Behaviour.
+
+At all times, the current value of code alone selects both outputs; changes, interruptions, and repeated values introduce no state or history dependence.
+
+out is continuously combinational: it is 4'd0 for code 8'h45, 4'd1 through 4'd9 for codes 8'h16, 8'h1e, 8'h26, 8'h25, 8'h2e, 8'h36, 8'h3d, 8'h3e, and 8'h46 respectively, and 4'd0 for every other code.
+
+valid is continuously combinationally asserted exactly when code is one of 8'h45, 8'h16, 8'h1e, 8'h26, 8'h25, 8'h2e, 8'h36, 8'h3d, 8'h3e, or 8'h46, and is deasserted otherwise.
+
+Together, the complete mapping is: 8'h45 produces (out, valid) = (4'd0, 1'b1); 8'h16 produces (4'd1, 1'b1); 8'h1e produces (4'd2, 1'b1); 8'h26 produces (4'd3, 1'b1); 8'h25 produces (4'd4, 1'b1); 8'h2e produces (4'd5, 1'b1); 8'h36 produces (4'd6, 1'b1); 8'h3d produces (4'd7, 1'b1); 8'h3e produces (4'd8, 1'b1); and 8'h46 produces (4'd9, 1'b1). Every other 8-bit code produces (4'd0, 1'b0).
+
+6. Worked trace.
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | code | out | valid |
+|---|---|---|---|
+| 0 | 8'b01000101 | 4'b0000 | 1 |
+| 1 | 8'b00010110 | 4'b0001 | 1 |
+
+### stimulus 1
+| cycle | code | out | valid |
+|---|---|---|---|
+| 0 | 8'b00011110 | 4'b0010 | 1 |
+| 1 | 8'b00100110 | 4'b0011 | 1 |
+
+### stimulus 2
+| cycle | code | out | valid |
+|---|---|---|---|
+| 0 | 8'b00100101 | 4'b0100 | 1 |
+| 1 | 8'b00101110 | 4'b0101 | 1 |
+
+### stimulus 3
+| cycle | code | out | valid |
+|---|---|---|---|
+| 0 | 8'b00110110 | 4'b0110 | 1 |
+| 1 | 8'b00111101 | 4'b0111 | 1 |
+
+### stimulus 4
+| cycle | code | out | valid |
+|---|---|---|---|
+| 0 | 8'b00111110 | 4'b1000 | 1 |
+| 1 | 8'b01000110 | 4'b1001 | 1 |
+
+### stimulus 5
+| cycle | code | out | valid |
+|---|---|---|---|
+| 0 | 8'b00000000 | 4'b0000 | 0 |
+| 1 | 8'b00000001 | 4'b0000 | 0 |
+
+### stimulus 6
+| cycle | code | out | valid |
+|---|---|---|---|
+| 0 | 8'b11111111 | 4'b0000 | 0 |
+| 1 | 8'b10000000 | 4'b0000 | 0 |
+
+### stimulus 7
+| cycle | code | out | valid |
+|---|---|---|---|
+| 0 | 8'b01010101 | 4'b0000 | 0 |
+| 1 | 8'b01000101 | 4'b0000 | 1 |
+| 2 | 8'b11111111 | 4'b0000 | 0 |

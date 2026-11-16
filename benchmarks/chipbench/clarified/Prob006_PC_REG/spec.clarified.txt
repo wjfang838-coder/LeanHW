@@ -1,0 +1,158 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- rst: input 1 bit.
+- stall: input [5:0].
+- flush: input 1 bit.
+- new_pc: input [31:0].
+- branch_flag_i: input 1 bit.
+- branch_target_address_i: input [31:0].
+- pc: output [31:0].
+- ce: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is active high and synchronous. Both pc and ce are stored outputs updated only on a rising edge of clk.
+
+At power-up, before the first rising edge, pc and ce are unknown. The implementation must leave both stored values uninitialised: no initial block or declaration initialiser may give either one a power-up value.
+
+Every rising edge samples rst. If rst is 1, that edge makes ce 0 for observation after the edge; if rst is 0, that edge makes ce 1 for observation after the edge. Repeated edges with rst asserted retain ce at 0. Stall, flush, new_pc, branch_flag_i, and branch_target_address_i do not affect ce.
+
+Reset does not directly choose a value for pc. The pc update on an edge uses the ce value that existed before that edge. Consequently, the first reset edge seen after power-up makes ce 0 but leaves the still-unestablished pc unknown. Every later rising edge whose prior ce is 0 clears pc to 32'h00000000, including repeated reset edges and the first rising edge after reset is released. That release edge makes ce 1. Normal pc transactions can resume on the following rising edge.
+
+4. Timing
+
+Rows in the normative trace are pre-edge observations. For row k, outputs are observed after settling and before rising edge k; that edge then computes the state observed on row k+1. The interface uses a full-cycle timebase. The interface supplies no numeric step_ns or sample_offset_ns, so the trace does not imply a 10 ns clock tick or any particular physical clock period.
+
+pc is a registered 32-bit output. A qualifying input affects pc one rising edge after the pre-edge row on which that input is presented. ce is a registered 1-bit output with the same one-edge observation latency from rst. Neither output changes because of a static clk level or a falling edge. There are no pulse or autonomous periodic outputs.
+
+5. Behaviour
+
+Only a rising clk edge updates outputs: that edge samples all controls and data, repeated rising edges repeat the applicable priority rule, and static levels or falling edges have no effect.
+
+At each rising edge, rst equal to 1'b1 makes ce 1'b0 and rst equal to 1'b0 makes ce 1'b1 for observation after the edge; rst does not directly choose pc, so pc uses the prior ce and the other controls on that same edge, with repeated asserted edges keeping ce low and causing pc to clear on every asserted edge after the first, while release takes one edge to re-enable ce and pc remains cleared until a later edge.
+
+If ce has not yet acquired a known value at a rising edge, that edge does not establish pc and pc remains unknown. Otherwise, pc is determined by the following complete priority order using the ce value from before the edge:
+
+1. If prior ce is 0, pc becomes 32'h00000000 regardless of every other input.
+2. Otherwise, if flush is 1, pc becomes the contemporaneous new_pc, regardless of stall or branch_flag_i.
+3. Otherwise, if stall[0] is 1, pc retains its prior value and a simultaneous branch is suppressed.
+4. Otherwise, if branch_flag_i is 1, pc becomes the contemporaneous branch_target_address_i.
+5. Otherwise, pc becomes its prior value plus 32'd4 modulo 2^32.
+
+On a rising edge with prior ce equal to 1'b1 and flush equal to 1'b0, stall[0] equal to 1'b1 holds pc while stall[0] equal to 1'b0 permits branch selection or a four-byte increment; stall[5:1] have no port effect, flush overrides stall, prior ce equal to 1'b0 clears pc regardless of stall, and repeated stalled edges repeatedly retain pc.
+
+On a rising edge with prior ce equal to 1'b1, flush equal to 1'b1 loads new_pc with priority over stall and branch, while flush equal to 1'b0 permits the stall/branch/increment rules; prior ce equal to 1'b0 clears pc regardless of flush, and repeated asserted flushes load the contemporaneous new_pc on every edge.
+
+new_pc is sampled into pc on a rising edge exactly when prior ce is 1'b1 and flush is 1'b1; otherwise it has no port effect, and consecutive qualifying edges load each consecutive new_pc value.
+
+On a rising edge with prior ce equal to 1'b1, flush equal to 1'b0, and stall[0] equal to 1'b0, branch_flag_i equal to 1'b1 selects branch_target_address_i and 1'b0 selects pc plus four; flush or stall suppresses this choice, prior ce equal to 1'b0 clears pc, and repeated qualifying asserted branches repeatedly load their contemporaneous targets.
+
+branch_target_address_i is sampled into pc on a rising edge exactly when prior ce is 1'b1, flush is 1'b0, stall[0] is 1'b0, and branch_flag_i is 1'b1; otherwise it has no port effect, and consecutive qualifying edges load each consecutive target.
+
+With rows sampled before rising edges, pc initially has no defined value; after an edge with prior ce 1'b0 it is observed as 32'h00000000 on the next row, otherwise that next row shows new_pc for flush, the retained pc for stall[0], branch_target_address_i for a branch, or the prior pc plus four, and reset assertion/release affects this timing only through the separately edge-updated ce so transactions can resume one rising edge after ce is observed enabled.
+
+With rows sampled before rising edges, ce initially has no defined value; each rising edge makes the next row show 1'b0 if rst was asserted at that edge or 1'b1 otherwise, repeated reset edges retain 1'b0, and the first row after a release edge shows 1'b1 without dependence on stall, flush, or branch controls.
+
+All multi-bit inputs and results are unsigned bit patterns. pc addition is performed modulo 2^32, with truncation only at the 32-bit pc storage boundary. Values of stall[5:1] and every otherwise-unused input value have no effect beyond the laws above.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | rst | stall | flush | new_pc | branch_flag_i | branch_target_address_i | pc | ce |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 6'b000000 | 0 | 32'h11 | 0 | 32'h0 | 32'x | x |
+| 1 | 1 | 6'b000000 | 0 | 32'h22 | 0 | 32'h0 | 32'x | 0 |
+| 2 | 0 | 6'b000000 | 0 | 32'h33 | 0 | 32'h0 | 32'h0 | 0 |
+| 3 | 0 | 6'b000000 | 0 | 32'h44 | 0 | 32'h0 | 32'h0 | 1 |
+
+### stimulus 1
+| cycle | rst | stall | flush | new_pc | branch_flag_i | branch_target_address_i | pc | ce |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | x |
+| 1 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | 1 |
+| 2 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h4 | 1 |
+| 3 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h8 | 1 |
+
+### stimulus 2
+| cycle | rst | stall | flush | new_pc | branch_flag_i | branch_target_address_i | pc | ce |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | x |
+| 1 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | 0 |
+| 2 | 0 | 6'b000001 | 0 | 32'h0 | 0 | 32'h0 | 32'h0 | 1 |
+| 3 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h0 | 1 |
+| 4 | 0 | 6'b111111 | 0 | 32'h0 | 0 | 32'h0 | 32'h4 | 1 |
+| 5 | 0 | 6'b100000 | 0 | 32'h0 | 0 | 32'h0 | 32'h4 | 1 |
+
+### stimulus 3
+| cycle | rst | stall | flush | new_pc | branch_flag_i | branch_target_address_i | pc | ce |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | x |
+| 1 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | 0 |
+| 2 | 0 | 6'b000000 | 1 | 32'h0 | 0 | 32'h0 | 32'h0 | 1 |
+| 3 | 0 | 6'b000000 | 1 | 32'h1 | 0 | 32'h0 | 32'h0 | 1 |
+| 4 | 0 | 6'b000000 | 1 | 32'hffffffff | 0 | 32'h0 | 32'h1 | 1 |
+| 5 | 0 | 6'b000000 | 1 | 32'h80000000 | 0 | 32'h0 | 32'hffffffff | 1 |
+| 6 | 0 | 6'b000000 | 1 | 32'h12345678 | 0 | 32'h0 | 32'h80000000 | 1 |
+
+### stimulus 4
+| cycle | rst | stall | flush | new_pc | branch_flag_i | branch_target_address_i | pc | ce |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | x |
+| 1 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | 0 |
+| 2 | 0 | 6'b000000 | 0 | 32'h0 | 1 | 32'h0 | 32'h0 | 1 |
+| 3 | 0 | 6'b000000 | 0 | 32'h0 | 1 | 32'h1 | 32'h0 | 1 |
+| 4 | 0 | 6'b000000 | 0 | 32'h0 | 1 | 32'hffffffff | 32'h1 | 1 |
+| 5 | 0 | 6'b000000 | 0 | 32'h0 | 1 | 32'h80000000 | 32'hffffffff | 1 |
+| 6 | 0 | 6'b000000 | 0 | 32'h0 | 1 | 32'h87654321 | 32'h80000000 | 1 |
+
+### stimulus 5
+| cycle | rst | stall | flush | new_pc | branch_flag_i | branch_target_address_i | pc | ce |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | x |
+| 1 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | 0 |
+| 2 | 0 | 6'b000000 | 1 | 32'h10 | 1 | 32'h20 | 32'h0 | 1 |
+| 3 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h10 | 1 |
+| 4 | 0 | 6'b000001 | 1 | 32'h30 | 0 | 32'h0 | 32'h14 | 1 |
+| 5 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h30 | 1 |
+| 6 | 0 | 6'b000001 | 0 | 32'h0 | 1 | 32'h40 | 32'h34 | 1 |
+| 7 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h34 | 1 |
+
+### stimulus 6
+| cycle | rst | stall | flush | new_pc | branch_flag_i | branch_target_address_i | pc | ce |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | x |
+| 1 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | 0 |
+| 2 | 0 | 6'b000000 | 1 | 32'h100 | 0 | 32'h0 | 32'h0 | 1 |
+| 3 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h100 | 1 |
+| 4 | 0 | 6'b000000 | 1 | 32'h200 | 0 | 32'h0 | 32'h104 | 1 |
+| 5 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h200 | 1 |
+| 6 | 0 | 6'b000001 | 0 | 32'h0 | 0 | 32'h0 | 32'h204 | 1 |
+| 7 | 0 | 6'b000000 | 1 | 32'h300 | 0 | 32'h0 | 32'h204 | 1 |
+| 8 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h300 | 1 |
+
+### stimulus 7
+| cycle | rst | stall | flush | new_pc | branch_flag_i | branch_target_address_i | pc | ce |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | x |
+| 1 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'x | 0 |
+| 2 | 0 | 6'b000000 | 0 | 32'h0 | 1 | 32'h400 | 32'h0 | 1 |
+| 3 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h400 | 1 |
+| 4 | 0 | 6'b000000 | 0 | 32'h0 | 1 | 32'h800 | 32'h404 | 1 |
+| 5 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h800 | 1 |
+| 6 | 1 | 6'b000000 | 1 | 32'h1000 | 1 | 32'h2000 | 32'h804 | 1 |
+| 7 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h1000 | 0 |
+| 8 | 0 | 6'b000000 | 0 | 32'h0 | 0 | 32'h0 | 32'h0 | 1 |

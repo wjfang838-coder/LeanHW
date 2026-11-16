@@ -1,0 +1,187 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Create a fully parameterized SystemVerilog module for a comparator that can operate in two modes: "signed mode" and "magnitude mode." The module should compare two signed integers of parameterized bit width and output signals to indicate whether one input is greater than, less than, or equal to the other. The design should be a purely combinational circuit and include an enabled input that activates the comparison.
+
+### Specifications
+
+1. **Module Name:** `signed_unsigned_comparator`
+2. **Parameterization:**
+   - `WIDTH`: Defines the bit-width of the inputs (default value: 5).
+3. **Inputs and Outputs:**
+
+| Signal      | Direction | Bit Width     | Active State | Description                                                                                          |
+|-------------|-----------|---------------|--------------|------------------------------------------------------------------------------------------------------|
+| `i_A`       | Input     | `WIDTH`       | N/A          | `WIDTH`-bit integer input value, to be compared with `i_B`.                                          |
+| `i_B`       | Input     | `WIDTH`       | N/A          | `WIDTH`-bit integer input value, to be compared with `i_A`.                                          |
+| `i_enable`  | Input     | 1             | High         | Enable signal for comparison. When low, all outputs (`o_greater`, `o_less`, `o_equal`) are inactive. |
+| `i_mode`    | Input     | 1             | High         | Mode selection signal: high for "signed mode," low for "magnitude mode".                             |
+| `o_greater` | Output    | 1             | High         | Output signal indicating `i_A` > `i_B`. Active when `i_enable` is high and `i_A` is greater than `i_B`. |
+| `o_less`    | Output    | 1             | High         | Output signal indicating `i_A` < `i_B`. Active when `i_enable` is high and `i_A` is less than `i_B`.   |
+| `o_equal`   | Output    | 1             | High         | Output signal indicating `i_A` == `i_B`. Active when `i_enable` is high and `i_A` equals `i_B`.        |
+
+### Behavioral Requirements
+
+- The module should support two comparison modes:
+  - **Signed Mode:** If `i_mode` is high, the comparison interprets `i_A` and `i_B` as signed integers, where the most significant bit (MSB) represents the sign (1 for negative, 0 for positive).
+  - **Magnitude Mode:** If `i_mode` is low, the comparison ignores the sign bit and treats both inputs as unsigned magnitudes.
+  
+- When `i_enable` is high, the module should perform the comparison according to the selected mode:
+  - If `i_A` > `i_B`, `o_greater` should be high, and `o_less` and `o_equal` should be low.
+  - If `i_A` < `i_B`, `o_less` should be high, and `o_greater` and `o_equal` should be low.
+  - If `i_A` == `i_B`, `o_equal` should be high, and `o_greater` and `o_less` should be low.
+  
+- When `i_enable` is low, all outputs (`o_greater`, `o_less`, `o_equal`) should be set to low, regardless of the comparison mode or inputs.
+
+### Constraints and Edge Cases
+
+- Ensure the module correctly handles edge cases for maximum positive and maximum negative values in signed mode, as well as for the largest and smallest possible magnitudes in magnitude mode.
+- The design should fully handle the `i_enable` signal, keeping outputs low when disabled.
+- Ensure that parameterization for `WIDTH` is respected throughout the design, allowing easy modification of input bit-width without further changes to the logic.
+
+### Additional Notes
+
+- Follow purely combinational design requirements—no sequential elements.
+- Ensure the module is synthesizable and uses industry-standard terminology throughout the code and documentation.
+
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Create a fully parameterized SystemVerilog module for a comparator that can operate in two modes: "signed mode" and "magnitude mode." The module should compare two signed integers of parameterized bit width and output signals to indicate whether one input is greater than, less than, or equal to the other. The design should be a purely combinational circuit and include an enabled input that activates the comparison.
+
+Named module interface binding
+
+Module: signed_unsigned_comparator.
+Connect ports by name. The enumeration below does not establish positional order.
+- i_A: input; 5 bits in the concrete formal instance.
+- i_B: input; 5 bits in the concrete formal instance.
+- i_enable: input; 1 bits in the concrete formal instance.
+- i_mode: input; 1 bits in the concrete formal instance.
+- o_greater: output; 1 bits in the concrete formal instance.
+- o_less: output; 1 bits in the concrete formal instance.
+- o_equal: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is signed_unsigned_comparator.
+
+The public parameter WIDTH defines the width of i_A and i_B and has default value 5. The evaluated Lean object is the concrete WIDTH=5 instance and does not replace this parameterized contract.
+
+Derived parameter constraint P1: WIDTH >= 1. The source requires the most significant bit of each WIDTH-bit operand to represent its sign. WIDTH=0 cannot supply that required sign bit, so it cannot satisfy the stated representation. Every integer WIDTH >= 1 remains legal, and every comparison operation remains available throughout that domain.
+
+Implementation choice C1 — declaration order. The source supplies the following spellings and table order but no module header, and the certain-answer set contains no integration answer establishing positional order. The implementation shall use the source table order below as its declaration order. This is a compatible completion of the otherwise unspecified header detail, not a source-derived claim about an existing header. The order is normative for this delivered implementation:
+
+i_A — input, WIDTH bits.
+i_B — input, WIDTH bits.
+i_enable — input, 1 bit.
+i_mode — input, 1 bit.
+o_greater — output, 1 bit.
+o_less — output, 1 bit.
+o_equal — output, 1 bit.
+
+Connections may be made by name using exactly those spellings.
+
+3. Reset.
+
+There is no reset port, reset behavior, or state element. At power-up before any input change, and at all later times after combinational settling, every output is the purely combinational function of the current inputs stated below. Thus there is no first reset edge, release step, initialized state, or retained power-up value.
+
+4. Timing.
+
+Each of o_greater, o_less, and o_equal is purely combinational, with zero clock-cycle latency from i_A, i_B, i_enable, and i_mode. There is no clock, pulse, periodic signal, stored result, completion event, or transaction boundary. Simultaneous input changes are evaluated from the resulting current values after ordinary combinational settling, and repeated input values produce the same outputs.
+
+For the evaluated full-cycle trace, row k is the settled combinational observation for stimulus entry k. The row number does not imply a 10 ns clock tick, a circuit period, or a propagation-delay requirement. The interface specifies neither timing.step_ns nor timing.sample_offset_ns.
+
+5. Behaviour.
+
+i_A and i_B are complete WIDTH-bit vectors. i_enable has priority over comparison: when i_enable is 0, o_greater, o_less, and o_equal are all 0, regardless of i_A, i_B, or i_mode. Operand or mode changes while disabled leave all three outputs at 0. When i_enable is 1, the outputs immediately describe the current comparison; no previous comparison is retained.
+
+When i_enable is 1 and i_mode is 1, interpret each complete WIDTH-bit operand as a signed two’s-complement integer. Exactly one output is 1: o_greater when signed i_A is greater than signed i_B, o_less when signed i_A is less than signed i_B, and o_equal when their complete WIDTH-bit encodings are equal. This law covers equal and opposite signs, zero, the maximum positive value, and the most negative value.
+
+When i_enable is 1 and i_mode is 0, ignore each operand’s MSB and compare the remaining WIDTH-1 lower bits as unsigned magnitudes. Exactly one output is 1: o_greater when the lower WIDTH-1 bits of i_A are greater than those of i_B, o_less when they are less, and o_equal when they are equal. Operands with identical lower WIDTH-1 bits therefore compare equal even when their MSBs differ.
+
+For WIDTH=1 in magnitude mode, ignoring the sole MSB leaves a zero-bit unsigned magnitude for each operand. Both magnitudes have value 0, so every enabled magnitude-mode comparison produces o_greater=0, o_less=0, and o_equal=1. This is the WIDTH=1 boundary case of the original requirement that magnitude mode ignores the sign bit; it is not an amendment.
+
+The one-bit controls have only their binary domains: i_enable=0 disables and i_enable=1 enables; i_mode=0 selects magnitude mode and i_mode=1 selects signed mode. In every enabled mode and for every input pair, the three outputs are mutually exclusive and exactly one is asserted.
+
+For o_greater, the first settled observation and every later settled observation is the current greater-than predicate above. For o_less, it is the current less-than predicate above. For o_equal, it is the current equality predicate above. None has a capture edge, hold interval, completion state, cancellation state, or restart behavior.
+
+There are no amendments. Every supplied answer has confidence “unclear” and therefore authorizes no change to an original clause.
+
+6. Worked trace.
+
+The evaluated trace is normative for the concrete WIDTH=5 instance and its listed stimuli. It illustrates but does not replace or narrow the parameterized laws above.
+
+### stimulus 0
+| cycle | i_A | i_B | i_enable | i_mode | o_greater | o_less | o_equal |
+|---|---|---|---|---|---|---|---|
+| 0 | 5'b00000 | 5'b00000 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 5'b11111 | 5'b00000 | 0 | 1 | 0 | 0 | 0 |
+| 2 | 5'b00001 | 5'b10000 | 0 | 0 | 0 | 0 | 0 |
+
+### stimulus 1
+| cycle | i_A | i_B | i_enable | i_mode | o_greater | o_less | o_equal |
+|---|---|---|---|---|---|---|---|
+| 0 | 5'b00000 | 5'b00001 | 1 | 0 | 0 | 1 | 0 |
+| 1 | 5'b00001 | 5'b00000 | 1 | 0 | 1 | 0 | 0 |
+| 2 | 5'b10001 | 5'b00001 | 1 | 0 | 0 | 0 | 1 |
+
+### stimulus 2
+| cycle | i_A | i_B | i_enable | i_mode | o_greater | o_less | o_equal |
+|---|---|---|---|---|---|---|---|
+| 0 | 5'b01111 | 5'b00000 | 1 | 0 | 1 | 0 | 0 |
+| 1 | 5'b10000 | 5'b01111 | 1 | 0 | 0 | 1 | 0 |
+| 2 | 5'b11111 | 5'b10000 | 1 | 0 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | i_A | i_B | i_enable | i_mode | o_greater | o_less | o_equal |
+|---|---|---|---|---|---|---|---|
+| 0 | 5'b00000 | 5'b00001 | 1 | 1 | 0 | 1 | 0 |
+| 1 | 5'b00001 | 5'b00000 | 1 | 1 | 1 | 0 | 0 |
+| 2 | 5'b00111 | 5'b00111 | 1 | 1 | 0 | 0 | 1 |
+
+### stimulus 4
+| cycle | i_A | i_B | i_enable | i_mode | o_greater | o_less | o_equal |
+|---|---|---|---|---|---|---|---|
+| 0 | 5'b01111 | 5'b10000 | 1 | 1 | 1 | 0 | 0 |
+| 1 | 5'b10000 | 5'b01111 | 1 | 1 | 0 | 1 | 0 |
+| 2 | 5'b11111 | 5'b00000 | 1 | 1 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | i_A | i_B | i_enable | i_mode | o_greater | o_less | o_equal |
+|---|---|---|---|---|---|---|---|
+| 0 | 5'b10000 | 5'b10001 | 1 | 1 | 0 | 1 | 0 |
+| 1 | 5'b10001 | 5'b10000 | 1 | 1 | 1 | 0 | 0 |
+| 2 | 5'b11111 | 5'b11110 | 1 | 1 | 1 | 0 | 0 |
+
+### stimulus 6
+| cycle | i_A | i_B | i_enable | i_mode | o_greater | o_less | o_equal |
+|---|---|---|---|---|---|---|---|
+| 0 | 5'b01001 | 5'b10110 | 1 | 0 | 1 | 0 | 0 |
+| 1 | 5'b10110 | 5'b01001 | 1 | 0 | 0 | 1 | 0 |
+| 2 | 5'b01001 | 5'b11001 | 1 | 0 | 0 | 0 | 1 |
+
+### stimulus 7
+| cycle | i_A | i_B | i_enable | i_mode | o_greater | o_less | o_equal |
+|---|---|---|---|---|---|---|---|
+| 0 | 5'b01001 | 5'b01010 | 1 | 1 | 0 | 1 | 0 |
+| 1 | 5'b11001 | 5'b11010 | 1 | 1 | 0 | 1 | 0 |
+| 2 | 5'b11010 | 5'b11001 | 1 | 1 | 1 | 0 | 0 |
+
+### stimulus 8
+| cycle | i_A | i_B | i_enable | i_mode | o_greater | o_less | o_equal |
+|---|---|---|---|---|---|---|---|
+| 0 | 5'b11111 | 5'b11111 | 1 | 0 | 0 | 0 | 1 |
+| 1 | 5'b10000 | 5'b10000 | 1 | 1 | 0 | 0 | 1 |
+| 2 | 5'b00111 | 5'b01001 | 1 | 0 | 0 | 1 | 0 |
+
+### stimulus 9
+| cycle | i_A | i_B | i_enable | i_mode | o_greater | o_less | o_equal |
+|---|---|---|---|---|---|---|---|
+| 0 | 5'b00000 | 5'b11111 | 0 | 1 | 0 | 0 | 0 |
+| 1 | 5'b00000 | 5'b11111 | 1 | 1 | 1 | 0 | 0 |
+| 2 | 5'b11111 | 5'b00000 | 1 | 0 | 1 | 0 | 0 |

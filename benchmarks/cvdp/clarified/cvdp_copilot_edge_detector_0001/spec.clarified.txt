@@ -1,0 +1,136 @@
+Original implementation instruction (verbatim):
+
+Design a System Verilog module named "`sync_pos_neg_edge_detector` that detects both positive and negative edges on a glitch-free and debounced input signal. The module should output a signal indicating the detection of a positive or negative edge. Each detection signal should be asserted for **one clock cycle** when an edge is detected. The module should also incorporate asynchronous reset functionality.
+
+Named module interface binding
+
+Module: sync_pos_neg_edge_detector.
+Connect ports by name. The enumeration below does not establish positional order.
+- i_clk: input; 1 bits in the concrete formal instance.
+- i_rstb: input; 1 bits in the concrete formal instance.
+- i_detection_signal: input; 1 bits in the concrete formal instance.
+- o_positive_edge_detected: output; 1 bits in the concrete formal instance.
+- o_negative_edge_detected: output; 1 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is sync_pos_neg_edge_detector. It has no source-specified public parameters.
+
+The complete interface consists of these scalar, one-bit ports: input i_clk; input i_rstb; input i_detection_signal; output o_positive_edge_detected; output o_negative_edge_detected. Q10 confirms these exact names and directions and requires connections by name. Neither the source nor Q10 verifies positional declaration order, so the displayed enumeration is not a normative positional order; the module must be instantiated by name.
+
+3. Reset.
+
+i_rstb is an active-low asynchronous reset. Whenever i_rstb is low, o_positive_edge_detected and o_negative_edge_detected are both 0 and every edge-detection state element is cleared immediately, without waiting for a rising edge of i_clk. Reset takes priority over edge detection. When i_rstb is deasserted, normal edge detection resumes.
+
+Clearing the edge-detection state sets the remembered input sample and both registered detection results to 0. Consequently, on the first rising edge after reset release, a sampled i_detection_signal value of 1 produces a positive-edge indication for the following clock cycle, while a sampled value of 0 leaves both indications at 0.
+
+The source specifies no hardware power-up value before reset has ever been asserted. Only results that still depend on such uninitialized state are unspecified: initially the outputs have no specified value, and the first rising-edge comparison without prior reset may depend on an unspecified remembered sample. A rising edge nevertheless records the current input and replaces both result registers; after that capture, subsequent comparisons obey the complete behavior below. In particular, lack of prior reset does not make later behavior perpetually unconstrained, does not require X to be driven, and does not impose a reset-before-use restriction.
+
+For the concrete worked-trace model only, each stimulus starts in the state reached by asserting i_rstb low long enough for its asynchronous action to clear the remembered sample and both results to 0, then releasing it as applicable to the listed stimulus. Every modeled initial value follows from that reset action. This finite verification setup is separate from the RTL power-up contract and adds neither a reset-before-use restriction nor a hardware power-up guarantee.
+
+4. Timing.
+
+i_clk is active on its rising edge. With reset released, i_detection_signal is captured at every rising edge. Both outputs are registered. Each is updated by that capture and is visible after the capture edge for the following clock cycle; before the capture edge it retains the result from the preceding capture. An asserted detection output lasts exactly one clock cycle because the next rising edge replaces it with the result of the next comparison. Neither output is periodic.
+
+A rising transition presented after an active rising edge does not assert o_positive_edge_detected until the next rising edge captures that transition. A falling transition presented after an active rising edge does not assert o_negative_edge_detected before the next rising edge captures that transition; the asserted sample occurs after that capture edge.
+
+The concrete model uses a full-cycle, pre-transition observation convention: row k first samples the outputs from state s[k] and the row's inputs, then the represented rising edge computes s[k+1]. The interface gives no numeric timing.step_ns or timing.sample_offset_ns, so no physical-time spacing is specified and row k does not imply a 10 ns tick. This table convention is separate from the circuit's rising-edge capture and one-cycle pulse laws.
+
+5. Behaviour.
+
+i_detection_signal is a one-bit, glitch-free, debounced input. No additional debouncing behavior is required.
+
+With reset released, every rising edge compares the captured i_detection_signal value with the value captured at the preceding rising edge. If the preceding value is 0 and the current value is 1, o_positive_edge_detected becomes 1 and o_negative_edge_detected becomes 0 for the following clock cycle. If the preceding value is 1 and the current value is 0, o_positive_edge_detected becomes 0 and o_negative_edge_detected becomes 1 for the following clock cycle. If the two values are equal, both outputs become 0 for the following clock cycle. The current value becomes the remembered value for the next capture.
+
+Repeated stable samples therefore produce 0 on both outputs. Opposite transitions captured on successive rising edges produce successive one-cycle indications of the corresponding polarity. Simultaneous positive and negative indications cannot result from a transition of this one-bit input. Assertion of i_rstb at any time immediately cancels any indication, clears the remembered sample and both results to 0, and holds both outputs at 0. Release of i_rstb resumes the ordinary rising-edge rule, including repeatedly after interrupted operation.
+
+The harness evidence for i_clk establishes rising edges as capture events and falling edges as observations; it does not establish additional laws for static-clock or coincident-event cases. The source-supported active-low asynchronous reset law governs reset assertion, priority, interruption, repetition, and release despite the narrower harness observations. With reset released, a 0-to-1 value held across a rising capture edge produces o_positive_edge_detected = 1 after that edge, and a 1-to-0 value held across a rising capture edge produces o_negative_edge_detected = 1 after that edge; the next capture replaces each pulse according to the next comparison. The positive output is the registered one-cycle result of each rising-edge comparison, including the source-defined reset and restart behavior. The negative output is the registered one-cycle result of each rising-edge comparison, including the source-defined reset and restart behavior.
+
+Q3 and Q4 resolve the sampled pulse-phase ambiguity in favor of the registered timing stated above. Their certain laws agree with, and do not amend, the original requirements. The unclear Q1, Q2, and Q5 through Q9 answers do not authorize amendments or hardware unknowns. There are no amendments to the original requirements.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete sampled instance under the finite post-reset setup and observation convention stated above.
+
+### stimulus 0
+| cycle | i_rstb | i_detection_signal | o_positive_edge_detected | o_negative_edge_detected |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 0 |
+| 2 | 1 | 1 | 1 | 0 |
+| 3 | 1 | 0 | 0 | 0 |
+| 4 | 1 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | i_rstb | i_detection_signal | o_positive_edge_detected | o_negative_edge_detected |
+|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 1 | 0 | 0 |
+| 4 | 1 | 1 | 1 | 0 |
+
+### stimulus 2
+| cycle | i_rstb | i_detection_signal | o_positive_edge_detected | o_negative_edge_detected |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 0 | 1 | 0 |
+| 4 | 1 | 1 | 0 | 1 |
+| 5 | 1 | 0 | 1 | 0 |
+| 6 | 1 | 0 | 0 | 1 |
+
+### stimulus 3
+| cycle | i_rstb | i_detection_signal | o_positive_edge_detected | o_negative_edge_detected |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 1 | 1 | 1 | 0 |
+| 4 | 1 | 0 | 0 | 0 |
+| 5 | 1 | 0 | 0 | 1 |
+| 6 | 1 | 1 | 0 | 0 |
+| 7 | 1 | 1 | 1 | 0 |
+
+### stimulus 4
+| cycle | i_rstb | i_detection_signal | o_positive_edge_detected | o_negative_edge_detected |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 1 | 0 | 0 |
+| 3 | 0 | 1 | 0 | 0 |
+| 4 | 1 | 0 | 0 | 0 |
+| 5 | 1 | 1 | 0 | 0 |
+| 6 | 1 | 1 | 1 | 0 |
+
+### stimulus 5
+| cycle | i_rstb | i_detection_signal | o_positive_edge_detected | o_negative_edge_detected |
+|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 0 |
+| 1 | 1 | 1 | 0 | 0 |
+| 2 | 1 | 0 | 1 | 0 |
+| 3 | 1 | 0 | 0 | 1 |
+
+### stimulus 6
+| cycle | i_rstb | i_detection_signal | o_positive_edge_detected | o_negative_edge_detected |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 0 | 0 |
+| 1 | 1 | 0 | 1 | 0 |
+| 2 | 1 | 1 | 0 | 1 |
+| 3 | 1 | 1 | 1 | 0 |
+
+### stimulus 7
+| cycle | i_rstb | i_detection_signal | o_positive_edge_detected | o_negative_edge_detected |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+| 1 | 1 | 0 | 0 | 0 |
+| 2 | 1 | 0 | 0 | 0 |
+| 3 | 1 | 0 | 0 | 0 |
+| 4 | 1 | 1 | 0 | 0 |
+| 5 | 1 | 1 | 1 | 0 |
+| 6 | 1 | 1 | 0 | 0 |
+| 7 | 1 | 0 | 0 | 0 |
+| 8 | 1 | 0 | 0 | 1 |

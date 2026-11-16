@@ -1,0 +1,141 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- slowena: input 1 bit.
+- reset: input 1 bit.
+- q: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is active high and synchronous to the rising edge of clk. At every rising edge where reset is high, q becomes 4'b0000 for the following cycle, regardless of slowena. Repeated reset edges keep q at 4'b0000. Asserting or releasing reset between rising edges has no immediate effect. On the first rising edge after reset is released, q remains 4'b0000 if slowena is low and advances to 4'b0001 if slowena is high.
+
+Before the first rising edge at which reset is asserted, q is unknown. The implementation must leave q uninitialised in that interval, with no initial block or declaration initialiser. A rising edge with reset low cannot turn this unknown value into a defined value, irrespective of slowena.
+
+4. Timing
+
+q is a registered output updated only on rising edges of clk. It has one-cycle observational latency under the normative pre-edge trace convention: the value caused by an edge is visible in the next row. A falling edge, a steady clock level, or changes to reset or slowena between rising edges do not change q.
+
+The interface uses full-cycle observations. Row k is sampled before active edge k and denotes k × step_ns after settling, with sample_offset_ns as specified by the interface; the interface supplies no numerical values for those fields here. This observation convention is separate from the circuit's physical clock period and delay laws, neither of which is numerically specified.
+
+5. Behaviour
+
+Only a rising edge of clk can update q: at each such edge reset has priority, otherwise slowena controls counting, while falling edges and a steady clk have no effect; every rising edge independently repeats this rule, so intervening input changes without a rising edge neither interrupt nor alter q.
+
+Reset is active high and synchronous: when asserted at a rising clk edge it sets q to 4'b0000 regardless of slowena, repeated asserted edges keep q at 4'b0000, assertion or release between rising edges has no immediate effect, and after release subsequent rising edges obey slowena.
+
+At a rising clk edge with reset deasserted, slowena high advances q by one with 4'b1001 wrapping to 4'b0000 and slowena low retains q; reset overrides either level, changes between rising edges have no immediate effect, and the rule is applied independently on every repeated rising edge.
+
+With rows sampled before the active rising edge, a row shows the q produced by the preceding rising edge: an asserted-reset edge produces 4'b0000 in the next row, the first enabled edge after reset release produces 4'b0001 in the next row, each later enabled edge advances through 4'b1001 then wraps to 4'b0000, disabled edges retain q, and a later reset edge restarts this sequence by producing 4'b0000 in the following row.
+
+For every input encoding, only the low bit of reset and slowena is relevant in the concrete Lean instance; each public input is one bit in the module contract, so this covers every value it can receive. If q is still unknown because no reset edge has established it, enabled and disabled edges with reset low both retain that unknown state.
+
+6. Worked trace
+
+The evaluated trace below is normative.
+
+### stimulus 0
+| cycle | slowena | reset | q |
+|---|---|---|---|
+| 0 | 0 | 0 | 4'x |
+| 1 | 1 | 0 | 4'x |
+| 2 | 0 | 0 | 4'x |
+
+### stimulus 1
+| cycle | slowena | reset | q |
+|---|---|---|---|
+| 0 | 0 | 1 | 4'x |
+| 1 | 1 | 0 | 4'b0000 |
+| 2 | 1 | 0 | 4'b0001 |
+| 3 | 0 | 0 | 4'b0010 |
+
+### stimulus 2
+| cycle | slowena | reset | q |
+|---|---|---|---|
+| 0 | 1 | 1 | 4'x |
+| 1 | 0 | 0 | 4'b0000 |
+| 2 | 1 | 0 | 4'b0000 |
+| 3 | 1 | 0 | 4'b0001 |
+
+### stimulus 3
+| cycle | slowena | reset | q |
+|---|---|---|---|
+| 0 | 0 | 1 | 4'x |
+| 1 | 1 | 0 | 4'b0000 |
+| 2 | 1 | 1 | 4'b0001 |
+| 3 | 1 | 0 | 4'b0000 |
+
+### stimulus 4
+| cycle | slowena | reset | q |
+|---|---|---|---|
+| 0 | 0 | 1 | 4'x |
+| 1 | 1 | 0 | 4'b0000 |
+| 2 | 0 | 0 | 4'b0001 |
+| 3 | 1 | 0 | 4'b0001 |
+| 4 | 0 | 0 | 4'b0010 |
+| 5 | 1 | 0 | 4'b0010 |
+
+### stimulus 5
+| cycle | slowena | reset | q |
+|---|---|---|---|
+| 0 | 0 | 1 | 4'x |
+| 1 | 1 | 0 | 4'b0000 |
+| 2 | 1 | 0 | 4'b0001 |
+| 3 | 0 | 0 | 4'b0010 |
+| 4 | 0 | 1 | 4'b0010 |
+| 5 | 1 | 0 | 4'b0000 |
+
+### stimulus 6
+| cycle | slowena | reset | q |
+|---|---|---|---|
+| 0 | 1 | 0 | 4'x |
+| 1 | 1 | 0 | 4'x |
+| 2 | 1 | 0 | 4'x |
+| 3 | 1 | 0 | 4'x |
+
+### stimulus 7
+| cycle | slowena | reset | q |
+|---|---|---|---|
+| 0 | 0 | 1 | 4'x |
+| 1 | 1 | 0 | 4'b0000 |
+| 2 | 1 | 0 | 4'b0001 |
+| 3 | 1 | 0 | 4'b0010 |
+| 4 | 1 | 0 | 4'b0011 |
+| 5 | 1 | 0 | 4'b0100 |
+| 6 | 1 | 0 | 4'b0101 |
+| 7 | 1 | 0 | 4'b0110 |
+| 8 | 1 | 0 | 4'b0111 |
+| 9 | 1 | 0 | 4'b1000 |
+| 10 | 1 | 0 | 4'b1001 |
+| 11 | 1 | 0 | 4'b0000 |
+| 12 | 1 | 0 | 4'b0001 |
+| 13 | 1 | 0 | 4'b0010 |
+| 14 | 1 | 0 | 4'b0011 |
+| 15 | 1 | 0 | 4'b0100 |
+| 16 | 1 | 0 | 4'b0101 |
+| 17 | 1 | 0 | 4'b0110 |
+| 18 | 1 | 0 | 4'b0111 |
+| 19 | 1 | 0 | 4'b1000 |
+| 20 | 1 | 0 | 4'b1001 |
+| 21 | 1 | 0 | 4'b0000 |
+| 22 | 1 | 0 | 4'b0001 |
+| 23 | 1 | 0 | 4'b0010 |
+| 24 | 1 | 0 | 4'b0011 |
+| 25 | 1 | 0 | 4'b0100 |
+| 26 | 1 | 0 | 4'b0101 |
+| 27 | 1 | 0 | 4'b0110 |
+| 28 | 1 | 0 | 4'b0111 |
+| 29 | 1 | 0 | 4'b1000 |
+| 30 | 1 | 0 | 4'b1001 |
+| 31 | 1 | 0 | 4'b0000 |
+| 32 | 1 | 0 | 4'b0001 |

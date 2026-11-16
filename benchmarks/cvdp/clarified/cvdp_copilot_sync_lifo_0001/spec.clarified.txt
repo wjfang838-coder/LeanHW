@@ -1,0 +1,208 @@
+Original requirements are retained verbatim below. They remain normative except for individually quoted, explicitly scoped amendments (including labeled example errata) in the decisions that follow. A summary, omission, finite-model example, or conflicting added sentence does not implicitly override an original requirement.
+
+<!-- original-requirements:start -->
+Design a System Verilog module that implements a **synchronous LIFO (Last-In, First-Out)** memory with configurable data width and depth. The design allows data to be written to and read from the LIFO structure based on specific control signals. 
+
+### Interface of the Module `sync_lifo`
+2. **Parameter Definitions**:
+   - `DATA_WIDTH` (default = 8): Specifies the bit-width of the data to be stored in the LIFO.
+   - `ADDR_WIDTH` (default = 3): Specifies the number of address bits, determining the depth of the LIFO. The depth is ( 2^{ADDR_WIDTH} ). 
+   
+3. **Input Ports**:
+   - `clock` (1 bit): Clock signal. All operations are synchronized with the rising edge of the clock.
+   - `reset` (1 bit): Synchronous reset, active high.
+   - `write_en` (1 bit): Write enable signal. When asserted high, new data is written into the LIFO if it is not full.
+   - `read_en` (1 bit): Read enable signal. When asserted high, data is read from the LIFO if it is not empty.
+   - `data_in` (DATA_WIDTH bits): The data input that will be written to the LIFO when `write_en` is active.
+
+4. **Output Ports**:
+   - `empty` (1 bit): High when the LIFO is empty, indicating no data is available to be read.
+   - `full` (1 bit): High when the LIFO is full, indicating no more data can be written.
+   - `data_out` (DATA_WIDTH bits): The output data that is read from the LIFO when `read_en` is active.
+
+### Specifications:
+
+1. **Write Operation**: 
+	- On the rising edge of the clock, if `write_en` is high and the LIFO is not full, the `data_in` is written to the memory array. 
+	
+2. **Read Operation**: 
+	- On the rising edge of the clock, if `read_en` is high and the LIFO is not empty, the data from the top of the LIFO (the last written value) should be read and output through `data_out`. 
+	
+3. **Reset Behavior**:
+   	-  When reset is asserted (active high), the output clears to zero. The memory should also be cleared at reset and after reset is de-asserted, the LIFO write operation should start fresh.
+
+ 4. **Edge Cases**:
+   	-  Overflow: If write_en is asserted while the LIFO is full, no new data will be written, and the contents and pointer remain unchanged.
+   	-  Underflow: If read_en is asserted while the LIFO is empty, data_out will hold its previous value, and the LIFO pointer and memory remain unchanged.
+### Assumptions:
+-    Assume that the input data is bounded within DATA_WIDTH bits
+	
+<!-- original-requirements:end -->
+
+Decisions and verification instance
+
+Original implementation instruction (verbatim):
+
+Design a System Verilog module that implements a **synchronous LIFO (Last-In, First-Out)** memory with configurable data width and depth. The design allows data to be written to and read from the LIFO structure based on specific control signals. 
+
+Named module interface binding
+
+Module: sync_lifo.
+Connect ports by name. The enumeration below does not establish positional order.
+- clock: input; 1 bits in the concrete formal instance.
+- reset: input; 1 bits in the concrete formal instance.
+- write_en: input; 1 bits in the concrete formal instance.
+- read_en: input; 1 bits in the concrete formal instance.
+- data_in: input; 8 bits in the concrete formal instance.
+- empty: output; 1 bits in the concrete formal instance.
+- full: output; 1 bits in the concrete formal instance.
+- data_out: output; 8 bits in the concrete formal instance.
+Preserve the original document's public parameters, defaults and symbolic port width expressions. Concrete formal widths do not replace parameterization.
+Unspecified declaration order and parameter fields are not established by this binding; retain any explicit qualifications in the answered interface law.
+
+1. Module and ports.
+
+The module name is sync_lifo. Its public parameters are DATA_WIDTH, default 8, and ADDR_WIDTH, default 3. DATA_WIDTH sets the widths of data_in and data_out. ADDR_WIDTH sets the LIFO capacity to 2^ADDR_WIDTH items. The source does not specify parameter declaration types.
+
+The exact port spellings, directions, and widths are:
+
+clock: input, 1 bit
+reset: input, 1 bit
+write_en: input, 1 bit
+read_en: input, 1 bit
+data_in: input, DATA_WIDTH bits
+empty: output, 1 bit
+full: output, 1 bit
+data_out: output, DATA_WIDTH bits
+
+Certain integration answer Q16 states: “The harness confirms named connections to module sync_lifo with one-bit input ports clock, reset, write_en, and read_en, input data_in[DATA_WIDTH-1:0], and output ports empty, full, and data_out[DATA_WIDTH-1:0]; connections are by name and positional order is unverified, while public integer-valued parameters DATA_WIDTH and ADDR_WIDTH are confirmed but their declaration types and defaults are not.” Named wiring is therefore the portable consumer guidance. Neither the source nor Q16 guarantees declaration order. This is a limit on the interface evidence, not an RTL restriction: a caller possessing the actual module declaration may instantiate positionally in that declaration's order.
+
+3. Reset.
+
+reset is active high and synchronous. A rising edge E0 with reset high clears the logical LIFO contents and data_out to zero. The resulting occupancy is zero, so empty is high and full is low. This reset action has priority over write_en and read_en because the required clearing applies whenever reset is asserted. Each later rising edge with reset high re-establishes the same state. Assertion and release between rising edges do not themselves update state.
+
+On the first rising edge after reset is deasserted, normal operation applies immediately to the pre-edge reset state. A legal write can therefore be accepted on that edge; there is no warm-up interval.
+
+Before any rising edge has sampled reset high, the source specifies no hardware power-up value for the memory, occupancy, empty, full, or data_out. It does not require hardware X. An ordinary rising edge before reset is still governed by the normal-operation laws, so reset-before-use is not an input restriction.
+
+Implementation choice C1: solely for the finite concrete Lean verification instance, the initial pre-reset state is chosen as the state reached by the documented synchronous reset sequence, including its active rising edge: the abstract LIFO is empty, empty is high, full is low, and data_out is zero. This is a compatible model-initialization decision, not a source-derived hardware power-up guarantee. It neither initializes physical memory locations nor changes any before-reset functional law.
+
+4. Timing.
+
+All operations and state changes occur on rising edges of clock. For an operation edge E0, reset, enables, data_in, occupancy, and any top item mean their pre-E0 values. A successful write accepts pre-E0 data_in at E0. A successful read selects the pre-E0 top item, removes it at E0, and publishes that item on registered data_out after E0. Thus the read result is visible after E0, after zero completed subsequent clock intervals; it is not a combinational function of later inputs. The occupancy status outputs empty and full reflect the settled stored occupancy after E0. data_out retains its stored value until a reset or successful read changes it. There are no pulse or serialized outputs, and the source specifies no numeric circuit clock period, duty cycle, or propagation delay.
+
+For the autonomous full-cycle evaluated trace, row k is the settled observation at k * step_ns; outputs are sampled before that row's modeled active-edge transition, and the transition produces the state observed in row k+1. sample_offset_ns is the interface-defined sampling offset when provided. This observation convention is separate from, and does not imply, any circuit period or delay law; in particular it is not an implicit 10 ns clock tick.
+
+Implementation choice C2: in the concrete model, data_out retains its last reset or successful-read value on every non-reset edge with no successful read, including idle and accepted-write-only edges. The source already mandates this retention on underflow; elsewhere this is a compatible unconstrained_nonresult_output completion. It changes no reset value, required read result, underflow result, accepted transaction, occupancy update, or later result.
+
+Event audit: a rising edge R0 sampling reset high establishes reset state. Reset release is not an update event. The first rising edge E0 sampling reset low applies the transaction laws to the pre-E0 reset state. The next rising edges E1, E2, and E3 independently apply those laws to their respective pre-edge states. A successful read's public data_out publication and the corresponding removal occur at the same E0; the post-edge result does not acquire an extra interval of latency.
+
+5. Behaviour.
+
+The LIFO holds 2^ADDR_WIDTH items, each DATA_WIDTH bits. Every accepted item later emerges in reverse acceptance order unless reset clears it. Input data is bounded to DATA_WIDTH bits.
+
+On every non-reset rising edge, write_en high requests one write. If the pre-edge LIFO is not full, pre-edge data_in is accepted and becomes the new top item. Keeping write_en high requests one write at every rising edge while space remains. data_in does not affect stored contents when write_en is low, during reset, or on an overflow attempt.
+
+On every non-reset rising edge, read_en high requests one read. If the pre-edge LIFO is not empty, the pre-edge top item is removed and becomes post-edge data_out. Keeping read_en high consumes one available item per rising edge in last-in-first-out order until empty.
+
+empty is high exactly when occupancy is zero and low otherwise. full is high exactly when occupancy equals 2^ADDR_WIDTH and low otherwise. A successful read from full clears full after that edge. A successful write to empty clears empty after that edge.
+
+Overflow is the specific boundary law: if pre-edge full and write_en are high, no new item is written, and contents and occupancy remain unchanged. If read_en is also high, that unchanged-contents requirement prevents a read on that edge, and data_out retains its previous value under C2.
+
+Underflow is the specific boundary law: if pre-edge empty and read_en are high, data_out, contents, and occupancy remain unchanged. If write_en is also high, that unchanged-memory requirement prevents a write on that edge.
+
+When write_en and read_en are both high and pre-edge occupancy is neither empty nor full, both ordinary operation laws apply: at E0 the pre-E0 top item is removed and becomes post-E0 data_out, while pre-E0 data_in is accepted as the new top item. Occupancy is unchanged. Repeated simultaneous edges repeat this law. reset takes priority. Deasserting either enable stops its request; a later assertion operates from the retained state without a restart protocol.
+
+Answers Q1 through Q15 are unclear and therefore establish no amendment, hardware unknown, or don't-care law. Q16 supplies only the certain named-integration clarification quoted in section 1. There are no source amendments.
+
+6. Worked trace.
+
+The following evaluated trace is normative for the concrete default-parameter model and its disclosed choices C1 and C2. It does not replace the parameterized requirements or create a hardware power-up guarantee.
+
+### stimulus 0
+| cycle | reset | write_en | read_en | data_in | empty | full | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 1 | 0 | 1 | 0 | 8'b00000001 | 1 | 0 | 8'b00000000 |
+| 2 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+
+### stimulus 1
+| cycle | reset | write_en | read_en | data_in | empty | full | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b11111111 | 1 | 0 | 8'b00000000 |
+| 1 | 0 | 1 | 0 | 8'b11111111 | 1 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 0 | 8'b10000000 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 0 | 8'b01011010 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 5 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b01011010 |
+| 6 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b10000000 |
+| 7 | 0 | 0 | 1 | 8'b00000000 | 1 | 0 | 8'b11111111 |
+
+### stimulus 2
+| cycle | reset | write_en | read_en | data_in | empty | full | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 1 | 0 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 2 | 0 | 0 | 1 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 0 | 8'b00000001 | 1 | 0 | 8'b00000000 |
+| 4 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 5 | 0 | 0 | 1 | 8'b00000000 | 1 | 0 | 8'b00000001 |
+
+### stimulus 3
+| cycle | reset | write_en | read_en | data_in | empty | full | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 1 | 0 | 1 | 0 | 8'b00010001 | 1 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 0 | 8'b00100010 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 1 | 8'b00110011 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00100010 |
+| 5 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00110011 |
+
+### stimulus 4
+| cycle | reset | write_en | read_en | data_in | empty | full | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 1 | 0 | 1 | 0 | 8'b00001010 | 1 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 0 | 8'b00010100 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 0 | 8'b00011110 | 0 | 0 | 8'b00010100 |
+| 5 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00010100 |
+| 6 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00011110 |
+| 7 | 0 | 1 | 0 | 8'b00101000 | 1 | 0 | 8'b00001010 |
+| 8 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00001010 |
+
+### stimulus 5
+| cycle | reset | write_en | read_en | data_in | empty | full | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 1 | 0 | 1 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 2 | 0 | 1 | 0 | 8'b00000001 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 0 | 8'b00000010 | 0 | 0 | 8'b00000000 |
+| 4 | 0 | 1 | 0 | 8'b00000011 | 0 | 0 | 8'b00000000 |
+| 5 | 0 | 1 | 0 | 8'b00000100 | 0 | 0 | 8'b00000000 |
+| 6 | 0 | 1 | 0 | 8'b00000101 | 0 | 0 | 8'b00000000 |
+| 7 | 0 | 1 | 0 | 8'b00000110 | 0 | 0 | 8'b00000000 |
+| 8 | 0 | 1 | 0 | 8'b00000111 | 0 | 0 | 8'b00000000 |
+| 9 | 0 | 1 | 0 | 8'b11111111 | 0 | 1 | 8'b00000000 |
+| 10 | 0 | 0 | 1 | 8'b00000000 | 0 | 1 | 8'b00000000 |
+| 11 | 0 | 1 | 0 | 8'b10000000 | 0 | 0 | 8'b00000111 |
+| 12 | 0 | 0 | 1 | 8'b00000000 | 0 | 1 | 8'b00000111 |
+
+### stimulus 6
+| cycle | reset | write_en | read_en | data_in | empty | full | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 1 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 1 | 0 | 1 | 0 | 8'b01010101 | 1 | 0 | 8'b00000000 |
+| 2 | 1 | 1 | 1 | 8'b10101010 | 0 | 0 | 8'b00000000 |
+| 3 | 0 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 4 | 0 | 0 | 1 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+
+### stimulus 7
+| cycle | reset | write_en | read_en | data_in | empty | full | data_out |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 1 | 1 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 2 | 0 | 0 | 0 | 8'b00000000 | 1 | 0 | 8'b00000000 |
+| 3 | 0 | 1 | 0 | 8'b01011010 | 1 | 0 | 8'b00000000 |
+| 4 | 0 | 0 | 0 | 8'b00000000 | 0 | 0 | 8'b00000000 |
+| 5 | 0 | 0 | 1 | 8'b00000000 | 0 | 0 | 8'b00000000 |

@@ -1,0 +1,11 @@
+--- faulty.sv
++++ repaired.sv
+@@ -108,7 +108,7 @@
+   reg [4:0] r1,r2;
+   reg [5:0] op;
+ 
+-  assign retire_valid=!rst && wv;
++  assign retire_valid=!rst && wv && !stall_writeback;
+   assign retire_insn=retire_valid ? wi : 0;
+   assign retire_pc=retire_valid ? wpc : 0;
+   assign retire_rd=retire_valid ? wi[11:7] : 0;

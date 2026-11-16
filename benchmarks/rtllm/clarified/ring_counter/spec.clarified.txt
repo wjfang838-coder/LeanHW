@@ -1,0 +1,140 @@
+Module and integration contract
+
+Module: ring_counter.
+Ports below are in exact declaration order:
+- clk: input 1 bit.
+- reset: input 1 bit.
+- out: output [7:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+Reset is active high and asynchronous. Whenever reset is asserted, `out` immediately reads 8'b00000001, independently of a clock edge. Every rising `clk` edge while reset remains asserted reapplies that value. Reset has priority over a simultaneous rising `clk` edge.
+
+Before reset has ever been asserted, `out` is unknown and remains unknown across clock edges. The implementation must leave this power-up state uninitialised: it must not establish a value through an initial block or declaration initialiser.
+
+Deasserting reset does not itself change `out`. After release, `out` remains 8'b00000001 until the first subsequent rising `clk` edge with reset low; that edge advances it to 8'b00000010.
+
+The stored 8-bit counter state is likewise unknown at power-up, becomes 8'b00000001 immediately upon reset assertion, remains 8'b00000001 throughout reset, and is retained unchanged by reset release until the first subsequent effective rising edge.
+
+4. Timing
+
+`out` is stored state with asynchronous reset behavior. Reset assertion changes it immediately. With reset low, it changes only on rising `clk` edges and holds through falling edges and steady clock levels. A rising edge advances it by exactly one position; there is no additional pipeline latency. Reset deassertion alone has no effect.
+
+Each one-hot position is held for exactly one rising-edge-to-rising-edge clock cycle when reset remains low. The complete sequence has a period of 8 clock cycles. Each output bit is high for 1 cycle and low for 7 cycles during that period.
+
+The evaluated trace uses full-cycle sampling: row k observes the settled output immediately before the rising edge represented by that row, and the state transition caused by that edge is visible in row k+1. This observation convention is separate from the circuit law: the circuit responds to actual rising `clk` edges and to asynchronous reset assertion, and the specification imposes no nanosecond clock period or propagation delay.
+
+5. Behaviour
+
+A rising `clk` edge advances `out` by one left rotation only while reset is low; falling edges and steady levels have no effect, a rising edge simultaneous with asserted reset produces the reset value instead, repeated rising edges repeatedly rotate, and reset assertion interrupts this cadence immediately.
+
+Reset is active high and has priority: its assertion immediately sets `out` to 8'b00000001, every rising `clk` edge while it remains high reapplies that value, and deassertion alone does not change `out`, with rotation resuming at the first subsequent rising `clk` edge where reset is low; repeated assertions behave identically.
+
+`out` is indeterminate before any reset assertion, changes immediately to 8'b00000001 when reset is asserted, remains at that value through reset release until the first rising `clk` edge with reset low, then changes on each such edge to the one-bit left rotation of its pre-edge value and holds between effective events; because each row is sampled before its active edge, a rotation caused by row k's edge is first observable in row k+1, and there is no completion or automatic restart because the sequence repeats cyclically until reset interrupts it.
+
+For every possible 8-bit stored value V, the rotation law is `out_next = {V[6:0], V[7]}`. Thus the reset-derived sequence is 8'b00000001, 8'b00000010, 8'b00000100, 8'b00001000, 8'b00010000, 8'b00100000, 8'b01000000, 8'b10000000, and then 8'b00000001 again. Starting from the specified reset value, exactly one bit is high at all times after reset has first been asserted.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | reset | out |
+|---|---|---|
+| 0 | 0 | 8'x |
+
+### stimulus 1
+| cycle | reset | out |
+|---|---|---|
+| 0 | 1 | 8'b00000001 |
+| 1 | 0 | 8'b00000001 |
+| 2 | 0 | 8'b00000010 |
+| 3 | 0 | 8'b00000100 |
+
+### stimulus 2
+| cycle | reset | out |
+|---|---|---|
+| 0 | 0 | 8'x |
+| 1 | 1 | 8'b00000001 |
+| 2 | 0 | 8'b00000001 |
+| 3 | 0 | 8'b00000010 |
+
+### stimulus 3
+| cycle | reset | out |
+|---|---|---|
+| 0 | 1 | 8'b00000001 |
+| 1 | 1 | 8'b00000001 |
+| 2 | 0 | 8'b00000001 |
+| 3 | 0 | 8'b00000010 |
+| 4 | 0 | 8'b00000100 |
+
+### stimulus 4
+| cycle | reset | out |
+|---|---|---|
+| 0 | 1 | 8'b00000001 |
+| 1 | 0 | 8'b00000001 |
+| 2 | 0 | 8'b00000010 |
+| 3 | 1 | 8'b00000001 |
+| 4 | 0 | 8'b00000001 |
+| 5 | 0 | 8'b00000010 |
+
+### stimulus 5
+| cycle | reset | out |
+|---|---|---|
+| 0 | 1 | 8'b00000001 |
+| 1 | 0 | 8'b00000001 |
+| 2 | 1 | 8'b00000001 |
+| 3 | 0 | 8'b00000001 |
+| 4 | 1 | 8'b00000001 |
+| 5 | 0 | 8'b00000001 |
+
+### stimulus 6
+| cycle | reset | out |
+|---|---|---|
+| 0 | 0 | 8'x |
+| 1 | 0 | 8'x |
+| 2 | 1 | 8'b00000001 |
+| 3 | 0 | 8'b00000001 |
+| 4 | 0 | 8'b00000010 |
+| 5 | 0 | 8'b00000100 |
+| 6 | 0 | 8'b00001000 |
+
+### stimulus 7
+| cycle | reset | out |
+|---|---|---|
+| 0 | 1 | 8'b00000001 |
+| 1 | 0 | 8'b00000001 |
+| 2 | 0 | 8'b00000010 |
+| 3 | 0 | 8'b00000100 |
+| 4 | 0 | 8'b00001000 |
+| 5 | 0 | 8'b00010000 |
+| 6 | 0 | 8'b00100000 |
+| 7 | 0 | 8'b01000000 |
+| 8 | 0 | 8'b10000000 |
+| 9 | 0 | 8'b00000001 |
+| 10 | 0 | 8'b00000010 |
+| 11 | 0 | 8'b00000100 |
+| 12 | 0 | 8'b00001000 |
+| 13 | 0 | 8'b00010000 |
+| 14 | 0 | 8'b00100000 |
+| 15 | 0 | 8'b01000000 |
+| 16 | 0 | 8'b10000000 |
+| 17 | 0 | 8'b00000001 |
+| 18 | 0 | 8'b00000010 |
+| 19 | 0 | 8'b00000100 |
+| 20 | 0 | 8'b00001000 |
+| 21 | 0 | 8'b00010000 |
+| 22 | 0 | 8'b00100000 |
+| 23 | 0 | 8'b01000000 |
+| 24 | 0 | 8'b10000000 |
+| 25 | 0 | 8'b00000001 |
+| 26 | 0 | 8'b00000010 |

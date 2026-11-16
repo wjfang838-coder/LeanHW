@@ -1,0 +1,9 @@
+{
+  "sources": ["word_mix.v"],
+  "top": "word_mix",
+  "language": "verilog",
+  "semantics": "combinational_two_state",
+  "parameters": {},
+  "defines": [],
+  "include_dirs": []
+}

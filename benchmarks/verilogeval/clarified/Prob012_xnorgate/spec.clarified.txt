@@ -1,0 +1,86 @@
+Module and integration contract
+
+Module: TopModule.
+Ports below are in exact declaration order:
+- a: input 1 bit.
+- b: input 1 bit.
+- out: output 1 bit.
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: row k drives input i[k], waits for combinational settling and observes out(s[k], i[k]) BEFORE the active clock edge specified by the behavioral rules below. Use those rules for clock polarity and reset sensitivity. That edge produces s[k+1] = step(s[k], i[k]). A register assigned input i[k] at that edge is visible in row k+1; this is ONE register, not an input register plus an output register. Asynchronous reset assertion takes effect without waiting for that edge. Describe transaction latency from the accepting edge, and distinguish the completion pulse from the interval during which result data remains valid.
+
+1. Module and ports
+
+
+
+3. Reset
+
+The module has no reset and no stored state. At power-up, before any edge or reset event, out is already the definite XNOR of the current a and b values. There is no first reset edge and no reset-release step; input changes always affect out under the same combinational law.
+
+4. Timing
+
+out is combinational from the current a and b inputs with zero clock-cycle latency. It is not registered, produces no pulse, and has no periodic behavior, capture edge, hold interval, completion event, or restart behavior.
+
+The evaluated full-cycle trace uses observation steps, not physical clock ticks: row k is the settled observation at k times the interface step duration, at the interface sample offset. This observation convention does not imply a circuit period or propagation-delay law; the circuit has no clock-defined period, and no numeric propagation delay is specified.
+
+5. Behaviour
+
+For every input combination, out is 1 exactly when the current one-bit values of a and b are equal, and out is 0 exactly when they differ.
+
+At all times, including simultaneous changes, interruptions, and repeated input patterns, a affects out combinationally so that out is 1 when a equals b and 0 when a differs from b; neither level of a is inactive, and there is no transaction or retained state.
+
+At all times, including simultaneous changes, interruptions, and repeated input patterns, b affects out combinationally so that out is 1 when b equals a and 0 when b differs from a; neither level of b is inactive, and there is no transaction or retained state.
+
+out is continuously the one-bit XNOR of the current a and b values, with no reset, capture edge, observation latency, hold or clear interval, completion event, or restart behavior, so a pre-transition row observes the value implied by the inputs present for that row.
+
+The complete truth table is: when a=0 and b=0, out=1; when a=0 and b=1, out=0; when a=1 and b=0, out=0; and when a=1 and b=1, out=1. There are no other encodings for either one-bit input.
+
+6. Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 1 |
+
+### stimulus 1
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+
+### stimulus 2
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+
+### stimulus 3
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 1 | 1 | 1 |
+
+### stimulus 4
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 0 | 0 | 1 |
+| 1 | 0 | 1 | 0 |
+
+### stimulus 5
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 1 | 0 | 0 |
+| 1 | 1 | 1 | 1 |
+
+### stimulus 6
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 0 |
+
+### stimulus 7
+| cycle | a | b | out |
+|---|---|---|---|
+| 0 | 1 | 1 | 1 |
+| 1 | 0 | 0 | 1 |

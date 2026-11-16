@@ -1,0 +1,146 @@
+Module and integration contract
+
+Module: synchronizer.
+Ports below are in exact declaration order:
+- clk_a: input 1 bit.
+- clk_b: input 1 bit.
+- arstn: input 1 bit.
+- brstn: input 1 bit.
+- data_in: input [3:0].
+- data_en: input 1 bit.
+- dataout: output [3:0].
+
+Public parameters (preserve names, defaults and symbolic port ranges):
+- None.
+
+Event convention: each table row drives the explicitly named clock levels and data, then observes settled outputs. The model must apply the edge described by those levels exactly once; it must not insert a second pipeline delay.
+
+Module and ports
+
+
+
+Reset
+
+Both resets are active low and asynchronous in their respective stated effects. Whenever brstn is low, dataout is 4'b0000 and all pending propagated enables are cleared. A falling edge of arstn makes the sampled data available to future qualified output updates equal to 4'b0000; arstn does not directly change dataout. At a clk_a rising edge while brstn is low, the sampled enable is 1'b0. At a clk_a rising edge while arstn is low, the sampled data is 4'b0000. Release of either reset has no immediate effect.
+
+Before brstn has ever been asserted low and before a clk_b rising edge has established dataout, dataout is unknown. The implementation must leave it uninitialised, with no initial block or declaration initialiser. Once brstn has been low, dataout is 4'b0000; on the first step after release it remains 4'b0000 unless that step is a qualified clk_b rising edge with a pre-edge enable that had already completed both propagation steps.
+
+Timing
+
+dataout is registered in the clk_b domain. It changes only just after a rising edge of clk_b, except that assertion of brstn clears it asynchronously. An asserted enable sampled on a rising edge of clk_a must advance through two later rising edges of clk_b; the following rising edge of clk_b updates dataout from the pre-edge sampled data. Thus the latency is three clk_b rising edges from the first eligible propagation edge, subject to the independent clk_a sampling time. A deasserted propagated enable retains dataout. Consecutive asserted pipeline entries may update dataout on consecutive clk_b rising edges after pipeline fill.
+
+data_en is required to remain high for at least three clk_b clock cycles, and data_in is required to remain constant throughout that high interval. Adjacent changes of data_in are separated by at least ten clk_b clock cycles. The specification fixes neither clock period nor relative phase.
+
+The evaluated half-cycle trace uses pre-transition sampling: each row observes the settled output for that row's input clock levels, and then commits any pending rising-edge transition once. Row indices therefore describe successive half-cycle stimuli, not an implicit 10 ns clock. No physical clock period, step duration, or propagation delay is implied by the row number.
+
+Behaviour
+
+Each clk_a rising edge samples data_in when arstn is high and selects 4'b0000 when arstn is low; other clk_a levels and falling edges do not change the sampled data, and repeated rising edges replace it.
+
+data_in is sampled regardless of data_en. The most recently sampled data value preceding a qualified clk_b output edge becomes dataout, so a later clk_a sample can replace the value associated with an earlier enable transaction.
+
+Each clk_a rising edge samples data_en when brstn is high and selects 1'b0 when brstn is low. In addition, a falling edge of arstn samples the current data_en when brstn is high, or selects 1'b0 when brstn is low. Other changes of data_en have no effect.
+
+While brstn is high, each clk_b rising edge advances every sampled enable by one of two propagation steps. A clk_b rising edge updates dataout only if its pre-edge enable has already completed both steps; it then takes the clk_a-sampled data that existed before that output edge. Otherwise dataout retains its preceding value.
+
+When clk_a and clk_b rise together, all clk_b-domain actions use the data and enable history from before the coincident edge. The newly taken clk_a samples do not advance on that same clk_b edge. Consequently a newly sampled asserted enable still needs two subsequent clk_b propagation edges and the following clk_b output edge.
+
+Low brstn cancels every pending enable assertion, clears both propagation steps, and asynchronously clears dataout to 4'b0000. After release, a newly sampled asserted enable must again traverse both propagation edges before the following clk_b edge can update dataout. Repeated samples form a pipeline; asserted entries permit updates after pipeline fill, while deasserted entries cause retention. Low or falling clock levels have no state effect.
+
+dataout is not directly reset by arstn. It retains its last established value through deasserted enables and reset release, and a renewed assertion of brstn immediately clears it and restarts the enable sequence.
+
+Worked trace
+
+The following evaluated trace is normative.
+
+### stimulus 0
+| half-cycle | clk_a | clk_b | arstn | brstn | data_in | data_en | dataout |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 4'b0000 | 0 | 4'b0000 |
+| 1 | 1 | 0 | 0 | 0 | 4'b0001 | 0 | 4'b0000 |
+| 2 | 0 | 1 | 1 | 1 | 4'b1000 | 1 | 4'b0000 |
+| 3 | 1 | 1 | 1 | 1 | 4'b1000 | 1 | 4'b0000 |
+| 4 | 0 | 0 | 1 | 1 | 4'b1000 | 1 | 4'b0000 |
+| 5 | 1 | 0 | 1 | 1 | 4'b1000 | 1 | 4'b0000 |
+| 6 | 0 | 1 | 1 | 1 | 4'b1000 | 1 | 4'b0000 |
+| 7 | 0 | 0 | 1 | 1 | 4'b1000 | 1 | 4'b0000 |
+| 8 | 0 | 1 | 1 | 1 | 4'b1000 | 1 | 4'b0000 |
+
+### stimulus 1
+| half-cycle | clk_a | clk_b | arstn | brstn | data_in | data_en | dataout |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 4'b1111 | 1 | 4'b0000 |
+| 1 | 1 | 1 | 1 | 1 | 4'b1111 | 1 | 4'b0000 |
+| 2 | 0 | 0 | 1 | 1 | 4'b1111 | 1 | 4'b0000 |
+| 3 | 1 | 1 | 1 | 1 | 4'b1111 | 1 | 4'b0000 |
+| 4 | 0 | 0 | 1 | 1 | 4'b1111 | 1 | 4'b0000 |
+| 5 | 1 | 1 | 1 | 1 | 4'b1111 | 1 | 4'b0000 |
+
+### stimulus 2
+| half-cycle | clk_a | clk_b | arstn | brstn | data_in | data_en | dataout |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 4'b0000 | 0 | 4'b0000 |
+| 1 | 0 | 1 | 1 | 1 | 4'b0101 | 0 | 4'b0000 |
+| 2 | 1 | 0 | 1 | 1 | 4'b0101 | 1 | 4'b0000 |
+| 3 | 0 | 1 | 1 | 1 | 4'b0101 | 1 | 4'b0000 |
+| 4 | 1 | 0 | 1 | 1 | 4'b0101 | 1 | 4'b0000 |
+| 5 | 0 | 1 | 1 | 1 | 4'b0101 | 1 | 4'b0000 |
+
+### stimulus 3
+| half-cycle | clk_a | clk_b | arstn | brstn | data_in | data_en | dataout |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 4'b0001 | 0 | 4'b0000 |
+| 1 | 1 | 0 | 1 | 1 | 4'b0001 | 1 | 4'b0000 |
+| 2 | 0 | 1 | 1 | 1 | 4'b0001 | 1 | 4'b0000 |
+| 3 | 1 | 0 | 1 | 1 | 4'b1111 | 0 | 4'b0000 |
+| 4 | 0 | 1 | 1 | 1 | 4'b1111 | 0 | 4'b0000 |
+| 5 | 1 | 0 | 1 | 1 | 4'b1111 | 1 | 4'b0000 |
+| 6 | 0 | 1 | 1 | 1 | 4'b1111 | 1 | 4'b0000 |
+
+### stimulus 4
+| half-cycle | clk_a | clk_b | arstn | brstn | data_in | data_en | dataout |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 4'b1000 | 0 | 4'b0000 |
+| 1 | 1 | 0 | 0 | 1 | 4'b1000 | 1 | 4'b0000 |
+| 2 | 0 | 1 | 1 | 0 | 4'b1000 | 1 | 4'b0000 |
+| 3 | 1 | 0 | 1 | 1 | 4'b1000 | 1 | 4'b0000 |
+| 4 | 0 | 1 | 1 | 1 | 4'b1000 | 1 | 4'b0000 |
+
+### stimulus 5
+| half-cycle | clk_a | clk_b | arstn | brstn | data_in | data_en | dataout |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 | 1 | 4'b0110 | 1 | 4'x |
+| 1 | 1 | 0 | 1 | 1 | 4'b0110 | 1 | 4'x |
+| 2 | 0 | 1 | 1 | 1 | 4'b0110 | 1 | 4'x |
+| 3 | 1 | 0 | 1 | 1 | 4'b0110 | 1 | 4'x |
+
+### stimulus 6
+| half-cycle | clk_a | clk_b | arstn | brstn | data_in | data_en | dataout |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 4'b0000 | 0 | 4'b0000 |
+| 1 | 1 | 0 | 1 | 1 | 4'b0000 | 0 | 4'b0000 |
+| 2 | 0 | 1 | 1 | 1 | 4'b0000 | 0 | 4'b0000 |
+| 3 | 1 | 0 | 1 | 1 | 4'b0000 | 1 | 4'b0000 |
+| 4 | 0 | 1 | 1 | 1 | 4'b0000 | 1 | 4'b0000 |
+| 5 | 1 | 0 | 1 | 1 | 4'b0000 | 1 | 4'b0000 |
+| 6 | 0 | 1 | 1 | 1 | 4'b0000 | 1 | 4'b0000 |
+
+### stimulus 7
+| half-cycle | clk_a | clk_b | arstn | brstn | data_in | data_en | dataout |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 4'b0011 | 0 | 4'b0000 |
+| 1 | 1 | 1 | 1 | 1 | 4'b0011 | 1 | 4'b0000 |
+| 2 | 0 | 0 | 1 | 1 | 4'b0011 | 1 | 4'b0000 |
+| 3 | 1 | 1 | 1 | 1 | 4'b0011 | 1 | 4'b0000 |
+| 4 | 0 | 0 | 1 | 1 | 4'b1001 | 0 | 4'b0000 |
+| 5 | 1 | 1 | 1 | 1 | 4'b1001 | 1 | 4'b0000 |
+
+## Normative clarification after closure validation
+
+For each stimulus row, rising edges are determined from the clock levels in the preceding row and the levels in the current row. The value of dataout reported for the current row is the value established before those rising-edge transitions are committed. Any dataout update caused by a rising edge of clk_b in that row is therefore first observable in the following row. Assertion of brstn is the exception: whenever brstn is low, the reported dataout is immediately 4'b0000 in that same row.
+
+On a rising edge of clk_a, data_in and data_en are sampled from the current row, subject to their stated resets. On a rising edge of clk_b, enable propagation and any qualified dataout update use only samples and propagation history that existed before that edge. Updates caused by the edge take effect together after observation; a value entering one propagation step cannot enter the next step, or qualify dataout, on the same clk_b edge. If clk_a and clk_b rise in the same row, the clk_b action consequently cannot use the samples taken by that clk_a edge.
+
+An asserted data_en sample requires two subsequent rising edges of clk_b to complete propagation, and the next rising edge of clk_b qualifies the dataout update. That update uses the most recent clk_a-sampled data that existed before the qualifying clk_b edge, not necessarily the data present when the asserted enable was sampled. A deasserted enable reaching the qualification point retains dataout.
+
+Low brstn immediately reports dataout as 4'b0000 and cancels all enable-propagation history; release creates no edge or update. Low arstn makes the sampled data 4'b0000, including on its falling edge, but never directly changes dataout. Before brstn has ever been low and before a qualifying clk_b edge has established dataout, dataout remains unknown; clock or reset release alone must not replace that unknown value with a definite value.

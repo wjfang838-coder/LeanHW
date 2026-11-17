@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/>
+<meta content="LeanHW: proof-driven hardware development with intent clarification and unbounded refinement." name="description"/>
+<meta content="#101d36" name="theme-color"/><title>LeanHW | Proof-Driven Hardware Development</title>
+<style>
+:root{--navy:#101d36;--ink:#1c2b43;--muted:#5e6b80;--blue:#386ce8;--sky:#edf4ff;--teal:#069c92;--gold:#e9a83f;--paper:#f6f8fc;--line:#dfe6f1;--white:#fff}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}a{color:#245bc8;text-decoration:none}a:hover{text-decoration:underline}button{font:inherit}header{position:sticky;z-index:40;top:0;background:#ffffffed;backdrop-filter:blur(15px);border-bottom:1px solid var(--line)}.nav{max-width:1160px;margin:auto;padding:13px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px}.logo{font-weight:800;font-size:22px;letter-spacing:-1px;color:var(--navy)}.logo span{color:var(--blue)}nav{display:flex;gap:26px;font-size:14px;font-weight:650}nav a{color:#425069}.wrap{max-width:1120px;margin:auto;padding:0 25px}.hero{background:linear-gradient(125deg,#0d1930,#193a6b);color:white;padding:86px 0 82px;position:relative;overflow:hidden}.hero:after{content:'';position:absolute;width:540px;height:540px;border:1px solid #ffffff15;border-radius:50%;right:-120px;top:-170px;box-shadow:0 0 0 80px #ffffff06,0 0 0 160px #ffffff04;pointer-events:none}.eyebrow{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:2.1px;color:#9ecbff}.hero h1{font-size:clamp(44px,6vw,72px);letter-spacing:-3px;line-height:1.08;margin:15px 0 18px;max-width:900px}.hero p{font-size:20px;color:#cbdcf6;max-width:760px;line-height:1.6}.actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:29px}.btn{display:inline-block;padding:11px 20px;border-radius:10px;font-weight:700;font-size:14px;background:var(--blue);color:white;border:1px solid transparent}.btn:hover{text-decoration:none;filter:brightness(1.08)}.btn.ghost{background:#ffffff14;border-color:#ffffff55}.note{font-size:13px;color:#b5c9e4;margin-top:24px}.section{padding:77px 0}.section.alt{background:white}.kicker{font-weight:800;font-size:12px;letter-spacing:1.7px;text-transform:uppercase;color:var(--blue)}h2{font-size:clamp(29px,3.7vw,41px);line-height:1.18;letter-spacing:-1.4px;margin:8px 0 20px;color:var(--navy)}h3{font-size:21px;letter-spacing:-.45px;color:var(--navy);margin:0 0 12px}h4{margin:0 0 8px;font-size:16px;color:var(--navy)}p{margin:0 0 17px}.lead{font-size:18px;color:#516078;max-width:850px}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px;margin-top:30px}.card{background:white;border:1px solid var(--line);padding:25px;border-radius:15px;box-shadow:0 8px 30px #142c4f06}.alt .card{background:#f8faff}.card .idx{font-size:12px;font-weight:800;letter-spacing:.8px;color:var(--blue);margin-bottom:11px}.card p{font-size:14px;color:var(--muted);margin-bottom:0}.pill{display:inline-block;padding:5px 11px;border:1px solid #c9d9fa;background:#edf4ff;border-radius:99px;color:#2357a5;font-size:12px;font-weight:700}.pipeline{margin:32px 0 20px;display:grid;grid-template-columns:1fr 44px 1fr;gap:14px;align-items:center}.stage{border:1px solid var(--line);border-radius:16px;background:white;padding:25px;min-height:176px}.stage .step{color:var(--teal);font-size:12px;font-weight:800;letter-spacing:1px}.stage p{font-size:14px;color:var(--muted)}.arrow{font-size:31px;text-align:center;color:var(--blue)}.animation{background:#0d1c34;border-radius:18px;padding:25px;margin:30px 0;box-shadow:0 22px 45px #11295018;color:white;overflow:hidden}.animhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.animhead h3{color:white;margin:0}.animlabel{color:#adc5e3;font-size:13px}.svgflow{display:block;width:100%;height:auto;margin:12px auto 0}.pulse{animation:pulse 3s ease-in-out infinite;transform-origin:center}.moving{stroke-dasharray:8 9;animation:dash 1.5s linear infinite}@keyframes dash{to{stroke-dashoffset:-34}}@keyframes pulse{50%{opacity:.55}}@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important}}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:25px}.metric{border-left:4px solid var(--teal);background:#f3faf9;padding:20px}.metric strong{display:block;font-size:28px;color:#126d67;line-height:1.25}.metric span{display:block;font-size:13px;color:#47716c;margin-top:6px}.detail{display:grid;grid-template-columns:240px 1fr;gap:38px}.sidebar{position:sticky;top:85px;align-self:start;background:white;border:1px solid var(--line);padding:18px;border-radius:13px}.sidebar a{display:block;padding:8px 10px;border-radius:8px;font-size:13px;color:#49617e}.sidebar a:hover{background:var(--sky);text-decoration:none}.prose h3{margin-top:39px;scroll-margin-top:95px}.prose h3:first-child{margin-top:0}.prose p,.prose li{color:#495871}.prose ul{padding-left:23px}.figure{border:1px solid var(--line);border-radius:15px;background:white;padding:24px;margin:22px 0}.figure figcaption{color:#71809a;text-align:center;font-size:12px;margin-top:15px}.code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;line-height:1.6;background:#111d30;color:#d4e4ff;padding:20px 22px;border-radius:12px;overflow:auto;white-space:pre}.tag{background:#ebf3ff;color:#2d61b2;font-size:11px;padding:3px 7px;border-radius:5px}.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:13px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:#eaf0f8;color:#273b59}td{color:#52617b}.foot{background:#101d36;color:#b3c3dd;padding:35px 0;font-size:13px}.foot a{color:#b5d4ff}.copy{background:transparent;border:1px solid #bdcde7;border-radius:8px;padding:7px 12px;color:#28549d;cursor:pointer;font-size:12px}.repo{background:#f6f9ff;border:1px solid var(--line);padding:20px 22px;border-radius:12px}.callout{border-left:3px solid #4a84e6;background:#f0f5ff;padding:15px 18px;border-radius:0 9px 9px 0;font-size:14px;color:#41597e;margin:19px 0}.small{font-size:13px;color:#708098}.flowgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.flowbox{background:#eef4ff;border:1px solid #c9daf9;color:#264777;text-align:center;padding:14px 6px;border-radius:10px;font-size:13px;font-weight:700}.flowbox.teal{background:#e6f8f4;border-color:#b7e8db;color:#147c70}@media(max-width:800px){nav{gap:12px;font-size:12px}.cards,.metrics{grid-template-columns:1fr}.pipeline{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}.detail{grid-template-columns:1fr}.sidebar{position:static}.hero{padding:60px 0}.section{padding:54px 0}.flowgrid{grid-template-columns:repeat(2,1fr)}}@media(max-width:480px){.nav{flex-wrap:wrap;gap:8px}nav{width:100%;justify-content:space-between}.animation{padding:12px}.hero h1{letter-spacing:-1.8px}.wrap{padding:0 18px}}
+</style><style>
+.interactive-animation{margin:42px 0 52px;padding:22px;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 38px #142c4f0a;}
+.interactive-animation-heading{display:flex;align-items:baseline;justify-content:space-between;gap:18px;margin:0 4px 15px;flex-wrap:wrap;}
+.interactive-animation-heading h3{margin:0;color:var(--navy);font-size:21px;}
+.interactive-animation-heading p{margin:0;color:var(--muted);font-size:14px;max-width:700px;}
+.leanhw-animation-frame{display:block;width:100%;height:clamp(560px,76vw,850px);border:1px solid var(--line);border-radius:13px;background:var(--paper);}
+@media(max-width:700px){.interactive-animation{padding:10px;margin:30px 0 38px}.interactive-animation-heading{padding:4px 5px}.interactive-animation-heading p{font-size:13px}.leanhw-animation-frame{height:620px;}}
+</style><style>
+.interactive-animation{margin:42px 0 52px;padding:22px;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 38px #142c4f0a;}
+.interactive-animation-heading{display:flex;align-items:baseline;justify-content:space-between;gap:18px;margin:0 4px 15px;flex-wrap:wrap;}
+.interactive-animation-heading h3{margin:0;color:var(--navy);font-size:21px;}
+.interactive-animation-heading p{margin:0;color:var(--muted);font-size:14px;max-width:700px;}
+.leanhw-animation-frame{display:block;width:100%;height:clamp(560px,76vw,850px);border:1px solid var(--line);border-radius:13px;background:var(--paper);}
+@media(max-width:700px){.interactive-animation{padding:10px;margin:30px 0 38px}.interactive-animation-heading{padding:4px 5px}.interactive-animation-heading p{font-size:13px}.leanhw-animation-frame{height:620px;}}
+</style><style>
+.interactive-animation{margin:42px 0 52px;padding:22px;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 38px #142c4f0a;}
+.interactive-animation-heading{display:flex;align-items:baseline;justify-content:space-between;gap:18px;margin:0 4px 15px;flex-wrap:wrap;}
+.interactive-animation-heading h3{margin:0;color:var(--navy);font-size:21px;}
+.interactive-animation-heading p{margin:0;color:var(--muted);font-size:14px;max-width:700px;}
+.leanhw-animation-frame{display:block;width:100%;height:clamp(560px,76vw,850px);border:1px solid var(--line);border-radius:13px;background:var(--paper);}
+@media(max-width:700px){.interactive-animation{padding:10px;margin:30px 0 38px}.interactive-animation-heading{padding:4px 5px}.interactive-animation-heading p{font-size:13px}.leanhw-animation-frame{height:620px;}}
+</style><style id="animation-theme-style">
+.interactive-animation{margin:42px 0 52px;padding:22px;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 38px #142c4f0a;}
+.interactive-animation-heading{display:flex;align-items:baseline;justify-content:space-between;gap:18px;margin:0 4px 15px;flex-wrap:wrap;}
+.interactive-animation-heading h3{margin:0;color:var(--navy);font-size:21px;}
+.interactive-animation-heading p{margin:0;color:var(--muted);font-size:14px;max-width:700px;}
+.leanhw-animation-frame{display:block;width:100%;height:clamp(560px,76vw,850px);border:1px solid var(--line);border-radius:13px;background:var(--paper);}
+@media(max-width:700px){.interactive-animation{padding:10px;margin:30px 0 38px}.interactive-animation-heading{padding:4px 5px}.interactive-animation-heading p{font-size:13px}.leanhw-animation-frame{height:620px;}}
+</style></head><body>
+<header><div class="nav"><a class="logo" href="#top">Lean<span>HW</span></a><nav><a href="#overview">Overview</a><a href="#method">Method</a><a href="#case-study">RISC-V Case Study</a><a href="#codebase">Codebase</a></nav></div></header>
+<main id="top"><section class="hero"><div class="wrap"><div class="eyebrow">Formal Methods × Agentic Hardware Development</div><h1>LeanHW</h1><p>From ambiguous natural-language requirements to executable specifications, generated RTL, and machine-checked refinement proofs.</p><div class="actions"><a class="btn" href="#method">Explore the workflow</a><a class="btn ghost" href="#case-study">Read the RISC-V case study</a><a class="btn ghost" href="#codebase">Codebase</a></div><div class="note">Research project · Anonymous review version</div></div></section>
+<section class="section" id="overview"><div class="wrap"><div class="kicker">01 / Overview</div><h2>Making AI-generated hardware trustworthy</h2><p class="lead">Language models can generate RTL from natural-language specifications. Reliable hardware development also requires an explicit interpretation of the intended behavior and evidence that the implementation satisfies it.</p><div class="cards"><article class="card"><div class="idx">CHALLENGE 01</div><h3>Ambiguous requirements</h3><p>Natural-language descriptions may permit several distinct behaviors. A plausible RTL implementation can still disagree with what the designer intended.</p></article><article class="card"><div class="idx">CHALLENGE 02</div><h3>Functional correctness</h3><p>Passing a finite set of simulations does not establish correctness for all relevant states or execution lengths.</p></article><article class="card"><div class="idx">OUR APPROACH</div><h3>Executable intent + proof</h3><p>LeanHW clarifies requirements using discriminating traces, then uses Lean to prove that generated RTL refines the decided executable model.</p></article></div>
+<div class="kicker">Motivation</div><h2>Two questions across hardware development</h2><p><strong>What behavior should the design implement?</strong> LeanHW formalizes candidate interpretations and asks the designer targeted questions when the interpretations disagree.</p><p><strong>Does the generated implementation satisfy that behavior?</strong> LeanHW translates RTL into a Lean model and establishes a refinement relation through formal proof.</p>
+<div class="interactive-animation" id="interactive-workflow"><div class="interactive-animation-heading"><h3>Interactive workflow</h3><p>Follow the full process from ambiguous intent to clarified specifications, direct RTL generation, and machine-checked refinement.</p></div><iframe allowfullscreen="" class="leanhw-animation-frame" loading="lazy" sandbox="allow-scripts" srcdoc="&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;&gt;
+&lt;title&gt;LeanHW&lt;/title&gt;
+&lt;meta name=&quot;description&quot; content=&quot;Interactive animation for LeanHW.&quot;&gt;
+&lt;style&gt;
+:root{--bg:#f6f8fc;--ink:#1c2b43;--muted:#5e6b80;--line:#dfe6f1;--blue:#386ce8;--teal:#386ce8;--amber:#e9a83f;--red:#c85d55;--green:#386ce8;--soft:#f9fbff;--sans:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,sans-serif;--mono:ui-monospace,SFMono-Regular,Consolas,&quot;Liberation Mono&quot;,monospace}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);font-family:var(--sans);background:linear-gradient(125deg,#edf4ff,#f6f8fc 50%,#edf4ff);min-height:100vh}.shell{max-width:1700px;margin:auto;padding:24px 24px 35px}.mast{display:flex;justify-content:flex-start;align-items:center;gap:15px;margin:0 2px 15px}.brand{font-weight:820;letter-spacing:-.8px;font-size:23px}.brand span{color:var(--teal)}.meta{display:none}.viewport{position:relative;width:100%;aspect-ratio:16/9;background:#fdfefe;border:1px solid #dfe6f1;border-radius:18px;box-shadow:0 22px 60px #1c2b4319;overflow:hidden}.canvas{position:absolute;top:0;left:0;width:1600px;height:900px;transform-origin:0 0;background:radial-gradient(circle at 60% 20%,#edf4ff,transparent 43%),#fdfefe}.grid-bg{position:absolute;inset:0;background-image:linear-gradient(#dfe6f122 1px,transparent 1px),linear-gradient(90deg,#dfe6f122 1px,transparent 1px);background-size:40px 40px;mask-image:linear-gradient(to bottom,black,transparent 88%)}
+.headline{position:absolute;left:75px;top:45px;right:80px;display:flex;align-items:start;justify-content:space-between}.headline h1{font-size:40px;letter-spacing:-1.5px;margin:0;font-weight:730;line-height:1.12}.headline p{color:var(--muted);font-size:16px;line-height:1.48;margin:12px 0 0;max-width:1120px;min-height:48px}.headline p b{color:var(--teal)}.head-tag{border:1px solid #cbd8f2;border-radius:99px;padding:11px 15px;color:#2859c7;font:12px var(--mono);background:#edf4ff}.lane-label{position:absolute;font:12px var(--mono);letter-spacing:1.4px;color:#71809a}.lane-label.one{top:182px;left:74px}.lane-label.two{top:492px;left:74px}.stage-title{position:absolute;left:74px;font-weight:780;letter-spacing:-.6px;font-size:34px;line-height:1.15;display:flex;align-items:baseline;gap:12px}.stage-title.one{top:138px;color:#a66f12}.stage-title.two{top:442px;color:#386ce8}.stage-title .num{display:inline-block;min-width:auto;margin-right:0}.stage-title .detail{font-weight:700;opacity:.95}
+.stage-caption{display:none!important}
+.panel{position:absolute;background:linear-gradient(160deg,#ffffff,#ffffff);border:1px solid #dfe6f1;border-radius:14px;box-shadow:0 12px 28px #1c2b430d;overflow:hidden;opacity:0;transform:translateY(18px) scale(.985);transition:opacity .55s ease,transform .65s cubic-bezier(.16,1,.3,1),box-shadow .4s}.panel.active{opacity:1;transform:translateY(0) scale(1)}.panel.focus{box-shadow:0 0 0 2px #386ce860,0 13px 28px #1c2b4318}.panel-head{background:linear-gradient(90deg,#edf4ff,#f9fbff);border-bottom:1px solid #dfe6f1;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px}.panel-head strong{font-size:16px}.panel-head small{font:11px var(--mono);color:#65758e}.panel-body{padding:16px 18px}.note{font-size:11px;color:#65758e;line-height:1.55}
+.doc{left:70px;top:204px;width:275px;height:220px}.candidates{left:392px;top:204px;width:355px;height:220px}.diagnosis{left:787px;top:204px;width:350px;height:220px}.clarified{left:1182px;top:204px;width:350px;height:220px}.spec{left:70px;top:534px;width:335px;height:250px}.verilog{left:468px;top:534px;width:325px;height:250px}.leanrtl{left:856px;top:534px;width:320px;height:250px}.proof{left:1228px;top:534px;width:304px;height:250px}
+.doc .sentence{font:17px/1.75 var(--sans);margin:7px 0 15px}.hl{background:#fff1d5;border-radius:4px;padding:1px 4px;color:#98630d}.small-line{height:7px;border-radius:8px;background:#e9edf5;margin:12px 0}.small-line:last-child{width:65%}
+.candidate{display:grid;grid-template-columns:36px 1fr 98px;align-items:center;gap:10px;height:55px;border-bottom:1px solid #edf0f6;opacity:.18;transition:opacity .35s}.candidate:last-child{border:0}.candidate.lit{opacity:1}.id{display:grid;place-items:center;border-radius:8px;width:30px;height:30px;font-weight:760;font-size:13px}.id.a{background:#edf4ff;color:#386ce8}.id.b{background:#edf4ff;color:#2859c7}.id.c{background:#fff5e5;color:#a66f12}.candidate b{font-size:13px}.candidate small{display:block;color:#65758e;font-size:10px;margin-top:3px}.candidate code{font:11px var(--mono);color:#355b70}.miniwave{width:98px;height:37px}
+.wave-area{position:relative;height:144px}.wave-area svg{width:100%;height:138px}.wave-path{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.wave-path.a{stroke:#386ce8}.wave-path.b{stroke:#386ce8}.wave-path.c{stroke:#e9a83f}.wave-diff{fill:#fff1d5;stroke:#c85d55;stroke-dasharray:5 4;opacity:0;transition:opacity .35s}.wave-diff.active{opacity:.85}
+.out-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}.out-card{border:1px solid #dfe6f1;border-radius:10px;background:#fafcfc;padding:11px 12px;min-height:90px}.out-card b{display:block;font-size:13px;margin-bottom:6px}.out-card small{display:block;color:#5e6b80;font-size:10px;margin-bottom:6px}.speech{border-left:3px solid var(--green);background:#edf4ff;padding:10px 12px;font-size:14px;line-height:1.45;border-radius:5px}.speech strong{color:#2859c7}
+.code{font:12.4px/1.58 var(--mono);white-space:pre;tab-size:2;overflow:hidden;color:#1c2b43}.code .kw{color:#386ce8}.code .cm{color:#8290a5}.code .fn{color:#386ce8}.code-wrap{background:#f9fbff;margin:10px 12px;border:1px solid #eef1f7;border-radius:8px;padding:11px 12px;min-height:165px;overflow:hidden}.code-reveal{overflow:hidden;white-space:pre;max-width:100%;clip-path:inset(0 100% 0 0);transition:clip-path .05s linear}.spec-note{margin:0 18px;color:#65758e;font-size:11px;line-height:1.5}
+.check{font-size:14px;margin:9px 0;display:flex;align-items:center;gap:10px;opacity:.18;transition:opacity .35s}.check.lit{opacity:1}.tick{width:20px;height:20px;border:1px solid #c8d9f2;border-radius:50%;display:grid;place-items:center;color:#386ce8;font-size:13px}.proof-box{border:1px solid #dfe6f1;border-radius:10px;background:#fafcfc;padding:10px 12px;margin-top:10px}.proof-box b{display:block;font-size:13px;margin-bottom:5px}.proof-box small{color:#65758e;font-size:10px}
+.relation{position:absolute;left:835px;top:795px;width:340px;height:40px;display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid #cbd8f2;background:#edf4ff;border-radius:9px;color:#2859c7;font:12.5px var(--mono);opacity:0;transform:translateY(12px);transition:all .5s}.relation.active{opacity:1;transform:translateY(0)}.relation b{color:#244a76}
+.cert{position:absolute;bottom:0;width:100%;height:68px;background:linear-gradient(90deg,#2859c7,#386ce8);color:#fff;display:flex;justify-content:center;align-items:center;font-weight:740;font-size:24px;letter-spacing:-.4px;opacity:0;transform:translateY(68px);transition:all .75s cubic-bezier(.16,1,.3,1)}.cert.active{opacity:1;transform:translateY(0)}.cert span{font:13px var(--mono);margin-left:20px;opacity:.8;font-weight:450}
+.links{position:absolute;inset:0;pointer-events:none}.links &gt; path{fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:var(--path-length,1600);stroke-dashoffset:var(--path-length,1600);transition:stroke-dashoffset 1.1s cubic-bezier(.18,.65,.23,1),opacity .22s ease;opacity:0}.links &gt; path.draw{stroke-dashoffset:0;opacity:.94}.links &gt; path.top{stroke:#e9a83f}.links &gt; path.bottom{stroke:#386ce8}.links &gt; path.proof{stroke:#386ce8}.links text{display:none}.links .actor{fill:#386ce8;font-weight:760}.links .actor.blue{fill:#386ce8}.links .actor.amber{fill:#a66f12}.links .actor.green{fill:#386ce8}
+.controls{display:flex;align-items:center;gap:15px;margin-top:18px;flex-wrap:wrap}.btn{border:1px solid #cbd8f2;border-radius:9px;background:#fff;color:#1c2b43;padding:11px 16px;font-weight:650;cursor:pointer;min-height:42px}.btn.primary{background:#386ce8;color:white;border-color:#386ce8;min-width:90px}.btn:hover{filter:brightness(.98)}.timeline{flex:1;min-width:220px;accent-color:#386ce8}.time{font:13px var(--mono);color:#5e6b80;min-width:95px;text-align:right}.steps{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}.step{border:1px solid #dfe6f1;color:#5e6b80;background:#ffffffaf;border-radius:99px;padding:7px 12px;cursor:pointer;font-size:11px}.step[aria-current=&quot;step&quot;]{background:#386ce8;color:white;border-color:#386ce8}.foot{font:12px/1.6 var(--sans);color:#5e6b80;margin-top:18px;display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap}@media(max-width:650px){.shell{padding:12px}.mast{align-items:start}.brand{font-size:20px}.meta{max-width:150px;text-align:right;font-size:9px}.controls{gap:8px}.btn{padding:10px 12px}.step{font-size:10px;padding:7px 9px}}
+&lt;/style&gt;
+
+&lt;style&gt;
+.links path{opacity:0!important;transition:stroke-dashoffset 1.15s cubic-bezier(.25,.68,.27,1),opacity .35s ease!important}
+.links path.draw{opacity:.92!important}
+/* Editorial refinement: quieter surfaces, stronger typographic hierarchy, and soft motion */
+:root{--bg:#f6f8fc;--ink:#1c2b43;--muted:#5e6b80;--line:#dfe6f1;--blue:#386ce8;--teal:#386ce8;--green:#386ce8}
+body{background:radial-gradient(ellipse 85% 75% at 52% 7%,#edf4ff 0%,#f6f8fc 63%,#f6f8fc 100%)}
+.shell{max-width:1740px;padding:20px 27px 36px}
+.mast{margin:0 3px 17px;min-height:36px}
+.brand{font-weight:760;font-size:23px;letter-spacing:-.9px}
+.viewport{border-radius:15px;background:#fdfefe;border-color:#dfe6f1;box-shadow:0 24px 70px #1c2b4318,0 2px 7px #1c2b430a}
+.canvas{background:radial-gradient(circle at 76% 26%,#edf4ff 0%,transparent 44%),radial-gradient(circle at 12% 87%,#f6f8fc 0%,transparent 35%),#fdfefe}
+.grid-bg{background-image:linear-gradient(#386ce816 1px,transparent 1px),linear-gradient(90deg,#386ce816 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,#0008,transparent 92%)}
+.headline h1{font-size:41px;font-weight:710;letter-spacing:-1.55px}
+.headline p{font-size:15px;max-width:1200px;color:#5e6b80}
+.lane-label{color:#71809a;letter-spacing:1.65px;font-size:11.5px}
+.stage-caption{display:none!important}
+.panel{border-color:#e9edf5;border-radius:12px;box-shadow:0 3px 6px #1c2b4308,0 12px 32px #1c2b430a;background:#ffffff;transform:translateY(12px) scale(.99);transition:opacity .72s cubic-bezier(.2,.8,.2,1),transform .85s cubic-bezier(.16,1,.3,1),box-shadow .7s ease,border-color .7s ease,filter .65s ease}
+.panel.active{transform:translateY(0) scale(1)}
+.panel.focus{border-color:#8ab9ef;box-shadow:0 0 0 1px #8ab9ef83,0 11px 36px #386ce81c;filter:saturate(1.06)}
+.panel-head{background:#f6f8fc;border-bottom:1px solid #e9edf5;padding:14px 17px}
+.panel-head strong{font-weight:700;font-size:15px;letter-spacing:-.2px}
+.panel-head small{letter-spacing:.5px;color:#71809a}
+.panel-body{padding:16px 18px}
+.doc .sentence{line-height:1.72}
+.small-line{background:#e9edf5}
+.candidate{border-bottom-color:#eef1f7}
+.id{font-size:12px}
+.code-wrap{background:#ffffff;border-color:#e9edf5}
+.code{font-size:12.5px;line-height:1.65}
+.out-card,.proof-box{background:#ffffff;border-color:#e9edf5}
+.speech{border-left-color:#386ce8;background:#edf4ff}
+.relation{box-shadow:0 8px 22px #386ce815;border-color:#cbd8f2;background:#edf4ff}
+.cert{background:linear-gradient(100deg,#2859c7,#386ce8 52%,#386ce8);height:70px;letter-spacing:-.3px;box-shadow:0 -15px 40px #386ce813}
+.links path{stroke-width:2.55;opacity:.9;transition:stroke-dashoffset 1.15s cubic-bezier(.25,.68,.27,1),opacity .3s}
+.links text{display:none}
+.controls{margin-top:18px;gap:11px}
+.btn{border-color:#dfe6f1;border-radius:8px;background:#ffffff;color:#1c2b43;padding:10px 15px;box-shadow:0 2px 5px #1c2b4308;transition:background .22s,border-color .22s,transform .22s}
+.btn:hover{background:#edf4ff;border-color:#a9c4ef;transform:translateY(-1px)}
+.btn.primary{background:#386ce8;border-color:#386ce8;color:white}
+.btn.primary:hover{background:#2859c7}
+.btn:focus-visible,.step:focus-visible,.timeline:focus-visible,select:focus-visible{outline:3px solid #8ab9ef;outline-offset:2px}
+.step{border-radius:7px;background:#ffffffbb;border-color:#e9edf5;color:#65758e;padding:8px 11px;transition:all .25s}
+.step:hover{border-color:#a9c4ef;background:#f2f6ff}
+.step[aria-current=&quot;step&quot;]{background:#edf4ff;color:#2859c7;border-color:#a9c4ef;box-shadow:inset 0 0 0 1px #cbd8f2;font-weight:690}
+.timeline{height:6px;cursor:pointer}
+.time{font-size:12px}
+.speed-control{display:flex;align-items:center;gap:7px;color:#65758e;font:11px var(--mono)}
+.speed-control select{padding:7px 9px;background:#ffffff;border:1px solid #dfe6f1;border-radius:7px;color:#1c2b43;cursor:pointer}
+.foot{font-size:11px;color:#71809a}
+@media(prefers-reduced-motion:reduce){.panel,.relation,.cert,.links path,.links text,.candidate,.btn,.step{transition-duration:.01ms!important}}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div class=&quot;shell&quot;&gt;
+  &lt;div class=&quot;mast&quot;&gt;
+    &lt;div class=&quot;brand&quot;&gt;Lean&lt;span&gt;HW&lt;/span&gt;&lt;/div&gt;
+    &lt;div class=&quot;meta&quot;&gt;&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;viewport&quot; id=&quot;viewport&quot;&gt;
+    &lt;div class=&quot;canvas&quot; id=&quot;canvas&quot;&gt;
+      &lt;div class=&quot;grid-bg&quot;&gt;&lt;/div&gt;
+      &lt;header class=&quot;headline&quot;&gt;
+        &lt;div&gt;
+          &lt;h1&gt;From designer intent to certified RTL.&lt;/h1&gt;
+          &lt;p id=&quot;caption&quot;&gt;Execution-guided clarification produces a clarified natural-language spec and an executable LeanSpec for end-to-end formal assurance.&lt;/p&gt;
+        &lt;/div&gt;
+        
+      &lt;/header&gt;
+            &lt;div class=&quot;stage-title one&quot;&gt;&lt;span class=&quot;num&quot;&gt;Stage 1&lt;/span&gt;&lt;span class=&quot;detail&quot;&gt;Clarify the intended behavior&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;stage-title two&quot;&gt;&lt;span class=&quot;num&quot;&gt;Stage 2&lt;/span&gt;&lt;span class=&quot;detail&quot;&gt;Generate RTL and prove it&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;lane-label one&quot;&gt;SPECIFICATION FORMALIZATION · CONCRETE EXECUTION · DESIGNER FEEDBACK&lt;/div&gt;
+      &lt;div class=&quot;lane-label two&quot;&gt;DIRECT RTL GENERATION · LEANRTL TRANSLATION · REFINEMENT PROVING&lt;/div&gt;
+
+      &lt;svg class=&quot;links&quot; viewBox=&quot;0 0 1600 900&quot; aria-hidden=&quot;true&quot;&gt;
+        &lt;defs&gt;
+          &lt;marker id=&quot;arrowTop&quot; markerWidth=&quot;10&quot; markerHeight=&quot;10&quot; refX=&quot;7.5&quot; refY=&quot;5&quot; orient=&quot;auto&quot;&gt;&lt;path d=&quot;M1 1 L8 5 L1 9&quot; stroke=&quot;#e9a83f&quot; stroke-width=&quot;1.1&quot; fill=&quot;none&quot;/&gt;&lt;/marker&gt;
+          &lt;marker id=&quot;arrowBlue&quot; markerWidth=&quot;10&quot; markerHeight=&quot;10&quot; refX=&quot;7.5&quot; refY=&quot;5&quot; orient=&quot;auto&quot;&gt;&lt;path d=&quot;M1 1 L8 5 L1 9&quot; stroke=&quot;#386ce8&quot; stroke-width=&quot;1.1&quot; fill=&quot;none&quot;/&gt;&lt;/marker&gt;
+          &lt;marker id=&quot;arrowGreen&quot; markerWidth=&quot;10&quot; markerHeight=&quot;10&quot; refX=&quot;7.5&quot; refY=&quot;5&quot; orient=&quot;auto&quot;&gt;&lt;path d=&quot;M1 1 L8 5 L1 9&quot; stroke=&quot;#386ce8&quot; stroke-width=&quot;1.1&quot; fill=&quot;none&quot;/&gt;&lt;/marker&gt;
+        &lt;/defs&gt;
+        &lt;path id=&quot;l1&quot; class=&quot;top&quot; d=&quot;M345 314 H390&quot; marker-end=&quot;url(#arrowTop)&quot;/&gt;
+        &lt;path id=&quot;l2&quot; class=&quot;top&quot; d=&quot;M748 314 H784&quot; marker-end=&quot;url(#arrowTop)&quot;/&gt;
+        &lt;path id=&quot;l3&quot; class=&quot;top&quot; d=&quot;M1137 314 H1179&quot; marker-end=&quot;url(#arrowTop)&quot;/&gt;
+        &lt;path id=&quot;l4&quot; class=&quot;bottom&quot; d=&quot;M1268 424 V516 H237 V531&quot; marker-end=&quot;url(#arrowBlue)&quot;/&gt;
+        &lt;path id=&quot;l5&quot; class=&quot;bottom&quot; d=&quot;M1390 424 V516 H628 V531&quot; marker-end=&quot;url(#arrowBlue)&quot;/&gt;
+        &lt;path id=&quot;l6&quot; class=&quot;bottom&quot; d=&quot;M793 659 H853&quot; marker-end=&quot;url(#arrowBlue)&quot;/&gt;
+        &lt;path id=&quot;l7&quot; class=&quot;proof&quot; d=&quot;M1177 659 H1226&quot; marker-end=&quot;url(#arrowGreen)&quot;/&gt;
+        &lt;path id=&quot;l8&quot; class=&quot;proof&quot; d=&quot;M405 745 V807 H1204 V738 H1226&quot; marker-end=&quot;url(#arrowGreen)&quot;/&gt;
+      &lt;/svg&gt;
+
+      &lt;section class=&quot;panel doc&quot; data-appear=&quot;1&quot;&gt;
+        &lt;div class=&quot;panel-head&quot;&gt;&lt;strong&gt;Natural-language specification&lt;/strong&gt;&lt;small&gt;NL SPEC&lt;/small&gt;&lt;/div&gt;
+        &lt;div class=&quot;panel-body&quot;&gt;
+          &lt;div class=&quot;sentence&quot;&gt;Design a counter with &lt;span class=&quot;hl&quot;&gt;enable&lt;/span&gt; and &lt;span class=&quot;hl&quot;&gt;clear&lt;/span&gt;.&lt;/div&gt;
+          &lt;div class=&quot;small-line&quot;&gt;&lt;/div&gt;
+          &lt;div class=&quot;small-line&quot; style=&quot;width:88%&quot;&gt;&lt;/div&gt;
+          &lt;div class=&quot;small-line&quot; style=&quot;width:78%&quot;&gt;&lt;/div&gt;
+          &lt;div class=&quot;note&quot; style=&quot;margin-top:14px&quot;&gt;Priority between &lt;b&gt;enable&lt;/b&gt; and &lt;b&gt;clear&lt;/b&gt; is not specified, so multiple interpretations are possible.&lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/section&gt;
+
+      &lt;section class=&quot;panel candidates&quot; data-appear=&quot;2&quot;&gt;
+        &lt;div class=&quot;panel-head&quot;&gt;&lt;strong&gt;Multiple LeanSpec candidates&lt;/strong&gt;&lt;small&gt;GENERATED MODELS&lt;/small&gt;&lt;/div&gt;
+        &lt;div class=&quot;panel-body&quot;&gt;
+          &lt;div class=&quot;candidate&quot; id=&quot;cand-a&quot;&gt;&lt;div class=&quot;id a&quot;&gt;S₁&lt;/div&gt;&lt;div&gt;&lt;b&gt;enable has priority&lt;/b&gt;&lt;small&gt;&lt;code&gt;if en then ... else if clr ...&lt;/code&gt;&lt;/small&gt;&lt;/div&gt;&lt;svg class=&quot;miniwave&quot; viewBox=&quot;0 0 98 37&quot;&gt;&lt;path d=&quot;M8 26 H26 V12 H48 V26 H68 V20 H90&quot; fill=&quot;none&quot; stroke=&quot;#386ce8&quot; stroke-width=&quot;2.6&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
+          &lt;div class=&quot;candidate&quot; id=&quot;cand-b&quot;&gt;&lt;div class=&quot;id b&quot;&gt;S₂&lt;/div&gt;&lt;div&gt;&lt;b&gt;clear has priority&lt;/b&gt;&lt;small&gt;&lt;code&gt;if clr then ... else if en ...&lt;/code&gt;&lt;/small&gt;&lt;/div&gt;&lt;svg class=&quot;miniwave&quot; viewBox=&quot;0 0 98 37&quot;&gt;&lt;path d=&quot;M8 26 H26 V18 H48 V26 H68 V12 H90&quot; fill=&quot;none&quot; stroke=&quot;#386ce8&quot; stroke-width=&quot;2.6&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
+          &lt;div class=&quot;candidate&quot; id=&quot;cand-c&quot;&gt;&lt;div class=&quot;id c&quot;&gt;S₃&lt;/div&gt;&lt;div&gt;&lt;b&gt;synchronous clear variant&lt;/b&gt;&lt;small&gt;&lt;code&gt;clear only after one cycle&lt;/code&gt;&lt;/small&gt;&lt;/div&gt;&lt;svg class=&quot;miniwave&quot; viewBox=&quot;0 0 98 37&quot;&gt;&lt;path d=&quot;M8 26 H26 V26 H48 V12 H68 V26 H90&quot; fill=&quot;none&quot; stroke=&quot;#e9a83f&quot; stroke-width=&quot;2.6&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
+          &lt;div class=&quot;note&quot; style=&quot;margin-top:10px&quot;&gt;The agent generates several executable LeanSpec models from the same NL specification.&lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/section&gt;
+
+      &lt;section class=&quot;panel diagnosis&quot; data-appear=&quot;3&quot;&gt;
+        &lt;div class=&quot;panel-head&quot;&gt;&lt;strong&gt;Concrete execution and diagnosis&lt;/strong&gt;&lt;small&gt;COMPARE BEHAVIORS&lt;/small&gt;&lt;/div&gt;
+        &lt;div class=&quot;panel-body&quot;&gt;
+          &lt;div class=&quot;wave-area&quot;&gt;&lt;svg viewBox=&quot;0 0 300 138&quot; aria-label=&quot;Behavior comparison&quot;&gt;&lt;g font-family=&quot;var(--mono)&quot; font-size=&quot;12&quot; fill=&quot;#65758e&quot;&gt;&lt;text x=&quot;4&quot; y=&quot;24&quot;&gt;clk&lt;/text&gt;&lt;text x=&quot;4&quot; y=&quot;58&quot;&gt;S₁&lt;/text&gt;&lt;text x=&quot;4&quot; y=&quot;91&quot;&gt;S₂&lt;/text&gt;&lt;text x=&quot;4&quot; y=&quot;124&quot;&gt;S₃&lt;/text&gt;&lt;/g&gt;&lt;g stroke=&quot;#b7c5d9&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot;&gt;&lt;path d=&quot;M40 23 H67 V10 H90 V23 H117 V10 H140 V23 H167 V10 H190 V23 H217 V10 H240 V23 H285&quot;/&gt;&lt;/g&gt;&lt;rect class=&quot;wave-diff&quot; id=&quot;diff&quot; x=&quot;166&quot; y=&quot;32&quot; width=&quot;53&quot; height=&quot;101&quot; rx=&quot;6&quot;/&gt;&lt;path id=&quot;wave-a&quot; class=&quot;wave-path a&quot; d=&quot;&quot;/&gt;&lt;path id=&quot;wave-b&quot; class=&quot;wave-path b&quot; d=&quot;&quot;/&gt;&lt;path id=&quot;wave-c&quot; class=&quot;wave-path c&quot; d=&quot;&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
+          &lt;div id=&quot;wave-message&quot; style=&quot;font:11px var(--mono);color:#b87a14;padding-left:23px&quot;&gt;The same input reveals conflicting behaviors across candidates.&lt;/div&gt;
+          &lt;div class=&quot;note&quot; style=&quot;margin-top:8px&quot;&gt;Concrete execution turns ambiguity into observable evidence.&lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/section&gt;
+
+      &lt;section class=&quot;panel clarified&quot; data-appear=&quot;4&quot;&gt;
+        &lt;div class=&quot;panel-head&quot;&gt;&lt;strong&gt;Stage 1 outputs&lt;/strong&gt;&lt;small&gt;CLARIFIED ARTIFACTS&lt;/small&gt;&lt;/div&gt;
+        &lt;div class=&quot;panel-body&quot;&gt;
+          &lt;div class=&quot;speech&quot;&gt;Designer answer: &lt;strong&gt;clear has priority&lt;/strong&gt;.&lt;/div&gt;
+          &lt;div class=&quot;out-grid&quot;&gt;
+            &lt;div class=&quot;out-card&quot;&gt;&lt;b&gt;Clarified LeanSpec&lt;/b&gt;&lt;small&gt;used for proving&lt;/small&gt;&lt;div style=&quot;font-size:12px;line-height:1.55&quot;&gt;The selected executable LeanSpec is frozen as the formal reference behavior.&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;out-card&quot;&gt;&lt;b&gt;Clarified NL spec&lt;/b&gt;&lt;small&gt;used for RTL generation&lt;/small&gt;&lt;div style=&quot;font-size:12px;line-height:1.55&quot;&gt;When &lt;code&gt;clr=1&lt;/code&gt;, the counter resets to zero before &lt;code&gt;en&lt;/code&gt; is considered.&lt;/div&gt;&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/section&gt;
+
+      &lt;section class=&quot;panel spec&quot; data-appear=&quot;5&quot;&gt;
+        &lt;div class=&quot;panel-head&quot;&gt;&lt;strong&gt;Clarified LeanSpec&lt;/strong&gt;&lt;small&gt;REFERENCE MODEL&lt;/small&gt;&lt;/div&gt;
+        &lt;div class=&quot;code-wrap&quot;&gt;&lt;div class=&quot;code code-reveal&quot; id=&quot;code-spec&quot;&gt;&lt;span class=&quot;kw&quot;&gt;structure&lt;/span&gt; State &lt;span class=&quot;kw&quot;&gt;where&lt;/span&gt;
+  q : BitVec 4
+
+&lt;span class=&quot;kw&quot;&gt;def&lt;/span&gt; step (s : State) (i : Input) :=
+  &lt;span class=&quot;kw&quot;&gt;if&lt;/span&gt; i.clr &lt;span class=&quot;kw&quot;&gt;then&lt;/span&gt;
+    { s &lt;span class=&quot;kw&quot;&gt;with&lt;/span&gt; q := 0 }
+  &lt;span class=&quot;kw&quot;&gt;else if&lt;/span&gt; i.en &lt;span class=&quot;kw&quot;&gt;then&lt;/span&gt;
+    { s &lt;span class=&quot;kw&quot;&gt;with&lt;/span&gt; q := s.q + 1 }
+  &lt;span class=&quot;kw&quot;&gt;else&lt;/span&gt;
+    s&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;spec-note&quot;&gt;This executable LeanSpec is the behavioral reference used in refinement proving.&lt;/div&gt;
+      &lt;/section&gt;
+
+      &lt;section class=&quot;panel verilog&quot; data-appear=&quot;6&quot;&gt;
+        &lt;div class=&quot;panel-head&quot;&gt;&lt;strong&gt;Generated Verilog&lt;/strong&gt;&lt;small&gt;FROM CLARIFIED NL&lt;/small&gt;&lt;/div&gt;
+        &lt;div class=&quot;code-wrap&quot;&gt;&lt;div class=&quot;code code-reveal&quot; id=&quot;code-verilog&quot;&gt;&lt;span class=&quot;kw&quot;&gt;module&lt;/span&gt; counter (...);
+  &lt;span class=&quot;kw&quot;&gt;logic&lt;/span&gt; [3:0] q;
+  &lt;span class=&quot;kw&quot;&gt;always_ff&lt;/span&gt; @(posedge clk)
+    &lt;span class=&quot;kw&quot;&gt;if&lt;/span&gt; (rst) q &lt;= 0;
+    &lt;span class=&quot;kw&quot;&gt;else if&lt;/span&gt; (clr) q &lt;= 0;
+    &lt;span class=&quot;kw&quot;&gt;else if&lt;/span&gt; (en) q &lt;= q + 1;
+&lt;span class=&quot;kw&quot;&gt;endmodule&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;spec-note&quot;&gt;RTL is generated directly from the clarified natural-language specification.&lt;/div&gt;
+      &lt;/section&gt;
+
+      &lt;section class=&quot;panel leanrtl&quot; data-appear=&quot;7&quot;&gt;
+        &lt;div class=&quot;panel-head&quot;&gt;&lt;strong&gt;LeanRTL&lt;/strong&gt;&lt;small&gt;FORMAL RTL MODEL&lt;/small&gt;&lt;/div&gt;
+        &lt;div class=&quot;code-wrap&quot;&gt;&lt;div class=&quot;code code-reveal&quot; id=&quot;code-leanrtl&quot;&gt;&lt;span class=&quot;cm&quot;&gt;-- Imported RTL transition semantics&lt;/span&gt;
+&lt;span class=&quot;kw&quot;&gt;def&lt;/span&gt; rtlStep (r : RTLState)
+    (i : Input) : RTLState :=
+  &lt;span class=&quot;kw&quot;&gt;let&lt;/span&gt; nextQ :=
+    &lt;span class=&quot;kw&quot;&gt;if&lt;/span&gt; i.rst &lt;span class=&quot;kw&quot;&gt;then&lt;/span&gt; 0
+    &lt;span class=&quot;kw&quot;&gt;else if&lt;/span&gt; i.clr &lt;span class=&quot;kw&quot;&gt;then&lt;/span&gt; 0
+    &lt;span class=&quot;kw&quot;&gt;else if&lt;/span&gt; i.en &lt;span class=&quot;kw&quot;&gt;then&lt;/span&gt; r.q + 1
+    &lt;span class=&quot;kw&quot;&gt;else&lt;/span&gt; r.q
+  { r &lt;span class=&quot;kw&quot;&gt;with&lt;/span&gt; q := nextQ }&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;spec-note&quot;&gt;LeanRTL captures the imported RTL transition system inside Lean 4.&lt;/div&gt;
+      &lt;/section&gt;
+
+      &lt;section class=&quot;panel proof&quot; data-appear=&quot;8&quot;&gt;
+        &lt;div class=&quot;panel-head&quot;&gt;&lt;strong&gt;Refinement proving&lt;/strong&gt;&lt;small&gt;LEANSPEC + LEANRTL&lt;/small&gt;&lt;/div&gt;
+        &lt;div class=&quot;panel-body&quot; style=&quot;padding:12px 19px&quot;&gt;
+          &lt;div class=&quot;proof-box&quot;&gt;&lt;b&gt;State correspondence relation&lt;/b&gt;&lt;small&gt;connect abstract and concrete states&lt;/small&gt;&lt;div style=&quot;font:12px/1.6 var(--mono);margin-top:6px;color:#244a76&quot;&gt;ρ(s,r) := s.q = r.q&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;check&quot; id=&quot;proof-init&quot;&gt;&lt;span class=&quot;tick&quot;&gt;✓&lt;/span&gt;Initialization / reset alignment&lt;/div&gt;
+          &lt;div class=&quot;check&quot; id=&quot;proof-step&quot;&gt;&lt;span class=&quot;tick&quot;&gt;✓&lt;/span&gt;Step preservation under &lt;code&gt;step&lt;/code&gt; and &lt;code&gt;rtlStep&lt;/code&gt;&lt;/div&gt;
+          &lt;div class=&quot;check&quot; id=&quot;proof-trace&quot;&gt;&lt;span class=&quot;tick&quot;&gt;✓&lt;/span&gt;Inductive refinement over arbitrary traces&lt;/div&gt;
+          &lt;div style=&quot;border-top:1px solid #dfe6f1;margin-top:14px;padding-top:12px;font-size:14px;color:#2859c7;font-weight:650&quot;&gt;Lean kernel checks the proof terms.&lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/section&gt;
+
+      &lt;div class=&quot;relation&quot; id=&quot;relation&quot;&gt;&lt;b&gt;Refinement target&lt;/b&gt; LeanSpec step  ↔  LeanRTL step(s) under ρ(s,r)&lt;/div&gt;
+      &lt;div class=&quot;cert&quot; id=&quot;certificate&quot;&gt;LeanHW · Machine-checked RTL refinement &lt;span&gt;clarified intent · generated RTL · Lean-checked proof&lt;/span&gt;&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;controls&quot;&gt;
+    &lt;button class=&quot;btn primary&quot; id=&quot;play&quot; aria-label=&quot;Play or pause&quot;&gt;Pause&lt;/button&gt;
+    &lt;button class=&quot;btn&quot; id=&quot;restart&quot;&gt;↺ Restart&lt;/button&gt;
+    &lt;button class=&quot;btn&quot; id=&quot;back&quot;&gt;← Step&lt;/button&gt;
+    &lt;button class=&quot;btn&quot; id=&quot;next&quot;&gt;Step →&lt;/button&gt;&lt;label class=&quot;speed-control&quot; for=&quot;speed&quot;&gt;Speed &lt;select id=&quot;speed&quot; aria-label=&quot;Playback speed&quot;&gt;&lt;option value=&quot;0.75&quot;&gt;0.75×&lt;/option&gt;&lt;option value=&quot;1&quot; selected&gt;1×&lt;/option&gt;&lt;option value=&quot;1.25&quot;&gt;1.25×&lt;/option&gt;&lt;option value=&quot;1.5&quot;&gt;1.5×&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;
+    &lt;input class=&quot;timeline&quot; id=&quot;progress&quot; type=&quot;range&quot; min=&quot;0&quot; max=&quot;360&quot; value=&quot;0&quot; aria-label=&quot;Animation timeline&quot;&gt;
+    &lt;span class=&quot;time&quot; id=&quot;timer&quot;&gt;00:00 / 00:36&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;steps&quot; id=&quot;steps&quot; aria-label=&quot;Animation chapters&quot;&gt;&lt;/div&gt;
+  &lt;div class=&quot;foot&quot;&gt;&lt;span&gt;Illustrative counter example · Simplified code snippets · Focused on workflow logic rather than a full benchmark case.&lt;/span&gt;&lt;span&gt;Tip: Pause, scrub, or step through the full story.&lt;/span&gt;&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+(()=&gt;{&#x27;use strict&#x27;;
+const D=36;
+const chapters=[
+  {t:0,title:&#x27;Overview&#x27;},
+  {t:2.4,title:&#x27;Ambiguous NL spec&#x27;},
+  {t:5.6,title:&#x27;Multiple LeanSpec candidates&#x27;},
+  {t:9.3,title:&#x27;Concrete execution&#x27;},
+  {t:13.2,title:&#x27;Clarified outputs&#x27;},
+  {t:17.0,title:&#x27;Clarified LeanSpec&#x27;},
+  {t:20.6,title:&#x27;RTL from clarified NL&#x27;},
+  {t:24.2,title:&#x27;LeanRTL&#x27;},
+  {t:28.5,title:&#x27;Refinement proving&#x27;},
+  {t:33.0,title:&#x27;Certified RTL&#x27;}
+];
+const descriptions=[
+  &#x27;An end-to-end &lt;b&gt;formal assurance&lt;/b&gt; story on one evolving canvas.&#x27;,
+  &#x27;A natural-language hardware spec can be &lt;b&gt;ambiguous or incomplete&lt;/b&gt;.&#x27;,
+  &#x27;The agent generates &lt;b&gt;multiple executable LeanSpec models&lt;/b&gt; from the same NL specification.&#x27;,
+  &#x27;All candidate LeanSpec models are &lt;b&gt;concretely executed&lt;/b&gt; on the same inputs to expose behavioral differences.&#x27;,
+  &#x27;Stage 1 produces &lt;b&gt;two clarified artifacts&lt;/b&gt;: a clarified NL spec for RTL generation and a clarified LeanSpec for proving.&#x27;,
+  &#x27;The clarified &lt;b&gt;LeanSpec&lt;/b&gt; is frozen as the formal reference behavior.&#x27;,
+  &#x27;The clarified &lt;b&gt;natural-language specification&lt;/b&gt; is used for direct Verilog generation.&#x27;,
+  &#x27;The generated Verilog is translated into &lt;b&gt;LeanRTL&lt;/b&gt;, a formal RTL transition model.&#x27;,
+  &#x27;Refinement proving uses &lt;b&gt;LeanSpec + LeanRTL&lt;/b&gt;, connected by a state correspondence relation.&#x27;,
+  &#x27;The &lt;b&gt;Lean kernel&lt;/b&gt; checks the proof terms and yields a machine-checked certificate.&#x27;
+];
+const $=id=&gt;document.getElementById(id), panels=[...document.querySelectorAll(&#x27;[data-appear]&#x27;)], caption=$(&#x27;caption&#x27;), progress=$(&#x27;progress&#x27;);
+let t=0,playing=true,last=0,speed=1;
+function fit(){const vp=$(&#x27;viewport&#x27;);const scale=vp.clientWidth/1600;$(&#x27;canvas&#x27;).style.transform=`scale(${scale})`;vp.style.height=`${900*scale}px`;}addEventListener(&#x27;resize&#x27;,fit);fit();
+function chapterIndex(time){let c=0;for(let i=0;i&lt;chapters.length;i++)if(time&gt;=chapters[i].t)c=i;return c}
+function ease(p){return p&lt;0?0:p&gt;1?1:1-Math.pow(1-p,3)}
+function wave(points,y){return points.map((n,i)=&gt;(i===0?&#x27;M&#x27;:&#x27;L&#x27;)+`${40+i*27} ${y-(n?14:0)}`).join(&#x27; &#x27;)}
+const waveVals={a:[0,0,1,1,1,0,1,1,0,1],b:[0,0,1,0,0,0,1,1,0,1],c:[0,0,0,1,1,0,0,1,1,0]};
+function drawWave(time){const p=ease((time-9.4)/2.3),cnt=Math.max(1,Math.floor(p*10));for(const k of [&#x27;a&#x27;,&#x27;b&#x27;,&#x27;c&#x27;])$(&quot;wave-&quot;+k).setAttribute(&#x27;d&#x27;,wave(waveVals[k].slice(0,cnt),k===&#x27;a&#x27;?60:k===&#x27;b&#x27;?93:126));$(&#x27;diff&#x27;).classList.toggle(&#x27;active&#x27;,time&gt;=11.0)}
+function reveal(id,time,start,length=1.7){const p=ease((time-start)/length);$(id).style.clipPath=`inset(0 ${100-p*100}% 0 0)`;}
+for(const path of document.querySelectorAll(&#x27;.links &gt; path&#x27;)){const length=Math.ceil(path.getTotalLength()+24);path.style.setProperty(&#x27;--path-length&#x27;,String(length));path.dataset.marker=path.getAttribute(&#x27;marker-end&#x27;)||&#x27;&#x27;;path.removeAttribute(&#x27;marker-end&#x27;);}
+function showArrowText(id,time,start){const el=$(id); if(el) el.classList.toggle(&#x27;show&#x27;,time&gt;=start)}
+function render(){
+  const idx=chapterIndex(t);
+  const starts={1:2.4,2:5.6,3:9.3,4:13.2,5:17.0,6:20.6,7:24.2,8:28.5};
+  panels.forEach(el=&gt;{const a=Number(el.dataset.appear);el.classList.toggle(&#x27;active&#x27;,t&gt;=starts[a]);el.classList.toggle(&#x27;focus&#x27;,a===idx);});
+  $(&#x27;l1&#x27;).classList.toggle(&#x27;draw&#x27;,t&gt;=5.2);$(&#x27;l2&#x27;).classList.toggle(&#x27;draw&#x27;,t&gt;=8.9);$(&#x27;l3&#x27;).classList.toggle(&#x27;draw&#x27;,t&gt;=12.8);$(&#x27;l4&#x27;).classList.toggle(&#x27;draw&#x27;,t&gt;=16.8);$(&#x27;l5&#x27;).classList.toggle(&#x27;draw&#x27;,t&gt;=20.3);$(&#x27;l6&#x27;).classList.toggle(&#x27;draw&#x27;,t&gt;=23.8);$(&#x27;l7&#x27;).classList.toggle(&#x27;draw&#x27;,t&gt;=28.0);$(&#x27;l8&#x27;).classList.toggle(&#x27;draw&#x27;,t&gt;=28.3);
+  for(const path of document.querySelectorAll(&#x27;.links &gt; path&#x27;)){if(path.classList.contains(&#x27;draw&#x27;)){if(path.dataset.marker)path.setAttribute(&#x27;marker-end&#x27;,path.dataset.marker)}else{path.removeAttribute(&#x27;marker-end&#x27;)}}
+  [&#x27;cand-a&#x27;,&#x27;cand-b&#x27;,&#x27;cand-c&#x27;].forEach((id,i)=&gt;$(id).classList.toggle(&#x27;lit&#x27;,t&gt;=6.3+i*.65));
+  drawWave(t);
+  reveal(&#x27;code-spec&#x27;,t,17.2,3.0); reveal(&#x27;code-verilog&#x27;,t,20.8,3.0); reveal(&#x27;code-leanrtl&#x27;,t,24.4,3.0);
+  $(&#x27;relation&#x27;).classList.toggle(&#x27;active&#x27;,t&gt;=28.7&amp;&amp;t&lt;33.2);
+  $(&#x27;proof-init&#x27;).classList.toggle(&#x27;lit&#x27;,t&gt;=29.2);$(&#x27;proof-step&#x27;).classList.toggle(&#x27;lit&#x27;,t&gt;=30.2);$(&#x27;proof-trace&#x27;).classList.toggle(&#x27;lit&#x27;,t&gt;=31.2);$(&#x27;certificate&#x27;).classList.toggle(&#x27;active&#x27;,t&gt;=33.2);
+  progress.style.background=`linear-gradient(to right,#386ce8 ${(t/D)*100}%,#dfe6f1 ${(t/D)*100}%)`;caption.classList.add(&#x27;visible&#x27;);progress.value=Math.round(t*10);$(&#x27;timer&#x27;).textContent=`00:${String(Math.floor(t)).padStart(2,&#x27;0&#x27;)} / 00:36`;
+  [...$(&#x27;steps&#x27;).children].forEach((el,i)=&gt;el.setAttribute(&#x27;aria-current&#x27;,i===idx?&#x27;step&#x27;:&#x27;false&#x27;));
+}
+const stepList=$(&#x27;steps&#x27;);chapters.forEach((c,i)=&gt;{let b=document.createElement(&#x27;button&#x27;);b.className=&#x27;step&#x27;;b.textContent=String(i).padStart(2,&#x27;0&#x27;)+&#x27; · &#x27;+c.title;b.onclick=()=&gt;{t=c.t;playing=false;syncButton();render();};stepList.append(b)});
+function syncButton(){$(&#x27;play&#x27;).textContent=playing?&#x27;Pause&#x27;:&#x27;Play&#x27;}
+$(&#x27;play&#x27;).onclick=()=&gt;{if(t&gt;=D-.05)t=0;playing=!playing;syncButton()};
+$(&#x27;restart&#x27;).onclick=()=&gt;{t=0;playing=true;syncButton();render()};
+$(&#x27;back&#x27;).onclick=()=&gt;{let i=Math.max(0,chapterIndex(t)-1);t=chapters[i].t;playing=false;syncButton();render()};
+$(&#x27;next&#x27;).onclick=()=&gt;{let i=Math.min(chapters.length-1,chapterIndex(t)+1);t=chapters[i].t;playing=false;syncButton();render()};
+progress.addEventListener(&#x27;input&#x27;,()=&gt;{t=+progress.value/10;playing=false;syncButton();render()});
+$(&#x27;speed&#x27;).addEventListener(&#x27;change&#x27;,()=&gt;{speed=Number($(&#x27;speed&#x27;).value)});
+function frame(ts){if(last&amp;&amp;playing){t=Math.min(D,t+(ts-last)/1000*speed);if(t&gt;=D)playing=false;}last=ts;render();requestAnimationFrame(frame)}
+render();syncButton();requestAnimationFrame(frame);
+})();
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+" title="LeanHW interactive workflow animation"></iframe></div><div id="method" style="scroll-margin-top:95px"></div><div class="kicker" style="margin-top:48px">Method</div><h2>A two-stage, proof-driven workflow</h2><div class="pipeline"><div class="stage"><div class="step">PART 1 — INTENT CLARIFICATION</div><h3>Formalize and decide</h3><p>Generate candidate executable specifications, find traces on which they disagree, and ask the designer focused questions. Produce a decided Lean reference model.</p><span class="pill">Natural language → Lean specification</span></div><div class="arrow">→</div><div class="stage"><div class="step">PART 2 — VERIFIED IMPLEMENTATION</div><h3>Generate and prove</h3><p>Generate Verilog, parse it into a Lean RTL transition system, define refinement against the decided specification, and search for a machine-checkable proof.</p><span class="pill">Verilog → unbounded refinement proof</span></div></div>
+<h3 style="margin-top:38px">Representative evaluation highlights</h3><div class="metrics"><div class="metric"><strong>39/50 → 48/50</strong><span>RTLLM pass@1 after intent clarification in the reported experiment</span></div><div class="metric"><strong>20% → 4%</strong><span>Reported false-positive fraction (10/49 to 2/49)</span></div><div class="metric"><strong>357/358</strong><span>Mutants detected in the reported mutation analysis</span></div></div><p class="small" style="margin-top:12px">These values summarize the previously reported experimental results; consult the accompanying paper for protocol, denominators, and evaluation details.</p></div></section>
+<section class="section alt" id="case-study"><div class="wrap"><div class="kicker">02 / Case Study</div><h2>A complete RISC-V CPU</h2><p class="lead">An end-to-end application of the LeanHW methodology to processor-level functional correctness: expressing instruction-set behavior as an executable reference, connecting a generated RTL CPU to that reference, and proving an unbounded refinement statement.</p><div class="detail"><aside class="sidebar"><strong style="font-size:13px;color:#1a355b;padding-left:10px">ON THIS PAGE</strong><a href="#cs-summary">Summary</a><a href="#cs-goal">Verification goal</a><a href="#cs-ref">ISA reference semantics</a><a href="#cs-rtl">RTL transition system</a><a href="#cs-relation">Cross-abstraction refinement</a><a href="#cs-proof">Proof decomposition</a><a href="#cs-assumptions">Scope and assumptions</a><a href="#cs-artifacts">Reproducibility</a></aside><div class="prose"><h3 id="cs-summary">Case study summary</h3><p>This case study illustrates what it means to verify a CPU beyond testing a collection of instructions. The intended behavior is described at the instruction-set level, while the hardware implementation evolves cycle by cycle. A proof connects these two different views of execution.</p><p>At the high level, the reference model specifies the architectural effects of an instruction: the program counter, general-purpose registers, and memory state. At the low level, the generated RTL describes the processor's control logic, datapath, and state updates. LeanHW establishes a relation between corresponding states and proves that RTL execution preserves the intended ISA behavior.</p><div class="callout"><strong>Central proof claim.</strong> Under the modeled instruction subset, environment assumptions, and observation relation, the generated RTL refines the executable RISC-V ISA specification. The exact supported instructions and assumptions must be checked against the proof artifacts before this statement is used as a broader ISA-compliance claim.</div>
+<h3 id="cs-goal">1. Verification goal</h3><p>The specification and the implementation operate at different abstraction levels. The ISA model takes architectural steps; the RTL model takes clock cycles. A refinement proof must account for this difference and relate observable architectural state, rather than comparing internal signals one by one.</p><div class="figure"><div class="flowgrid"><div class="flowbox">ISA state<br/><small>PC · registers · memory</small></div><div class="flowbox">ISA step<br/><small>Instruction semantics</small></div><div class="flowbox teal">Refinement<br/><small>State correspondence</small></div><div class="flowbox teal">RTL cycles<br/><small>Concrete implementation</small></div></div><figcaption>Cross-abstraction reasoning between instruction-level behavior and cycle-level RTL.</figcaption></div>
+<h3 id="cs-ref">2. Executable ISA reference semantics</h3><p>The reference model captures the architecturally visible behavior of the supported RISC-V instructions. An architectural state can include the program counter, register file, and memory. Executing an instruction updates this state according to the chosen instruction-set semantics.</p><div class="code">-- Schematic Lean-style interface; illustrative, not repository source.
+structure ArchState where
+  pc   : Word
+  regs : RegFile
+  mem  : Memory
+
+def isaStep (s : ArchState) : ArchState :=
+  execute (decode (fetch s.mem s.pc)) s</div><p>Formalizing this model makes ambiguities explicit, such as update timing, reset behavior, supported instruction variants, and memory assumptions. The decided executable model is the target for implementation verification.</p>
+<h3 id="cs-rtl">3. RTL transition system</h3><p>The generated Verilog is mapped to a Lean-level RTL representation through a deterministic translation step. Its semantics model concrete hardware state and clock-to-clock transitions. This makes it possible to reason about the actual RTL implementation within the proof environment.</p><div class="code">-- Schematic relation; names are placeholders.
+rtlInit  : RTLState → Prop
+rtlStep  : RTLState → RTLState → Prop
+isaStep  : ArchState → ArchState
+observe  : RTLState → ArchState</div><p>The formalization boundary matters: the proof is about the semantics assigned to the translated RTL. The parser, translation coverage, and any environmental assumptions are part of the verification trusted base or its stated scope.</p>
+<h3 id="cs-relation">4. Cross-abstraction refinement</h3><p>A refinement relation connects an ISA state to a concrete RTL state. It may relate the architectural registers, PC, and memory to internal RTL registers and datapath state. When one ISA instruction requires multiple RTL cycles, the proof must allow the corresponding sequence of concrete transitions.</p><div class="figure"><svg aria-label="ISA and RTL refinement diagram" style="width:100%;height:auto" viewbox="0 0 760 240"><defs><marker id="m2" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="3"><path d="M0 0L7 3L0 6Z" fill="#4978ca"></path></marker></defs><rect fill="#e8effe" height="56" rx="9" stroke="#8baaf2" width="160" x="22" y="22"></rect><rect fill="#e8effe" height="56" rx="9" stroke="#8baaf2" width="160" x="567" y="22"></rect><text fill="#234c98" font-size="16" text-anchor="middle" x="102" y="55">ISA state S</text><text fill="#234c98" font-size="16" text-anchor="middle" x="647" y="55">ISA state S′</text><path d="M187 50H558" marker-end="url(#m2)" stroke="#4978ca" stroke-width="3"></path><text fill="#4978ca" font-size="14" text-anchor="middle" x="375" y="37">ISA instruction step</text><rect fill="#e3f7f2" height="56" rx="9" stroke="#6fbeaa" width="160" x="22" y="163"></rect><rect fill="#e3f7f2" height="56" rx="9" stroke="#6fbeaa" width="160" x="567" y="163"></rect><text fill="#19796b" font-size="16" text-anchor="middle" x="102" y="197">RTL state R</text><text fill="#19796b" font-size="16" text-anchor="middle" x="647" y="197">RTL state R′</text><path d="M187 191H558" marker-end="url(#m2)" stroke="#168978" stroke-width="3"></path><text fill="#168978" font-size="14" text-anchor="middle" x="375" y="178">One or more clock cycles</text><path d="M102 83V157M647 83V157" stroke="#97a6b9" stroke-dasharray="5 5" stroke-width="2"></path><text fill="#7586a0" font-size="12" x="116" y="126">relation</text><text fill="#7586a0" font-size="12" x="661" y="126">relation</text></svg><figcaption>The refinement obligation relates architectural transitions to concrete RTL execution.</figcaption></div><p>Proving this relation requires establishing compatible initial states and showing preservation after each relevant transition or instruction boundary. The exact stuttering or step-matching formulation depends on the CPU implementation.</p>
+<h3 id="cs-proof">5. Proof decomposition and reuse</h3><p>The verification task can be decomposed around instruction semantics, datapath operations, and invariant preservation. Useful intermediate facts include arithmetic or bit-vector properties, register-file read/write behavior, decoding conditions, and control-state invariants. Reusable lemmas reduce repeated proof effort across instructions and related modules.</p><div class="table-scroll"><table><thead><tr><th>Proof layer</th><th>Representative obligation</th><th>What it establishes</th></tr></thead><tbody><tr><td>Initialization</td><td>Reset state satisfies the correspondence invariant</td><td>Concrete and abstract executions begin in related states</td></tr><tr><td>Instruction semantics</td><td>Decoder/control selects the required state update</td><td>Implemented behavior matches the chosen ISA operation</td></tr><tr><td>Datapath reasoning</td><td>ALU, PC and register updates obey bit-vector semantics</td><td>Internal computation preserves architectural effects</td></tr><tr><td>Induction/refinement</td><td>Related states remain related across execution</td><td>Correctness extends beyond a finite test horizon</td></tr></tbody></table></div><p>These are the conceptual proof layers; the exact theorem names, module coverage, and proof scripts should be read from the repository.</p>
+<h3 id="cs-assumptions">6. Scope and assumptions</h3><p>Processor verification claims should identify the supported ISA subset, reset behavior, memory interface, input constraints, treatment of illegal instructions, and any unmodeled behavior. These define the meaning of the refinement theorem. A complete CPU implementation does not automatically imply coverage of every RISC-V extension or microarchitectural feature.</p><div class="callout">For anonymous publication, keep the main theorem statement and its explicit assumptions alongside the code. This section intentionally avoids inventing a supported ISA subset or theorem identifier that cannot be confirmed from the current source files.</div>
+<h3 id="cs-artifacts">7. Reproducing the case study</h3><p>The source package contains the CPU model, imported RTL semantics, refinement proofs, and replay scripts under <a href="https://anonymous.4open.science/r/LeanHW/" rel="noopener noreferrer" target="_blank"><code>case_cpu/</code></a>. The memory CPU package includes a 999-line Verilog implementation, 38 supported instructions, native RAM, transaction-level ISA semantics, cycle-level LeanSpec, imported LeanRTL, and two-level refinement proofs. See the repository's <a href="https://anonymous.4open.science/r/LeanHW/" rel="noopener noreferrer" target="_blank">README</a> for proof scope and prerequisites.</p><div class="code">case_cpu/
+  memory/          # CPU implementation, models, proofs and replay scripts
+  lean/            # Base CPU and proof dependencies
+  bridge/          # Shared bridging proof dependencies</div><p>Reproduce from the repository root with <code>python3 case_cpu/memory/scripts/replay.py</code>. The repository notes that historical validation records are not a fresh replay of every proof.</p></div></div></div></section>
+<section class="section" id="codebase"><div class="wrap"><div class="kicker">03 / Codebase</div><h2>Source code and reproducibility</h2><p class="lead">The <a href="https://anonymous.4open.science/r/LeanHW/" rel="noopener noreferrer" target="_blank">LeanHW repository</a> contains 329 clarified benchmark designs, both stages of the method, and the RISC-V CPU case study. The links below point to the actual project structure.</p>
+<div class="cards">
+<article class="card"><div class="idx">BENCHMARKS · 329 DESIGNS</div><h3><a href="https://anonymous.4open.science/r/LeanHW/" rel="noopener noreferrer" target="_blank">benchmarks/</a></h3><p>VerilogEval (156), RTLLM (50), CVDP (78), and ChipBench (45). Each clarified design includes a finalized specification and interface metadata.</p></article>
+<article class="card"><div class="idx">STAGE 1 · LEANSPEC</div><h3><a href="https://anonymous.4open.science/r/LeanHW/" rel="noopener noreferrer" target="_blank">method/stage1/</a></h3><p>Natural-language specification formalization, diagnosis, designer clarification, revision, and frozen executable specification outputs.</p></article>
+<article class="card"><div class="idx">STAGE 2 · LEANRTL</div><h3><a href="https://anonymous.4open.science/r/LeanHW/" rel="noopener noreferrer" target="_blank">method/stage2/</a></h3><p>RTL-to-Lean parsing, RTL semantics, agentic proof construction, fixed refinement targets, and independent proof replay.</p></article>
+<article class="card"><div class="idx">RISC-V CPU</div><h3><a href="https://anonymous.4open.science/r/LeanHW/" rel="noopener noreferrer" target="_blank">case_cpu/</a></h3><p>Five-stage CPU proof dependencies and a memory CPU case with 38 instructions, RTL and ISA models, two-level refinement proofs, and replay scripts.</p></article>
+<article class="card"><div class="idx">PACKAGE VALIDATION</div><h3><a href="https://anonymous.4open.science/r/LeanHW/" rel="noopener noreferrer" target="_blank">Validation records</a></h3><p>Validation scope and historical runs, plus <a href="https://anonymous.4open.science/r/LeanHW/" rel="noopener noreferrer" target="_blank">migration metadata</a> for paths, source snapshots, and package hashes.</p></article>
+<article class="card"><div class="idx">SETUP &amp; DOCS</div><h3><a href="https://anonymous.4open.science/r/LeanHW/" rel="noopener noreferrer" target="_blank">README.md</a></h3><p>Lean/Lake 4.29.0 setup, Python dependencies, verification requirements, package structure, and replay instructions.</p></article>
+</div>
+<div class="repo" style="margin-top:26px"><h3>Repository</h3><p><a href="https://anonymous.4open.science/r/LeanHW/" rel="noopener noreferrer" target="_blank">anonymous.4open.science/r/LeanHW</a></p><p class="small">This link reveals the public GitHub account. For double-blind review, publish a separate anonymous version with all repository URLs replaced by a verified anonymous mirror.</p><a class="btn" href="https://anonymous.4open.science/r/LeanHW/" rel="noopener noreferrer" target="_blank">Browse codebase</a></div>
+<h3 style="margin-top:30px">Quick start</h3><p>Run these commands from the repository root after installing the requirements (Python 3.11+, Lean/Lake 4.29.0, Yosys, and Icarus):</p><div class="code">source env.sh
+lake build
+python3 method/check_package.py
+python3 case_cpu/memory/scripts/replay.py</div><p class="small">For the first CPU replay, do not use <code>--reuse-shallow</code>. Consult the README for agent backend configuration and full reproduction details.</p>
+</div></section></main>
+<footer class="foot"><div class="wrap"><strong style="color:white;font-size:20px">LeanHW</strong><p style="margin:9px 0 0">Proof-driven hardware development · Anonymous research artifact</p><p style="margin:5px 0 0">This page is a self-contained static HTML site. © Research authors.</p></div></footer>
+</body></html>
